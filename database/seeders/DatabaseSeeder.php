@@ -20,6 +20,9 @@ class DatabaseSeeder extends Seeder
             RoleSeeder::class,
             UserStatusSeeder::class,
             YearLevelSeeder::class,
+            SchoolYearSeeder::class,
+            EventTypeSeeder::class,
+            EventStatusSeeder::class,
         ]);
 
         User::updateOrCreate(['email' => 'test@example.com'], [
