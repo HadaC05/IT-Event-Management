@@ -1,0 +1,171 @@
+<?php
+
+namespace Tests\Feature;
+
+use App\Models\Event;
+use App\Models\EventStatus;
+use App\Models\EventTypes;
+use App\Models\Role;
+use App\Models\User;
+use App\Models\UserStatus;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
+use Tests\TestCase;
+
+class EventManagementTest extends TestCase
+{
+    use RefreshDatabase;
+
+    private User $adviser;
+
+    private User $faculty;
+
+    private EventStatus $activeEventStatus;
+
+    private EventTypes $eventType;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        foreach (['SBO Adviser', 'SBO', 'Faculty', 'Student'] as $role) {
+            Role::create(['name' => $role]);
+        }
+        $activeUserStatus = UserStatus::create(['label' => 'active']);
+        $this->activeEventStatus = EventStatus::create(['label' => 'active']);
+        EventStatus::create(['label' => 'inactive']);
+        $this->eventType = EventTypes::create(['label' => 'IT Days']);
+
+        $this->adviser = User::factory()->create([
+            'role_id' => Role::where('name', 'SBO Adviser')->value('id'),
+            'status' => $activeUserStatus->id,
+        ]);
+        $this->faculty = User::factory()->create([
+            'role_id' => Role::where('name', 'Faculty')->value('id'),
+            'status' => $activeUserStatus->id,
+        ]);
+    }
+
+    public function test_non_adviser_cannot_access_event_management(): void
+    {
+        $this->actingAs($this->faculty)->get('/adviser/events')->assertForbidden();
+    }
+
+    public function test_adviser_can_create_an_event_with_poster_and_event_in_charge(): void
+    {
+        Storage::fake('public');
+
+        $this->actingAs($this->adviser)->get(route('adviser.events.create'))
+            ->assertRedirect(route('adviser.events.index', ['create' => 1]));
+
+        $this->get(route('adviser.events.index'))
+            ->assertOk()
+            ->assertSee('create-event-dialog')
+            ->assertDontSee('Event type')
+            ->assertDontSee('Select status');
+
+        $response = $this->post('/adviser/events', [
+            'title' => 'Foundation Day',
+            'description' => 'Annual campus celebration.',
+            'location' => 'University Gymnasium',
+            'start_date' => '2026-10-10',
+            'start_time' => '08:00',
+            'end_date' => '2026-10-10',
+            'end_time' => '17:00',
+            'event_type_id' => $this->eventType->id,
+            'event_status_id' => EventStatus::where('label', 'inactive')->value('id'),
+            'assigned_user_ids' => [$this->faculty->id],
+            'poster' => UploadedFile::fake()->createWithContent(
+                'foundation-day.png',
+                base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=')
+            ),
+        ]);
+
+        $event = Event::firstOrFail();
+        $response->assertRedirect(route('adviser.events.index'));
+        $this->assertDatabaseHas('events', [
+            'title' => 'Foundation Day',
+            'location' => 'University Gymnasium',
+            'created_by' => $this->adviser->id,
+            'event_type_id' => null,
+            'event_status_id' => $this->activeEventStatus->id,
+        ]);
+        $this->assertDatabaseHas('event_user', ['event_id' => $event->id, 'user_id' => $this->faculty->id]);
+        $this->assertDatabaseHas('activity_logs', ['event_id' => $event->id, 'action' => 'event_created']);
+        Storage::disk('public')->assertExists($event->poster_path);
+
+        $this->get(route('adviser.events.index'))
+            ->assertOk()
+            ->assertSee('Foundation Day')
+            ->assertDontSee($event->poster_path);
+
+        $this->get(route('adviser.events.show', $event))
+            ->assertOk()
+            ->assertSee('Foundation Day')
+            ->assertSee($this->faculty->full_name);
+        $this->get(route('adviser.events.edit', $event))
+            ->assertOk()
+            ->assertSee('Edit Event');
+    }
+
+    public function test_event_dates_and_assignable_roles_are_validated(): void
+    {
+        $student = User::factory()->create([
+            'role_id' => Role::where('name', 'Student')->value('id'),
+            'status' => UserStatus::where('label', 'active')->value('id'),
+        ]);
+
+        $this->actingAs($this->adviser)->post('/adviser/events', [
+            'title' => 'Invalid Event',
+            'location' => 'Room 101',
+            'start_date' => '2026-10-10',
+            'start_time' => '17:00',
+            'end_date' => '2026-10-10',
+            'end_time' => '08:00',
+            'event_status_id' => $this->activeEventStatus->id,
+            'assigned_user_ids' => [$student->id],
+        ])->assertSessionHasErrors(['end_time', 'assigned_user_ids']);
+
+        $this->assertDatabaseCount('events', 0);
+    }
+
+    public function test_adviser_can_search_edit_archive_restore_and_delete_an_event(): void
+    {
+        $event = Event::create([
+            'title' => 'Sports Festival',
+            'location' => 'Main Field',
+            'start_at' => now()->addWeek(),
+            'end_at' => now()->addWeek()->addHours(8),
+            'event_status_id' => $this->activeEventStatus->id,
+            'created_by' => $this->adviser->id,
+        ]);
+
+        $this->actingAs($this->adviser)->get('/adviser/events?search=Sports&timing=upcoming')
+            ->assertOk()
+            ->assertSee('Sports Festival');
+
+        $this->put(route('adviser.events.update', $event), [
+            'title' => 'University Sports Festival',
+            'description' => 'Updated details',
+            'location' => 'Athletics Field',
+            'start_date' => $event->start_at->format('Y-m-d'),
+            'start_time' => $event->start_at->format('H:i'),
+            'end_date' => $event->end_at->format('Y-m-d'),
+            'end_time' => $event->end_at->format('H:i'),
+            'event_status_id' => $this->activeEventStatus->id,
+        ])->assertRedirect(route('adviser.events.show', $event));
+
+        $this->delete(route('adviser.events.destroy', $event))->assertRedirect(route('adviser.events.index'));
+        $this->assertSoftDeleted($event);
+
+        $this->get('/adviser/events?timing=archived')->assertOk()->assertSee('University Sports Festival');
+        $this->post(route('adviser.events.restore', $event->id))->assertRedirect(route('adviser.events.show', $event));
+        $this->assertNotSoftDeleted($event);
+
+        $this->delete(route('adviser.events.destroy', $event));
+        $this->delete(route('adviser.events.force-delete', $event->id))
+            ->assertRedirect(route('adviser.events.index', ['timing' => 'archived']));
+        $this->assertDatabaseMissing('events', ['id' => $event->id]);
+    }
+}

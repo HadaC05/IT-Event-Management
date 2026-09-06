@@ -2,7 +2,9 @@
 
 namespace Database\Seeders;
 
+use App\Models\Role;
 use App\Models\User;
+use App\Models\UserStatus;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
@@ -31,6 +33,17 @@ class DatabaseSeeder extends Seeder
             'last_name' => 'User',
             'username' => 'testuser',
             'password' => Hash::make('password'),
+        ]);
+
+        User::updateOrCreate(['email' => 'adviser@itevents.local'], [
+            'id_number' => 'SBO-ADV-001',
+            'first_name' => 'SBO',
+            'middle_name' => null,
+            'last_name' => 'Adviser',
+            'username' => 'sbo.adviser',
+            'password' => Hash::make('SBOAdviser@2026'),
+            'role_id' => Role::where('name', 'SBO Adviser')->value('id'),
+            'status' => UserStatus::where('label', 'active')->value('id'),
         ]);
     }
 }
