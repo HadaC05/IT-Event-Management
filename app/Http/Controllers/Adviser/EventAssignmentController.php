@@ -139,6 +139,6 @@ class EventAssignmentController extends Controller
 
     private function ensureAssignable(User $user): void
     {
-        abort_unless(in_array($user->role?->name, ['SBO', 'Faculty'], true), 422, 'Only SBO and Faculty users can be assigned to events.');
+        abort_unless(in_array($user->role?->name, ['SBO Adviser', 'SBO', 'Faculty'], true), 422, 'Only SBO Adviser, SBO, and Faculty users can be assigned to events.');
     }
 }

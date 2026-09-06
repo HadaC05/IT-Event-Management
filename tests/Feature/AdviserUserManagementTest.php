@@ -97,8 +97,9 @@ class AdviserUserManagementTest extends TestCase
         ])->assertSessionHasNoErrors();
 
         $this->patch("/adviser/users/{$faculty->id}/status")->assertSessionHasNoErrors();
-        $this->get('/adviser/users?role=Faculty&search=Anna')
+        $this->get('/adviser/users?role=Faculty&search=Anna&status=inactive')
             ->assertOk()
+            ->assertSee('Account Overview')
             ->assertSee('Anna')
             ->assertSee('Reyes');
 

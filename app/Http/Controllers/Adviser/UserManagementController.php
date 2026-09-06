@@ -25,6 +25,7 @@ class UserManagementController extends Controller
         $validated = $request->validate([
             'search' => ['nullable', 'string', 'max:100'],
             'role' => ['nullable', Rule::in(self::MANAGEABLE_ROLES)],
+            'status' => ['nullable', Rule::in(['active', 'inactive'])],
         ]);
 
         $users = User::query()
@@ -41,6 +42,7 @@ class UserManagementController extends Controller
                 });
             })
             ->when($validated['role'] ?? null, fn (Builder $query, string $role) => $query->whereHas('role', fn (Builder $query) => $query->where('name', $role)))
+            ->when($validated['status'] ?? null, fn (Builder $query, string $status) => $query->whereHas('userStatus', fn (Builder $query) => $query->where('label', $status)))
             ->orderBy('last_name')
             ->orderBy('first_name')
             ->paginate(10)
@@ -52,6 +54,14 @@ class UserManagementController extends Controller
                 ->orderByRaw("CASE name WHEN 'SBO' THEN 1 WHEN 'Faculty' THEN 2 WHEN 'Student' THEN 3 ELSE 4 END")
                 ->get(),
             'yearLevels' => YearLevel::orderBy('id')->get(),
+            'userSummary' => [
+                'total' => User::count(),
+                'students' => User::whereHas('role', fn (Builder $query) => $query->where('name', 'Student'))->count(),
+                'faculty' => User::whereHas('role', fn (Builder $query) => $query->where('name', 'Faculty'))->count(),
+                'sbo' => User::whereHas('role', fn (Builder $query) => $query->where('name', 'SBO'))->count(),
+                'active' => User::whereHas('userStatus', fn (Builder $query) => $query->where('label', 'active'))->count(),
+                'inactive' => User::whereHas('userStatus', fn (Builder $query) => $query->where('label', 'inactive'))->count(),
+            ],
             'events' => Event::query()
                 ->where(function (Builder $query) {
                     $query->whereDoesntHave('status')
@@ -104,7 +114,7 @@ class UserManagementController extends Controller
             }
         });
 
-        return to_route('adviser.users.index', $request->only(['search', 'role']))
+        return to_route('adviser.users.index', $request->only(['search', 'role', 'status']))
             ->with('success', "{$user->fresh()->full_name} was updated successfully.");
     }
 

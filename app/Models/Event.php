@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -16,6 +17,7 @@ class Event extends Model
         'title',
         'description',
         'location',
+        'audience_type',
         'poster_path',
         'start_at',
         'end_at',
@@ -47,6 +49,31 @@ class Event extends Model
         return $this->belongsToMany(User::class)->withTimestamps();
     }
 
+    public function audienceTeams(): BelongsToMany
+    {
+        return $this->belongsToMany(Team::class, 'event_team')->withTimestamps();
+    }
+
+    public function audienceYearLevels(): BelongsToMany
+    {
+        return $this->belongsToMany(YearLevel::class, 'event_year_level')->withTimestamps();
+    }
+
+    public function participants(): BelongsToMany
+    {
+        return $this->belongsToMany(User::class, 'event_participants')->withTimestamps();
+    }
+
+    public function attendances(): HasMany
+    {
+        return $this->hasMany(Attendance::class);
+    }
+
+    public function scores(): HasMany
+    {
+        return $this->hasMany(Score::class);
+    }
+
     public function activities(): HasMany
     {
         return $this->hasMany(ActivityLog::class);
@@ -55,6 +82,21 @@ class Event extends Model
     public function creator(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by')->withDefault();
+    }
+
+    public function expectedParticipants(): Collection
+    {
+        $studentRoleId = Role::where('name', 'Student')->value('id');
+        $students = User::query()
+            ->where('role_id', $studentRoleId)
+            ->whereHas('userStatus', fn ($query) => $query->where('label', 'active'));
+
+        return match ($this->audience_type) {
+            'selected_tribes' => $students->whereHas('teams', fn ($query) => $query->whereIn('teams.id', $this->audienceTeams()->pluck('teams.id')))->get(),
+            'selected_year_levels' => $students->whereIn('year_level', $this->audienceYearLevels()->pluck('year_levels.id'))->get(),
+            'specific_students' => $students->whereIn('id', $this->participants()->pluck('users.id'))->get(),
+            default => $students->get(),
+        };
     }
 
     public function getScheduleStateAttribute(): string
