@@ -22,8 +22,14 @@
             <a href="{{ route('adviser.users.index') }}" @class(['flex min-h-12 items-center gap-3 rounded-xl px-4 text-sm font-bold transition', 'bg-[#8decb4] text-[#141e46]' => request()->routeIs('adviser.users.*'), 'text-[#fff5e0]/65 hover:bg-white/5 hover:text-[#fff5e0]' => !request()->routeIs('adviser.users.*')])>
                 <svg class="h-5 w-5 fill-none stroke-current" aria-hidden="true" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm13 10v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>User Management
             </a>
+            <a href="{{ route('adviser.teams.index') }}" @class(['flex min-h-12 items-center gap-3 rounded-xl px-4 text-sm font-bold transition', 'bg-[#8decb4] text-[#141e46]' => request()->routeIs('adviser.teams.*'), 'text-[#fff5e0]/65 hover:bg-white/5 hover:text-[#fff5e0]' => !request()->routeIs('adviser.teams.*')])>
+                <svg class="h-5 w-5 fill-none stroke-current" aria-hidden="true" viewBox="0 0 24 24"><path d="M8 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6Zm8 0a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM2 20v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2m0-5.5a4 4 0 0 1 3-1.5h1a4 4 0 0 1 4 4v3"/></svg>Tribe Management
+            </a>
             <a href="{{ route('adviser.events.index') }}" @class(['flex min-h-12 items-center gap-3 rounded-xl px-4 text-sm font-bold transition', 'bg-[#8decb4] text-[#141e46]' => request()->routeIs('adviser.events.*'), 'text-[#fff5e0]/65 hover:bg-white/5 hover:text-[#fff5e0]' => !request()->routeIs('adviser.events.*')])>
                 <svg class="h-5 w-5 fill-none stroke-current" aria-hidden="true" viewBox="0 0 24 24"><path d="M6 2v4m12-4v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14H3V6a2 2 0 0 1 2-2Z"/></svg>Event Management
+            </a>
+            <a href="{{ route('adviser.attendance.index') }}" @class(['flex min-h-12 items-center gap-3 rounded-xl px-4 text-sm font-bold transition', 'bg-[#8decb4] text-[#141e46]' => request()->routeIs('adviser.attendance.*'), 'text-[#fff5e0]/65 hover:bg-white/5 hover:text-[#fff5e0]' => !request()->routeIs('adviser.attendance.*')])>
+                <svg class="h-5 w-5 fill-none stroke-current" aria-hidden="true" viewBox="0 0 24 24"><path d="M9 11l2 2 4-4m6 3a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/></svg>Attendance
             </a>
         </nav>
 

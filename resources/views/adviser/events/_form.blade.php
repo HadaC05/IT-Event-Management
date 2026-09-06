@@ -71,6 +71,11 @@
     </div>
 
     <section class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm xl:col-span-2">
+        <header class="border-b border-slate-100 px-6 py-5"><h2 class="text-lg font-extrabold tracking-tight text-[#141e46]">Participants</h2><p class="mt-1 text-xs text-slate-500">Define who is expected so attendance totals stay meaningful.</p></header>
+        <div class="p-6">@include('adviser.events._audience')</div>
+    </section>
+
+    <section class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm xl:col-span-2">
         <header class="border-b border-slate-100 px-6 py-5"><h2 class="text-lg font-extrabold tracking-tight text-[#141e46]">Event-in-Charge</h2><p class="mt-1 text-xs text-slate-500">Assign active SBO or Faculty members. You can change this later.</p></header>
         <div class="p-6">
             <x-form-error name="assigned_user_ids" class="mb-3 block" />

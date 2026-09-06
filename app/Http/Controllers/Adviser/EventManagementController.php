@@ -8,8 +8,13 @@ use App\Models\ActivityLog;
 use App\Models\Event;
 use App\Models\EventStatus;
 use App\Models\Role;
+use App\Models\Team;
 use App\Models\User;
+use App\Models\YearLevel;
+use App\Services\EventConflictDetector;
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -48,11 +53,9 @@ class EventManagementController extends Controller
             ->paginate(9)
             ->withQueryString();
 
-        return view('adviser.events.index', [
+        return view('adviser.events.index', array_merge([
             'events' => $events,
-            'statuses' => EventStatus::orderBy('id')->get(),
-            'assignableUsers' => $this->assignableUsers(),
-        ]);
+        ], $this->formData()));
     }
 
     public function create(): RedirectResponse
@@ -72,6 +75,7 @@ class EventManagementController extends Controller
             $event = DB::transaction(function () use ($request, $data) {
                 $event = Event::create($data);
                 $this->syncAssignments($event, $request->input('assigned_user_ids', []), $request->user());
+                $this->syncAudience($event, $request);
                 $this->log($request->user(), 'event_created', "{$event->title} was created.", $event);
 
                 return $event;
@@ -89,19 +93,20 @@ class EventManagementController extends Controller
 
     public function show(Event $event): View
     {
-        $event->load(['status', 'creator', 'assignedUsers.role', 'assignedUsers.userStatus']);
+        $event->load(['status', 'creator', 'assignedUsers.role', 'assignedUsers.userStatus', 'audienceTeams', 'audienceYearLevels', 'participants']);
 
         $assignedIds = $event->assignedUsers->pluck('id');
 
         return view('adviser.events.show', [
             'event' => $event,
             'availableUsers' => $this->assignableUsers()->whereNotIn('id', $assignedIds),
+            'expectedParticipants' => $event->expectedParticipants(),
         ]);
     }
 
     public function edit(Event $event): View
     {
-        $event->load('assignedUsers');
+        $event->load(['assignedUsers', 'audienceTeams', 'audienceYearLevels', 'participants']);
 
         return view('adviser.events.edit', array_merge($this->formData(), ['event' => $event]));
     }
@@ -122,6 +127,7 @@ class EventManagementController extends Controller
             DB::transaction(function () use ($request, $event, $data) {
                 $event->update($data);
                 $this->syncAssignments($event, $request->input('assigned_user_ids', []), $request->user());
+                $this->syncAudience($event, $request);
                 $this->log($request->user(), 'event_updated', "{$event->title} was updated.", $event);
             });
         } catch (Throwable $exception) {
@@ -173,15 +179,37 @@ class EventManagementController extends Controller
 
     private function formData(): array
     {
+        $studentRoleId = Role::where('name', 'Student')->value('id');
+        $activeStudentConstraint = fn ($query) => $query
+            ->where('role_id', $studentRoleId)
+            ->whereHas('userStatus', fn (Builder $query) => $query->where('label', 'active'));
+        $activeStudents = User::query()
+            ->with('yearLevel')
+            ->where($activeStudentConstraint)
+            ->orderBy('last_name')
+            ->orderBy('first_name')
+            ->get();
+
         return [
             'statuses' => EventStatus::orderBy('id')->get(),
             'assignableUsers' => $this->assignableUsers(),
+            'recentLocations' => Event::query()->whereNotNull('location')->latest()->limit(30)->pluck('location')->unique()->take(5)->values(),
+            'audienceTeams' => Team::query()
+                ->with(['schoolYear', 'members' => $activeStudentConstraint])
+                ->where('is_active', true)
+                ->orderBy('name')
+                ->get(),
+            'audienceYearLevels' => YearLevel::query()
+                ->with(['users' => $activeStudentConstraint])
+                ->orderBy('id')
+                ->get(),
+            'activeStudents' => $activeStudents,
         ];
     }
 
     private function assignableUsers()
     {
-        $roleIds = Role::whereIn('name', ['SBO', 'Faculty'])->pluck('id');
+        $roleIds = Role::whereIn('name', ['SBO Adviser', 'SBO', 'Faculty'])->pluck('id');
 
         return User::with('role')
             ->whereIn('role_id', $roleIds)
@@ -189,6 +217,39 @@ class EventManagementController extends Controller
             ->orderBy('last_name')
             ->orderBy('first_name')
             ->get();
+    }
+
+    public function conflicts(Request $request, EventConflictDetector $detector): JsonResponse
+    {
+        $validated = $request->validate([
+            'start_date' => ['required', 'date_format:Y-m-d'],
+            'start_time' => ['required', 'date_format:H:i'],
+            'end_date' => ['required', 'date_format:Y-m-d'],
+            'end_time' => ['required', 'date_format:H:i'],
+            'location' => ['nullable', 'string', 'max:255'],
+            'assigned_user_ids' => ['nullable', 'array'],
+            'assigned_user_ids.*' => ['integer'],
+            'event_id' => ['nullable', 'integer', Rule::exists('events', 'id')],
+        ]);
+        $start = Carbon::createFromFormat('Y-m-d H:i', "{$validated['start_date']} {$validated['start_time']}");
+        $end = Carbon::createFromFormat('Y-m-d H:i', "{$validated['end_date']} {$validated['end_time']}");
+
+        if ($end->lessThanOrEqualTo($start)) {
+            return response()->json(['has_conflicts' => false, 'conflicts' => ['location' => [], 'people' => []]]);
+        }
+
+        $conflicts = $detector->detect(
+            $start,
+            $end,
+            $validated['location'] ?? null,
+            $validated['assigned_user_ids'] ?? [],
+            $validated['event_id'] ?? null,
+        );
+
+        return response()->json([
+            'has_conflicts' => $conflicts['location'] !== [] || $conflicts['people'] !== [],
+            'conflicts' => $conflicts,
+        ]);
     }
 
     private function syncAssignments(Event $event, array $userIds, User $actor): void
@@ -199,6 +260,14 @@ class EventManagementController extends Controller
 
         User::whereIn('id', $after->diff($before))->get()->each(fn (User $user) => $this->log($actor, 'event_assigned', "{$user->full_name} was assigned to {$event->title}.", $event, $user));
         User::whereIn('id', $before->diff($after))->get()->each(fn (User $user) => $this->log($actor, 'event_unassigned', "{$user->full_name} was unassigned from {$event->title}.", $event, $user));
+    }
+
+    private function syncAudience(Event $event, EventRequest $request): void
+    {
+        $type = $request->validated('audience_type');
+        $event->audienceTeams()->sync($type === 'selected_tribes' ? $request->input('tribe_ids', []) : []);
+        $event->audienceYearLevels()->sync($type === 'selected_year_levels' ? $request->input('year_level_ids', []) : []);
+        $event->participants()->sync($type === 'specific_students' ? $request->input('participant_ids', []) : []);
     }
 
     private function log(User $actor, string $action, string $description, Event $event, ?User $subject = null): void

@@ -66,9 +66,29 @@ class User extends Authenticatable
         return $this->belongsTo(UserStatus::class, 'status');
     }
 
+    public function yearLevel(): BelongsTo
+    {
+        return $this->belongsTo(YearLevel::class, 'year_level');
+    }
+
     public function assignedEvents(): BelongsToMany
     {
         return $this->belongsToMany(Event::class)->withTimestamps();
+    }
+
+    public function teams(): BelongsToMany
+    {
+        return $this->belongsToMany(Team::class)->withTimestamps();
+    }
+
+    public function participantEvents(): BelongsToMany
+    {
+        return $this->belongsToMany(Event::class, 'event_participants')->withTimestamps();
+    }
+
+    public function attendances(): HasMany
+    {
+        return $this->hasMany(Attendance::class);
     }
 
     public function activities(): HasMany

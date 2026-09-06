@@ -6,6 +6,8 @@ use App\Models\Event;
 use App\Models\EventStatus;
 use App\Models\EventTypes;
 use App\Models\Role;
+use App\Models\SchoolYear;
+use App\Models\Team;
 use App\Models\User;
 use App\Models\UserStatus;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -25,6 +27,8 @@ class EventManagementTest extends TestCase
 
     private EventTypes $eventType;
 
+    private UserStatus $activeUserStatus;
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -32,18 +36,18 @@ class EventManagementTest extends TestCase
         foreach (['SBO Adviser', 'SBO', 'Faculty', 'Student'] as $role) {
             Role::create(['name' => $role]);
         }
-        $activeUserStatus = UserStatus::create(['label' => 'active']);
+        $this->activeUserStatus = UserStatus::create(['label' => 'active']);
         $this->activeEventStatus = EventStatus::create(['label' => 'active']);
         EventStatus::create(['label' => 'inactive']);
         $this->eventType = EventTypes::create(['label' => 'IT Days']);
 
         $this->adviser = User::factory()->create([
             'role_id' => Role::where('name', 'SBO Adviser')->value('id'),
-            'status' => $activeUserStatus->id,
+            'status' => $this->activeUserStatus->id,
         ]);
         $this->faculty = User::factory()->create([
             'role_id' => Role::where('name', 'Faculty')->value('id'),
-            'status' => $activeUserStatus->id,
+            'status' => $this->activeUserStatus->id,
         ]);
     }
 
@@ -107,6 +111,108 @@ class EventManagementTest extends TestCase
         $this->get(route('adviser.events.edit', $event))
             ->assertOk()
             ->assertSee('Edit Event');
+    }
+
+    public function test_quick_create_prioritizes_schedule_participants_and_progressive_options(): void
+    {
+        $schoolYear = SchoolYear::create(['label' => '2026-2027']);
+        $student = User::factory()->create([
+            'role_id' => Role::where('name', 'Student')->value('id'),
+            'status' => $this->activeUserStatus->id,
+        ]);
+        $tribe = Team::create([
+            'school_year_id' => $schoolYear->id,
+            'name' => 'Blue Eagles',
+            'color' => '#2563EB',
+        ]);
+        $tribe->members()->attach($student);
+
+        $this->actingAs($this->adviser)->get(route('adviser.events.index'))
+            ->assertOk()
+            ->assertSee('Quick create')
+            ->assertSee('Event continues to another day')
+            ->assertSee('Who should attend?')
+            ->assertSee('All active students')
+            ->assertSee('Blue Eagles')
+            ->assertSee('You — SBO Adviser')
+            ->assertSee('+ Add description')
+            ->assertSee('+ Add poster')
+            ->assertSee('data-create-event-submit disabled', false);
+    }
+
+    public function test_selected_tribe_audience_is_saved_and_expected_students_are_counted(): void
+    {
+        $schoolYear = SchoolYear::create(['label' => '2026-2027']);
+        $students = User::factory()->count(2)->create([
+            'role_id' => Role::where('name', 'Student')->value('id'),
+            'status' => $this->activeUserStatus->id,
+        ]);
+        $tribe = Team::create([
+            'school_year_id' => $schoolYear->id,
+            'name' => 'Green Falcons',
+            'color' => '#41B06E',
+        ]);
+        $tribe->members()->attach($students);
+
+        $this->actingAs($this->adviser)->post(route('adviser.events.store'), [
+            'title' => 'Tribe Assembly',
+            'location' => 'Main Auditorium',
+            'start_date' => '2026-10-12',
+            'start_time' => '08:00',
+            'end_time' => '10:00',
+            'audience_type' => 'selected_tribes',
+            'tribe_ids' => [$tribe->id],
+            'assigned_user_ids' => [$this->adviser->id],
+        ])->assertRedirect(route('adviser.events.index'))
+            ->assertSessionHasNoErrors();
+
+        $event = Event::where('title', 'Tribe Assembly')->firstOrFail();
+        $this->assertSame('2026-10-12', $event->end_at->toDateString());
+        $this->assertDatabaseHas('event_team', ['event_id' => $event->id, 'team_id' => $tribe->id]);
+        $this->assertDatabaseHas('event_user', ['event_id' => $event->id, 'user_id' => $this->adviser->id]);
+        $this->assertSame(2, $event->expectedParticipants()->count());
+
+        $this->get(route('adviser.events.show', $event))
+            ->assertOk()
+            ->assertSee('2 expected')
+            ->assertSee('Selected tribes');
+    }
+
+    public function test_schedule_conflicts_are_reported_and_can_be_acknowledged(): void
+    {
+        $existing = Event::create([
+            'title' => 'General Assembly',
+            'location' => 'University Gymnasium',
+            'start_at' => '2026-10-15 09:00:00',
+            'end_at' => '2026-10-15 11:00:00',
+            'event_status_id' => $this->activeEventStatus->id,
+        ]);
+        $existing->assignedUsers()->attach($this->faculty);
+        $payload = [
+            'title' => 'IT Program',
+            'location' => 'University Gymnasium',
+            'start_date' => '2026-10-15',
+            'start_time' => '10:00',
+            'end_date' => '2026-10-15',
+            'end_time' => '12:00',
+            'audience_type' => 'all_students',
+            'assigned_user_ids' => [$this->faculty->id],
+        ];
+
+        $this->actingAs($this->adviser)->postJson(route('adviser.events.conflicts'), $payload)
+            ->assertOk()
+            ->assertJsonPath('has_conflicts', true)
+            ->assertJsonPath('conflicts.location.0.title', 'General Assembly')
+            ->assertJsonPath('conflicts.people.0.people.0', $this->faculty->full_name);
+
+        $this->post(route('adviser.events.store'), $payload)
+            ->assertSessionHasErrors(['location', 'assigned_user_ids']);
+        $this->assertDatabaseMissing('events', ['title' => 'IT Program']);
+
+        $this->post(route('adviser.events.store'), [...$payload, 'acknowledge_conflicts' => true])
+            ->assertRedirect(route('adviser.events.index'))
+            ->assertSessionHasNoErrors();
+        $this->assertDatabaseHas('events', ['title' => 'IT Program']);
     }
 
     public function test_event_dates_and_assignable_roles_are_validated(): void
