@@ -38,7 +38,7 @@ class AttendanceBulkRequest extends FormRequest
             }
 
             $submittedUserIds = collect(array_keys($this->input('records', [])))->map(fn ($id) => (int) $id);
-            $allowedUserIds = $event->expectedParticipants()->pluck('id')
+            $allowedUserIds = $event->expectedParticipantsQuery()->pluck('users.id')
                 ->merge($event->attendances()->pluck('user_id'))
                 ->unique();
 

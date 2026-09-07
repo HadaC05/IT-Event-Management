@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -89,7 +90,7 @@ class Event extends Model
         return $this->belongsTo(User::class, 'created_by')->withDefault();
     }
 
-    public function expectedParticipants(): Collection
+    public function expectedParticipantsQuery(): Builder
     {
         $studentRoleId = Role::where('name', 'Student')->value('id');
         $students = User::query()
@@ -97,11 +98,16 @@ class Event extends Model
             ->whereHas('userStatus', fn ($query) => $query->where('label', 'active'));
 
         return match ($this->audience_type) {
-            'selected_tribes' => $students->whereHas('teams', fn ($query) => $query->whereIn('teams.id', $this->audienceTeams()->pluck('teams.id')))->get(),
-            'selected_year_levels' => $students->whereIn('year_level', $this->audienceYearLevels()->pluck('year_levels.id'))->get(),
-            'specific_students' => $students->whereIn('id', $this->participants()->pluck('users.id'))->get(),
-            default => $students->get(),
+            'selected_tribes' => $students->whereHas('teams', fn ($query) => $query->whereIn('teams.id', $this->audienceTeams()->pluck('teams.id'))),
+            'selected_year_levels' => $students->whereIn('year_level', $this->audienceYearLevels()->pluck('year_levels.id')),
+            'specific_students' => $students->whereIn('id', $this->participants()->pluck('users.id')),
+            default => $students,
         };
+    }
+
+    public function expectedParticipants(): Collection
+    {
+        return $this->expectedParticipantsQuery()->get();
     }
 
     public function getScheduleStateAttribute(): string

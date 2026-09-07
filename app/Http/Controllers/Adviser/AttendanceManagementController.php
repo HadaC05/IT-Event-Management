@@ -48,7 +48,7 @@ class AttendanceManagementController extends Controller
             ->withQueryString();
 
         $events->through(function (Event $event) {
-            $expected = $event->expectedParticipants()->count();
+            $expected = $event->expectedParticipantsQuery()->count();
             $event->setAttribute('expected_count', $expected);
             $event->setAttribute('coverage_rate', $expected > 0 ? min(100, round(($event->attendances_count / $expected) * 100, 1)) : null);
             $event->setAttribute('attendance_rate', $event->attendances_count > 0 ? round(($event->attended_count / $event->attendances_count) * 100, 1) : null);
@@ -56,47 +56,82 @@ class AttendanceManagementController extends Controller
             return $event;
         });
 
+        $totalEvents = Event::count();
+        $trackedEvents = Attendance::query()->distinct()->count('event_id');
+        $records = Attendance::count();
+        $attended = Attendance::whereIn('status', Attendance::ATTENDED_STATUSES)->count();
+
         return view('adviser.attendance.index', [
             'events' => $events,
             'summary' => [
-                'events' => Event::count(),
-                'tracked' => Attendance::query()->distinct()->count('event_id'),
-                'records' => Attendance::count(),
-                'attended' => Attendance::whereIn('status', Attendance::ATTENDED_STATUSES)->count(),
+                'events' => $totalEvents,
+                'tracked' => $trackedEvents,
+                'untracked' => max(0, $totalEvents - $trackedEvents),
+                'records' => $records,
+                'attended' => $attended,
+                'attendance_rate' => $records > 0 ? round(($attended / $records) * 100, 1) : null,
             ],
         ]);
     }
 
     public function show(Request $request, Event $event): View
     {
-        $event->load(['attendances.user', 'audienceTeams', 'audienceYearLevels']);
-        $expectedParticipants = $event->expectedParticipants()->load(['teams.schoolYear', 'yearLevel']);
-        $recordedParticipants = User::query()
+        $validated = $request->validate([
+            'search' => ['nullable', 'string', 'max:100'],
+            'status' => ['nullable', Rule::in([...Attendance::STATUSES, 'unrecorded'])],
+        ]);
+        $expectedParticipantIds = $event->expectedParticipantsQuery()->pluck('users.id');
+        $recordedParticipantIds = $event->attendances()->pluck('user_id');
+        $participantIds = $expectedParticipantIds->merge($recordedParticipantIds)->unique()->values();
+
+        $participants = User::query()
             ->with(['teams.schoolYear', 'yearLevel'])
-            ->whereIn('id', $event->attendances->pluck('user_id'))
-            ->get();
-        $records = $event->attendances->keyBy('user_id');
-        $participants = $expectedParticipants
-            ->merge($recordedParticipants)
-            ->unique('id')
-            ->sortBy(fn ($user) => mb_strtolower($user->last_name.' '.$user->first_name))
-            ->values();
-        $counts = collect(Attendance::STATUSES)->mapWithKeys(fn ($status) => [$status => $event->attendances->where('status', $status)->count()]);
+            ->whereIn('id', $participantIds)
+            ->when($validated['search'] ?? null, function (Builder $query, string $search) {
+                $term = '%'.addcslashes($search, '%_\\').'%';
+                $query->where(fn (Builder $query) => $query
+                    ->where('first_name', 'like', $term)
+                    ->orWhere('middle_name', 'like', $term)
+                    ->orWhere('last_name', 'like', $term)
+                    ->orWhere('id_number', 'like', $term));
+            })
+            ->when(($validated['status'] ?? null) === 'unrecorded', fn (Builder $query) => $query
+                ->whereDoesntHave('attendances', fn (Builder $query) => $query->where('event_id', $event->id)))
+            ->when(in_array($validated['status'] ?? null, Attendance::STATUSES, true), fn (Builder $query) => $query
+                ->whereHas('attendances', fn (Builder $query) => $query
+                    ->where('event_id', $event->id)
+                    ->where('status', $validated['status'])))
+            ->orderBy('last_name')
+            ->orderBy('first_name')
+            ->paginate(50)
+            ->withQueryString();
+
+        $records = $event->attendances()
+            ->whereIn('user_id', $participants->getCollection()->pluck('id'))
+            ->get()
+            ->keyBy('user_id');
+        $counts = collect(Attendance::STATUSES)->mapWithKeys(fn ($status) => [
+            $status => $event->attendances()->where('status', $status)->count(),
+        ]);
         $recorded = $counts->sum();
         $attended = $counts->only(Attendance::ATTENDED_STATUSES)->sum();
+        $expected = $expectedParticipantIds->count();
 
         return view('adviser.attendance.show', [
             'event' => $event,
             'participants' => $participants,
+            'participantTotal' => $participantIds->count(),
             'records' => $records,
             'counts' => $counts,
             'summary' => [
-                'expected' => $expectedParticipants->count(),
+                'expected' => $expected,
                 'recorded' => $recorded,
-                'unrecorded' => max(0, $expectedParticipants->count() - $recorded),
+                'unrecorded' => max(0, $expected - $recorded),
+                'completion' => $expected > 0 ? min(100, round(($recorded / $expected) * 100, 1)) : null,
                 'rate' => $recorded > 0 ? round(($attended / $recorded) * 100, 1) : null,
+                'attended' => $attended,
             ],
-            'expectedParticipantIds' => $expectedParticipants->pluck('id'),
+            'expectedParticipantIds' => $expectedParticipantIds,
             'eventOptions' => Event::query()->orderByDesc('start_at')->get(['id', 'title', 'start_at']),
         ]);
     }
