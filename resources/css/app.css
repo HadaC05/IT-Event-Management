@@ -9,4 +9,82 @@
 @theme {
     --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
         'Segoe UI Symbol', 'Noto Color Emoji';
+
+    --color-bone: #F3F0E9;
+    --color-ink: #121017;
+    --color-brand: #397565;
+    --color-action: #2F3AE0;
+    --color-live: #C6F24E;
+    --color-alert: #FF6B2C;
+
+    --color-slate-50: #F3F0E9;
+    --color-slate-100: color-mix(in srgb, #121017 5%, transparent);
+    --color-slate-200: color-mix(in srgb, #121017 11%, transparent);
+    --color-slate-300: color-mix(in srgb, #121017 20%, transparent);
+    --color-slate-400: color-mix(in srgb, #121017 38%, transparent);
+    --color-slate-500: color-mix(in srgb, #121017 54%, transparent);
+    --color-slate-600: color-mix(in srgb, #121017 68%, transparent);
+    --color-slate-700: color-mix(in srgb, #121017 82%, transparent);
+    --color-slate-800: #121017;
+    --color-slate-900: #121017;
+    --color-slate-950: #121017;
+
+    --color-emerald-50: color-mix(in srgb, #397565 8%, transparent);
+    --color-emerald-100: color-mix(in srgb, #C6F24E 28%, transparent);
+    --color-emerald-200: color-mix(in srgb, #397565 22%, transparent);
+    --color-emerald-300: #C6F24E;
+    --color-emerald-400: #397565;
+    --color-emerald-500: #397565;
+    --color-emerald-600: #397565;
+    --color-emerald-700: #397565;
+    --color-emerald-800: #121017;
+    --color-emerald-900: #121017;
+
+    --color-blue-50: color-mix(in srgb, #2F3AE0 7%, transparent);
+    --color-blue-100: color-mix(in srgb, #2F3AE0 12%, transparent);
+    --color-blue-200: color-mix(in srgb, #2F3AE0 20%, transparent);
+    --color-blue-400: #2F3AE0;
+    --color-blue-500: #2F3AE0;
+    --color-blue-600: #2F3AE0;
+    --color-blue-700: #2F3AE0;
+    --color-indigo-50: color-mix(in srgb, #2F3AE0 7%, transparent);
+    --color-indigo-100: color-mix(in srgb, #2F3AE0 12%, transparent);
+    --color-indigo-500: #2F3AE0;
+    --color-indigo-600: #2F3AE0;
+    --color-indigo-700: #2F3AE0;
+
+    --color-amber-50: color-mix(in srgb, #FF6B2C 8%, transparent);
+    --color-amber-100: color-mix(in srgb, #FF6B2C 15%, transparent);
+    --color-amber-200: color-mix(in srgb, #FF6B2C 24%, transparent);
+    --color-amber-400: #FF6B2C;
+    --color-amber-500: #FF6B2C;
+    --color-amber-600: #FF6B2C;
+    --color-amber-700: #FF6B2C;
+    --color-red-50: color-mix(in srgb, #FF6B2C 8%, transparent);
+    --color-red-100: color-mix(in srgb, #FF6B2C 15%, transparent);
+    --color-red-200: color-mix(in srgb, #FF6B2C 24%, transparent);
+    --color-red-400: #FF6B2C;
+    --color-red-500: #FF6B2C;
+    --color-red-600: #FF6B2C;
+    --color-red-700: #FF6B2C;
+    --color-red-800: #121017;
+    --color-red-900: #121017;
+    --color-rose-50: color-mix(in srgb, #FF6B2C 8%, transparent);
+    --color-rose-100: color-mix(in srgb, #FF6B2C 15%, transparent);
+    --color-rose-400: #FF6B2C;
+    --color-rose-500: #FF6B2C;
+    --color-rose-600: #FF6B2C;
+    --color-rose-700: #FF6B2C;
+}
+
+@layer components {
+    .app-shell {
+        background-color: #FFFFFF;
+        background-image:
+            radial-gradient(circle at 88% 8%, rgb(198 242 78 / 5%), transparent 20rem),
+            linear-gradient(rgb(57 117 101 / 3%) 1px, transparent 1px),
+            linear-gradient(90deg, rgb(57 117 101 / 3%) 1px, transparent 1px);
+        background-size: auto, 88px 88px, 88px 88px;
+        color: #121017;
+    }
 }

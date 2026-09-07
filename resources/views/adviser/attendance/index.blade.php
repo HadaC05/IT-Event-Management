@@ -1,7 +1,7 @@
 @extends('layouts.adviser')
 
 @section('title', 'Attendance')
-@section('body-class', 'bg-[#F3F0E9]')
+@section('body-class', 'bg-white')
 
 @section('content')
     <header class="border-b border-[#121017]/12 pb-7">

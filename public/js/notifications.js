@@ -11,10 +11,10 @@
     const region = () => document.querySelector('[data-notification-region]');
     const snackbarRegion = () => document.querySelector('[data-snackbar-region]');
     const toastTones = {
-        success: ['border-l-emerald-500', 'bg-emerald-50', 'text-emerald-700'],
-        error: ['border-l-red-500', 'bg-red-50', 'text-red-700'],
-        warning: ['border-l-amber-500', 'bg-amber-50', 'text-amber-700'],
-        info: ['border-l-blue-500', 'bg-blue-50', 'text-blue-700'],
+        success: { border: 'border-l-[#397565]', icon: 'bg-[#C6F24E] text-[#121017]', progress: 'bg-[#397565]', title: 'All set' },
+        error: { border: 'border-l-[#FF6B2C]', icon: 'bg-[#FF6B2C]/12 text-[#D64A12]', progress: 'bg-[#FF6B2C]', title: 'Sign-in failed' },
+        warning: { border: 'border-l-[#FF6B2C]', icon: 'bg-[#FF6B2C]/12 text-[#D64A12]', progress: 'bg-[#FF6B2C]', title: 'Please check this' },
+        info: { border: 'border-l-[#2F3AE0]', icon: 'bg-[#2F3AE0]/10 text-[#2F3AE0]', progress: 'bg-[#2F3AE0]', title: 'Good to know' },
     };
 
     function toast(type, message, options = {}) {
@@ -22,20 +22,26 @@
         if (!host || !message) return null;
 
         const kind = icons[type] ? type : 'info';
+        const tone = toastTones[kind];
+        const duration = options.duration || (kind === 'error' ? 6500 : 4200);
         const element = document.createElement('div');
-        element.className = `pointer-events-auto grid min-h-14 -translate-y-2 grid-cols-[auto_1fr_auto] items-center gap-3 rounded-xl border border-l-[3px] border-slate-200 ${toastTones[kind][0]} bg-white p-3 opacity-0 shadow-xl transition duration-200`;
+        element.className = `pointer-events-auto relative grid min-h-[72px] -translate-y-2 grid-cols-[auto_1fr_auto] items-center gap-3 overflow-hidden rounded-xl border border-l-[4px] border-[#121017]/10 ${tone.border} bg-[#F3F0E9]/95 p-3.5 opacity-0 shadow-[0_18px_50px_rgba(18,16,23,.2)] backdrop-blur-xl transition duration-200`;
         element.setAttribute('role', kind === 'error' ? 'alert' : 'status');
-        element.innerHTML = `<span class="grid h-7 w-7 place-items-center rounded-full ${toastTones[kind][1]} ${toastTones[kind][2]} [&_svg]:h-4 [&_svg]:w-4 [&_svg]:fill-none [&_svg]:stroke-current [&_svg]:stroke-2" aria-hidden="true">${icons[kind]}</span><span data-toast-message class="text-sm font-semibold text-slate-700"></span><button class="grid h-7 w-7 place-items-center rounded-lg border-0 bg-transparent text-lg text-slate-400 hover:bg-slate-100 hover:text-slate-600" type="button" aria-label="Dismiss notification">&times;</button>`;
+        element.innerHTML = `<span class="grid h-9 w-9 place-items-center rounded-full ${tone.icon} [&_svg]:h-4 [&_svg]:w-4 [&_svg]:fill-none [&_svg]:stroke-current [&_svg]:stroke-[2.5]" aria-hidden="true">${icons[kind]}</span><span class="min-w-0"><strong class="block text-sm font-black tracking-[-.01em] text-[#121017]">${tone.title}</strong><span data-toast-message class="mt-0.5 block text-xs font-semibold leading-5 text-[#121017]/60"></span></span><button class="grid h-8 w-8 place-items-center rounded-lg border-0 bg-transparent text-lg text-[#121017]/35 transition hover:bg-[#121017]/6 hover:text-[#121017]" type="button" aria-label="Dismiss notification">&times;</button><span data-toast-progress class="absolute inset-x-0 bottom-0 h-1 origin-left ${tone.progress}"></span>`;
         element.querySelector('[data-toast-message]').textContent = message;
         host.appendChild(element);
 
         requestAnimationFrame(() => element.classList.remove('opacity-0', '-translate-y-2'));
+        element.querySelector('[data-toast-progress]')?.animate(
+            [{ transform: 'scaleX(1)' }, { transform: 'scaleX(0)' }],
+            { duration, easing: 'linear', fill: 'forwards' },
+        );
         const dismiss = () => {
             element.classList.add('opacity-0', '-translate-y-2');
             window.setTimeout(() => element.remove(), 180);
         };
         element.querySelector('button').addEventListener('click', dismiss);
-        window.setTimeout(dismiss, options.duration || (kind === 'error' ? 6500 : 4200));
+        window.setTimeout(dismiss, duration);
 
         return element;
     }

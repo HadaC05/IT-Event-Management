@@ -1,7 +1,7 @@
 @extends('layouts.adviser')
 
 @section('title', $event->title.' Attendance')
-@section('body-class', 'bg-[#F3F0E9]')
+@section('body-class', 'bg-white')
 
 @section('content')
     @php

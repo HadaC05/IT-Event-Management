@@ -4,24 +4,24 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>Sign in | IT Event Management</title>
+    <title>Sign in | CITE Events</title>
     @vite('resources/css/app.css')
     <script src="{{ asset('js/notifications.js') }}" defer></script>
 </head>
-<body class="min-h-screen bg-[#fff5e0] font-sans text-[#141e46] antialiased">
+<body class="app-shell min-h-screen bg-white font-sans text-[#121017] antialiased">
     <main class="grid min-h-screen lg:grid-cols-[minmax(380px,.9fr)_minmax(520px,1.1fr)]">
-        <section class="relative hidden min-h-screen flex-col justify-between overflow-hidden bg-[#141e46] px-10 py-12 text-[#fff5e0] lg:flex xl:px-20" aria-label="IT Event Management introduction">
-            <div class="absolute -right-36 bottom-24 h-96 w-96 rounded-full border-[80px] border-[#8decb4]/10"></div><div class="absolute -left-20 top-1/4 h-44 w-44 rounded-full bg-[#41b06e]/10"></div>
+        <section class="relative hidden min-h-screen flex-col justify-between overflow-hidden bg-[#121017] px-10 py-12 text-[#F3F0E9] lg:flex xl:px-20" aria-label="CITE Events introduction">
+            <div class="absolute -right-36 bottom-24 h-96 w-96 rounded-full border-[80px] border-[#C6F24E]/10"></div><div class="absolute -left-20 top-1/4 h-44 w-44 rounded-full bg-[#397565]/10"></div>
             <div class="relative z-10">
-                <a class="inline-flex items-center gap-3 text-xl font-extrabold tracking-tight" href="{{ route('login') }}"><span class="flex h-9 w-9 items-end gap-0.5 rounded-xl bg-[#fff5e0] p-2"><i class="h-2 w-1.5 rounded-t bg-[#8decb4]"></i><i class="h-4 w-1.5 rounded-t bg-[#41b06e]"></i><i class="h-5 w-1.5 rounded-t bg-[#141e46]"></i></span>IT Events</a>
-                <div class="mt-[clamp(7rem,18vh,12rem)] max-w-xl"><p class="mb-4 text-xs font-extrabold uppercase tracking-[.14em] text-[#8decb4]">Plan. Connect. Celebrate.</p><h1 class="text-5xl font-black leading-[1.03] tracking-[-.055em] xl:text-6xl">Bringing every campus event together.</h1><p class="mt-6 max-w-lg text-base leading-7 text-[#fff5e0]/65">One organized space for the people who make our IT community thrive.</p></div>
+                <a class="inline-flex items-center gap-3 text-xl font-extrabold tracking-tight" href="{{ route('home') }}"><img class="h-11 w-11 rounded-full object-contain" src="{{ asset('images/cite-logo.png') }}" alt="CITE logo"><span>CITE<span class="text-[#C6F24E]">.</span></span></a>
+                <div class="mt-[clamp(7rem,18vh,12rem)] max-w-xl"><p class="mb-4 text-xs font-extrabold uppercase tracking-[.14em] text-[#C6F24E]">Plan. Connect. Celebrate.</p><h1 class="text-5xl font-black leading-[1.03] tracking-[-.055em] xl:text-6xl">Bringing every campus event together.</h1><p class="mt-6 max-w-lg text-base leading-7 text-[#F3F0E9]/65">One organized space for the people who make our IT community thrive.</p></div>
             </div>
-            <div class="relative z-10 flex items-center gap-2 text-[10px] font-bold uppercase tracking-wide text-[#fff5e0]/55"><span>SBO Adviser</span><i class="h-px w-4 bg-[#41b06e]"></i><span>SBO</span><i class="h-px w-4 bg-[#41b06e]"></i><span>Faculty</span><i class="h-px w-4 bg-[#41b06e]"></i><span>Students</span></div>
+            <div class="relative z-10 flex items-center gap-2 text-[10px] font-bold uppercase tracking-wide text-[#F3F0E9]/55"><span>SBO Adviser</span><i class="h-px w-4 bg-[#397565]"></i><span>SBO</span><i class="h-px w-4 bg-[#397565]"></i><span>Faculty</span><i class="h-px w-4 bg-[#397565]"></i><span>Students</span></div>
         </section>
 
         <section class="grid min-h-screen place-items-center bg-white px-5 py-9 sm:px-8">
             <div class="w-full max-w-md">
-                <div class="mb-12 inline-flex items-center gap-3 text-xl font-extrabold tracking-tight lg:hidden"><span class="flex h-9 w-9 items-end gap-0.5 rounded-xl bg-[#fff5e0] p-2"><i class="h-2 w-1.5 rounded-t bg-[#8decb4]"></i><i class="h-4 w-1.5 rounded-t bg-[#41b06e]"></i><i class="h-5 w-1.5 rounded-t bg-[#141e46]"></i></span>IT Events</div>
+                <a class="mb-12 inline-flex items-center gap-3 text-xl font-extrabold tracking-tight lg:hidden" href="{{ route('home') }}"><img class="h-11 w-11 rounded-full object-contain" src="{{ asset('images/cite-logo.png') }}" alt="CITE logo"><span>CITE<span class="text-[#397565]">.</span></span></a>
                 <header class="mb-8"><p class="mb-3 text-xs font-extrabold uppercase tracking-[.14em] text-emerald-700">Welcome back</p><h2 class="text-3xl font-black tracking-tight sm:text-4xl">Sign in to your account</h2><p class="mt-3 text-sm leading-6 text-slate-500">Enter your credentials to continue to the event portal.</p></header>
 
                 <form class="grid gap-5" method="POST" action="{{ route('login') }}">@csrf

@@ -1,10 +1,10 @@
 @props(['type' => 'info', 'title'])
 @php
     $tone = match ($type) {
-        'warning' => 'border-amber-200 bg-amber-50 text-amber-900',
-        'success' => 'border-emerald-200 bg-emerald-50 text-emerald-900',
-        'error' => 'border-red-200 bg-red-50 text-red-900',
-        default => 'border-blue-200 bg-blue-50 text-blue-900',
+        'warning' => 'border-[#FF6B2C]/25 bg-[#FF6B2C]/8 text-[#121017]',
+        'success' => 'border-[#397565]/25 bg-[#C6F24E]/25 text-[#121017]',
+        'error' => 'border-[#FF6B2C]/25 bg-[#FF6B2C]/8 text-[#121017]',
+        default => 'border-[#2F3AE0]/20 bg-[#2F3AE0]/8 text-[#121017]',
     };
 @endphp
 

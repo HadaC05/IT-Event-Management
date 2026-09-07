@@ -7,7 +7,7 @@
 
 <div class="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1.35fr)_minmax(300px,.65fr)]">
     <section class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-        <header class="border-b border-slate-100 px-6 py-5"><h2 class="text-lg font-extrabold tracking-tight text-[#141e46]">Event information</h2><p class="mt-1 text-xs text-slate-500">Basic details attendees will use to identify the event.</p></header>
+        <header class="border-b border-slate-100 px-6 py-5"><h2 class="text-lg font-extrabold tracking-tight text-[#121017]">Event information</h2><p class="mt-1 text-xs text-slate-500">Basic details attendees will use to identify the event.</p></header>
         <div class="grid grid-cols-1 gap-5 p-6 sm:grid-cols-2">
             <label class="grid gap-2 sm:col-span-2">
                 <span class="text-sm font-bold text-slate-700">Event name</span>
@@ -42,7 +42,7 @@
 
     <div class="grid content-start gap-5 md:grid-cols-2 xl:grid-cols-1">
         <section class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-            <header class="border-b border-slate-100 px-6 py-5"><h2 class="text-lg font-extrabold tracking-tight text-[#141e46]">Schedule</h2><p class="mt-1 text-xs text-slate-500">Set the complete event duration.</p></header>
+            <header class="border-b border-slate-100 px-6 py-5"><h2 class="text-lg font-extrabold tracking-tight text-[#121017]">Schedule</h2><p class="mt-1 text-xs text-slate-500">Set the complete event duration.</p></header>
             <div class="grid grid-cols-1 gap-4 p-6 sm:grid-cols-2">
                 <label class="grid gap-2"><span class="text-xs font-bold text-slate-700">Start date</span><input class="{{ $field }} {{ $errors->has('start_date') ? $invalid : '' }}" name="start_date" type="date" value="{{ old('start_date', $editing ? $event->start_at->format('Y-m-d') : '') }}" required><x-form-error name="start_date" /></label>
                 <label class="grid gap-2"><span class="text-xs font-bold text-slate-700">Start time</span><input class="{{ $field }} {{ $errors->has('start_time') ? $invalid : '' }}" name="start_time" type="time" value="{{ old('start_time', $editing ? $event->start_at->format('H:i') : '') }}" required><x-form-error name="start_time" /></label>
@@ -52,7 +52,7 @@
         </section>
 
         <section class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-            <header class="border-b border-slate-100 px-6 py-5"><h2 class="text-lg font-extrabold tracking-tight text-[#141e46]">Event poster</h2><p class="mt-1 text-xs text-slate-500">JPG, PNG, or WebP up to 5 MB.</p></header>
+            <header class="border-b border-slate-100 px-6 py-5"><h2 class="text-lg font-extrabold tracking-tight text-[#121017]">Event poster</h2><p class="mt-1 text-xs text-slate-500">JPG, PNG, or WebP up to 5 MB.</p></header>
             <div class="p-6">
                 <label class="block cursor-pointer">
                     <input class="sr-only" name="poster" type="file" accept="image/jpeg,image/png,image/webp" data-poster-input>
@@ -71,12 +71,12 @@
     </div>
 
     <section class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm xl:col-span-2">
-        <header class="border-b border-slate-100 px-6 py-5"><h2 class="text-lg font-extrabold tracking-tight text-[#141e46]">Participants</h2><p class="mt-1 text-xs text-slate-500">Define who is expected so attendance totals stay meaningful.</p></header>
+        <header class="border-b border-slate-100 px-6 py-5"><h2 class="text-lg font-extrabold tracking-tight text-[#121017]">Participants</h2><p class="mt-1 text-xs text-slate-500">Define who is expected so attendance totals stay meaningful.</p></header>
         <div class="p-6">@include('adviser.events._audience')</div>
     </section>
 
     <section class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm xl:col-span-2">
-        <header class="border-b border-slate-100 px-6 py-5"><h2 class="text-lg font-extrabold tracking-tight text-[#141e46]">Event-in-Charge</h2><p class="mt-1 text-xs text-slate-500">Assign active SBO or Faculty members. You can change this later.</p></header>
+        <header class="border-b border-slate-100 px-6 py-5"><h2 class="text-lg font-extrabold tracking-tight text-[#121017]">Event-in-Charge</h2><p class="mt-1 text-xs text-slate-500">Assign active SBO or Faculty members. You can change this later.</p></header>
         <div class="p-6">
             <x-form-error name="assigned_user_ids" class="mb-3 block" />
             <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">

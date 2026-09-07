@@ -205,7 +205,7 @@ class AdviserUserManagementTest extends TestCase
             ->assertOk()
             ->assertSee('Total Users')
             ->assertSee('Upcoming Events')
-            ->assertSee('IT Events');
+            ->assertSee('CITE');
     }
 
     public function test_deactivated_user_with_an_existing_session_loses_access(): void

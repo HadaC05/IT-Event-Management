@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\ValidationException;
@@ -15,7 +16,7 @@ class AuthenticatedSessionController extends Controller
         return redirect()->route('home', ['login' => 1]);
     }
 
-    public function store(Request $request): RedirectResponse
+    public function store(Request $request): RedirectResponse|JsonResponse
     {
         $validated = $request->validate([
             'login' => ['required', 'string', 'max:255'],
@@ -45,6 +46,13 @@ class AuthenticatedSessionController extends Controller
         }
 
         $request->session()->regenerate();
+
+        if ($request->expectsJson()) {
+            return response()->json([
+                'message' => 'Welcome back, '.Auth::user()->first_name.'. You are now signed in.',
+                'redirect_url' => route('dashboard'),
+            ]);
+        }
 
         return redirect()->intended(route('dashboard'));
     }

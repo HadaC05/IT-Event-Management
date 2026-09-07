@@ -11,14 +11,14 @@
         </div>
         <div class="flex flex-col items-start justify-center p-6 sm:p-10 lg:p-12">
             <div class="flex flex-wrap gap-2">
-                <span class="rounded-full px-2.5 py-1 text-[10px] font-extrabold {{ match($event->schedule_state) { 'ongoing' => 'bg-amber-100 text-amber-800', 'completed' => 'bg-slate-100 text-slate-600', default => 'bg-emerald-100 text-emerald-800' } }}">{{ ucfirst($event->schedule_state) }}</span>
-                <span class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-bold {{ $event->status?->label === 'inactive' ? 'bg-red-50 text-red-700' : 'bg-emerald-50 text-emerald-700' }}"><i class="h-1.5 w-1.5 rounded-full {{ $event->status?->label === 'inactive' ? 'bg-red-400' : 'bg-emerald-500' }}"></i>{{ $event->status?->label === 'inactive' ? 'Deactivated' : 'Active' }}</span>
+                <span class="rounded-full px-2.5 py-1 text-[10px] font-extrabold {{ match($event->schedule_state) { 'ongoing' => 'bg-[#C6F24E]/35 text-[#397565]', 'completed' => 'bg-[#121017]/6 text-[#121017]/55', default => 'bg-[#2F3AE0]/8 text-[#2F3AE0]' } }}">{{ ucfirst($event->schedule_state) }}</span>
+                <span class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-bold {{ $event->status?->label === 'inactive' ? 'bg-[#FF6B2C]/10 text-[#FF6B2C]' : 'bg-[#C6F24E]/35 text-[#397565]' }}"><i class="h-1.5 w-1.5 rounded-full {{ $event->status?->label === 'inactive' ? 'bg-[#FF6B2C]' : 'bg-[#C6F24E]' }}"></i>{{ $event->status?->label === 'inactive' ? 'Deactivated' : 'Active' }}</span>
             </div>
-            <h1 class="mt-4 text-3xl font-black leading-tight tracking-tight text-[#141e46] sm:text-4xl xl:text-5xl">{{ $event->title }}</h1>
+            <h1 class="mt-4 text-3xl font-black leading-tight tracking-tight text-[#121017] sm:text-4xl xl:text-5xl">{{ $event->title }}</h1>
             <p class="mt-3 max-w-3xl whitespace-pre-line text-sm leading-6 text-slate-500">{{ $event->description ?: 'No event description has been added.' }}</p>
             <div class="mt-6 flex flex-wrap gap-2">
                 <a class="inline-flex min-h-11 items-center justify-center rounded-xl border border-slate-200 bg-white px-5 text-sm font-bold text-slate-600 hover:border-emerald-200 hover:text-emerald-700" href="{{ route('adviser.scores.show', $event) }}">Manage Scores</a>
-                <a class="inline-flex min-h-11 items-center justify-center rounded-xl bg-[#141e46] px-5 text-sm font-bold text-white shadow-lg shadow-slate-900/10 hover:bg-slate-800" href="{{ route('adviser.attendance.show', $event) }}">View Attendance</a>
+                <a class="inline-flex min-h-11 items-center justify-center rounded-xl bg-[#2F3AE0] px-5 text-sm font-bold text-white shadow-lg shadow-[#2F3AE0]/15 transition hover:bg-[#2F3AE0]/90" href="{{ route('adviser.attendance.show', $event) }}">View Attendance</a>
                 <a class="inline-flex min-h-11 items-center justify-center rounded-xl bg-emerald-600 px-5 text-sm font-bold text-white shadow-lg shadow-emerald-600/15 hover:bg-emerald-700" href="{{ route('adviser.events.edit', $event) }}">Edit Event</a>
                 <form method="POST" action="{{ route('adviser.events.destroy', $event) }}" data-confirm-title="Archive event?" data-confirm-message="{{ $event->title }} will be hidden from active events, but its details and assignments will be preserved." data-confirm-action="Archive">@csrf @method('DELETE')<button class="inline-flex min-h-11 items-center justify-center rounded-xl border border-red-200 bg-white px-5 text-sm font-bold text-red-600 hover:bg-red-50" type="submit" data-loading-text="Archiving…">Archive</button></form>
             </div>
@@ -31,7 +31,7 @@
 
     <div class="grid grid-cols-1 gap-5 xl:grid-cols-[.8fr_1.2fr]">
         <section class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-            <header class="border-b border-slate-100 px-6 py-5"><h2 class="text-lg font-extrabold tracking-tight text-[#141e46]">Event details</h2><p class="mt-1 text-xs text-slate-500">Schedule and venue information</p></header>
+            <header class="border-b border-slate-100 px-6 py-5"><h2 class="text-lg font-extrabold tracking-tight text-[#121017]">Event details</h2><p class="mt-1 text-xs text-slate-500">Schedule and venue information</p></header>
             <dl class="px-6">
                 <div class="grid grid-cols-[90px_1fr] gap-3 border-b border-slate-100 py-5"><dt class="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">Starts</dt><dd class="grid gap-0.5 text-xs font-bold text-slate-700">{{ $event->start_at->format('l, F j, Y') }}<span class="font-medium text-slate-400">{{ $event->start_at->format('g:i A') }}</span></dd></div>
                 <div class="grid grid-cols-[90px_1fr] gap-3 border-b border-slate-100 py-5"><dt class="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">Ends</dt><dd class="grid gap-0.5 text-xs font-bold text-slate-700">{{ $event->end_at->format('l, F j, Y') }}<span class="font-medium text-slate-400">{{ $event->end_at->format('g:i A') }}</span></dd></div>
@@ -42,7 +42,7 @@
         </section>
 
         <section class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-            <header class="border-b border-slate-100 px-6 py-5"><h2 class="text-lg font-extrabold tracking-tight text-[#141e46]">Event-in-Charge</h2><p class="mt-1 text-xs text-slate-500">SBO and Faculty responsible for this event</p></header>
+            <header class="border-b border-slate-100 px-6 py-5"><h2 class="text-lg font-extrabold tracking-tight text-[#121017]">Event-in-Charge</h2><p class="mt-1 text-xs text-slate-500">SBO and Faculty responsible for this event</p></header>
             <div class="px-6">
                 @forelse($event->assignedUsers as $user)
                     <div class="flex min-h-16 items-center gap-3 border-b border-slate-100 py-3" data-assignment-item>

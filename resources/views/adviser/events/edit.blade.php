@@ -4,7 +4,7 @@
 
 @section('content')
     <header class="mb-8 flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
-        <div><p class="mb-2 text-xs font-extrabold uppercase tracking-[.14em] text-emerald-700">Event Management</p><h1 class="text-3xl font-extrabold tracking-tight text-[#141e46] sm:text-4xl">Edit Event</h1><p class="mt-2 text-sm text-slate-500">Update {{ $event->title }} without affecting its related records.</p></div>
+        <div><p class="mb-2 text-xs font-extrabold uppercase tracking-[.14em] text-emerald-700">Event Management</p><h1 class="text-3xl font-extrabold tracking-tight text-[#121017] sm:text-4xl">Edit Event</h1><p class="mt-2 text-sm text-slate-500">Update {{ $event->title }} without affecting its related records.</p></div>
         <a class="inline-flex min-h-11 items-center justify-center rounded-xl border border-slate-200 bg-white px-5 text-sm font-bold text-slate-600 transition hover:border-slate-300 hover:bg-slate-50" href="{{ route('adviser.events.show', $event) }}">Cancel</a>
     </header>
 

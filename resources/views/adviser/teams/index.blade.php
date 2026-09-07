@@ -6,7 +6,7 @@
     <header class="mb-8 flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
         <div>
             <p class="mb-2 text-xs font-extrabold uppercase tracking-[.14em] text-emerald-700">Community</p>
-            <h1 class="text-3xl font-extrabold tracking-tight text-[#141e46] sm:text-4xl">Tribe Management</h1>
+            <h1 class="text-3xl font-extrabold tracking-tight text-[#121017] sm:text-4xl">Tribe Management</h1>
             <p class="mt-2 text-sm text-slate-500">Organize students into tribes for events, attendance, and scoring.</p>
         </div>
         @if($teamSummary['total'] > 0 && $teamSummary['students'] > 0)<a class="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-emerald-600 px-5 text-sm font-extrabold text-white shadow-lg shadow-emerald-600/15 transition hover:bg-emerald-700" href="{{ route('adviser.teams.create') }}"><span class="text-xl font-normal" aria-hidden="true">+</span>Create Tribe</a>@endif
@@ -17,13 +17,13 @@
         <div class="grid divide-y divide-slate-100 sm:grid-cols-2 sm:divide-x sm:divide-y-0 xl:grid-cols-4">
             @foreach ([['total', 'Total Tribes'], ['active', 'Active Tribes'], ['students', 'Active Students'], ['assigned', 'Assigned to Tribes']] as [$key, $label])
                 <div class="flex items-center justify-between gap-4 px-5 py-4 xl:block xl:p-5">
-                    <span class="inline-flex items-center gap-2 text-xs font-semibold text-slate-500">@if ($key === 'active')<i class="h-2 w-2 rounded-full bg-emerald-500" aria-hidden="true"></i>@endif{{ $label }}</span>
-                    <strong class="text-2xl font-extrabold text-[#141e46] xl:mt-2 xl:block">{{ number_format($teamSummary[$key]) }}</strong>
+                    <span class="inline-flex items-center gap-2 text-xs font-semibold text-slate-500">@if ($key === 'active')<i class="h-2 w-2 rounded-full bg-[#C6F24E] ring-2 ring-[#397565]/15" aria-hidden="true"></i>@endif{{ $label }}</span>
+                    <strong class="text-2xl font-extrabold text-[#121017] xl:mt-2 xl:block">{{ number_format($teamSummary[$key]) }}</strong>
                 </div>
             @endforeach
         </div>
         <div class="flex flex-col gap-3 border-t px-5 py-4 sm:flex-row sm:items-center sm:justify-between {{ $teamSummary['unassigned'] > 0 ? 'border-amber-200 bg-amber-50/70' : 'border-slate-100 bg-slate-50/60' }}">
-            <div class="flex items-center gap-3"><span class="grid h-9 w-9 place-items-center rounded-full {{ $teamSummary['unassigned'] > 0 ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700' }}"><svg class="h-4 w-4 fill-none stroke-current" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 8v4m0 4h.01M10.3 3.7 2.6 17a2 2 0 0 0 1.7 3h15.4a2 2 0 0 0 1.7-3L13.7 3.7a2 2 0 0 0-3.4 0Z"/></svg></span><div><strong class="text-sm text-[#141e46]">{{ number_format($teamSummary['unassigned']) }} {{ Str::plural('student', $teamSummary['unassigned']) }} not yet assigned</strong><p class="mt-0.5 text-[11px] text-slate-500">{{ $teamSummary['unassigned'] > 0 ? 'Review active students and add them to a tribe.' : 'Every active student currently belongs to a tribe.' }}</p></div></div>
+            <div class="flex items-center gap-3"><span class="grid h-9 w-9 place-items-center rounded-full {{ $teamSummary['unassigned'] > 0 ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700' }}"><svg class="h-4 w-4 fill-none stroke-current" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 8v4m0 4h.01M10.3 3.7 2.6 17a2 2 0 0 0 1.7 3h15.4a2 2 0 0 0 1.7-3L13.7 3.7a2 2 0 0 0-3.4 0Z"/></svg></span><div><strong class="text-sm text-[#121017]">{{ number_format($teamSummary['unassigned']) }} {{ Str::plural('student', $teamSummary['unassigned']) }} not yet assigned</strong><p class="mt-0.5 text-[11px] text-slate-500">{{ $teamSummary['unassigned'] > 0 ? 'Review active students and add them to a tribe.' : 'Every active student currently belongs to a tribe.' }}</p></div></div>
             @if($teamSummary['students'] > 0)<a class="text-xs font-extrabold {{ $teamSummary['unassigned'] > 0 ? 'text-amber-800' : 'text-emerald-700' }}" href="{{ route('adviser.users.index', ['role' => 'Student', 'status' => 'active']) }}">View students <span aria-hidden="true">→</span></a>@endif
         </div>
     </section>
@@ -31,7 +31,7 @@
     <section class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
         <header class="border-b border-slate-100 px-5 py-5 sm:px-6">
             <div class="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
-                <div><h2 class="text-lg font-extrabold tracking-tight text-[#141e46]">Tribe Directory</h2><p class="mt-1 text-xs text-slate-500">{{ number_format($teams->total()) }} {{ Str::plural('tribe', $teams->total()) }} found</p></div>
+                <div><h2 class="text-lg font-extrabold tracking-tight text-[#121017]">Tribe Directory</h2><p class="mt-1 text-xs text-slate-500">{{ number_format($teams->total()) }} {{ Str::plural('tribe', $teams->total()) }} found</p></div>
                 @if($teamSummary['total'] > 0 && request()->anyFilled(['search', 'school_year', 'status']))<a class="mt-2 text-xs font-extrabold text-emerald-700 sm:mt-0" href="{{ route('adviser.teams.index') }}">Clear all filters</a>@endif
             </div>
 
@@ -51,20 +51,20 @@
                         <header class="flex items-start justify-between gap-4">
                             <div class="flex min-w-0 items-center gap-3">
                                 <span class="grid h-11 w-11 shrink-0 place-items-center rounded-xl text-sm font-black text-white shadow-sm" style="background-color: {{ $team->color }}">{{ strtoupper(substr($team->name, 0, 2)) }}</span>
-                                <div class="min-w-0"><h3 class="truncate text-base font-extrabold text-[#141e46]">{{ $team->name }}</h3><p class="mt-0.5 text-xs text-slate-400">School Year {{ $team->schoolYear->label }}</p></div>
+                                <div class="min-w-0"><h3 class="truncate text-base font-extrabold text-[#121017]">{{ $team->name }}</h3><p class="mt-0.5 text-xs text-slate-400">School Year {{ $team->schoolYear->label }}</p></div>
                             </div>
-                            <span class="inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-extrabold {{ $team->is_active ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700' }}"><i class="h-1.5 w-1.5 rounded-full {{ $team->is_active ? 'bg-emerald-500' : 'bg-rose-500' }}"></i>{{ $team->is_active ? 'Active' : 'Inactive' }}</span>
+                            <span class="inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-extrabold {{ $team->is_active ? 'bg-[#C6F24E]/35 text-[#397565]' : 'bg-[#FF6B2C]/10 text-[#FF6B2C]' }}"><i class="h-1.5 w-1.5 rounded-full {{ $team->is_active ? 'bg-[#C6F24E]' : 'bg-[#FF6B2C]' }}"></i>{{ $team->is_active ? 'Active' : 'Inactive' }}</span>
                         </header>
 
                         <div class="mt-5 grid grid-cols-2 divide-x divide-slate-100 rounded-xl bg-slate-50 px-1 py-3">
-                            <div class="px-3"><span class="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">Members</span><strong class="mt-1 block text-xl font-black text-[#141e46]">{{ number_format($team->members_count) }}</strong></div>
-                            <div class="px-4"><span class="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">Total Score</span><strong class="mt-1 block text-xl font-black text-[#141e46]">{{ number_format($team->scores_sum_points ?? 0) }} <small class="text-[10px] font-bold text-slate-400">pts</small></strong></div>
+                            <div class="px-3"><span class="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">Members</span><strong class="mt-1 block text-xl font-black text-[#121017]">{{ number_format($team->members_count) }}</strong></div>
+                            <div class="px-4"><span class="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">Total Score</span><strong class="mt-1 block text-xl font-black text-[#121017]">{{ number_format($team->scores_sum_points ?? 0) }} <small class="text-[10px] font-bold text-slate-400">pts</small></strong></div>
                         </div>
 
                         <div class="mt-5 min-h-12">
                             @if($team->members->isNotEmpty())
                                 <div class="flex items-center justify-between gap-3">
-                                    <div class="flex pl-1">@foreach($team->members->take(5) as $member)<span class="-ml-1 grid h-9 w-9 place-items-center rounded-full border-2 border-white bg-[#141e46] text-[9px] font-extrabold text-[#fff5e0]" title="{{ $member->full_name }}">{{ strtoupper(substr($member->first_name, 0, 1).substr($member->last_name, 0, 1)) }}</span>@endforeach</div>
+                                    <div class="flex pl-1">@foreach($team->members->take(5) as $member)<span class="-ml-1 grid h-9 w-9 place-items-center rounded-full border-2 border-white bg-[#121017] text-[9px] font-extrabold text-[#F3F0E9]" title="{{ $member->full_name }}">{{ strtoupper(substr($member->first_name, 0, 1).substr($member->last_name, 0, 1)) }}</span>@endforeach</div>
                                     <span class="text-xs font-semibold text-slate-400">{{ $team->members_count > 5 ? '+'.($team->members_count - 5).' more' : Str::plural('student', $team->members_count) }}</span>
                                 </div>
                             @else

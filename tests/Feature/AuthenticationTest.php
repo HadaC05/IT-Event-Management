@@ -37,6 +37,27 @@ class AuthenticationTest extends TestCase
         $this->assertAuthenticatedAs($user);
     }
 
+    public function test_ajax_login_returns_popup_message_before_portal_redirect(): void
+    {
+        $role = Role::create(['name' => 'SBO Adviser']);
+        $status = UserStatus::create(['label' => 'active']);
+        $user = User::factory()->create([
+            'username' => 'popup.user',
+            'role_id' => $role->id,
+            'status' => $status->id,
+            'password' => 'password',
+        ]);
+
+        $this->postJson('/login', [
+            'login' => 'popup.user',
+            'password' => 'password',
+        ])->assertOk()
+            ->assertJsonPath('redirect_url', route('dashboard'))
+            ->assertJsonPath('message', 'Welcome back, '.$user->first_name.'. You are now signed in.');
+
+        $this->assertAuthenticatedAs($user);
+    }
+
     public function test_inactive_user_cannot_log_in(): void
     {
         $status = UserStatus::create(['label' => 'inactive']);

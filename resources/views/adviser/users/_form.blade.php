@@ -9,7 +9,7 @@
 <input type="hidden" name="_form" value="{{ $formKey }}">
 
 <section>
-    <div class="mb-4"><h3 class="text-sm font-extrabold text-[#141e46]">Personal Information</h3><p class="mt-1 text-xs text-slate-400">Basic identity and school details.</p></div>
+    <div class="mb-4"><h3 class="text-sm font-extrabold text-[#121017]">Personal Information</h3><p class="mt-1 text-xs text-slate-400">Basic identity and school details.</p></div>
     <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <label class="grid gap-2"><span class="text-sm font-bold text-slate-700">First name</span><input class="{{ $field }} {{ $showErrors && $errors->has('first_name') ? $invalid : '' }}" name="first_name" value="{{ old('first_name', $editing ? $editingUser->first_name : '') }}" autocomplete="given-name" required>@if($showErrors)<x-form-error name="first_name" />@endif</label>
         <label class="grid gap-2"><span class="flex justify-between text-sm font-bold text-slate-700">Middle name <small class="font-medium text-slate-400">Optional</small></span><input class="{{ $field }} {{ $showErrors && $errors->has('middle_name') ? $invalid : '' }}" name="middle_name" value="{{ old('middle_name', $editing ? $editingUser->middle_name : '') }}" autocomplete="additional-name">@if($showErrors)<x-form-error name="middle_name" />@endif</label>
@@ -19,7 +19,7 @@
 </section>
 
 <section class="mt-6 border-t border-slate-100 pt-6">
-    <div class="mb-4"><h3 class="text-sm font-extrabold text-[#141e46]">Account and Access</h3><p class="mt-1 text-xs text-slate-400">Credentials, role, and system access.</p></div>
+    <div class="mb-4"><h3 class="text-sm font-extrabold text-[#121017]">Account and Access</h3><p class="mt-1 text-xs text-slate-400">Credentials, role, and system access.</p></div>
     <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <label class="grid gap-2"><span class="text-sm font-bold text-slate-700">Username</span><input class="{{ $field }} {{ $showErrors && $errors->has('username') ? $invalid : '' }}" name="username" value="{{ old('username', $editing ? $editingUser->username : '') }}" autocomplete="username" required>@if($showErrors)<x-form-error name="username" />@endif</label>
         <label class="grid gap-2"><span class="text-sm font-bold text-slate-700">Email address</span><input class="{{ $field }} {{ $showErrors && $errors->has('email') ? $invalid : '' }}" name="email" type="email" value="{{ old('email', $editing ? $editingUser->email : '') }}" autocomplete="email" required>@if($showErrors)<x-form-error name="email" />@endif</label>

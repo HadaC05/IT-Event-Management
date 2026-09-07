@@ -7,12 +7,12 @@
     $isMultiDay = filled($oldStartDate) && filled($oldEndDate) && $oldStartDate !== $oldEndDate;
 @endphp
 
-<dialog class="m-auto max-h-[calc(100vh_-_2rem)] w-[min(820px,calc(100%_-_2rem))] overflow-y-auto rounded-2xl border-0 bg-white p-0 shadow-2xl backdrop:bg-[#141e46]/60 backdrop:backdrop-blur-[2px]" id="create-event-dialog">
+<dialog class="m-auto max-h-[calc(100vh_-_2rem)] w-[min(820px,calc(100%_-_2rem))] overflow-y-auto rounded-2xl border-0 bg-white p-0 shadow-2xl backdrop:bg-[#121017]/60 backdrop:backdrop-blur-[2px]" id="create-event-dialog">
     <form method="POST" action="{{ route('adviser.events.store') }}" enctype="multipart/form-data" class="p-5 sm:p-7" data-create-event-form>
         @csrf
         <input type="hidden" name="_form" value="create-event">
         <header class="mb-6 flex items-start justify-between gap-5">
-            <div><p class="mb-2 text-[10px] font-extrabold uppercase tracking-wider text-emerald-700">Quick create</p><h2 class="text-2xl font-extrabold tracking-tight text-[#141e46]">Create Event</h2><p class="mt-1.5 text-xs text-slate-500">Add the essentials now. Optional details can be added whenever you need them.</p></div>
+            <div><p class="mb-2 text-[10px] font-extrabold uppercase tracking-wider text-emerald-700">Quick create</p><h2 class="text-2xl font-extrabold tracking-tight text-[#121017]">Create Event</h2><p class="mt-1.5 text-xs text-slate-500">Add the essentials now. Optional details can be added whenever you need them.</p></div>
             <button class="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-slate-100 text-xl text-slate-500 hover:bg-slate-200" type="button" data-dialog-close aria-label="Close">&times;</button>
         </header>
 
@@ -35,12 +35,12 @@
             <label class="grid gap-2"><span class="text-xs font-bold text-slate-700">Location <i class="font-normal text-rose-500">*</i></span><input class="{{ $field }} {{ $errors->has('location') ? $invalid : '' }}" name="location" value="{{ old('location') }}" list="recent-event-locations" placeholder="e.g. University Gymnasium" required data-location data-event-required><datalist id="recent-event-locations">@foreach($recentLocations as $location)<option value="{{ $location }}"></option>@endforeach</datalist><x-form-error name="location" />@if($recentLocations->isNotEmpty())<small class="text-xs text-slate-400">Recent: {{ $recentLocations->join(' · ') }}</small>@endif</label>
 
             <section class="border-t border-slate-100 pt-5">
-                <div class="mb-3"><h3 class="text-sm font-extrabold text-[#141e46]">Participants</h3><p class="mt-1 text-xs text-slate-500">Define who is expected so attendance has a meaningful total.</p></div>
+                <div class="mb-3"><h3 class="text-sm font-extrabold text-[#121017]">Participants</h3><p class="mt-1 text-xs text-slate-500">Define who is expected so attendance has a meaningful total.</p></div>
                 @include('adviser.events._audience')
             </section>
 
             <section class="border-t border-slate-100 pt-5">
-                <div class="mb-2 flex items-center justify-between gap-4"><div><h3 class="text-sm font-extrabold text-[#141e46]">Event-in-Charge</h3><p class="mt-1 text-xs text-slate-500">The creator is suggested automatically and can be changed.</p></div></div>
+                <div class="mb-2 flex items-center justify-between gap-4"><div><h3 class="text-sm font-extrabold text-[#121017]">Event-in-Charge</h3><p class="mt-1 text-xs text-slate-500">The creator is suggested automatically and can be changed.</p></div></div>
                 @if($assignableUsers->isEmpty())
                     <div class="flex flex-col gap-3 rounded-xl bg-amber-50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"><p class="text-xs text-amber-800"><strong>No eligible users available.</strong> You can assign someone later.</p><a class="shrink-0 text-xs font-extrabold text-amber-900" href="{{ route('adviser.users.index') }}">Manage eligible users →</a></div>
                 @else

@@ -2,19 +2,17 @@
     $editingTeam = $team ?? null;
     $selectedMembers = collect(old('member_ids', $editingTeam?->members->pluck('id')->all() ?? []))->map(fn ($id) => (int) $id);
     $selectedSchoolYear = old('school_year_id', $editingTeam?->school_year_id ?? $schoolYears->first()?->id);
-    $submittedColor = old('color', $editingTeam?->color ?? '#41B06E');
-    $selectedColor = is_string($submittedColor) && preg_match('/^#[0-9A-Fa-f]{6}$/', $submittedColor) ? strtoupper($submittedColor) : '#41B06E';
+    $submittedColor = old('color', $editingTeam?->color ?? '#397565');
+    $selectedColor = is_string($submittedColor) && preg_match('/^#[0-9A-Fa-f]{6}$/', $submittedColor) ? strtoupper($submittedColor) : '#397565';
     $palette = [
-        ['Green', '#41B06E'],
-        ['Blue', '#2563EB'],
-        ['Purple', '#7C3AED'],
-        ['Orange', '#EA580C'],
-        ['Red', '#DC2626'],
-        ['Teal', '#0F766E'],
-        ['Gold', '#CA8A04'],
+        ['Green', '#397565'],
+        ['Cobalt', '#2F3AE0'],
+        ['Lime', '#C6F24E'],
+        ['Tangerine', '#FF6B2C'],
+        ['Ink', '#121017'],
     ];
     $paletteValues = collect($palette)->pluck(1);
-    $customColor = $paletteValues->contains($selectedColor) ? '#64748B' : $selectedColor;
+    $customColor = $paletteValues->contains($selectedColor) ? '#397565' : $selectedColor;
     $isCustomColor = ! $paletteValues->contains($selectedColor);
     $identityReady = trim((string) old('name', $editingTeam?->name)) !== '' && filled($selectedSchoolYear);
     $inputClass = 'h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm outline-none transition placeholder:text-slate-400 focus:border-emerald-500 focus:bg-white focus:ring-4 focus:ring-emerald-500/10';
@@ -23,8 +21,8 @@
 <div class="space-y-6" data-tribe-workflow>
     <section class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
         <header class="flex items-start gap-3 border-b border-slate-100 px-5 py-5 sm:px-6">
-            <span class="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-[#141e46] text-xs font-black text-white">1</span>
-            <div><h2 class="text-lg font-extrabold tracking-tight text-[#141e46]">Tribe Details</h2><p class="mt-1 text-xs text-slate-500">Describe the tribe and choose how it will appear across the system.</p></div>
+            <span class="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-[#121017] text-xs font-black text-white">1</span>
+            <div><h2 class="text-lg font-extrabold tracking-tight text-[#121017]">Tribe Details</h2><p class="mt-1 text-xs text-slate-500">Describe the tribe and choose how it will appear across the system.</p></div>
         </header>
 
         <div class="grid gap-8 p-5 sm:p-6 lg:grid-cols-[minmax(0,1fr)_360px] lg:items-start">
@@ -43,7 +41,7 @@
                         @foreach($schoolYears as $schoolYear)<option value="{{ $schoolYear->id }}" @selected((string) $selectedSchoolYear === (string) $schoolYear->id)>SY {{ $schoolYear->label }}</option>@endforeach
                     </select>
                     <x-form-error name="school_year_id" />
-                    @if($schoolYears->count() === 1)<small class="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-700"><span class="h-1.5 w-1.5 rounded-full bg-emerald-500"></span>Current school year selected automatically</small>@endif
+                    @if($schoolYears->count() === 1)<small class="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-700"><span class="h-1.5 w-1.5 rounded-full bg-[#C6F24E] ring-2 ring-[#397565]/15"></span>Current school year selected automatically</small>@endif
                 </label>
 
                 <fieldset>
@@ -54,13 +52,13 @@
                         @foreach($palette as [$colorName, $colorValue])
                             <label class="cursor-pointer text-center">
                                 <input class="peer sr-only" type="radio" name="color_palette" value="{{ $colorValue }}" @checked($selectedColor === $colorValue) data-color-option>
-                                <span class="grid h-11 w-11 place-items-center rounded-full border-4 border-white shadow-sm ring-1 ring-slate-200 transition peer-checked:scale-105 peer-checked:ring-2 peer-checked:ring-[#141e46] peer-checked:[&>svg]:opacity-100" style="background-color: {{ $colorValue }}"><svg class="h-4 w-4 stroke-white opacity-0 transition" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m5 12 4 4L19 6"/></svg></span>
+                                <span class="grid h-11 w-11 place-items-center rounded-full border-4 border-white shadow-sm ring-1 ring-slate-200 transition peer-checked:scale-105 peer-checked:ring-2 peer-checked:ring-[#121017] peer-checked:[&>svg]:opacity-100" style="background-color: {{ $colorValue }}"><svg class="h-4 w-4 stroke-white opacity-0 transition" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m5 12 4 4L19 6"/></svg></span>
                                 <span class="mt-1.5 block text-[10px] font-bold text-slate-500">{{ $colorName }}</span>
                             </label>
                         @endforeach
                         <label class="cursor-pointer text-center">
                             <input class="peer sr-only" type="radio" name="color_palette" value="custom" @checked($isCustomColor) data-custom-option>
-                            <span class="relative grid h-11 w-11 place-items-center overflow-hidden rounded-full border-4 border-white shadow-sm ring-1 ring-slate-200 transition peer-checked:scale-105 peer-checked:ring-2 peer-checked:ring-[#141e46]">
+                            <span class="relative grid h-11 w-11 place-items-center overflow-hidden rounded-full border-4 border-white shadow-sm ring-1 ring-slate-200 transition peer-checked:scale-105 peer-checked:ring-2 peer-checked:ring-[#121017]">
                                 <input class="absolute inset-[-8px] h-16 w-16 cursor-pointer border-0 p-0" type="color" value="{{ $customColor }}" aria-label="Custom tribe color" data-custom-color>
                             </span>
                             <span class="mt-1.5 block text-[10px] font-bold text-slate-500">Custom</span>
@@ -77,9 +75,9 @@
                     <div class="p-5">
                         <div class="flex items-center gap-3">
                             <span class="grid h-12 w-12 shrink-0 place-items-center rounded-xl text-sm font-black text-white shadow-sm transition-colors" style="background-color: {{ $selectedColor }}" data-preview-badge>{{ strtoupper(substr(old('name', $editingTeam?->name) ?: 'TR', 0, 2)) }}</span>
-                            <div class="min-w-0"><strong class="block truncate text-base text-[#141e46]" data-preview-name>{{ old('name', $editingTeam?->name) ?: 'Your tribe' }}</strong><span class="mt-0.5 block text-xs text-slate-400" data-preview-year>{{ $schoolYears->firstWhere('id', (int) $selectedSchoolYear)?->label ? 'School Year '.$schoolYears->firstWhere('id', (int) $selectedSchoolYear)->label : 'Choose a school year' }}</span></div>
+                            <div class="min-w-0"><strong class="block truncate text-base text-[#121017]" data-preview-name>{{ old('name', $editingTeam?->name) ?: 'Your tribe' }}</strong><span class="mt-0.5 block text-xs text-slate-400" data-preview-year>{{ $schoolYears->firstWhere('id', (int) $selectedSchoolYear)?->label ? 'School Year '.$schoolYears->firstWhere('id', (int) $selectedSchoolYear)->label : 'Choose a school year' }}</span></div>
                         </div>
-                        <div class="mt-5 flex items-center justify-between border-t border-slate-100 pt-4"><span class="text-xs font-semibold text-slate-500">Student members</span><strong class="text-sm text-[#141e46]"><span data-preview-members>{{ $selectedMembers->count() }}</span> <span data-preview-member-label>{{ Str::plural('member', $selectedMembers->count()) }}</span></strong></div>
+                        <div class="mt-5 flex items-center justify-between border-t border-slate-100 pt-4"><span class="text-xs font-semibold text-slate-500">Student members</span><strong class="text-sm text-[#121017]"><span data-preview-members>{{ $selectedMembers->count() }}</span> <span data-preview-member-label>{{ Str::plural('member', $selectedMembers->count()) }}</span></strong></div>
                     </div>
                 </div>
                 <p class="mt-3 text-xs leading-5 text-slate-400">This identity will help advisers and students recognize the tribe throughout the application.</p>
@@ -89,7 +87,7 @@
 
     <section class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
         <header class="flex items-start justify-between gap-4 border-b border-slate-100 px-5 py-5 sm:px-6">
-            <div class="flex items-start gap-3"><span class="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-[#141e46] text-xs font-black text-white">2</span><div><h2 class="text-lg font-extrabold tracking-tight text-[#141e46]">Choose Members</h2><p class="mt-1 text-xs text-slate-500">Select the active students who belong to this tribe.</p></div></div>
+            <div class="flex items-start gap-3"><span class="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-[#121017] text-xs font-black text-white">2</span><div><h2 class="text-lg font-extrabold tracking-tight text-[#121017]">Choose Members</h2><p class="mt-1 text-xs text-slate-500">Select the active students who belong to this tribe.</p></div></div>
             @if($students->isNotEmpty())<span class="inline-flex h-8 shrink-0 items-center rounded-full bg-emerald-50 px-3 text-xs font-extrabold text-emerald-700"><span data-selected-count>{{ $selectedMembers->count() }}</span>&nbsp;selected</span>@endif
         </header>
 
@@ -97,8 +95,8 @@
 
         @if($students->isEmpty())
             <div class="flex flex-col gap-5 px-5 py-7 sm:flex-row sm:items-center sm:justify-between sm:px-6">
-                <div class="flex items-start gap-4"><span class="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-amber-50 text-amber-700"><svg class="h-5 w-5 fill-none stroke-current" viewBox="0 0 24 24" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm10-2v6m-3-3h6"/></svg></span><div><strong class="text-sm text-[#141e46]">No active students are available</strong><p class="mt-1 max-w-xl text-xs leading-5 text-slate-500">Add new student accounts or activate existing ones before building this tribe’s roster.</p></div></div>
-                <a class="inline-flex min-h-10 shrink-0 items-center justify-center rounded-xl bg-[#141e46] px-4 text-xs font-extrabold text-white transition hover:bg-slate-800" href="{{ route('adviser.users.index', ['role' => 'Student']) }}">Go to User Management</a>
+                <div class="flex items-start gap-4"><span class="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-amber-50 text-amber-700"><svg class="h-5 w-5 fill-none stroke-current" viewBox="0 0 24 24" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm10-2v6m-3-3h6"/></svg></span><div><strong class="text-sm text-[#121017]">No active students are available</strong><p class="mt-1 max-w-xl text-xs leading-5 text-slate-500">Add new student accounts or activate existing ones before building this tribe’s roster.</p></div></div>
+                <a class="inline-flex min-h-10 shrink-0 items-center justify-center rounded-xl bg-[#2F3AE0] px-4 text-xs font-extrabold text-white transition hover:bg-[#2F3AE0]/90" href="{{ route('adviser.users.index', ['role' => 'Student']) }}">Go to User Management</a>
             </div>
         @else
             <div class="p-5 sm:p-6">
@@ -112,7 +110,7 @@
                         @endphp
                         <label class="group flex cursor-pointer items-center gap-3 rounded-xl border border-slate-200 px-3.5 py-3 transition has-[:checked]:border-emerald-300 has-[:checked]:bg-emerald-50/60 hover:border-slate-300" data-member-item data-search="{{ $searchValue }}">
                             <input class="h-4 w-4 shrink-0 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500" type="checkbox" name="member_ids[]" value="{{ $student->id }}" @checked($selectedMembers->contains($student->id)) data-member-checkbox>
-                            <span class="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[#141e46] text-[9px] font-extrabold text-[#fff5e0]">{{ strtoupper(substr($student->first_name, 0, 1).substr($student->last_name, 0, 1)) }}</span>
+                            <span class="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[#121017] text-[9px] font-extrabold text-[#F3F0E9]">{{ strtoupper(substr($student->first_name, 0, 1).substr($student->last_name, 0, 1)) }}</span>
                             <span class="grid min-w-0 flex-1 gap-0.5"><strong class="truncate text-sm text-slate-700">{{ $student->full_name }}</strong><small class="truncate text-[11px] text-slate-400">{{ $student->id_number ?: 'No student ID' }}@if($student->yearLevel) · {{ $student->yearLevel->label }}@endif</small></span>
                             @if($otherTeams->isNotEmpty())<span class="hidden max-w-36 text-right text-[10px] font-semibold text-slate-400 sm:block">{{ $otherTeams->take(1)->map(fn ($team) => $team->name.' · SY '.$team->schoolYear?->label)->join() }}</span>@endif
                         </label>
