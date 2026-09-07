@@ -3,6 +3,7 @@
 use App\Http\Controllers\Adviser\AttendanceManagementController;
 use App\Http\Controllers\Adviser\EventAssignmentController;
 use App\Http\Controllers\Adviser\EventManagementController;
+use App\Http\Controllers\Adviser\ScoreManagementController;
 use App\Http\Controllers\Adviser\TeamManagementController;
 use App\Http\Controllers\Adviser\UserManagementController;
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
@@ -43,6 +44,12 @@ Route::middleware('auth')->group(function () {
             Route::get('/attendance', [AttendanceManagementController::class, 'index'])->name('attendance.index');
             Route::get('/attendance/{event}', [AttendanceManagementController::class, 'show'])->name('attendance.show');
             Route::put('/attendance/{event}', [AttendanceManagementController::class, 'update'])->name('attendance.update');
+            Route::get('/scores', [ScoreManagementController::class, 'index'])->name('scores.index');
+            Route::get('/scores/{event}', [ScoreManagementController::class, 'show'])->name('scores.show');
+            Route::put('/scores/{event}', [ScoreManagementController::class, 'update'])->name('scores.update');
+            Route::post('/scores/{event}/categories', [ScoreManagementController::class, 'storeCategory'])->name('scores.categories.store');
+            Route::put('/scores/{event}/categories/{scoreCategory}', [ScoreManagementController::class, 'updateCategory'])->name('scores.categories.update');
+            Route::delete('/scores/{event}/categories/{scoreCategory}', [ScoreManagementController::class, 'destroyCategory'])->name('scores.categories.destroy');
         });
     });
 });

@@ -74,6 +74,11 @@ class Event extends Model
         return $this->hasMany(Score::class);
     }
 
+    public function scoreCategories(): HasMany
+    {
+        return $this->hasMany(ScoreCategory::class)->orderBy('sort_order')->orderBy('id');
+    }
+
     public function activities(): HasMany
     {
         return $this->hasMany(ActivityLog::class);

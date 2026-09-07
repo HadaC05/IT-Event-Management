@@ -31,6 +31,9 @@
             <a href="{{ route('adviser.attendance.index') }}" @class(['flex min-h-12 items-center gap-3 rounded-xl px-4 text-sm font-bold transition', 'bg-[#8decb4] text-[#141e46]' => request()->routeIs('adviser.attendance.*'), 'text-[#fff5e0]/65 hover:bg-white/5 hover:text-[#fff5e0]' => !request()->routeIs('adviser.attendance.*')])>
                 <svg class="h-5 w-5 fill-none stroke-current" aria-hidden="true" viewBox="0 0 24 24"><path d="M9 11l2 2 4-4m6 3a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/></svg>Attendance
             </a>
+            <a href="{{ route('adviser.scores.index') }}" @class(['flex min-h-12 items-center gap-3 rounded-xl px-4 text-sm font-bold transition', 'bg-[#8decb4] text-[#141e46]' => request()->routeIs('adviser.scores.*'), 'text-[#fff5e0]/65 hover:bg-white/5 hover:text-[#fff5e0]' => !request()->routeIs('adviser.scores.*')])>
+                <svg class="h-5 w-5 fill-none stroke-current" aria-hidden="true" viewBox="0 0 24 24"><path d="M8 21h8M12 17v4M7 4h10v4a5 5 0 0 1-10 0V4Zm0 2H4v1a4 4 0 0 0 4 4m9-5h3v1a4 4 0 0 1-4 4"/></svg>Scores
+            </a>
         </nav>
 
         <div class="mt-auto flex items-center gap-2.5 border-t border-white/10 pt-4">

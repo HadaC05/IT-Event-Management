@@ -10,7 +10,7 @@ class Score extends Model
     protected $fillable = [
         'event_id',
         'team_id',
-        'category',
+        'score_category_id',
         'points',
         'recorded_by',
         'notes',
@@ -31,6 +31,11 @@ class Score extends Model
     public function team(): BelongsTo
     {
         return $this->belongsTo(Team::class);
+    }
+
+    public function category(): BelongsTo
+    {
+        return $this->belongsTo(ScoreCategory::class, 'score_category_id');
     }
 
     public function recorder(): BelongsTo
