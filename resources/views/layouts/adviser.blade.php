@@ -8,7 +8,7 @@
     @vite('resources/css/app.css')
     <script src="{{ asset('js/notifications.js') }}" defer></script>
 </head>
-<body class="min-h-screen bg-slate-50 font-sans text-slate-700 antialiased">
+<body class="min-h-screen @yield('body-class', 'bg-slate-50') font-sans text-slate-700 antialiased">
     <aside class="fixed inset-y-0 left-0 z-40 flex w-64 -translate-x-full flex-col bg-[#141e46] px-5 pb-5 pt-7 text-[#fff5e0] shadow-2xl transition-transform duration-200 lg:translate-x-0 lg:shadow-none" id="sidebar">
         <a class="mx-3 mb-12 inline-flex items-center gap-3 text-xl font-extrabold tracking-tight" href="{{ route('dashboard') }}">
             <span class="flex h-9 w-9 items-end gap-0.5 rounded-xl bg-[#fff5e0] p-2" aria-hidden="true"><i class="h-2 w-1.5 rounded-t bg-[#8decb4]"></i><i class="h-4 w-1.5 rounded-t bg-[#41b06e]"></i><i class="h-5 w-1.5 rounded-t bg-[#141e46]"></i></span>
@@ -31,7 +31,7 @@
             <a href="{{ route('adviser.attendance.index') }}" @class(['flex min-h-12 items-center gap-3 rounded-xl px-4 text-sm font-bold transition', 'bg-[#8decb4] text-[#141e46]' => request()->routeIs('adviser.attendance.*'), 'text-[#fff5e0]/65 hover:bg-white/5 hover:text-[#fff5e0]' => !request()->routeIs('adviser.attendance.*')])>
                 <svg class="h-5 w-5 fill-none stroke-current" aria-hidden="true" viewBox="0 0 24 24"><path d="M9 11l2 2 4-4m6 3a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/></svg>Attendance
             </a>
-            <a href="{{ route('adviser.scores.index') }}" @class(['flex min-h-12 items-center gap-3 rounded-xl px-4 text-sm font-bold transition', 'bg-[#8decb4] text-[#141e46]' => request()->routeIs('adviser.scores.*'), 'text-[#fff5e0]/65 hover:bg-white/5 hover:text-[#fff5e0]' => !request()->routeIs('adviser.scores.*')])>
+            <a href="{{ route('adviser.scores.index') }}" @class(['flex min-h-12 items-center gap-3 rounded-xl px-4 text-sm font-bold transition', 'bg-[#C6F24E] text-[#121017] shadow-lg shadow-black/10' => request()->routeIs('adviser.scores.*'), 'text-[#fff5e0]/65 hover:bg-white/5 hover:text-[#fff5e0]' => !request()->routeIs('adviser.scores.*')])>
                 <svg class="h-5 w-5 fill-none stroke-current" aria-hidden="true" viewBox="0 0 24 24"><path d="M8 21h8M12 17v4M7 4h10v4a5 5 0 0 1-10 0V4Zm0 2H4v1a4 4 0 0 0 4 4m9-5h3v1a4 4 0 0 1-4 4"/></svg>Scores
             </a>
         </nav>
