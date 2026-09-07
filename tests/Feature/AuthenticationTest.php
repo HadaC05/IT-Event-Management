@@ -12,9 +12,10 @@ class AuthenticationTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_login_page_is_available(): void
+    public function test_login_page_opens_the_homepage_modal(): void
     {
-        $this->get('/login')->assertOk()->assertSee('Sign in to your account');
+        $this->get('/login')->assertRedirect(route('home', ['login' => 1]));
+        $this->get('/?login=1')->assertOk()->assertSee('Sign in to your account');
     }
 
     public function test_user_can_log_in_with_username(): void
