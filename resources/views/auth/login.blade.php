@@ -7,16 +7,18 @@
     <title>Sign in | CITE Events</title>
     @vite('resources/css/app.css')
     <script src="{{ asset('js/notifications.js') }}" defer></script>
+    <script src="{{ asset('js/interactions.js') }}" defer></script>
 </head>
 <body class="app-shell min-h-screen bg-white font-sans text-[#121017] antialiased">
-    <main class="grid min-h-screen lg:grid-cols-[minmax(380px,.9fr)_minmax(520px,1.1fr)]">
+    <span class="route-progress" data-route-progress data-active="false" aria-hidden="true"></span>
+    <main class="grid min-h-screen lg:grid-cols-[minmax(380px,.9fr)_minmax(520px,1.1fr)]" data-page-content>
         <section class="relative hidden min-h-screen flex-col justify-between overflow-hidden bg-[#121017] px-10 py-12 text-[#F3F0E9] lg:flex xl:px-20" aria-label="CITE Events introduction">
             <div class="absolute -right-36 bottom-24 h-96 w-96 rounded-full border-[80px] border-[#C6F24E]/10"></div><div class="absolute -left-20 top-1/4 h-44 w-44 rounded-full bg-[#397565]/10"></div>
             <div class="relative z-10">
                 <a class="inline-flex items-center gap-3 text-xl font-extrabold tracking-tight" href="{{ route('home') }}"><img class="h-11 w-11 rounded-full object-contain" src="{{ asset('images/cite-logo.png') }}" alt="CITE logo"><span>CITE<span class="text-[#C6F24E]">.</span></span></a>
                 <div class="mt-[clamp(7rem,18vh,12rem)] max-w-xl"><p class="mb-4 text-xs font-extrabold uppercase tracking-[.14em] text-[#C6F24E]">Plan. Connect. Celebrate.</p><h1 class="text-5xl font-black leading-[1.03] tracking-[-.055em] xl:text-6xl">Bringing every campus event together.</h1><p class="mt-6 max-w-lg text-base leading-7 text-[#F3F0E9]/65">One organized space for the people who make our IT community thrive.</p></div>
             </div>
-            <div class="relative z-10 flex items-center gap-2 text-[10px] font-bold uppercase tracking-wide text-[#F3F0E9]/55"><span>SBO Adviser</span><i class="h-px w-4 bg-[#397565]"></i><span>SBO</span><i class="h-px w-4 bg-[#397565]"></i><span>Faculty</span><i class="h-px w-4 bg-[#397565]"></i><span>Students</span></div>
+            <div class="relative z-10 flex items-center gap-2 text-[10px] font-bold uppercase tracking-wide text-[#F3F0E9]/55"><span>SBO Adviser</span><i class="h-px w-4 bg-[#397565]"></i><span>SBO Officer</span><i class="h-px w-4 bg-[#397565]"></i><span>Faculty</span><i class="h-px w-4 bg-[#397565]"></i><span>Students</span></div>
         </section>
 
         <section class="grid min-h-screen place-items-center bg-white px-5 py-9 sm:px-8">

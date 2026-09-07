@@ -22,6 +22,10 @@ class Event extends Model
         'poster_path',
         'start_at',
         'end_at',
+        'morning_in_at',
+        'morning_out_at',
+        'afternoon_in_at',
+        'afternoon_out_at',
         'event_type_id',
         'event_status_id',
         'created_by',
@@ -32,6 +36,10 @@ class Event extends Model
         return [
             'start_at' => 'datetime',
             'end_at' => 'datetime',
+            'morning_in_at' => 'datetime',
+            'morning_out_at' => 'datetime',
+            'afternoon_in_at' => 'datetime',
+            'afternoon_out_at' => 'datetime',
         ];
     }
 
@@ -125,5 +133,15 @@ class Event extends Model
         }
 
         return 'ongoing';
+    }
+
+    public function attendanceSlots(): array
+    {
+        return collect([
+            ['key' => 'morning_in', 'label' => 'Morning time in', 'at' => $this->morning_in_at],
+            ['key' => 'morning_out', 'label' => 'Morning time out', 'at' => $this->morning_out_at],
+            ['key' => 'afternoon_in', 'label' => 'Afternoon time in', 'at' => $this->afternoon_in_at],
+            ['key' => 'afternoon_out', 'label' => 'Afternoon time out', 'at' => $this->afternoon_out_at],
+        ])->filter(fn (array $slot) => $slot['at'] !== null)->values()->all();
     }
 }

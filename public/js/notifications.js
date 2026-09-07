@@ -25,20 +25,42 @@
         const tone = toastTones[kind];
         const duration = options.duration || (kind === 'error' ? 6500 : 4200);
         const element = document.createElement('div');
-        element.className = `pointer-events-auto relative grid min-h-[72px] -translate-y-2 grid-cols-[auto_1fr_auto] items-center gap-3 overflow-hidden rounded-xl border border-l-[4px] border-[#121017]/10 ${tone.border} bg-[#F3F0E9]/95 p-3.5 opacity-0 shadow-[0_18px_50px_rgba(18,16,23,.2)] backdrop-blur-xl transition duration-200`;
+        element.className = `pointer-events-auto relative grid min-h-[72px] grid-cols-[auto_1fr_auto] items-center gap-3 overflow-hidden rounded-2xl border border-l-[4px] border-[#121017]/10 ${tone.border} bg-white/95 p-3.5 shadow-[0_18px_50px_rgba(18,16,23,.18)] backdrop-blur-xl transition duration-200 hover:-translate-y-0.5 hover:shadow-[0_22px_58px_rgba(18,16,23,.22)]`;
         element.setAttribute('role', kind === 'error' ? 'alert' : 'status');
         element.innerHTML = `<span class="grid h-9 w-9 place-items-center rounded-full ${tone.icon} [&_svg]:h-4 [&_svg]:w-4 [&_svg]:fill-none [&_svg]:stroke-current [&_svg]:stroke-[2.5]" aria-hidden="true">${icons[kind]}</span><span class="min-w-0"><strong class="block text-sm font-black tracking-[-.01em] text-[#121017]">${tone.title}</strong><span data-toast-message class="mt-0.5 block text-xs font-semibold leading-5 text-[#121017]/60"></span></span><button class="grid h-8 w-8 place-items-center rounded-lg border-0 bg-transparent text-lg text-[#121017]/35 transition hover:bg-[#121017]/6 hover:text-[#121017]" type="button" aria-label="Dismiss notification">&times;</button><span data-toast-progress class="absolute inset-x-0 bottom-0 h-1 origin-left ${tone.progress}"></span>`;
         element.querySelector('[data-toast-message]').textContent = message;
         host.appendChild(element);
 
-        requestAnimationFrame(() => element.classList.remove('opacity-0', '-translate-y-2'));
+        const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        if (!reducedMotion) {
+            element.animate([
+                { opacity: 0, transform: 'translate3d(18px,-14px,0) scale(.92)' },
+                { opacity: 1, transform: 'translate3d(-3px,2px,0) scale(1.015)', offset: .72 },
+                { opacity: 1, transform: 'translate3d(0,0,0) scale(1)' },
+            ], { duration: 440, easing: 'cubic-bezier(.2,.9,.25,1)' });
+            element.querySelector(':scope > span:first-child')?.animate([
+                { transform: 'scale(.45) rotate(-18deg)' },
+                { transform: 'scale(1.12) rotate(4deg)', offset: .7 },
+                { transform: 'scale(1) rotate(0)' },
+            ], { duration: 480, easing: 'cubic-bezier(.2,.9,.25,1)' });
+        }
         element.querySelector('[data-toast-progress]')?.animate(
             [{ transform: 'scaleX(1)' }, { transform: 'scaleX(0)' }],
             { duration, easing: 'linear', fill: 'forwards' },
         );
+        let dismissed = false;
         const dismiss = () => {
-            element.classList.add('opacity-0', '-translate-y-2');
-            window.setTimeout(() => element.remove(), 180);
+            if (dismissed) return;
+            dismissed = true;
+            if (reducedMotion) {
+                element.remove();
+                return;
+            }
+            const exit = element.animate([
+                { opacity: 1, transform: 'translate3d(0,0,0) scale(1)' },
+                { opacity: 0, transform: 'translate3d(24px,-7px,0) scale(.94)' },
+            ], { duration: 240, easing: 'cubic-bezier(.4,0,1,1)', fill: 'forwards' });
+            exit.finished.then(() => element.remove()).catch(() => element.remove());
         };
         element.querySelector('button').addEventListener('click', dismiss);
         window.setTimeout(dismiss, duration);

@@ -4,9 +4,11 @@
     <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Dashboard | CITE Events</title>
     @vite('resources/css/app.css')
     <script src="{{ asset('js/notifications.js') }}" defer></script>
+    <script src="{{ asset('js/interactions.js') }}" defer></script>
 </head>
 <body class="app-shell grid min-h-screen place-items-center bg-white p-5 font-sans text-[#121017] antialiased">
-    <main class="w-full max-w-2xl rounded-3xl border border-white/70 bg-white p-8 shadow-2xl shadow-[#121017]/10 sm:p-14">
+    <span class="route-progress" data-route-progress data-active="false" aria-hidden="true"></span>
+    <main class="w-full max-w-2xl rounded-3xl border border-white/70 bg-white p-8 shadow-2xl shadow-[#121017]/10 sm:p-14" data-page-content>
         <a class="mb-14 inline-flex items-center gap-3 text-xl font-extrabold tracking-tight" href="{{ route('home') }}"><img class="h-11 w-11 rounded-full object-contain" src="{{ asset('images/cite-logo.png') }}" alt="CITE logo"><span>CITE<span class="text-[#397565]">.</span></span></a>
         <p class="mb-3 text-xs font-extrabold uppercase tracking-[.14em] text-emerald-700">Dashboard</p>
         <h1 class="text-4xl font-black tracking-tight sm:text-5xl">Welcome, {{ auth()->user()->first_name }}.</h1>

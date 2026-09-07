@@ -53,7 +53,7 @@ class AuthenticationTest extends TestCase
             'password' => 'password',
         ])->assertOk()
             ->assertJsonPath('redirect_url', route('dashboard'))
-            ->assertJsonPath('message', 'Welcome back, '.$user->first_name.'. You are now signed in.');
+            ->assertJsonPath('message', 'Signed in successfully, '.$user->first_name.'. Opening your portal now.');
 
         $this->assertAuthenticatedAs($user);
     }

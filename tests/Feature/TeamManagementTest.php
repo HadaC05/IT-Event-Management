@@ -47,7 +47,7 @@ class TeamManagementTest extends TestCase
         $this->actingAs($student)->get(route('adviser.teams.index'))->assertForbidden();
         $this->actingAs($this->adviser)->get(route('adviser.teams.index'))
             ->assertOk()
-            ->assertSee('Tribe Management')
+            ->assertSee('Team Management')
             ->assertSee('Create Tribe')
             ->assertDontSee('Search tribe or member');
     }
@@ -65,22 +65,21 @@ class TeamManagementTest extends TestCase
     public function test_create_workflow_is_context_aware_and_preselects_the_school_year(): void
     {
         $this->actingAs($this->adviser)->get(route('adviser.teams.create'))
+            ->assertRedirect(route('adviser.teams.index', ['create' => 1]));
+
+        $this->student();
+
+        $this->get(route('adviser.teams.index', ['create' => 1]))
             ->assertOk()
             ->assertSeeInOrder(['1', 'Tribe Details', '2', 'Choose Members'])
             ->assertSee('Live Tribe Preview')
             ->assertSee('Current school year selected automatically')
-            ->assertSee('Go to User Management')
             ->assertSee('Green')
             ->assertSee('Custom')
-            ->assertDontSee('Search by name, student ID, or year level')
-            ->assertSee('data-submit-tribe disabled', false);
-
-        $this->student();
-
-        $this->get(route('adviser.teams.create'))
-            ->assertOk()
             ->assertSee('Search by name, student ID, or year level')
-            ->assertSee('<span data-selected-count>0</span>&nbsp;selected', false);
+            ->assertSee('<span data-selected-count>0</span>&nbsp;selected', false)
+            ->assertSee('id="create-team-dialog"', false)
+            ->assertSee('showModal()', false);
     }
 
     public function test_adviser_can_create_a_tribe_and_assign_active_students(): void

@@ -35,6 +35,10 @@ class EventRequest extends FormRequest
             'start_time' => ['required', 'date_format:H:i'],
             'end_date' => ['required', 'date_format:Y-m-d'],
             'end_time' => ['required', 'date_format:H:i'],
+            'morning_in_at' => ['nullable', 'date_format:Y-m-d\\TH:i'],
+            'morning_out_at' => ['nullable', 'date_format:Y-m-d\\TH:i'],
+            'afternoon_in_at' => ['nullable', 'date_format:Y-m-d\\TH:i'],
+            'afternoon_out_at' => ['nullable', 'date_format:Y-m-d\\TH:i'],
             'event_status_id' => [Rule::requiredIf(! $this->isMethod('POST')), 'nullable', Rule::exists('event_statuses', 'id')],
             'poster' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
             'remove_poster' => ['nullable', 'boolean'],
@@ -76,6 +80,22 @@ class EventRequest extends FormRequest
 
                 if ($end->lessThanOrEqualTo($start)) {
                     $validator->errors()->add('end_time', 'The event must end after it starts.');
+                }
+            }
+
+            $checkpointFields = ['morning_in_at', 'morning_out_at', 'afternoon_in_at', 'afternoon_out_at'];
+            $providedCheckpoints = collect($checkpointFields)->filter(fn (string $field) => $this->filled($field));
+            if ($providedCheckpoints->isNotEmpty() && $providedCheckpoints->count() !== count($checkpointFields)) {
+                $validator->errors()->add('morning_in_at', 'Set all four attendance checkpoints, or leave all four blank.');
+            } elseif ($providedCheckpoints->count() === count($checkpointFields) && ! $validator->errors()->hasAny($checkpointFields)) {
+                $checkpoints = collect($checkpointFields)->mapWithKeys(fn (string $field) => [
+                    $field => Carbon::createFromFormat('Y-m-d\\TH:i', $this->input($field)),
+                ]);
+                if (! $checkpoints->values()->every(fn (Carbon $value, int $index) => $index === 0 || $value->gt($checkpoints->values()[$index - 1]))) {
+                    $validator->errors()->add('morning_in_at', 'Attendance checkpoints must follow this order: morning in, morning out, afternoon in, afternoon out.');
+                }
+                if ($start && $end && ($checkpoints->first()->lt($start) || $checkpoints->last()->gt($end))) {
+                    $validator->errors()->add('morning_in_at', 'Attendance checkpoints must be within the event start and end time.');
                 }
             }
 
@@ -149,6 +169,12 @@ class EventRequest extends FormRequest
             'start_at' => Carbon::createFromFormat('Y-m-d H:i', "{$validated['start_date']} {$validated['start_time']}"),
             'end_at' => Carbon::createFromFormat('Y-m-d H:i', "{$validated['end_date']} {$validated['end_time']}"),
         ];
+
+        foreach (['morning_in_at', 'morning_out_at', 'afternoon_in_at', 'afternoon_out_at'] as $field) {
+            $data[$field] = filled($validated[$field] ?? null)
+                ? Carbon::createFromFormat('Y-m-d\\TH:i', $validated[$field])
+                : null;
+        }
 
         if (! $this->isMethod('POST')) {
             $data['event_status_id'] = $validated['event_status_id'];

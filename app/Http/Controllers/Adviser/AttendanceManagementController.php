@@ -85,7 +85,7 @@ class AttendanceManagementController extends Controller
         $participantIds = $expectedParticipantIds->merge($recordedParticipantIds)->unique()->values();
 
         $participants = User::query()
-            ->with(['teams.schoolYear', 'yearLevel'])
+            ->with(['studentProfile.yearLevel', 'teams.schoolYear', 'yearLevel'])
             ->whereIn('id', $participantIds)
             ->when($validated['search'] ?? null, function (Builder $query, string $search) {
                 $term = '%'.addcslashes($search, '%_\\').'%';
@@ -93,7 +93,10 @@ class AttendanceManagementController extends Controller
                     ->where('first_name', 'like', $term)
                     ->orWhere('middle_name', 'like', $term)
                     ->orWhere('last_name', 'like', $term)
-                    ->orWhere('id_number', 'like', $term));
+                    ->orWhere('id_number', 'like', $term)
+                    ->orWhereHas('studentProfile', fn (Builder $profile) => $profile
+                        ->where('first_name', 'like', $term)->orWhere('middle_name', 'like', $term)
+                        ->orWhere('last_name', 'like', $term)->orWhere('student_id', 'like', $term)));
             })
             ->when(($validated['status'] ?? null) === 'unrecorded', fn (Builder $query) => $query
                 ->whereDoesntHave('attendances', fn (Builder $query) => $query->where('event_id', $event->id)))

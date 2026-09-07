@@ -51,6 +51,16 @@
             </div>
         </section>
 
+        <section class="overflow-hidden rounded-2xl border border-[#397565]/15 bg-white shadow-sm">
+            <header class="border-b border-[#121017]/7 px-6 py-5"><div class="flex items-start justify-between gap-3"><div><h2 class="text-lg font-extrabold tracking-tight text-[#121017]">Attendance checkpoints</h2><p class="mt-1 text-xs leading-5 text-slate-500">Set four scan times for the SBO Officers: morning and afternoon time in/out.</p></div><span class="rounded-full bg-[#C6F24E]/35 px-2.5 py-1 text-[9px] font-black uppercase text-[#397565]">Optional</span></div></header>
+            <div class="grid grid-cols-1 gap-4 p-6 sm:grid-cols-2">
+                @foreach([['morning_in_at', 'Morning time in'], ['morning_out_at', 'Morning time out'], ['afternoon_in_at', 'Afternoon time in'], ['afternoon_out_at', 'Afternoon time out']] as [$name, $label])
+                    <label class="grid gap-2"><span class="text-xs font-bold text-slate-700">{{ $label }}</span><input class="{{ $field }} {{ $errors->has($name) ? $invalid : '' }}" name="{{ $name }}" type="datetime-local" value="{{ old($name, $editing && $event->{$name} ? $event->{$name}->format('Y-m-d\\TH:i') : '') }}"><x-form-error :name="$name" /></label>
+                @endforeach
+                <p class="text-[10px] leading-5 text-slate-400 sm:col-span-2">Each checkpoint opens at its scheduled time and remains active until the next checkpoint. The afternoon time-out window closes when the event ends.</p>
+            </div>
+        </section>
+
         <section class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
             <header class="border-b border-slate-100 px-6 py-5"><h2 class="text-lg font-extrabold tracking-tight text-[#121017]">Event poster</h2><p class="mt-1 text-xs text-slate-500">JPG, PNG, or WebP up to 5 MB.</p></header>
             <div class="p-6">
@@ -76,7 +86,7 @@
     </section>
 
     <section class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm xl:col-span-2">
-        <header class="border-b border-slate-100 px-6 py-5"><h2 class="text-lg font-extrabold tracking-tight text-[#121017]">Event-in-Charge</h2><p class="mt-1 text-xs text-slate-500">Assign active SBO or Faculty members. You can change this later.</p></header>
+        <header class="border-b border-slate-100 px-6 py-5"><h2 class="text-lg font-extrabold tracking-tight text-[#121017]">Event-in-Charge</h2><p class="mt-1 text-xs text-slate-500">Assign active SBO or Faculty members. SBO Officers receive attendance access through their tribe assignment.</p></header>
         <div class="p-6">
             <x-form-error name="assigned_user_ids" class="mb-3 block" />
             <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">

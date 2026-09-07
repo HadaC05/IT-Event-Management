@@ -16,6 +16,10 @@ class Attendance extends Model
         'user_id',
         'status',
         'checked_in_at',
+        'morning_in_at',
+        'morning_out_at',
+        'afternoon_in_at',
+        'afternoon_out_at',
         'recorded_by',
         'notes',
     ];
@@ -24,6 +28,10 @@ class Attendance extends Model
     {
         return [
             'checked_in_at' => 'datetime',
+            'morning_in_at' => 'datetime',
+            'morning_out_at' => 'datetime',
+            'afternoon_in_at' => 'datetime',
+            'afternoon_out_at' => 'datetime',
         ];
     }
 

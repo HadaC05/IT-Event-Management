@@ -55,14 +55,59 @@ class AdviserUserManagementTest extends TestCase
             'email' => 'john@example.com',
             'password' => 'password123',
             'password_confirmation' => 'password123',
-            'role_id' => Role::where('name', 'SBO')->value('id'),
+            'role_id' => Role::where('name', 'Faculty')->value('id'),
         ])->assertRedirect('/adviser/users');
 
         $this->assertDatabaseHas('users', ['email' => 'john@example.com', 'status' => $this->active->id]);
         $this->assertDatabaseHas('activity_logs', ['action' => 'user_created']);
     }
 
-    public function test_adviser_cannot_create_another_adviser_from_user_management(): void
+    public function test_student_id_number_uses_the_twelve_digit_cite_format(): void
+    {
+        $studentRole = Role::where('name', 'Student')->firstOrFail();
+        $payload = [
+            'first_name' => 'Format',
+            'last_name' => 'Student',
+            'username' => 'format.student',
+            'email' => 'format.student@example.com',
+            'password' => 'password123',
+            'password_confirmation' => 'password123',
+            'role_id' => $studentRole->id,
+            'id_number' => '02-02020-0202',
+        ];
+
+        $this->actingAs($this->adviser)->get('/adviser/users?role=Student')
+            ->assertOk()
+            ->assertSee('02-xxxx-xxxxxx');
+
+        $this->post('/adviser/users', $payload)
+            ->assertSessionHasErrors('id_number');
+
+        $this->post('/adviser/users', array_merge($payload, ['id_number' => '02-2122-030923']))
+            ->assertRedirect('/adviser/users');
+
+        $student = User::where('username', 'format.student')->firstOrFail();
+        $this->assertDatabaseHas('student_profiles', [
+            'id' => $student->student_profile_id,
+            'student_id' => '02-2122-030923',
+            'email' => 'format.student@example.com',
+        ]);
+        $this->assertNull($student->getRawOriginal('id_number'));
+
+        $this->post('/adviser/users', array_merge($payload, [
+            'username' => 'duplicate.student',
+            'email' => 'different@example.com',
+            'id_number' => '02-2122-030923',
+        ]))->assertSessionHasErrors('id_number');
+
+        $this->post('/adviser/users', array_merge($payload, [
+            'username' => 'duplicate.email',
+            'email' => 'format.student@example.com',
+            'id_number' => '02-2122-030924',
+        ]))->assertSessionHasErrors('email');
+    }
+
+    public function test_adviser_can_create_another_adviser_from_user_management(): void
     {
         $this->actingAs($this->adviser)->post('/adviser/users', [
             'first_name' => 'Second',
@@ -72,9 +117,9 @@ class AdviserUserManagementTest extends TestCase
             'password' => 'password123',
             'password_confirmation' => 'password123',
             'role_id' => Role::where('name', 'SBO Adviser')->value('id'),
-        ])->assertSessionHasErrors('role_id');
+        ])->assertRedirect('/adviser/users');
 
-        $this->assertDatabaseMissing('users', ['email' => 'second@example.com']);
+        $this->assertDatabaseHas('users', ['email' => 'second@example.com']);
     }
 
     public function test_adviser_can_edit_filter_and_deactivate_a_user(): void

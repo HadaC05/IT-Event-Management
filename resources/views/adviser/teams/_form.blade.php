@@ -106,12 +106,12 @@
                     @foreach($students as $student)
                         @php
                             $otherTeams = $student->teams->when($editingTeam, fn ($teams) => $teams->where('id', '!=', $editingTeam->id));
-                            $searchValue = Str::lower($student->full_name.' '.$student->id_number.' '.$student->yearLevel?->label);
+                            $searchValue = Str::lower($student->full_name.' '.$student->id_number.' '.$student->display_year_level?->label);
                         @endphp
                         <label class="group flex cursor-pointer items-center gap-3 rounded-xl border border-slate-200 px-3.5 py-3 transition has-[:checked]:border-emerald-300 has-[:checked]:bg-emerald-50/60 hover:border-slate-300" data-member-item data-search="{{ $searchValue }}">
                             <input class="h-4 w-4 shrink-0 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500" type="checkbox" name="member_ids[]" value="{{ $student->id }}" @checked($selectedMembers->contains($student->id)) data-member-checkbox>
                             <span class="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[#121017] text-[9px] font-extrabold text-[#F3F0E9]">{{ strtoupper(substr($student->first_name, 0, 1).substr($student->last_name, 0, 1)) }}</span>
-                            <span class="grid min-w-0 flex-1 gap-0.5"><strong class="truncate text-sm text-slate-700">{{ $student->full_name }}</strong><small class="truncate text-[11px] text-slate-400">{{ $student->id_number ?: 'No student ID' }}@if($student->yearLevel) · {{ $student->yearLevel->label }}@endif</small></span>
+                            <span class="grid min-w-0 flex-1 gap-0.5"><strong class="truncate text-sm text-slate-700">{{ $student->full_name }}</strong><small class="truncate text-[11px] text-slate-400">{{ $student->id_number ?: 'No student ID' }}@if($student->display_year_level) · {{ $student->display_year_level->label }}@endif</small></span>
                             @if($otherTeams->isNotEmpty())<span class="hidden max-w-36 text-right text-[10px] font-semibold text-slate-400 sm:block">{{ $otherTeams->take(1)->map(fn ($team) => $team->name.' · SY '.$team->schoolYear?->label)->join() }}</span>@endif
                         </label>
                     @endforeach
@@ -124,7 +124,7 @@
     <div class="flex flex-col gap-4 border-t border-slate-200 pt-5 sm:flex-row sm:items-center sm:justify-between">
         <p class="flex max-w-xl items-start gap-2 text-xs leading-5 text-slate-500"><span class="mt-0.5 grid h-4 w-4 shrink-0 place-items-center rounded-full bg-slate-200 text-[10px] font-black text-slate-600">i</span><span>A student may belong to one tribe per school year, but can join a different tribe in another year.</span></p>
         <div class="flex shrink-0 flex-col-reverse gap-2 sm:flex-row">
-            <a class="inline-flex min-h-11 items-center justify-center rounded-xl border border-slate-200 bg-white px-5 text-sm font-extrabold text-slate-600 transition hover:bg-slate-50" href="{{ route('adviser.teams.index') }}">Cancel</a>
+            @if($modal ?? false)<button class="inline-flex min-h-11 items-center justify-center rounded-xl border border-slate-200 bg-white px-5 text-sm font-extrabold text-slate-600 transition hover:bg-slate-50" type="button" data-dialog-close>Cancel</button>@else<a class="inline-flex min-h-11 items-center justify-center rounded-xl border border-slate-200 bg-white px-5 text-sm font-extrabold text-slate-600 transition hover:bg-slate-50" href="{{ route('adviser.teams.index') }}">Cancel</a>@endif
             <button class="inline-flex min-h-11 items-center justify-center rounded-xl bg-emerald-600 px-6 text-sm font-extrabold text-white shadow-lg shadow-emerald-600/15 transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:shadow-none" type="submit" data-loading-text="Saving…" data-submit-tribe @disabled(! $identityReady)>{{ $editingTeam ? 'Save Changes' : 'Create Tribe' }}</button>
         </div>
     </div>

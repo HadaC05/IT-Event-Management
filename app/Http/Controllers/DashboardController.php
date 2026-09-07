@@ -8,12 +8,17 @@ use App\Models\Score;
 use App\Models\Team;
 use App\Models\User;
 use Illuminate\View\View;
+use Illuminate\Http\RedirectResponse;
 
 class DashboardController extends Controller
 {
-    public function __invoke(): View
+    public function __invoke(): View|RedirectResponse
     {
         $user = request()->user()->loadMissing('role');
+
+        if ($user->isSboOfficer()) {
+            return redirect()->route('officer.attendance.index');
+        }
 
         if (! $user->isSboAdviser()) {
             return view('dashboard');
@@ -22,7 +27,7 @@ class DashboardController extends Controller
         $now = now();
         $today = $now->toDateString();
         $totalUsers = User::count();
-        $totalSbo = User::whereHas('role', fn ($query) => $query->where('name', 'SBO'))->count();
+        $totalSbo = User::whereHas('role', fn ($query) => $query->whereIn('name', ['SBO', 'SBO Officer']))->count();
         $totalFaculty = User::whereHas('role', fn ($query) => $query->where('name', 'Faculty'))->count();
         $totalStudents = User::whereHas('role', fn ($query) => $query->where('name', 'Student'))->count();
         $todayAttendanceCounts = Attendance::query()

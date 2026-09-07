@@ -36,7 +36,8 @@ class TeamManagementController extends Controller
                     ->where('name', 'like', $term)
                     ->orWhereHas('members', fn (Builder $query) => $query
                         ->where('first_name', 'like', $term)
-                        ->orWhere('last_name', 'like', $term)));
+                        ->orWhere('last_name', 'like', $term)
+                        ->orWhereHas('studentProfile', fn (Builder $profile) => $profile->where('first_name', 'like', $term)->orWhere('last_name', 'like', $term))));
             })
             ->when($validated['status'] ?? null, fn (Builder $query, string $status) => $query->where('is_active', $status === 'active'))
             ->when($validated['school_year'] ?? null, fn (Builder $query, int|string $schoolYear) => $query->where('school_year_id', $schoolYear))
@@ -49,9 +50,12 @@ class TeamManagementController extends Controller
             ->where('role_id', Role::where('name', 'Student')->value('id'))
             ->whereHas('userStatus', fn (Builder $query) => $query->where('label', 'active'));
 
+        $formData = $this->formData();
+
         return view('adviser.teams.index', [
             'teams' => $teams,
-            'schoolYears' => SchoolYear::orderByDesc('label')->get(),
+            'schoolYears' => $formData['schoolYears'],
+            'students' => $formData['students'],
             'teamSummary' => [
                 'total' => Team::count(),
                 'active' => Team::where('is_active', true)->count(),
@@ -62,9 +66,9 @@ class TeamManagementController extends Controller
         ]);
     }
 
-    public function create(): View
+    public function create(): RedirectResponse
     {
-        return view('adviser.teams.create', $this->formData());
+        return to_route('adviser.teams.index', ['create' => 1]);
     }
 
     public function store(TeamRequest $request): RedirectResponse
@@ -116,7 +120,7 @@ class TeamManagementController extends Controller
         return [
             'schoolYears' => SchoolYear::orderByDesc('label')->get(),
             'students' => User::query()
-                ->with(['teams.schoolYear', 'yearLevel'])
+                ->with(['studentProfile.yearLevel', 'teams.schoolYear', 'yearLevel'])
                 ->where('role_id', Role::where('name', 'Student')->value('id'))
                 ->whereHas('userStatus', fn (Builder $query) => $query->where('label', 'active'))
                 ->orderBy('last_name')

@@ -3,12 +3,16 @@
 use App\Http\Controllers\Adviser\AttendanceManagementController;
 use App\Http\Controllers\Adviser\EventAssignmentController;
 use App\Http\Controllers\Adviser\EventManagementController;
+use App\Http\Controllers\Adviser\OfficerManagementController;
 use App\Http\Controllers\Adviser\ScoreManagementController;
 use App\Http\Controllers\Adviser\TeamManagementController;
 use App\Http\Controllers\Adviser\UserManagementController;
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
+use App\Http\Controllers\Auth\PasswordChangeController;
+use App\Http\Controllers\Auth\AccountPasswordResetController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\HomeController;
+use App\Http\Controllers\Officer\AttendanceController as OfficerAttendanceController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', HomeController::class)->name('home');
@@ -17,13 +21,24 @@ Route::middleware('guest')->group(function () {
     Route::get('/login', [AuthenticatedSessionController::class, 'create'])->name('login');
     Route::post('/login', [AuthenticatedSessionController::class, 'store'])
         ->middleware('throttle:6,1');
+    Route::get('/forgot-password', [AccountPasswordResetController::class, 'create'])->name('password.request');
+    Route::post('/forgot-password', [AccountPasswordResetController::class, 'store'])->name('password.email');
+    Route::get('/reset-password/{user}/{token}', [AccountPasswordResetController::class, 'edit'])->name('password.reset');
+    Route::post('/reset-password', [AccountPasswordResetController::class, 'update'])->name('password.reset.update');
 });
 
 Route::middleware('auth')->group(function () {
     Route::post('/logout', [AuthenticatedSessionController::class, 'destroy'])->name('logout');
+    Route::get('/password/change', [PasswordChangeController::class, 'edit'])->name('password.change');
+    Route::put('/password/change', [PasswordChangeController::class, 'update'])->name('password.update');
 
-    Route::middleware('active')->group(function () {
+    Route::middleware(['active', 'password.changed'])->group(function () {
         Route::get('/dashboard', DashboardController::class)->name('dashboard');
+
+        Route::prefix('officer')->name('officer.')->middleware('sbo.officer')->group(function () {
+            Route::get('/attendance/{event?}', [OfficerAttendanceController::class, 'index'])->name('attendance.index');
+            Route::post('/attendance/{event}/scan', [OfficerAttendanceController::class, 'scan'])->name('attendance.scan');
+        });
 
         Route::prefix('adviser')->name('adviser.')->middleware('sbo.adviser')->group(function () {
             Route::post('/events/conflicts', [EventManagementController::class, 'conflicts'])->name('events.conflicts');
@@ -36,6 +51,10 @@ Route::middleware('auth')->group(function () {
             Route::post('/users', [UserManagementController::class, 'store'])->name('users.store');
             Route::put('/users/{user}', [UserManagementController::class, 'update'])->name('users.update');
             Route::patch('/users/{user}/status', [UserManagementController::class, 'toggleStatus'])->name('users.status');
+            Route::get('/officers', [OfficerManagementController::class, 'index'])->name('officers.index');
+            Route::post('/officers', [OfficerManagementController::class, 'store'])->name('officers.store');
+            Route::patch('/officers/{assignment}/unassign', [OfficerManagementController::class, 'unassign'])->name('officers.unassign');
+            Route::patch('/officers/unassign-selected', [OfficerManagementController::class, 'batchUnassign'])->name('officers.batch-unassign');
             Route::post('/users/{user}/events', [EventAssignmentController::class, 'store'])->name('users.events.store');
             Route::delete('/users/{user}/events/{event}', [EventAssignmentController::class, 'destroy'])->name('users.events.destroy');
             Route::post('/users/{user}/events/{event}/restore', [EventAssignmentController::class, 'restore'])->name('users.events.restore');

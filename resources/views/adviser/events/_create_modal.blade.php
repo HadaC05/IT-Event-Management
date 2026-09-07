@@ -32,6 +32,16 @@
                 <p class="hidden rounded-lg bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700" data-schedule-error></p>
             </fieldset>
 
+            <details class="group rounded-xl border border-[#397565]/15 bg-[#397565]/[.025]" @if(collect(['morning_in_at', 'morning_out_at', 'afternoon_in_at', 'afternoon_out_at'])->contains(fn ($field) => old($field))) open @endif>
+                <summary class="flex min-h-12 cursor-pointer list-none items-center justify-between px-4 text-xs font-extrabold text-[#397565]"><span>+ Configure officer scan times <small class="ml-1 font-medium text-slate-400">Optional</small></span><span class="transition group-open:rotate-45">+</span></summary>
+                <div class="grid gap-3 border-t border-[#397565]/10 p-4 sm:grid-cols-2">
+                    @foreach([['morning_in_at', 'Morning time in'], ['morning_out_at', 'Morning time out'], ['afternoon_in_at', 'Afternoon time in'], ['afternoon_out_at', 'Afternoon time out']] as [$name, $label])
+                        <label class="grid gap-2"><span class="text-[10px] font-bold uppercase tracking-wider text-slate-400">{{ $label }}</span><input class="{{ $field }} {{ $errors->has($name) ? $invalid : '' }}" name="{{ $name }}" type="datetime-local" value="{{ old($name) }}"><x-form-error :name="$name" /></label>
+                    @endforeach
+                    <p class="text-[10px] leading-5 text-slate-400 sm:col-span-2">If used, set all four checkpoints in chronological order within the event schedule.</p>
+                </div>
+            </details>
+
             <label class="grid gap-2"><span class="text-xs font-bold text-slate-700">Location <i class="font-normal text-rose-500">*</i></span><input class="{{ $field }} {{ $errors->has('location') ? $invalid : '' }}" name="location" value="{{ old('location') }}" list="recent-event-locations" placeholder="e.g. University Gymnasium" required data-location data-event-required><datalist id="recent-event-locations">@foreach($recentLocations as $location)<option value="{{ $location }}"></option>@endforeach</datalist><x-form-error name="location" />@if($recentLocations->isNotEmpty())<small class="text-xs text-slate-400">Recent: {{ $recentLocations->join(' · ') }}</small>@endif</label>
 
             <section class="border-t border-slate-100 pt-5">
@@ -83,7 +93,6 @@
     const scheduleError = createEventForm?.querySelector('[data-schedule-error]');
     const createAudience = createEventForm?.querySelector('[data-audience-selector]');
     let endTimeWasEdited = Boolean(endTime?.value);
-    let createEventDirty = false;
 
     const addDays = (date, days) => {
         const value = new Date(`${date}T12:00:00`);
@@ -169,19 +178,6 @@
         }, 450);
     };
     [startDate, startTime, endDate, endTime, createEventForm?.querySelector('[data-location]'), createEventForm?.querySelector('[data-event-in-charge]')].forEach((field) => field?.addEventListener('change', checkConflicts));
-
-    createEventForm?.addEventListener('input', () => { createEventDirty = true; });
-    createEventForm?.addEventListener('change', () => { createEventDirty = true; });
-    createEventForm?.addEventListener('submit', () => { createEventDirty = false; });
-    createEventDialog?.querySelectorAll('[data-dialog-close]').forEach((button) => button.addEventListener('click', (event) => {
-        if (createEventDirty && !window.confirm('Discard the event information you entered?')) { event.preventDefault(); event.stopImmediatePropagation(); }
-    }, true));
-    createEventDialog?.addEventListener('cancel', (event) => {
-        if (createEventDirty && !window.confirm('Discard the event information you entered?')) event.preventDefault();
-    });
-    createEventDialog?.addEventListener('click', (event) => {
-        if (event.target === createEventDialog && createEventDirty && !window.confirm('Discard the event information you entered?')) { event.preventDefault(); event.stopImmediatePropagation(); }
-    }, true);
 
     if (startDate?.value && !endDate?.value) endDate.value = startDate.value;
     updateReadiness();

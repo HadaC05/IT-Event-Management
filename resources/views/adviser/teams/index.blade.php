@@ -1,19 +1,18 @@
 @extends('layouts.adviser')
 
-@section('title', 'Tribe Management')
+@section('title', 'Team Management')
 
 @section('content')
     <header class="mb-8 flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
         <div>
             <p class="mb-2 text-xs font-extrabold uppercase tracking-[.14em] text-emerald-700">Community</p>
-            <h1 class="text-3xl font-extrabold tracking-tight text-[#121017] sm:text-4xl">Tribe Management</h1>
+            <h1 class="text-3xl font-extrabold tracking-tight text-[#121017] sm:text-4xl">Team Management</h1>
             <p class="mt-2 text-sm text-slate-500">Organize students into tribes for events, attendance, and scoring.</p>
         </div>
-        @if($teamSummary['total'] > 0 && $teamSummary['students'] > 0)<a class="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-emerald-600 px-5 text-sm font-extrabold text-white shadow-lg shadow-emerald-600/15 transition hover:bg-emerald-700" href="{{ route('adviser.teams.create') }}"><span class="text-xl font-normal" aria-hidden="true">+</span>Create Tribe</a>@endif
     </header>
 
     <section class="mb-6 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm" aria-label="Tribe overview">
-        <header class="flex items-center justify-between border-b border-slate-100 px-5 py-3.5"><p class="text-xs font-extrabold uppercase tracking-[.14em] text-slate-500">Tribe Overview</p><span class="text-[11px] font-semibold text-slate-400">Current student roster</span></header>
+        <header class="flex flex-col gap-3 border-b border-slate-100 px-5 py-4 sm:flex-row sm:items-center sm:justify-between"><div><p class="text-xs font-extrabold uppercase tracking-[.14em] text-slate-500">Tribe Overview</p><span class="mt-1 block text-[11px] font-semibold text-slate-400">Current student roster</span></div>@if($teamSummary['students'] > 0)<button class="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-[#397565] px-5 text-sm font-extrabold text-white shadow-lg shadow-[#397565]/15 transition hover:bg-[#2e6355]" type="button" data-dialog-open="create-team-dialog"><span class="text-xl font-normal" aria-hidden="true">+</span>Create Tribe</button>@endif</header>
         <div class="grid divide-y divide-slate-100 sm:grid-cols-2 sm:divide-x sm:divide-y-0 xl:grid-cols-4">
             @foreach ([['total', 'Total Tribes'], ['active', 'Active Tribes'], ['students', 'Active Students'], ['assigned', 'Assigned to Tribes']] as [$key, $label])
                 <div class="flex items-center justify-between gap-4 px-5 py-4 xl:block xl:p-5">
@@ -73,8 +72,8 @@
                         </div>
 
                         <footer class="mt-5 flex items-center justify-between border-t border-slate-100 pt-4">
-                            <a class="inline-flex min-h-9 items-center gap-2 rounded-lg px-2 text-xs font-extrabold text-emerald-700 hover:bg-emerald-50" href="{{ route('adviser.teams.edit', $team) }}"><svg class="h-4 w-4 fill-none stroke-current" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9M16.5 3.5a2.12 2.12 0 0 1 3 3L8 18l-4 1 1-4Z"/></svg>Edit tribe</a>
-                            <form method="POST" action="{{ route('adviser.teams.status', $team) }}" @if($team->is_active) data-confirm-title="Deactivate tribe?" data-confirm-message="{{ $team->name }} will be marked inactive. Its members and scores will be preserved." data-confirm-action="Deactivate" @endif>@csrf @method('PATCH')<button class="min-h-9 rounded-lg px-3 text-xs font-bold {{ $team->is_active ? 'text-rose-600 hover:bg-rose-50' : 'bg-emerald-50 text-emerald-700' }}" type="submit" data-loading-text="Updating…">{{ $team->is_active ? 'Deactivate' : 'Activate' }}</button></form>
+                            <a class="inline-flex min-h-10 items-center gap-2 rounded-xl border border-[#397565]/25 bg-[#397565]/8 px-3.5 text-xs font-extrabold text-[#397565] hover:bg-[#397565]/14" href="{{ route('adviser.teams.edit', $team) }}"><svg class="h-4 w-4 fill-none stroke-current" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9M16.5 3.5a2.12 2.12 0 0 1 3 3L8 18l-4 1 1-4Z"/></svg>Edit tribe</a>
+                            <form method="POST" action="{{ route('adviser.teams.status', $team) }}" @if($team->is_active) data-confirm-title="Deactivate tribe?" data-confirm-message="{{ $team->name }} will be marked inactive. Its members and scores will be preserved." data-confirm-action="Deactivate" @endif>@csrf @method('PATCH')<button class="min-h-10 rounded-xl border px-3.5 text-xs font-extrabold {{ $team->is_active ? 'border-[#FF6B2C]/25 bg-[#FF6B2C]/9 text-[#d9470a] hover:bg-[#FF6B2C]/15' : 'border-[#397565]/25 bg-[#C6F24E]/30 text-[#397565]' }}" type="submit" data-loading-text="Updating…">{{ $team->is_active ? 'Deactivate' : 'Activate' }}</button></form>
                         </footer>
                     </div>
                 </article>
@@ -86,7 +85,7 @@
                     @elseif($teamSummary['students'] === 0)
                         <strong class="mt-4 block text-sm text-slate-600">Students need to be added first</strong><p class="mt-1 text-xs text-slate-400">Add or activate student accounts before organizing them into tribes.</p><a class="mt-5 inline-flex min-h-10 items-center rounded-xl bg-emerald-600 px-4 text-xs font-extrabold text-white" href="{{ route('adviser.users.index', ['role' => 'Student']) }}">Manage Students</a>
                     @else
-                        <strong class="mt-4 block text-sm text-slate-600">No tribes created yet</strong><p class="mt-1 text-xs text-slate-400">Create your first tribe and assign students to it.</p><a class="mt-5 inline-flex min-h-10 items-center rounded-xl bg-emerald-600 px-4 text-xs font-extrabold text-white" href="{{ route('adviser.teams.create') }}">Create Tribe</a>
+                        <strong class="mt-4 block text-sm text-slate-600">No tribes created yet</strong><p class="mt-1 text-xs text-slate-400">Create your first tribe and assign students to it.</p><button class="mt-5 inline-flex min-h-10 items-center rounded-xl bg-[#397565] px-4 text-xs font-extrabold text-white" type="button" data-dialog-open="create-team-dialog">Create Tribe</button>
                     @endif
                 </div>
             @endforelse
@@ -96,6 +95,16 @@
             <nav class="flex flex-col items-center justify-between gap-3 border-t border-slate-100 px-5 py-4 text-xs sm:flex-row"><small class="text-slate-400">Showing {{ $teams->firstItem() }}–{{ $teams->lastItem() }} of {{ $teams->total() }}</small><div class="flex items-center gap-2">@if($teams->onFirstPage())<span class="rounded-lg border border-slate-100 bg-slate-50 px-3 py-2 text-slate-300">Previous</span>@else<a class="rounded-lg border border-slate-200 px-3 py-2 font-bold text-slate-600 hover:bg-slate-50" href="{{ $teams->previousPageUrl() }}">Previous</a>@endif<span class="px-2 text-slate-400">{{ $teams->currentPage() }} / {{ $teams->lastPage() }}</span>@if($teams->hasMorePages())<a class="rounded-lg border border-slate-200 px-3 py-2 font-bold text-slate-600 hover:bg-slate-50" href="{{ $teams->nextPageUrl() }}">Next</a>@else<span class="rounded-lg border border-slate-100 bg-slate-50 px-3 py-2 text-slate-300">Next</span>@endif</div></nav>
         @endif
     </section>
+
+    @if($teamSummary['students'] > 0)
+        <dialog class="m-auto max-h-[calc(100vh_-_2rem)] w-[min(1120px,calc(100%_-_2rem))] overflow-y-auto rounded-3xl border-0 bg-white p-0 shadow-[0_30px_90px_rgba(18,16,23,.3)] backdrop:bg-[#121017]/60 backdrop:backdrop-blur-[3px]" id="create-team-dialog">
+            <form method="POST" action="{{ route('adviser.teams.store') }}" data-tribe-form>
+                @csrf
+                <header class="sticky top-0 z-20 flex items-start justify-between gap-5 border-b border-[#121017]/8 bg-white/95 px-5 py-5 backdrop-blur sm:px-7"><div><p class="text-[10px] font-black uppercase tracking-[.16em] text-[#397565]">New Team</p><h2 class="mt-1 text-2xl font-black tracking-[-.035em] text-[#121017]">Create a Tribe</h2><p class="mt-1 text-xs text-slate-500">Set the team identity and select its student members.</p></div><button class="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#F3F0E9] text-xl text-[#121017]/50 transition hover:text-[#121017]" type="button" data-dialog-close aria-label="Close create team modal">&times;</button></header>
+                <div class="p-4 sm:p-7">@include('adviser.teams._form', ['modal' => true])</div>
+            </form>
+        </dialog>
+    @endif
 @endsection
 
 @push('scripts')
@@ -109,5 +118,9 @@
         window.clearTimeout(tribeSearchTimer);
         tribeSearchTimer = window.setTimeout(() => tribeFilters.requestSubmit(), 450);
     });
+
+    @if(request()->boolean('create') || $errors->any())
+        document.getElementById('create-team-dialog')?.showModal();
+    @endif
 </script>
 @endpush

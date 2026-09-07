@@ -69,7 +69,7 @@
             <div class="p-5 sm:p-6"><p class="text-xs font-extrabold uppercase tracking-[.14em] text-emerald-700">People Overview</p><div class="mt-2 flex items-baseline gap-2"><strong class="text-3xl font-black text-[#121017]">{{ number_format($stats['total_users']) }}</strong><span class="text-xs font-semibold text-slate-400">Total Users</span></div></div>
             <div class="flex items-center justify-between gap-4 px-5 py-4 sm:block sm:p-6"><span class="text-sm font-semibold text-slate-500">Students</span><strong class="text-2xl font-extrabold text-[#121017] sm:mt-2 sm:block">{{ number_format($stats['students']) }}</strong></div>
             <div class="flex items-center justify-between gap-4 px-5 py-4 sm:block sm:p-6"><span class="text-sm font-semibold text-slate-500">Faculty</span><strong class="text-2xl font-extrabold text-[#121017] sm:mt-2 sm:block">{{ number_format($stats['faculty']) }}</strong></div>
-            <div class="flex items-center justify-between gap-4 px-5 py-4 sm:block sm:p-6"><span class="text-sm font-semibold text-slate-500">SBO</span><strong class="text-2xl font-extrabold text-[#121017] sm:mt-2 sm:block">{{ number_format($stats['sbo']) }}</strong></div>
+            <div class="flex items-center justify-between gap-4 px-5 py-4 sm:block sm:p-6"><span class="text-sm font-semibold text-slate-500">SBO Officers</span><strong class="text-2xl font-extrabold text-[#121017] sm:mt-2 sm:block">{{ number_format($stats['sbo']) }}</strong></div>
         </div>
     </section>
 

@@ -7,6 +7,7 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>CITE | Campus Events</title>
     @vite('resources/css/app.css')
+    <script src="{{ asset('js/interactions.js') }}" defer></script>
     <style>
         :root { --bone:#F3F0E9; --ink:#121017; --teal:#397565; --cobalt:#2F3AE0; --lime:#C6F24E; --tangerine:#FF6B2C; }
         body { position:relative; isolation:isolate; overflow-x:hidden; background:#fff; color:var(--ink); }
@@ -49,12 +50,17 @@
         .auth-result { animation:auth-result-in .24s ease-out; }
         .auth-result::backdrop { background:rgba(18,16,23,.7); backdrop-filter:blur(6px); }
         .auth-result[data-type="success"] .auth-result-icon { background:#C6F24E; color:#121017; }
-        .auth-result[data-type="success"] .auth-result-button { background:#397565; color:white; }
         .auth-result[data-type="error"] .auth-result-icon { background:rgba(255,107,44,.14); color:#D64A12; }
         .auth-result[data-type="error"] .auth-result-button { background:#FF6B2C; color:white; }
+        .auth-result[data-type="success"] [data-auth-result-confirm] { display:none; }
+        .auth-result[data-type="error"] [data-auth-redirecting] { display:none; }
+        .auth-result-progress { animation:auth-redirect-progress 1.65s cubic-bezier(.2,.75,.25,1) forwards; transform-origin:left; }
+        .auth-result-check { stroke-dasharray:28; stroke-dashoffset:28; animation:auth-check .42s .12s ease-out forwards; }
         @keyframes modal-in { from { opacity:0; transform:translateY(12px) scale(.98); } }
         @keyframes auth-result-in { from { opacity:0; transform:translateY(10px) scale(.96); } }
         @keyframes alert-countdown { to { transform:scaleX(0); } }
+        @keyframes auth-redirect-progress { from { transform:scaleX(0); } to { transform:scaleX(1); } }
+        @keyframes auth-check { to { stroke-dashoffset:0; } }
         @media (prefers-reduced-motion:no-preference) {
             body::before { animation:page-drift 32s ease-in-out infinite alternate; }
             .page-ring { animation:page-ring-float 14s ease-in-out infinite; }
@@ -79,6 +85,7 @@
     </style>
 </head>
 <body class="min-h-screen font-sans antialiased selection:bg-[#C6F24E] selection:text-[#121017]">
+    <span class="route-progress" data-route-progress data-active="false" aria-hidden="true"></span>
     <div class="page-atmosphere" aria-hidden="true">
         <span class="page-object page-ring"></span>
         <span class="page-object page-tile"></span>
@@ -132,7 +139,7 @@
         </nav>
     </header>
 
-    <main>
+    <main data-page-content>
         <section id="discover" class="hero-grain border-b border-[#121017]/8">
             <div class="mx-auto grid max-w-[1440px] gap-10 px-5 py-12 sm:px-8 lg:grid-cols-[minmax(0,1.35fr)_minmax(350px,.65fr)] lg:px-12 lg:py-16 xl:gap-16">
                 <div class="min-w-0">
@@ -252,8 +259,7 @@
                 </div>
 
                 <header class="mt-7">
-                    <p class="text-xs font-black uppercase tracking-[.16em] text-[#397565]">Welcome back</p>
-                    <h2 class="mt-2 text-3xl font-black tracking-[-.045em]">Sign in to your account</h2>
+                    <h2 class="text-3xl font-black tracking-[-.045em]">Sign in to your account</h2>
                     <p class="mt-2 text-sm leading-6 text-[#121017]/52">Enter your credentials to continue to the event portal.</p>
                 </header>
 
@@ -281,8 +287,11 @@
                         <span class="text-sm font-extrabold">Password</span>
                         <span class="relative">
                             <svg class="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 fill-none stroke-[#121017]/35 stroke-2" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 10V7a5 5 0 0 1 10 0v3M5 10h14v11H5z"/></svg>
-                            <input class="h-13 w-full rounded-xl border border-[#121017]/12 bg-white/65 pl-12 pr-16 text-sm outline-none transition placeholder:text-[#121017]/35 focus:border-[#397565] focus:ring-4 focus:ring-[#397565]/10" id="modal-password" name="password" type="password" placeholder="Enter your password" autocomplete="current-password" required>
-                            <button class="absolute right-3 top-1/2 -translate-y-1/2 rounded-lg px-2 py-1 text-xs font-black text-[#397565]" type="button" data-password-toggle>Show</button>
+                            <input class="h-13 w-full rounded-xl border border-[#121017]/12 bg-white/65 pl-12 pr-14 text-sm outline-none transition placeholder:text-[#121017]/35 focus:border-[#397565] focus:ring-4 focus:ring-[#397565]/10" id="modal-password" name="password" type="password" placeholder="Enter your password" autocomplete="current-password" required>
+                            <button class="absolute right-2.5 top-1/2 grid h-10 w-10 -translate-y-1/2 place-items-center rounded-xl text-[#397565] transition hover:bg-[#397565]/9 focus-visible:ring-4 focus-visible:ring-[#397565]/12" type="button" data-password-toggle aria-label="Show password" aria-pressed="false">
+                                <svg class="h-5 w-5 fill-none stroke-current stroke-2" viewBox="0 0 24 24" aria-hidden="true" data-eye-visible><path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z"/><circle cx="12" cy="12" r="2.75"/></svg>
+                                <svg class="hidden h-5 w-5 fill-none stroke-current stroke-2" viewBox="0 0 24 24" aria-hidden="true" data-eye-hidden><path d="m3 3 18 18M10.6 6.15A10.8 10.8 0 0 1 12 6c6 0 9.5 6 9.5 6a15.7 15.7 0 0 1-2.1 2.75M6.1 6.1C3.8 7.75 2.5 12 2.5 12s3.5 6 9.5 6a9.8 9.8 0 0 0 3.05-.48M10.05 10.05A2.75 2.75 0 0 0 13.95 13.95"/></svg>
+                            </button>
                         </span>
                         <x-form-error name="password" class="!text-[#D64A12]" />
                     </label>
@@ -290,20 +299,24 @@
                     <label class="inline-flex w-fit cursor-pointer items-center gap-2 text-sm text-[#121017]/60"><input class="h-4 w-4 accent-[#397565]" name="remember" type="checkbox" value="1"><span>Keep me signed in</span></label>
                     <button class="inline-flex min-h-13 items-center justify-center gap-2 rounded-xl bg-[#397565] px-5 font-extrabold text-white shadow-[0_9px_24px_rgba(57,117,101,.22)] transition hover:bg-[#2e6355] disabled:cursor-wait disabled:opacity-70" type="submit" data-login-submit>Sign in <span class="text-xl" aria-hidden="true">→</span></button>
                 </form>
-                <p class="mt-6 text-center text-xs text-[#121017]/40">Having trouble signing in? Contact your SBO Adviser.</p>
+                <p class="mt-6 text-center text-xs text-[#121017]/40">Having trouble signing in? <a class="font-extrabold text-[#397565] hover:underline" href="{{ route('password.request') }}">Reset one account</a></p>
             </div>
         </dialog>
 
-        <dialog id="auth-result" class="auth-result m-auto w-[calc(100%-2rem)] max-w-sm overflow-hidden rounded-2xl border-0 bg-[#F3F0E9] p-0 text-center text-[#121017] shadow-[0_30px_90px_rgba(18,16,23,.4)]" data-type="success" aria-labelledby="auth-result-title" aria-describedby="auth-result-message">
+        <dialog id="auth-result" class="auth-result m-auto w-[calc(100%-2rem)] max-w-sm overflow-hidden rounded-2xl border-0 bg-white p-0 text-center text-[#121017] shadow-[0_30px_90px_rgba(18,16,23,.4)]" data-type="success" aria-labelledby="auth-result-title" aria-describedby="auth-result-message" tabindex="-1">
             <div class="p-7 sm:p-8">
-                <span class="auth-result-icon mx-auto grid h-16 w-16 place-items-center rounded-full" aria-hidden="true" data-auth-result-icon>
-                    <svg class="h-7 w-7 fill-none stroke-current stroke-[2.5]" viewBox="0 0 24 24" data-success-icon><path d="m5 12 4 4L19 6"/></svg>
+                <span class="auth-result-icon mx-auto grid h-14 w-14 place-items-center rounded-full" aria-hidden="true" data-auth-result-icon>
+                    <svg class="h-7 w-7 fill-none stroke-current stroke-[2.5]" viewBox="0 0 24 24" data-success-icon><path class="auth-result-check" d="m5 12 4 4L19 6"/></svg>
                     <svg class="hidden h-7 w-7 fill-none stroke-current stroke-[2.5]" viewBox="0 0 24 24" data-error-icon><path d="M18 6 6 18M6 6l12 12"/></svg>
                 </span>
-                <p class="mt-5 text-[10px] font-black uppercase tracking-[.16em] text-[#397565]" data-auth-result-eyebrow>Authentication complete</p>
-                <h2 class="mt-2 text-2xl font-black tracking-[-.04em]" id="auth-result-title">Welcome to CITE</h2>
+                <p class="mt-5 text-[10px] font-black uppercase tracking-[.16em] text-[#397565]" data-auth-result-eyebrow>Signed in</p>
+                <h2 class="mt-2 text-2xl font-black tracking-[-.04em]" id="auth-result-title">Sign-in successful</h2>
                 <p class="mt-2 text-sm leading-6 text-[#121017]/58" id="auth-result-message">You are signed in. Opening your portal now.</p>
-                <button class="auth-result-button mt-6 inline-flex min-h-11 w-full items-center justify-center rounded-xl px-5 text-sm font-extrabold shadow-lg transition hover:-translate-y-0.5" type="button" data-auth-result-confirm>Continue to portal</button>
+                <div class="mt-6" data-auth-redirecting aria-live="polite">
+                    <div class="mb-2.5 flex items-center justify-center gap-2 text-xs font-extrabold text-[#397565]"><span class="h-3.5 w-3.5 animate-spin rounded-full border-2 border-[#397565]/25 border-r-[#397565]" aria-hidden="true"></span>Opening your portal…</div>
+                    <span class="block h-1.5 overflow-hidden rounded-full bg-[#397565]/10"><span class="auth-result-progress block h-full w-full rounded-full bg-gradient-to-r from-[#397565] via-[#C6F24E] to-[#2F3AE0]"></span></span>
+                </div>
+                <button class="auth-result-button mt-6 hidden min-h-11 w-full items-center justify-center rounded-xl px-5 text-sm font-extrabold shadow-lg transition hover:-translate-y-0.5" type="button" data-auth-result-confirm>Try again</button>
             </div>
         </dialog>
     @endguest
@@ -385,39 +398,35 @@
             const authResultMessage = document.querySelector('#auth-result-message');
             const authResultEyebrow = document.querySelector('[data-auth-result-eyebrow]');
             const authResultConfirm = document.querySelector('[data-auth-result-confirm]');
-            let portalRedirect = null;
             let redirectTimer = null;
 
             const showAuthResult = (type, message, redirectUrl = null) => {
-                portalRedirect = redirectUrl;
                 if (loginModal?.open) loginModal.close();
                 authResult.dataset.type = type;
-                authResultTitle.textContent = type === 'success' ? 'Welcome to CITE' : 'Unable to sign in';
+                authResultTitle.textContent = type === 'success' ? 'Sign-in successful' : 'Unable to sign in';
                 authResultMessage.textContent = message;
-                authResultEyebrow.textContent = type === 'success' ? 'Authentication complete' : 'Please try again';
-                authResultConfirm.textContent = type === 'success' ? 'Continue to portal' : 'Back to sign in';
+                authResultEyebrow.textContent = type === 'success' ? 'Signed in' : 'Please try again';
+                authResultConfirm.textContent = 'Try again';
+                authResultConfirm.classList.toggle('hidden', type === 'success');
+                authResultConfirm.classList.toggle('inline-flex', type !== 'success');
                 authResult.querySelector('[data-success-icon]').classList.toggle('hidden', type !== 'success');
                 authResult.querySelector('[data-error-icon]').classList.toggle('hidden', type === 'success');
                 authResult.showModal();
-                authResultConfirm.focus();
+                type === 'success' ? authResult.focus() : authResultConfirm.focus();
 
                 window.clearTimeout(redirectTimer);
-                if (redirectUrl) redirectTimer = window.setTimeout(() => window.location.assign(redirectUrl), 1800);
+                if (redirectUrl) redirectTimer = window.setTimeout(() => window.location.assign(redirectUrl), 1650);
             };
 
             authResultConfirm?.addEventListener('click', () => {
                 window.clearTimeout(redirectTimer);
-                if (portalRedirect) {
-                    window.location.assign(portalRedirect);
-                    return;
-                }
                 authResult.close();
                 loginModal?.showModal();
                 document.querySelector('#modal-login')?.focus();
             });
             authResult?.addEventListener('cancel', event => {
                 event.preventDefault();
-                if (!portalRedirect) authResultConfirm.click();
+                if (authResult.dataset.type === 'error') authResultConfirm.click();
             });
 
             loginForm?.addEventListener('submit', async event => {
@@ -465,7 +474,10 @@
             document.querySelector('[data-password-toggle]')?.addEventListener('click', event => {
                 const showing = password.type === 'text';
                 password.type = showing ? 'password' : 'text';
-                event.currentTarget.textContent = showing ? 'Show' : 'Hide';
+                event.currentTarget.setAttribute('aria-pressed', String(!showing));
+                event.currentTarget.setAttribute('aria-label', showing ? 'Show password' : 'Hide password');
+                event.currentTarget.querySelector('[data-eye-visible]').classList.toggle('hidden', !showing);
+                event.currentTarget.querySelector('[data-eye-hidden]').classList.toggle('hidden', showing);
             });
             const loginAlert = document.querySelector('[data-login-alert]');
             const dismissLoginAlert = () => loginAlert?.remove();
