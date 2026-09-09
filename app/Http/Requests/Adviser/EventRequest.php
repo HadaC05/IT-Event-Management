@@ -46,7 +46,7 @@ class EventRequest extends FormRequest
             'attendance_days.*.morning_out' => ['nullable', 'date_format:H:i'],
             'attendance_days.*.afternoon_in' => ['nullable', 'date_format:H:i'],
             'attendance_days.*.afternoon_out' => ['nullable', 'date_format:H:i'],
-            'event_status_id' => [Rule::requiredIf(! $this->isMethod('POST')), 'nullable', Rule::exists('event_statuses', 'id')],
+            'event_status_id' => ['nullable', Rule::exists('event_statuses', 'id')],
             'poster' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
             'remove_poster' => ['nullable', 'boolean'],
             'assigned_user_ids' => ['nullable', 'array'],
@@ -224,10 +224,6 @@ class EventRequest extends FormRequest
             'start_at' => Carbon::createFromFormat('Y-m-d H:i', "{$validated['start_date']} {$validated['start_time']}"),
             'end_at' => Carbon::createFromFormat('Y-m-d H:i', "{$validated['end_date']} {$validated['end_time']}"),
         ];
-
-        if (! $this->isMethod('POST')) {
-            $data['event_status_id'] = $validated['event_status_id'];
-        }
 
         return $data;
     }

@@ -15,6 +15,7 @@ use App\Models\Team;
 use App\Models\User;
 use App\Models\YearLevel;
 use App\Services\EventConflictDetector;
+use App\Services\EventStatusSynchronizer;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
@@ -28,8 +29,10 @@ use Throwable;
 
 class EventManagementController extends Controller
 {
-    public function index(Request $request): View
+    public function index(Request $request, EventStatusSynchronizer $statusSynchronizer): View
     {
+        $statusSynchronizer->sync();
+
         $validated = $request->validate([
             'search' => ['nullable', 'string', 'max:100'],
             'status' => ['nullable', Rule::exists('event_statuses', 'id')],
@@ -97,9 +100,10 @@ class EventManagementController extends Controller
         return to_route('adviser.events.index')->with('success', 'Event created successfully.');
     }
 
-    public function show(Event $event): View
+    public function show(Event $event, EventStatusSynchronizer $statusSynchronizer): View
     {
-        $event->load(['status', 'creator', 'assignedUsers.role', 'assignedUsers.userStatus', 'audienceTeams', 'audienceYearLevels', 'participants', 'attendanceSchedules.attendanceSessionMode']);
+        $statusSynchronizer->sync();
+        $event->load(['status', 'type', 'creator', 'assignedUsers.role', 'assignedUsers.userStatus', 'audienceTeams', 'audienceYearLevels', 'participants', 'attendanceSchedules.attendanceSessionMode']);
 
         $assignedIds = $event->assignedUsers->pluck('id');
 
@@ -107,6 +111,7 @@ class EventManagementController extends Controller
             'event' => $event,
             'availableUsers' => $this->assignableUsers()->whereNotIn('id', $assignedIds),
             'expectedParticipants' => $event->expectedParticipants(),
+            'statuses' => EventStatus::orderBy('id')->get(),
         ]);
     }
 
@@ -151,6 +156,29 @@ class EventManagementController extends Controller
         }
 
         return to_route('adviser.events.show', $event)->with('success', 'Event updated successfully.');
+    }
+
+    public function updateStatus(Request $request, Event $event): RedirectResponse
+    {
+        $validated = $request->validate([
+            'event_status_id' => [
+                'required',
+                Rule::exists('event_statuses', 'id'),
+            ],
+        ]);
+
+        $event->update($validated);
+        $event->load('status');
+        if ($event->status?->label === 'archived') {
+            $this->log($request->user(), 'event_archived', "{$event->title} was archived.", $event);
+            $event->delete();
+
+            return to_route('adviser.events.index')->with('success', 'Event archived successfully.');
+        }
+
+        $this->log($request->user(), 'event_status_updated', "{$event->title} status was updated to {$event->status->label}.", $event);
+
+        return to_route('adviser.events.show', $event)->with('success', 'Event status updated successfully.');
     }
 
     public function destroy(Request $request, Event $event): RedirectResponse

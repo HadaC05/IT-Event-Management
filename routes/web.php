@@ -43,6 +43,7 @@ Route::middleware('auth')->group(function () {
         Route::prefix('adviser')->name('adviser.')->middleware('sbo.adviser')->group(function () {
             Route::post('/events/conflicts', [EventManagementController::class, 'conflicts'])->name('events.conflicts');
             Route::resource('events', EventManagementController::class)->except('destroy');
+            Route::patch('/events/{event}/status', [EventManagementController::class, 'updateStatus'])->name('events.status');
             Route::delete('/events/{event}', [EventManagementController::class, 'destroy'])->name('events.destroy');
             Route::post('/events/{event}/assignments', [EventAssignmentController::class, 'storeForEvent'])->name('events.assignments.store');
             Route::post('/events/{event}/restore', [EventManagementController::class, 'restore'])->name('events.restore');

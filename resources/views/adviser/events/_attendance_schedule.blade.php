@@ -1,8 +1,10 @@
 @php
     $savedSchedules = collect(old('attendance_days', ($editing ?? false) ? $event->attendanceSchedules->map(fn ($schedule) => [
         'date' => $schedule->schedule_date->toDateString(), 'attendance_session_mode_id' => $schedule->attendance_session_mode_id,
-        'morning_in' => $schedule->whole_day_in_time ?? $schedule->morning_in_time, 'morning_out' => $schedule->whole_day_out_time ?? $schedule->morning_out_time,
-        'afternoon_in' => $schedule->afternoon_in_time, 'afternoon_out' => $schedule->afternoon_out_time,
+        'morning_in' => filled($schedule->whole_day_in_time ?? $schedule->morning_in_time) ? substr((string) ($schedule->whole_day_in_time ?? $schedule->morning_in_time), 0, 5) : null,
+        'morning_out' => filled($schedule->whole_day_out_time ?? $schedule->morning_out_time) ? substr((string) ($schedule->whole_day_out_time ?? $schedule->morning_out_time), 0, 5) : null,
+        'afternoon_in' => filled($schedule->afternoon_in_time) ? substr((string) $schedule->afternoon_in_time, 0, 5) : null,
+        'afternoon_out' => filled($schedule->afternoon_out_time) ? substr((string) $schedule->afternoon_out_time, 0, 5) : null,
     ])->values()->all() : []));
     $minimumDate = now()->toDateString();
 @endphp
