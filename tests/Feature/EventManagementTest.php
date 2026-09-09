@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\AttendanceSessionMode;
 use App\Models\Event;
 use App\Models\EventStatus;
 use App\Models\EventTypes;
@@ -194,8 +195,11 @@ class EventManagementTest extends TestCase
         ])->assertRedirect(route('adviser.events.index'))->assertSessionHasNoErrors();
 
         $schedule = Event::where('title', 'Whole-day Seminar')->firstOrFail()->attendanceSchedules()->firstOrFail();
-        $this->assertSame('single', $schedule->session_mode);
+        $this->assertSame(AttendanceSessionMode::WHOLE_DAY, $schedule->attendanceSessionMode->code);
+        $this->assertSame('08:00', substr($schedule->whole_day_in_time, 0, 5));
+        $this->assertSame('17:00', substr($schedule->whole_day_out_time, 0, 5));
         $this->assertSame(['Time in', 'Time out'], collect($schedule->slots())->pluck('label')->all());
+        $this->assertNull($schedule->morning_in_time);
         $this->assertNull($schedule->afternoon_in_time);
     }
 

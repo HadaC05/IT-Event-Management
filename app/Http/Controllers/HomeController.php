@@ -13,7 +13,7 @@ class HomeController extends Controller
         $events = Event::query()
             ->with(['type', 'status'])
             ->where('end_at', '>=', now())
-            ->whereHas('status', fn ($query) => $query->where('label', 'active'))
+            ->whereHas('status', fn ($query) => $query->whereIn('label', ['upcoming', 'ongoing']))
             ->orderBy('start_at')
             ->limit(8)
             ->get();

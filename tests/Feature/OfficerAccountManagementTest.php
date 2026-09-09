@@ -3,9 +3,8 @@
 namespace Tests\Feature;
 
 use App\Models\Role;
-use App\Models\SchoolYear;
 use App\Models\SboOfficerAssignment;
-use App\Models\StudentProfile;
+use App\Models\SchoolYear;
 use App\Models\Team;
 use App\Models\User;
 use App\Models\UserStatus;
@@ -21,19 +20,22 @@ class OfficerAccountManagementTest extends TestCase
     use RefreshDatabase;
 
     private User $adviser;
+
     private User $student;
+
     private Team $team;
 
     protected function setUp(): void
     {
         parent::setUp();
-        foreach (['SBO Adviser', 'SBO Officer', 'Faculty', 'Student'] as $name) Role::firstOrCreate(['name' => $name]);
+        foreach (['SBO Adviser', 'SBO Officer', 'Faculty', 'Student'] as $name) {
+            Role::firstOrCreate(['name' => $name]);
+        }
         $active = UserStatus::create(['label' => 'active']);
         UserStatus::create(['label' => 'inactive']);
         $this->adviser = User::factory()->create(['role_id' => Role::where('name', 'SBO Adviser')->value('id'), 'status' => $active->id]);
         $yearLevel = YearLevel::forceCreate(['label' => 'Third Year']);
-        $profile = StudentProfile::create(['student_id' => '02-2026-000001', 'first_name' => 'Juan', 'last_name' => 'Cruz', 'email' => 'juan@example.test', 'year_level_id' => $yearLevel->id]);
-        $this->student = User::factory()->create(['student_profile_id' => $profile->id, 'role_id' => Role::where('name', 'Student')->value('id'), 'status' => $active->id, 'username' => '02-2026-000001', 'password' => 'StudentPass!1']);
+        $this->student = User::factory()->create(['id_number' => '02-2026-000001', 'first_name' => 'Juan', 'last_name' => 'Cruz', 'email' => 'juan@example.test', 'year_level' => $yearLevel->id, 'role_id' => Role::where('name', 'Student')->value('id'), 'status' => $active->id, 'username' => '02-2026-000001', 'password' => 'StudentPass!1']);
         $year = SchoolYear::create(['label' => '2026-2027']);
         $this->team = Team::create(['school_year_id' => $year->id, 'name' => 'Emerald', 'color' => '#397565']);
     }
@@ -64,11 +66,11 @@ class OfficerAccountManagementTest extends TestCase
     {
         $this->assign()->assertRedirect(route('adviser.officers.index'));
         $officer = User::where('username', 'juan.sbo')->firstOrFail();
-        $this->assertSame($this->student->student_profile_id, $officer->student_profile_id);
+        $this->assertSame($this->student->id_number, $officer->id_number);
         $this->assertNotSame($this->student->username, $officer->username);
         $this->assertTrue(Hash::check('StudentPass!1', $this->student->password));
         $this->assertTrue(Hash::check('OfficerPass!1', $officer->password));
-        $this->assertDatabaseCount('student_profiles', 1);
+        $this->assertDatabaseCount('users', 3);
         $this->assertTrue($officer->must_change_password);
     }
 
@@ -126,6 +128,7 @@ class OfficerAccountManagementTest extends TestCase
         $resetToken = null;
         Notification::assertSentTo($officer, AccountPasswordReset::class, function ($notification) use (&$resetToken) {
             $resetToken = $notification->token;
+
             return $notification->accountType === 'SBO Officer';
         });
         Notification::assertNotSentTo($this->student, AccountPasswordReset::class);

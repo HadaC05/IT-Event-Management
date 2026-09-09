@@ -4,7 +4,7 @@
 
 @section('content')
 <header class="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-    <div><p class="mb-2 text-xs font-black uppercase tracking-[.14em] text-[#397565]">Account assignments</p><h1 class="text-3xl font-black tracking-tight sm:text-4xl">SBO Officer Management</h1><p class="mt-2 text-sm text-[#121017]/55">Create a separate officer login linked to an existing student profile.</p></div>
+    <div><p class="mb-2 text-xs font-black uppercase tracking-[.14em] text-[#397565]">Account assignments</p><h1 class="text-3xl font-black tracking-tight sm:text-4xl">SBO Officer Management</h1><p class="mt-2 text-sm text-[#121017]/55">Create a separate officer login linked to an existing student account.</p></div>
     <button class="inline-flex min-h-11 items-center justify-center rounded-xl bg-[#397565] px-5 text-sm font-black text-white shadow-lg" type="button" data-dialog-open="assign-officer-dialog">+ Assign Officer</button>
 </header>
 
@@ -14,8 +14,8 @@
         <div class="divide-y divide-[#121017]/8">
             @forelse($assignments as $assignment)
                 <article class="grid gap-4 px-5 py-5 lg:grid-cols-[auto_minmax(220px,1fr)_minmax(180px,.7fr)_minmax(180px,.7fr)_auto] lg:items-center">
-                    <input class="h-4 w-4 accent-[#397565] disabled:opacity-25" name="assignment_ids[]" value="{{ $assignment->id }}" type="checkbox" data-officer-checkbox @disabled($assignment->status !== 'Active') aria-label="Select {{ $assignment->studentProfile->full_name }}">
-                    <div><strong class="block text-sm font-black">{{ $assignment->studentProfile->full_name }}</strong><span class="mt-1 block text-xs text-[#121017]/45">{{ $assignment->studentProfile->student_id }} · {{ $assignment->studentProfile->email }}</span></div>
+                    <input class="h-4 w-4 accent-[#397565] disabled:opacity-25" name="assignment_ids[]" value="{{ $assignment->id }}" type="checkbox" data-officer-checkbox @disabled($assignment->status !== 'Active') aria-label="Select {{ $assignment->officerAccount->full_name }}">
+                    <div><strong class="block text-sm font-black">{{ $assignment->officerAccount->full_name }}</strong><span class="mt-1 block text-xs text-[#121017]/45">{{ $assignment->student_id }} · {{ $assignment->officerAccount->email }}</span></div>
                     <div><span class="text-[10px] font-black uppercase tracking-wider text-[#397565]">{{ $assignment->position }}</span><strong class="mt-1 block text-sm">{{ $assignment->term }}</strong></div>
                     <div><span class="text-xs font-bold text-[#121017]/55">{{ $assignment->team?->name ?? 'No tribe' }}</span><span class="mt-1 block text-[10px] text-[#121017]/35">Officer login: {{ $assignment->officerAccount->username }}</span></div>
                     <div class="flex items-center justify-end gap-2"><span class="rounded-full px-3 py-1.5 text-[10px] font-black uppercase {{ $assignment->status === 'Active' ? 'bg-[#C6F24E]/35 text-[#397565]' : 'bg-[#121017]/6 text-[#121017]/40' }}">{{ $assignment->status }}</span>@if($assignment->status === 'Active')<button class="min-h-9 rounded-lg border border-[#FF6B2C]/25 bg-[#FF6B2C]/9 px-3 text-xs font-black text-[#d9470a]" type="submit" formaction="{{ route('adviser.officers.unassign', $assignment) }}" name="assignment_ids[]" value="{{ $assignment->id }}">Unassign</button>@endif</div>
@@ -39,15 +39,14 @@
                 </div>
                 <div class="max-h-52 space-y-2 overflow-y-auto rounded-xl border border-[#121017]/10 bg-[#F3F0E9]/25 p-2" data-officer-student-list>
                     @forelse($students as $student)
-                        @php($profile = $student->studentProfile)
-                        <label class="group flex cursor-pointer items-center gap-3 rounded-xl border border-transparent bg-white px-3 py-2.5 transition hover:border-[#397565]/25 hover:bg-[#397565]/5 has-[:checked]:border-[#397565] has-[:checked]:bg-[#397565]/8" data-officer-student-option data-search="{{ Str::lower($profile->full_name.' '.$profile->student_id.' '.$profile->email) }}" data-year="{{ $profile->year_level_id ?: 'none' }}">
-                            <input class="h-4 w-4 shrink-0 accent-[#397565]" name="student_user_id" value="{{ $student->id }}" type="radio" data-suggested-username="{{ Str::slug($profile->first_name.'.'.$profile->last_name, '.') }}.sbo" @checked((string)old('student_user_id') === (string)$student->id) required>
-                            <span class="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[#121017] text-[10px] font-black text-white">{{ strtoupper(substr($profile->first_name, 0, 1).substr($profile->last_name, 0, 1)) }}</span>
-                            <span class="min-w-0 flex-1"><strong class="block truncate text-xs font-black">{{ $profile->full_name }}</strong><small class="mt-0.5 block truncate text-[10px] text-[#121017]/45">{{ $profile->student_id }} · {{ $profile->email }}</small></span>
-                            <span class="shrink-0 rounded-full bg-[#2F3AE0]/8 px-2.5 py-1 text-[9px] font-black text-[#2F3AE0]">{{ $profile->yearLevel?->label ?? 'No year' }}</span>
+                        <label class="group flex cursor-pointer items-center gap-3 rounded-xl border border-transparent bg-white px-3 py-2.5 transition hover:border-[#397565]/25 hover:bg-[#397565]/5 has-[:checked]:border-[#397565] has-[:checked]:bg-[#397565]/8" data-officer-student-option data-search="{{ Str::lower($student->full_name.' '.$student->id_number.' '.$student->email) }}" data-year="{{ $student->year_level ?: 'none' }}">
+                            <input class="h-4 w-4 shrink-0 accent-[#397565]" name="student_user_id" value="{{ $student->id }}" type="radio" data-suggested-username="{{ Str::slug($student->first_name.'.'.$student->last_name, '.') }}.sbo" @checked((string)old('student_user_id') === (string)$student->id) required>
+                            <span class="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[#121017] text-[10px] font-black text-white">{{ strtoupper(substr($student->first_name, 0, 1).substr($student->last_name, 0, 1)) }}</span>
+                            <span class="min-w-0 flex-1"><strong class="block truncate text-xs font-black">{{ $student->full_name }}</strong><small class="mt-0.5 block truncate text-[10px] text-[#121017]/45">{{ $student->id_number }} · {{ $student->email }}</small></span>
+                            <span class="shrink-0 rounded-full bg-[#2F3AE0]/8 px-2.5 py-1 text-[9px] font-black text-[#2F3AE0]">{{ $student->yearLevel?->label ?? 'No year' }}</span>
                         </label>
                     @empty
-                        <p class="px-4 py-8 text-center text-sm text-[#121017]/45">No active student profiles are available.</p>
+                        <p class="px-4 py-8 text-center text-sm text-[#121017]/45">No active student accounts are available.</p>
                     @endforelse
                     <p class="hidden px-4 py-8 text-center text-sm text-[#121017]/45" data-officer-student-empty>No students match your search and year level.</p>
                 </div>

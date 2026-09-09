@@ -23,12 +23,12 @@ class DashboardController extends Controller
         }
 
         if ($user->role?->name === 'Student') {
-            $user->loadMissing(['studentProfile.yearLevel', 'teams.schoolYear']);
+            $user->loadMissing(['yearLevel', 'teams.schoolYear']);
             $events = Event::query()
-                ->with(['status', 'audienceTeams', 'attendanceSchedules'])
+                ->with(['status', 'audienceTeams', 'attendanceSchedules.attendanceSessionMode'])
                 ->where(function ($query) {
                     $query->whereDoesntHave('status')
-                        ->orWhereHas('status', fn ($query) => $query->where('label', 'active'));
+                        ->orWhereHas('status', fn ($query) => $query->whereIn('label', ['upcoming', 'ongoing']));
                 })
                 ->where('end_at', '>=', now())
                 ->orderBy('start_at')

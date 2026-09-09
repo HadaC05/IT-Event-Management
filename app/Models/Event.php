@@ -23,10 +23,6 @@ class Event extends Model
         'poster_path',
         'start_at',
         'end_at',
-        'morning_in_at',
-        'morning_out_at',
-        'afternoon_in_at',
-        'afternoon_out_at',
         'event_type_id',
         'event_status_id',
         'created_by',
@@ -37,10 +33,6 @@ class Event extends Model
         return [
             'start_at' => 'datetime',
             'end_at' => 'datetime',
-            'morning_in_at' => 'datetime',
-            'morning_out_at' => 'datetime',
-            'afternoon_in_at' => 'datetime',
-            'afternoon_out_at' => 'datetime',
         ];
     }
 
@@ -152,11 +144,6 @@ class Event extends Model
             return $schedule->slots();
         }
 
-        return collect([
-            ['key' => 'morning_in', 'label' => 'Morning time in', 'date' => $this->morning_in_at?->copy()->startOfDay(), 'at' => $this->morning_in_at],
-            ['key' => 'morning_out', 'label' => 'Morning time out', 'date' => $this->morning_out_at?->copy()->startOfDay(), 'at' => $this->morning_out_at],
-            ['key' => 'afternoon_in', 'label' => 'Afternoon time in', 'date' => $this->afternoon_in_at?->copy()->startOfDay(), 'at' => $this->afternoon_in_at],
-            ['key' => 'afternoon_out', 'label' => 'Afternoon time out', 'date' => $this->afternoon_out_at?->copy()->startOfDay(), 'at' => $this->afternoon_out_at],
-        ])->filter(fn (array $slot) => $slot['at'] !== null)->values()->all();
+        return [];
     }
 }

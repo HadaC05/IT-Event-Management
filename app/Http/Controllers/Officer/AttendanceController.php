@@ -21,7 +21,7 @@ class AttendanceController extends Controller
         $officer = $request->user()->loadMissing('officerTeam');
         $events = Event::query()
             ->where(function (Builder $query) {
-                $query->whereDoesntHave('status')->orWhereHas('status', fn (Builder $query) => $query->where('label', 'active'));
+                $query->whereDoesntHave('status')->orWhereHas('status', fn (Builder $query) => $query->whereIn('label', ['upcoming', 'ongoing']));
             })
             ->where('end_at', '>=', now()->copy()->subDay())
             ->orderByRaw('CASE WHEN start_at <= ? AND end_at >= ? THEN 0 WHEN start_at > ? THEN 1 ELSE 2 END', [now(), now(), now()])
@@ -64,10 +64,7 @@ class AttendanceController extends Controller
                         ->where('first_name', 'like', $term)
                         ->orWhere('middle_name', 'like', $term)
                         ->orWhere('last_name', 'like', $term)
-                        ->orWhere('id_number', 'like', $term)
-                        ->orWhereHas('studentProfile', fn (Builder $profile) => $profile
-                            ->where('first_name', 'like', $term)->orWhere('middle_name', 'like', $term)
-                            ->orWhere('last_name', 'like', $term)->orWhere('student_id', 'like', $term)));
+                        ->orWhere('id_number', 'like', $term));
                 });
 
             if (($validated['status'] ?? 'all') === 'unmarked' && $activeSlot) {
@@ -130,8 +127,7 @@ class AttendanceController extends Controller
                 $qrToken,
                 fn (Builder $query) => $query->whereKey($qrToken->user_id),
                 fn (Builder $query) => $query->where(fn (Builder $query) => $query
-                    ->where('id_number', $data['id_number'])
-                    ->orWhereHas('studentProfile', fn (Builder $profile) => $profile->where('student_id', $data['id_number']))),
+                    ->where('id_number', $data['id_number'])),
             )
             ->whereHas('teams', fn (Builder $query) => $query->where('teams.id', $officer->officer_team_id))
             ->first();
@@ -172,7 +168,7 @@ class AttendanceController extends Controller
             ActivityLog::create([
                 'actor_id' => $officer->id,
                 'subject_user_id' => $student->id,
-                'student_profile_id' => $student->student_profile_id,
+                'student_id' => $student->id_number,
                 'event_id' => $event->id,
                 'action' => 'officer_attendance_scanned',
                 'acting_role' => $officer->role?->name,

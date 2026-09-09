@@ -4,11 +4,11 @@ namespace Tests\Feature;
 
 use App\Models\Attendance;
 use App\Models\AttendanceQrToken;
+use App\Models\AttendanceSessionMode;
 use App\Models\Event;
 use App\Models\EventStatus;
 use App\Models\Role;
 use App\Models\SchoolYear;
-use App\Models\StudentProfile;
 use App\Models\Team;
 use App\Models\User;
 use App\Models\UserStatus;
@@ -34,6 +34,7 @@ class OfficerAttendanceTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        $this->travelTo('2026-09-09 08:00:00');
 
         foreach (['SBO Adviser', 'SBO', 'SBO Officer', 'Faculty', 'Student'] as $role) {
             Role::firstOrCreate(['name' => $role]);
@@ -96,14 +97,6 @@ class OfficerAttendanceTest extends TestCase
             'role_id' => Role::where('name', 'SBO Adviser')->value('id'),
             'status' => $this->active->id,
         ]);
-        $profile = StudentProfile::create([
-            'student_id' => $this->student->id_number,
-            'first_name' => $this->student->first_name,
-            'middle_name' => $this->student->middle_name,
-            'last_name' => $this->student->last_name,
-            'email' => $this->student->email,
-        ]);
-        $this->student->update(['student_profile_id' => $profile->id]);
         $payload = [
             'student_user_id' => $this->student->id,
             'team_id' => $this->team->id,
@@ -120,7 +113,7 @@ class OfficerAttendanceTest extends TestCase
         $officer = User::where('username', 'alex.officer')->firstOrFail();
         $this->assertDatabaseHas('users', [
             'id' => $officer->id,
-            'student_profile_id' => $profile->id,
+            'id_number' => $this->student->id_number,
             'officer_team_id' => $this->team->id,
         ]);
         $this->assertDatabaseHas('sbo_officer_assignments', ['officer_user_id' => $officer->id, 'status' => 'Active']);
@@ -189,9 +182,11 @@ class OfficerAttendanceTest extends TestCase
             'afternoon_in_at' => null,
             'afternoon_out_at' => null,
         ]);
+        $event->attendanceSchedules()->delete();
         foreach (['2026-09-09', '2026-09-10'] as $date) {
             $event->attendanceSchedules()->create([
                 'schedule_date' => $date,
+                'attendance_session_mode_id' => AttendanceSessionMode::where('code', AttendanceSessionMode::TWO_SESSIONS)->value('id'),
                 'morning_in_time' => '07:00',
                 'morning_out_time' => '11:00',
                 'afternoon_in_time' => '13:00',
@@ -280,17 +275,31 @@ class OfficerAttendanceTest extends TestCase
 
     private function event(array $attributes = []): Event
     {
-        return Event::create(array_merge([
+        $scheduleAttributes = collect($attributes)->only(['morning_in_at', 'morning_out_at', 'afternoon_in_at', 'afternoon_out_at']);
+        $event = Event::create(array_merge([
             'title' => 'IT Days Attendance',
             'location' => 'CITE Hall',
             'audience_type' => 'all_students',
             'event_status_id' => $this->eventStatus->id,
             'start_at' => now()->subHour(),
             'end_at' => now()->addHours(8),
+        ], collect($attributes)->except(['morning_in_at', 'morning_out_at', 'afternoon_in_at', 'afternoon_out_at'])->all()));
+
+        $times = array_merge([
             'morning_in_at' => now()->subMinutes(15),
             'morning_out_at' => now()->addHours(2),
             'afternoon_in_at' => now()->addHours(3),
             'afternoon_out_at' => now()->addHours(7),
-        ], $attributes));
+        ], $scheduleAttributes->all());
+        $event->attendanceSchedules()->create([
+            'schedule_date' => $event->start_at->toDateString(),
+            'attendance_session_mode_id' => AttendanceSessionMode::where('code', AttendanceSessionMode::TWO_SESSIONS)->value('id'),
+            'morning_in_time' => $times['morning_in_at']?->format('H:i'),
+            'morning_out_time' => $times['morning_out_at']?->format('H:i'),
+            'afternoon_in_time' => $times['afternoon_in_at']?->format('H:i'),
+            'afternoon_out_time' => $times['afternoon_out_at']?->format('H:i'),
+        ]);
+
+        return $event->fresh('attendanceSchedules.attendanceSessionMode');
     }
 }

@@ -36,8 +36,7 @@ class TeamManagementController extends Controller
                     ->where('name', 'like', $term)
                     ->orWhereHas('members', fn (Builder $query) => $query
                         ->where('first_name', 'like', $term)
-                        ->orWhere('last_name', 'like', $term)
-                        ->orWhereHas('studentProfile', fn (Builder $profile) => $profile->where('first_name', 'like', $term)->orWhere('last_name', 'like', $term))));
+                        ->orWhere('last_name', 'like', $term)));
             })
             ->when($validated['status'] ?? null, fn (Builder $query, string $status) => $query->where('is_active', $status === 'active'))
             ->when($validated['school_year'] ?? null, fn (Builder $query, int|string $schoolYear) => $query->where('school_year_id', $schoolYear))
@@ -190,7 +189,7 @@ class TeamManagementController extends Controller
         return [
             'schoolYears' => SchoolYear::orderByDesc('label')->get(),
             'students' => User::query()
-                ->with(['studentProfile.yearLevel', 'teams.schoolYear', 'yearLevel'])
+                ->with(['teams.schoolYear', 'yearLevel'])
                 ->where('role_id', Role::where('name', 'Student')->value('id'))
                 ->whereHas('userStatus', fn (Builder $query) => $query->where('label', 'active'))
                 ->orderBy('last_name')

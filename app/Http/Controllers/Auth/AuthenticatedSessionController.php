@@ -3,8 +3,9 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
-use Illuminate\Http\RedirectResponse;
+use App\Models\User;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
@@ -27,10 +28,7 @@ class AuthenticatedSessionController extends Controller
 
         $authenticated = false;
         if (filter_var($validated['login'], FILTER_VALIDATE_EMAIL)) {
-            $candidates = \App\Models\User::query()->with('studentProfile')
-                ->where('email', $validated['login'])
-                ->orWhereHas('studentProfile', fn ($query) => $query->where('email', $validated['login']))
-                ->get();
+            $candidates = User::query()->where('email', $validated['login'])->get();
             $account = $candidates->first(fn ($candidate) => Hash::check($validated['password'], $candidate->password));
             if ($account) {
                 Auth::login($account, $request->boolean('remember'));

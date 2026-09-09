@@ -7,6 +7,9 @@ use App\Http\Requests\Adviser\EventRequest;
 use App\Models\ActivityLog;
 use App\Models\Event;
 use App\Models\EventStatus;
+use App\Models\EventTypes;
+use App\Models\AttendanceSessionMode;
+use App\Models\Location;
 use App\Models\Role;
 use App\Models\Team;
 use App\Models\User;
@@ -30,13 +33,11 @@ class EventManagementController extends Controller
         $validated = $request->validate([
             'search' => ['nullable', 'string', 'max:100'],
             'status' => ['nullable', Rule::exists('event_statuses', 'id')],
-            'timing' => ['nullable', Rule::in(['upcoming', 'ongoing', 'completed', 'archived'])],
+            'event_type' => ['nullable', Rule::exists('event_types', 'id')],
         ]);
 
-        $now = now();
         $events = Event::query()
-            ->with(['status', 'assignedUsers.role'])
-            ->when(($validated['timing'] ?? null) === 'archived', fn (Builder $query) => $query->onlyTrashed())
+            ->with(['status', 'type', 'assignedUsers.role'])
             ->when($validated['search'] ?? null, function (Builder $query, string $search) {
                 $term = '%'.addcslashes($search, '%_\\').'%';
                 $query->where(fn (Builder $query) => $query
@@ -44,10 +45,14 @@ class EventManagementController extends Controller
                     ->orWhere('description', 'like', $term)
                     ->orWhere('location', 'like', $term));
             })
-            ->when($validated['status'] ?? null, fn (Builder $query, int|string $status) => $query->where('event_status_id', $status))
-            ->when(($validated['timing'] ?? null) === 'upcoming', fn (Builder $query) => $query->where('start_at', '>', $now))
-            ->when(($validated['timing'] ?? null) === 'ongoing', fn (Builder $query) => $query->where('start_at', '<=', $now)->where('end_at', '>=', $now))
-            ->when(($validated['timing'] ?? null) === 'completed', fn (Builder $query) => $query->where('end_at', '<', $now))
+            ->when($validated['status'] ?? null, function (Builder $query, int|string $status) {
+                $query->where('event_status_id', $status);
+
+                if ((int) $status === (int) EventStatus::where('label', 'archived')->value('id')) {
+                    $query->withTrashed();
+                }
+            })
+            ->when($validated['event_type'] ?? null, fn (Builder $query, int|string $type) => $query->where('event_type_id', $type))
             ->orderByRaw('CASE WHEN deleted_at IS NOT NULL THEN 1 ELSE 0 END')
             ->orderBy('start_at')
             ->paginate(9)
@@ -66,7 +71,7 @@ class EventManagementController extends Controller
     public function store(EventRequest $request): RedirectResponse
     {
         $data = $request->eventData();
-        $data['event_status_id'] = EventStatus::firstOrCreate(['label' => 'active'])->id;
+        $data['event_status_id'] = EventStatus::firstOrCreate(['label' => 'upcoming'])->id;
         $posterPath = $request->file('poster')?->store('event-posters', 'public');
         $data['poster_path'] = $posterPath;
         $data['created_by'] = $request->user()->id;
@@ -94,7 +99,7 @@ class EventManagementController extends Controller
 
     public function show(Event $event): View
     {
-        $event->load(['status', 'creator', 'assignedUsers.role', 'assignedUsers.userStatus', 'audienceTeams', 'audienceYearLevels', 'participants', 'attendanceSchedules']);
+        $event->load(['status', 'creator', 'assignedUsers.role', 'assignedUsers.userStatus', 'audienceTeams', 'audienceYearLevels', 'participants', 'attendanceSchedules.attendanceSessionMode']);
 
         $assignedIds = $event->assignedUsers->pluck('id');
 
@@ -107,7 +112,7 @@ class EventManagementController extends Controller
 
     public function edit(Event $event): View
     {
-        $event->load(['assignedUsers', 'audienceTeams', 'audienceYearLevels', 'participants', 'attendanceSchedules']);
+        $event->load(['assignedUsers', 'audienceTeams', 'audienceYearLevels', 'participants', 'attendanceSchedules.attendanceSessionMode']);
 
         return view('adviser.events.edit', array_merge($this->formData(), ['event' => $event]));
     }
@@ -150,6 +155,7 @@ class EventManagementController extends Controller
 
     public function destroy(Request $request, Event $event): RedirectResponse
     {
+        $event->update(['event_status_id' => EventStatus::firstOrCreate(['label' => 'archived'])->id]);
         $this->log($request->user(), 'event_archived', "{$event->title} was archived.", $event);
         $event->delete();
 
@@ -159,6 +165,7 @@ class EventManagementController extends Controller
     public function restore(Request $request, int $event): RedirectResponse
     {
         $event = Event::onlyTrashed()->findOrFail($event);
+        $event->update(['event_status_id' => EventStatus::firstOrCreate(['label' => 'upcoming'])->id]);
         $event->restore();
         $this->log($request->user(), 'event_restored', "{$event->title} was restored.", $event);
 
@@ -195,8 +202,10 @@ class EventManagementController extends Controller
 
         return [
             'statuses' => EventStatus::orderBy('id')->get(),
+            'eventTypes' => EventTypes::query()->orderBy('label')->get(),
+            'attendanceSessionModes' => AttendanceSessionMode::query()->orderBy('id')->get(),
+            'generalLocations' => Location::query()->where('type', Location::GENERAL)->orderBy('name')->get(),
             'assignableUsers' => $this->assignableUsers(),
-            'recentLocations' => Event::query()->whereNotNull('location')->latest()->limit(30)->pluck('location')->unique()->take(5)->values(),
             'audienceTeams' => Team::query()
                 ->with(['schoolYear', 'members' => $activeStudentConstraint])
                 ->where('is_active', true)
@@ -212,7 +221,7 @@ class EventManagementController extends Controller
 
     private function assignableUsers()
     {
-        $roleIds = Role::whereIn('name', ['SBO Adviser', 'SBO', 'Faculty'])->pluck('id');
+        $roleIds = Role::whereIn('name', ['SBO Adviser', 'Faculty'])->pluck('id');
 
         return User::with('role')
             ->whereIn('role_id', $roleIds)

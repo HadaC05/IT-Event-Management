@@ -10,6 +10,17 @@
         <header class="border-b border-slate-100 px-6 py-5"><h2 class="text-lg font-extrabold tracking-tight text-[#121017]">Event information</h2><p class="mt-1 text-xs text-slate-500">Basic details attendees will use to identify the event.</p></header>
         <div class="grid grid-cols-1 gap-5 p-6 sm:grid-cols-2">
             <label class="grid gap-2 sm:col-span-2">
+                <span class="text-sm font-bold text-slate-700">Event type</span>
+                <select class="{{ $field }} {{ $errors->has('event_type_id') ? $invalid : '' }}" name="event_type_id" data-event-type required>
+                    <option value="">Select event type</option>
+                    @foreach($eventTypes as $type)
+                        <option value="{{ $type->id }}" data-event-type-label="{{ $type->label }}" @selected((string) old('event_type_id', $editing ? $event->event_type_id : '') === (string) $type->id)>{{ $type->label }}</option>
+                    @endforeach
+                </select>
+                <small class="text-xs text-slate-400">Selecting a type suggests an event name; you can change it.</small>
+                <x-form-error name="event_type_id" />
+            </label>
+            <label class="grid gap-2 sm:col-span-2">
                 <span class="text-sm font-bold text-slate-700">Event name</span>
                 <input class="{{ $field }} {{ $errors->has('title') ? $invalid : '' }}" name="title" value="{{ old('title', $editing ? $event->title : '') }}" aria-describedby="title-error" required autofocus>
                 <x-form-error name="title" id="title-error" />
@@ -21,7 +32,12 @@
             </label>
             <label class="grid gap-2 sm:col-span-2">
                 <span class="text-sm font-bold text-slate-700">Location</span>
-                <input class="{{ $field }} {{ $errors->has('location') ? $invalid : '' }}" name="location" value="{{ old('location', $editing ? $event->location : '') }}" aria-describedby="location-error" placeholder="e.g. University Gymnasium" required>
+                <select class="{{ $field }} {{ $errors->has('location') ? $invalid : '' }}" name="location" aria-describedby="location-error" required>
+                    <option value="">Select location</option>
+                    @foreach($generalLocations as $location)
+                        <option value="{{ $location->name }}" @selected(old('location', $editing ? $event->location : '') === $location->name)>{{ $location->name }}</option>
+                    @endforeach
+                </select>
                 <x-form-error name="location" id="location-error" />
             </label>
             @if($editing)
@@ -30,10 +46,10 @@
                     <select class="{{ $field }} {{ $errors->has('event_status_id') ? $invalid : '' }}" name="event_status_id" required>
                         <option value="">Select status</option>
                         @foreach ($statuses as $status)
-                            <option value="{{ $status->id }}" @selected((string) old('event_status_id', $event->event_status_id) === (string) $status->id)>{{ $status->label === 'inactive' ? 'Deactivated' : ucfirst($status->label) }}</option>
+                            <option value="{{ $status->id }}" @selected((string) old('event_status_id', $event->event_status_id) === (string) $status->id)>{{ ucfirst($status->label) }}</option>
                         @endforeach
                     </select>
-                    <small class="text-xs font-medium text-slate-400">New events start as active. Deactivate this event only when it should no longer be operational.</small>
+                    <small class="text-xs font-medium text-slate-400">New events begin as upcoming. Update this when the event progresses.</small>
                     <x-form-error name="event_status_id" />
                 </label>
             @endif
@@ -68,7 +84,7 @@
     </section>
 
     <section class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm xl:col-span-2">
-        <header class="border-b border-slate-100 px-6 py-5"><h2 class="text-lg font-extrabold tracking-tight text-[#121017]">Event-in-Charge</h2><p class="mt-1 text-xs text-slate-500">Assign active SBO or Faculty members. SBO Officers receive attendance access through their tribe assignment.</p></header>
+        <header class="border-b border-slate-100 px-6 py-5"><h2 class="text-lg font-extrabold tracking-tight text-[#121017]">Event-in-Charge</h2><p class="mt-1 text-xs text-slate-500">Assign one or more active SBO Advisers or Faculty members.</p></header>
         <div class="p-6">
             <x-form-error name="assigned_user_ids" class="mb-3 block" />
             <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -80,7 +96,7 @@
                         <i class="absolute right-3 grid h-5 w-5 place-items-center rounded-full border border-slate-300 text-[10px] not-italic text-transparent peer-checked:border-emerald-600 peer-checked:bg-emerald-600 peer-checked:text-white" aria-hidden="true">✓</i>
                     </label>
                 @empty
-                    <div class="col-span-full rounded-xl border border-dashed border-slate-200 px-5 py-8 text-center"><strong class="text-sm text-slate-600">No assignable users</strong><p class="mt-1 text-xs text-slate-400">Add or activate an SBO or Faculty account first.</p></div>
+                    <div class="col-span-full rounded-xl border border-dashed border-slate-200 px-5 py-8 text-center"><strong class="text-sm text-slate-600">No assignable users</strong><p class="mt-1 text-xs text-slate-400">Add or activate an SBO Adviser or Faculty account first.</p></div>
                 @endforelse
             </div>
         </div>
@@ -98,6 +114,13 @@
         preview.classList.add('text-white', 'shadow-inner');
         preview.querySelector('strong').textContent = file.name;
         preview.querySelector('small').textContent = 'Click to replace';
+    });
+    document.querySelectorAll('[data-event-type]').forEach((typeInput) => {
+        typeInput.addEventListener('change', () => {
+            const title = typeInput.closest('form')?.querySelector('[name="title"]');
+            const label = typeInput.selectedOptions[0]?.dataset.eventTypeLabel;
+            if (title && label) title.value = `${label} ${new Date().getFullYear()}`;
+        });
     });
 </script>
 @endpush

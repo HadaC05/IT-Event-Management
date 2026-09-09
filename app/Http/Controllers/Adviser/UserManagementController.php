@@ -6,7 +6,6 @@ use App\Http\Controllers\Controller;
 use App\Models\ActivityLog;
 use App\Models\Event;
 use App\Models\Role;
-use App\Models\StudentProfile;
 use App\Models\Team;
 use App\Models\User;
 use App\Models\UserStatus;
@@ -21,6 +20,7 @@ use Illuminate\View\View;
 class UserManagementController extends Controller
 {
     private const MANAGEABLE_ROLES = ['SBO Adviser', 'SBO', 'SBO Officer', 'Faculty', 'Student'];
+
     private const CREATABLE_ROLES = ['SBO Adviser', 'Faculty', 'Student'];
 
     public function index(Request $request): View
@@ -32,7 +32,7 @@ class UserManagementController extends Controller
         ]);
 
         $users = User::query()
-            ->with(['role', 'userStatus', 'studentProfile', 'officerTeam', 'assignedEvents' => fn ($query) => $query->orderBy('start_at')])
+            ->with(['role', 'userStatus', 'officerTeam', 'assignedEvents' => fn ($query) => $query->orderBy('start_at')])
             ->when($validated['search'] ?? null, function (Builder $query, string $search) {
                 $query->where(function (Builder $query) use ($search) {
                     $term = '%'.addcslashes($search, '%_\\').'%';
@@ -41,10 +41,7 @@ class UserManagementController extends Controller
                         ->orWhere('last_name', 'like', $term)
                         ->orWhere('email', 'like', $term)
                         ->orWhere('username', 'like', $term)
-                        ->orWhere('id_number', 'like', $term)
-                        ->orWhereHas('studentProfile', fn (Builder $profile) => $profile
-                            ->where('student_id', 'like', $term)->orWhere('email', 'like', $term)
-                            ->orWhere('first_name', 'like', $term)->orWhere('last_name', 'like', $term));
+                        ->orWhere('id_number', 'like', $term);
                 });
             })
             ->when($validated['role'] ?? null, fn (Builder $query, string $role) => $query->whereHas('role', fn (Builder $query) => $query->where('name', $role)))
@@ -87,17 +84,6 @@ class UserManagementController extends Controller
         $data['status'] = UserStatus::firstOrCreate(['label' => 'active'])->id;
 
         $user = DB::transaction(function () use ($request, $data) {
-            if (Role::find($data['role_id'])?->name === 'Student') {
-                $profile = StudentProfile::create([
-                    'student_id' => $data['id_number'], 'first_name' => $data['first_name'],
-                    'middle_name' => $data['middle_name'] ?? null, 'last_name' => $data['last_name'],
-                    'email' => $data['email'], 'year_level_id' => $data['year_level'] ?? null,
-                ]);
-                $data['student_profile_id'] = $profile->id;
-                foreach (['id_number', 'first_name', 'middle_name', 'last_name', 'email', 'year_level'] as $profileField) {
-                    $data[$profileField] = null;
-                }
-            }
             $user = User::create($data);
             $this->log($request, 'user_created', "{$user->full_name} was added as {$user->role->name}.", $user);
 
@@ -117,16 +103,6 @@ class UserManagementController extends Controller
         }
 
         DB::transaction(function () use ($request, $user, $data) {
-            if ($user->studentProfile && Role::find($data['role_id'])?->name === 'Student') {
-                $user->studentProfile->update([
-                    'student_id' => $data['id_number'], 'first_name' => $data['first_name'],
-                    'middle_name' => $data['middle_name'] ?? null, 'last_name' => $data['last_name'],
-                    'email' => $data['email'], 'year_level_id' => $data['year_level'] ?? null,
-                ]);
-                foreach (['id_number', 'first_name', 'middle_name', 'last_name', 'email', 'year_level'] as $profileField) {
-                    $data[$profileField] = null;
-                }
-            }
             $user->update($data);
             $user->load('role');
 
@@ -164,13 +140,10 @@ class UserManagementController extends Controller
     {
         $roleIds = Role::whereIn('name', $user ? self::MANAGEABLE_ROLES : self::CREATABLE_ROLES)->pluck('id')->all();
         $roleName = Role::whereKey($request->input('role_id'))->value('name');
-        $profile = $user?->studentProfile;
         $idNumberRules = $roleName === 'Student'
-            ? ['required', 'string', 'regex:/^02-\d{4}-\d{6}$/', Rule::unique('student_profiles', 'student_id')->ignore($profile)]
-            : ['nullable', 'string', 'max:255', Rule::unique('users')->ignore($user)];
-        $emailRules = $roleName === 'Student'
-            ? ['required', 'email', 'max:255', Rule::unique('student_profiles', 'email')->ignore($profile)]
-            : ['required', 'email', 'max:255', Rule::unique('users')->ignore($user)];
+            ? ['required', 'string', 'regex:/^02-\d{4}-\d{6}$/', Rule::unique('users', 'id_number')->ignore($user)]
+            : ['nullable', 'string', 'max:255', Rule::unique('users', 'id_number')->ignore($user)];
+        $emailRules = ['required', 'email', 'max:255', Rule::unique('users', 'email')->ignore($user)];
 
         $data = $request->validate([
             'first_name' => ['required', 'string', 'max:255'],

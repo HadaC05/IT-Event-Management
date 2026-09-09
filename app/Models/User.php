@@ -24,7 +24,6 @@ class User extends Authenticatable
      */
     protected $fillable = [
         'email',
-        'student_profile_id',
         'password',
         'role_id',
         'id_number',
@@ -91,11 +90,6 @@ class User extends Authenticatable
         return $this->belongsTo(Team::class, 'officer_team_id');
     }
 
-    public function studentProfile(): BelongsTo
-    {
-        return $this->belongsTo(StudentProfile::class);
-    }
-
     public function officerAssignments(): HasMany
     {
         return $this->hasMany(SboOfficerAssignment::class, 'officer_user_id');
@@ -133,10 +127,6 @@ class User extends Authenticatable
 
     public function getFullNameAttribute(): string
     {
-        if ($this->studentProfile) {
-            return $this->studentProfile->full_name;
-        }
-
         return trim(implode(' ', array_filter([
             $this->first_name,
             $this->middle_name,
@@ -144,25 +134,19 @@ class User extends Authenticatable
         ])));
     }
 
-    public function getFirstNameAttribute(?string $value): ?string { return $value ?? $this->studentProfile?->first_name; }
-    public function getMiddleNameAttribute(?string $value): ?string { return $value ?? $this->studentProfile?->middle_name; }
-    public function getLastNameAttribute(?string $value): ?string { return $value ?? $this->studentProfile?->last_name; }
-    public function getEmailAttribute(?string $value): ?string { return $value ?? $this->studentProfile?->email; }
-    public function getIdNumberAttribute(?string $value): ?string { return $value ?? $this->studentProfile?->student_id; }
-
     public function getDisplayEmailAttribute(): ?string
     {
-        return $this->studentProfile?->email ?? $this->email;
+        return $this->email;
     }
 
     public function getDisplayIdNumberAttribute(): ?string
     {
-        return $this->studentProfile?->student_id ?? $this->id_number;
+        return $this->id_number;
     }
 
     public function getDisplayYearLevelAttribute(): ?YearLevel
     {
-        return $this->studentProfile?->yearLevel ?? $this->yearLevel;
+        return $this->yearLevel;
     }
 
     public function routeNotificationForMail(): ?string

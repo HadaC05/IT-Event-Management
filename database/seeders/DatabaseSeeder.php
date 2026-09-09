@@ -21,10 +21,13 @@ class DatabaseSeeder extends Seeder
         $this->call([
             RoleSeeder::class,
             UserStatusSeeder::class,
+            AttendanceSessionModeSeeder::class,
             YearLevelSeeder::class,
             SchoolYearSeeder::class,
             EventTypeSeeder::class,
             EventStatusSeeder::class,
+            LocationSeeder::class,
+            StudentSeeder::class,
         ]);
 
         User::updateOrCreate(['email' => 'test@example.com'], [

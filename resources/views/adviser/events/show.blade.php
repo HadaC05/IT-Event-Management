@@ -12,7 +12,7 @@
         <div class="flex flex-col items-start justify-center p-6 sm:p-10 lg:p-12">
             <div class="flex flex-wrap gap-2">
                 <span class="rounded-full px-2.5 py-1 text-[10px] font-extrabold {{ match($event->schedule_state) { 'ongoing' => 'bg-[#C6F24E]/35 text-[#397565]', 'completed' => 'bg-[#121017]/6 text-[#121017]/55', default => 'bg-[#2F3AE0]/8 text-[#2F3AE0]' } }}">{{ ucfirst($event->schedule_state) }}</span>
-                <span class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-bold {{ $event->status?->label === 'inactive' ? 'bg-[#FF6B2C]/10 text-[#FF6B2C]' : 'bg-[#C6F24E]/35 text-[#397565]' }}"><i class="h-1.5 w-1.5 rounded-full {{ $event->status?->label === 'inactive' ? 'bg-[#FF6B2C]' : 'bg-[#C6F24E]' }}"></i>{{ $event->status?->label === 'inactive' ? 'Deactivated' : 'Active' }}</span>
+                <span class="inline-flex items-center gap-1.5 rounded-full bg-[#2F3AE0]/8 px-2.5 py-1 text-[10px] font-bold text-[#2F3AE0]"><i class="h-1.5 w-1.5 rounded-full bg-[#2F3AE0]"></i>{{ ucfirst($event->status?->label ?? 'Unspecified') }}</span>
             </div>
             <h1 class="mt-4 text-3xl font-black leading-tight tracking-tight text-[#121017] sm:text-4xl xl:text-5xl">{{ $event->title }}</h1>
             <p class="mt-3 max-w-3xl whitespace-pre-line text-sm leading-6 text-slate-500">{{ $event->description ?: 'No event description has been added.' }}</p>

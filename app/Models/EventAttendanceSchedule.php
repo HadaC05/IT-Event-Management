@@ -11,7 +11,9 @@ class EventAttendanceSchedule extends Model
     protected $fillable = [
         'event_id',
         'schedule_date',
-        'session_mode',
+        'attendance_session_mode_id',
+        'whole_day_in_time',
+        'whole_day_out_time',
         'morning_in_time',
         'morning_out_time',
         'afternoon_in_time',
@@ -28,13 +30,18 @@ class EventAttendanceSchedule extends Model
         return $this->belongsTo(Event::class);
     }
 
+    public function attendanceSessionMode(): BelongsTo
+    {
+        return $this->belongsTo(AttendanceSessionMode::class);
+    }
+
     public function slots(): array
     {
-        $singleSession = $this->session_mode === 'single';
+        $wholeDay = $this->attendanceSessionMode?->code === AttendanceSessionMode::WHOLE_DAY;
 
         return collect([
-            ['key' => 'morning_in', 'label' => $singleSession ? 'Time in' : 'Morning time in', 'time' => $this->morning_in_time],
-            ['key' => 'morning_out', 'label' => $singleSession ? 'Time out' : 'Morning time out', 'time' => $this->morning_out_time],
+            ['key' => 'morning_in', 'label' => $wholeDay ? 'Time in' : 'Morning time in', 'time' => $wholeDay ? $this->whole_day_in_time : $this->morning_in_time],
+            ['key' => 'morning_out', 'label' => $wholeDay ? 'Time out' : 'Morning time out', 'time' => $wholeDay ? $this->whole_day_out_time : $this->morning_out_time],
             ['key' => 'afternoon_in', 'label' => 'Afternoon time in', 'time' => $this->afternoon_in_time],
             ['key' => 'afternoon_out', 'label' => 'Afternoon time out', 'time' => $this->afternoon_out_time],
         ])->filter(fn (array $slot) => filled($slot['time']))

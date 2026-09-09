@@ -90,12 +90,12 @@ class AdviserUserManagementTest extends TestCase
             ->assertRedirect('/adviser/users');
 
         $student = User::where('username', 'format.student')->firstOrFail();
-        $this->assertDatabaseHas('student_profiles', [
-            'id' => $student->student_profile_id,
-            'student_id' => '02-2122-030923',
+        $this->assertDatabaseHas('users', [
+            'id' => $student->id,
+            'id_number' => '02-2122-030923',
             'email' => 'format.student@example.com',
         ]);
-        $this->assertNull($student->getRawOriginal('id_number'));
+        $this->assertSame('02-2122-030923', $student->getRawOriginal('id_number'));
 
         $this->post('/adviser/users', array_merge($payload, [
             'username' => 'duplicate.student',
