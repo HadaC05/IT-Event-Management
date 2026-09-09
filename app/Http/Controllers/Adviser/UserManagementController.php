@@ -27,7 +27,7 @@ class UserManagementController extends Controller
     {
         $validated = $request->validate([
             'search' => ['nullable', 'string', 'max:100'],
-            'role' => ['nullable', Rule::in(self::MANAGEABLE_ROLES)],
+            'role' => ['nullable', 'string', Rule::exists('roles', 'name')],
             'status' => ['nullable', Rule::in(['active', 'inactive'])],
         ]);
 
@@ -56,8 +56,9 @@ class UserManagementController extends Controller
 
         return view('adviser.users.index', [
             'users' => $users,
-            'roles' => Role::whereIn('name', self::MANAGEABLE_ROLES)
-                ->orderByRaw("CASE name WHEN 'SBO Officer' THEN 1 WHEN 'SBO' THEN 2 WHEN 'Faculty' THEN 3 WHEN 'Student' THEN 4 ELSE 5 END")
+            'roles' => Role::query()
+                ->whereHas('users')
+                ->orderBy('name')
                 ->get(),
             'creatableRoles' => Role::whereIn('name', self::CREATABLE_ROLES)->orderBy('name')->get(),
             'yearLevels' => YearLevel::orderBy('id')->get(),

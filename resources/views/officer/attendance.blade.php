@@ -28,7 +28,9 @@
                 <section class="rounded-2xl border border-[#121017]/10 bg-white p-5 shadow-[0_14px_40px_rgba(18,16,23,.05)]">
                     <div class="flex items-start justify-between gap-4"><div><p class="text-[9px] font-black uppercase tracking-[.15em] text-[#397565]">Current checkpoint</p><h2 class="mt-2 text-2xl font-black tracking-[-.035em]">{{ $activeSlot['label'] ?? 'Scanning closed' }}</h2></div><span class="mt-1 h-3 w-3 rounded-full {{ $activeSlot ? 'bg-[#C6F24E] shadow-[0_0_0_6px_rgba(198,242,78,.2)]' : 'bg-[#121017]/15' }}"></span></div>
                     @if($activeSlot)<p class="mt-2 text-xs text-[#121017]/48">Open since {{ $activeSlot['at']->format('g:i A') }} · closes {{ $windowClose->format('g:i A') }}</p>@else<p class="mt-2 text-xs leading-5 text-[#121017]/48">Scanning becomes available when a scheduled checkpoint begins.</p>@endif
-                    <form class="mt-5" method="POST" action="{{ route('officer.attendance.scan', $event) }}">@csrf<label class="grid gap-2"><span class="text-xs font-black">Scan or enter student number</span><span class="relative"><svg class="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 fill-none stroke-[#397565] stroke-2" viewBox="0 0 24 24"><path d="M4 7V4h3m10 0h3v3M4 17v3h3m10 0h3v-3M7 12h10"/></svg><input class="h-13 w-full rounded-xl border border-[#121017]/10 bg-[#F3F0E9]/45 pl-12 pr-4 font-mono text-sm font-bold uppercase outline-none placeholder:font-sans placeholder:font-normal placeholder:normal-case placeholder:text-[#121017]/30 focus:border-[#397565] focus:bg-white focus:ring-4 focus:ring-[#397565]/10 disabled:cursor-not-allowed disabled:opacity-50" name="id_number" value="{{ old('id_number') }}" placeholder="e.g. 2026-00123" autocomplete="off" autofocus @disabled(!$activeSlot) required></span><x-form-error name="id_number" /></label><button class="mt-3 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#397565] px-5 text-sm font-black text-white shadow-[0_8px_20px_rgba(57,117,101,.2)] transition hover:bg-[#2e6355] disabled:cursor-not-allowed disabled:bg-[#121017]/15 disabled:text-[#121017]/35" type="submit" @disabled(!$activeSlot) data-loading-text="Recording…">Record {{ $activeSlot['label'] ?? 'attendance' }} <span aria-hidden="true">→</span></button></form>
+                    <button class="mt-5 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#397565] px-5 text-sm font-black text-white shadow-[0_8px_20px_rgba(57,117,101,.2)] transition hover:bg-[#2e6355] disabled:cursor-not-allowed disabled:bg-[#121017]/15 disabled:text-[#121017]/35" type="button" data-scanner-open @disabled(!$activeSlot)><svg class="h-5 w-5 fill-none stroke-current stroke-2" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7V4h3m10 0h3v3M4 17v3h3m10 0h3v-3M7 12h10"/></svg>Open QR scanner</button>
+                    <div class="my-4 flex items-center gap-3"><i class="h-px flex-1 bg-[#121017]/8"></i><span class="text-[9px] font-black uppercase tracking-wider text-[#121017]/30">or enter manually</span><i class="h-px flex-1 bg-[#121017]/8"></i></div>
+                    <form method="POST" action="{{ route('officer.attendance.scan', $event) }}" data-attendance-scan-form>@csrf<input name="qr_content" type="hidden" data-qr-content><label class="grid gap-2"><span class="text-xs font-black">Student number</span><input class="h-12 w-full rounded-xl border border-[#121017]/10 bg-[#F3F0E9]/45 px-4 font-mono text-sm font-bold uppercase outline-none placeholder:font-sans placeholder:font-normal placeholder:normal-case placeholder:text-[#121017]/30 focus:border-[#397565] focus:bg-white focus:ring-4 focus:ring-[#397565]/10 disabled:cursor-not-allowed disabled:opacity-50" name="id_number" value="{{ old('id_number') }}" placeholder="02-xxxx-xxxxxx" autocomplete="off" @disabled(!$activeSlot)><x-form-error name="id_number" /><button class="mt-3 inline-flex min-h-11 w-full items-center justify-center rounded-xl border border-[#397565]/20 text-xs font-black text-[#397565] hover:bg-[#397565]/5 disabled:opacity-40" type="submit" @disabled(!$activeSlot)>Record manually</button></label></form>
                 </section>
 
                 <section class="rounded-2xl border border-[#121017]/10 bg-white p-5">
@@ -63,9 +65,20 @@
                 @if(method_exists($participants, 'hasPages') && $participants->hasPages())<div class="border-t border-[#121017]/8 px-5 py-4">{{ $participants->links() }}</div>@endif
             </section>
         </section>
+        <dialog class="m-auto w-[min(520px,calc(100%_-_2rem))] overflow-hidden rounded-3xl border-0 bg-[#121017] p-0 text-white shadow-2xl backdrop:bg-[#121017]/70 backdrop:backdrop-blur-sm" data-scanner-dialog>
+            <header class="flex items-start justify-between gap-4 border-b border-white/10 p-5"><div><p class="text-[9px] font-black uppercase tracking-[.16em] text-[#C6F24E]">QR camera</p><h2 class="mt-1 text-xl font-black">Scan student QR</h2></div><button class="grid h-10 w-10 place-items-center rounded-xl bg-white/10 text-xl" type="button" data-scanner-close aria-label="Close scanner">&times;</button></header>
+            <div class="relative aspect-square overflow-hidden bg-black sm:aspect-[4/3]"><video class="h-full w-full object-cover" playsinline muted data-scanner-preview></video><div class="pointer-events-none absolute inset-[12%] rounded-3xl border-2 border-[#C6F24E] shadow-[0_0_0_999px_rgba(0,0,0,.28)]"></div></div>
+            <div class="p-5">
+                <p class="text-sm font-bold" data-scanner-status>Starting camera…</p>
+                <p class="mt-2 text-xs leading-5 text-white/50">Keep the entire student QR, including its white border, inside the frame.</p>
+            </div>
+        </dialog>
     @endif
 @endsection
 
 @push('scripts')
 <script>document.querySelector('[data-event-switch]')?.addEventListener('change', event => window.location.assign(event.target.value));</script>
+@if($event && $officer->officerTeam)
+    @vite('resources/js/officer-attendance.js')
+@endif
 @endpush

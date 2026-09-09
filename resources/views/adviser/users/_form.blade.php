@@ -17,7 +17,7 @@
         <label class="grid gap-2"><span class="text-sm font-bold text-slate-700">First name</span><input class="{{ $field }} {{ $showErrors && $errors->has('first_name') ? $invalid : '' }}" name="first_name" value="{{ old('first_name', $editing ? $editingUser->first_name : '') }}" autocomplete="given-name" required>@if($showErrors)<x-form-error name="first_name" />@endif</label>
         <label class="grid gap-2"><span class="flex justify-between text-sm font-bold text-slate-700">Middle name <small class="font-medium text-slate-400">Optional</small></span><input class="{{ $field }} {{ $showErrors && $errors->has('middle_name') ? $invalid : '' }}" name="middle_name" value="{{ old('middle_name', $editing ? $editingUser->middle_name : '') }}" autocomplete="additional-name">@if($showErrors)<x-form-error name="middle_name" />@endif</label>
         <label class="grid gap-2"><span class="text-sm font-bold text-slate-700">Last name</span><input class="{{ $field }} {{ $showErrors && $errors->has('last_name') ? $invalid : '' }}" name="last_name" value="{{ old('last_name', $editing ? $editingUser->last_name : '') }}" autocomplete="family-name" required>@if($showErrors)<x-form-error name="last_name" />@endif</label>
-        <label class="grid gap-2"><span class="flex justify-between text-sm font-bold text-slate-700">ID number <small class="font-medium text-slate-400">Optional</small></span><input class="{{ $field }} {{ $showErrors && $errors->has('id_number') ? $invalid : '' }}" name="id_number" value="{{ old('id_number', $editing ? $editingUser->id_number : '') }}" placeholder="02-xxxx-xxxxxx" data-id-number>@if($showErrors)<x-form-error name="id_number" />@endif</label>
+        <label class="grid gap-2"><span class="text-sm font-bold text-slate-700">ID number</span><input class="{{ $field }} {{ $showErrors && $errors->has('id_number') ? $invalid : '' }}" name="id_number" value="{{ old('id_number', $editing ? $editingUser->id_number : '') }}" placeholder="02-xxxx-xxxxxx" maxlength="14" inputmode="numeric" pattern="02-[0-9]{4}-[0-9]{6}" title="Use 02-xxxx-xxxxxx (12 digits)." data-id-number>@if($showErrors)<x-form-error name="id_number" />@endif</label>
     </div>
 </section>
 
@@ -52,7 +52,9 @@
                 if (!role) return;
                 const roleName = role.selectedOptions[0]?.dataset.roleName;
                 if (idNumber) {
-                    if (roleName === 'Student') {
+                    const usesStudentNumberFormat = !roleName || roleName === 'Student';
+                    idNumber.required = roleName === 'Student';
+                    if (usesStudentNumberFormat) {
                         idNumber.maxLength = 14;
                         idNumber.inputMode = 'numeric';
                         idNumber.pattern = '02-[0-9]{4}-[0-9]{6}';
@@ -69,7 +71,8 @@
             document.addEventListener('input', event => {
                 if (!event.target.matches('[data-id-number]')) return;
                 const form = event.target.closest('form');
-                if (form?.querySelector('[data-role-select]')?.selectedOptions[0]?.dataset.roleName !== 'Student') return;
+                const roleName = form?.querySelector('[data-role-select]')?.selectedOptions[0]?.dataset.roleName;
+                if (roleName && roleName !== 'Student') return;
                 const digits = event.target.value.replace(/\D/g, '').slice(0, 12);
                 event.target.value = digits.length <= 2
                     ? digits

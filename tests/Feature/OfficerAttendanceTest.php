@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Attendance;
+use App\Models\AttendanceQrToken;
 use App\Models\Event;
 use App\Models\EventStatus;
 use App\Models\Role;
@@ -149,6 +150,74 @@ class OfficerAttendanceTest extends TestCase
         ])->assertRedirect()->assertSessionHas('error');
 
         $this->assertDatabaseMissing('attendances', ['event_id' => $event->id, 'user_id' => $this->otherStudent->id]);
+    }
+
+    public function test_officer_can_scan_a_session_qr_for_their_team(): void
+    {
+        $event = $this->event();
+        $morningQr = AttendanceQrToken::create([
+            'event_id' => $event->id,
+            'user_id' => $this->student->id,
+            'session' => 'morning',
+            'token' => str_repeat('m', 40),
+        ]);
+
+        $this->actingAs($this->officer)->post(route('officer.attendance.scan', $event), [
+            'qr_content' => route('home', ['attendance_pass' => $morningQr->token]),
+        ])->assertRedirect()->assertSessionHas('success');
+
+        $this->assertDatabaseHas('attendances', [
+            'event_id' => $event->id,
+            'user_id' => $this->student->id,
+            'recorded_by' => $this->officer->id,
+        ]);
+    }
+
+    public function test_qr_must_match_the_active_session_and_officer_team(): void
+    {
+        $event = $this->event();
+        $afternoonQr = AttendanceQrToken::create([
+            'event_id' => $event->id,
+            'user_id' => $this->student->id,
+            'session' => 'afternoon',
+            'token' => str_repeat('a', 40),
+        ]);
+        $otherTeamQr = AttendanceQrToken::create([
+            'event_id' => $event->id,
+            'user_id' => $this->otherStudent->id,
+            'session' => 'morning',
+            'token' => str_repeat('o', 40),
+        ]);
+
+        $this->actingAs($this->officer)->post(route('officer.attendance.scan', $event), [
+            'qr_content' => route('home', ['attendance_pass' => $afternoonQr->token]),
+        ])->assertSessionHas('error');
+        $this->post(route('officer.attendance.scan', $event), [
+            'qr_content' => route('home', ['attendance_pass' => $otherTeamQr->token]),
+        ])->assertSessionHas('error');
+
+        $this->assertDatabaseCount('attendances', 0);
+    }
+
+    public function test_student_dashboard_shows_event_session_qr_buttons(): void
+    {
+        $event = $this->event([
+            'morning_in_at' => now()->setTime(7, 0),
+            'morning_out_at' => now()->setTime(11, 0),
+            'afternoon_in_at' => now()->setTime(13, 0),
+            'afternoon_out_at' => now()->setTime(17, 0),
+            'end_at' => now()->addDay(),
+        ]);
+
+        $this->actingAs($this->student)->get(route('dashboard'))
+            ->assertOk()
+            ->assertSee('Student attendance pass')
+            ->assertSee($event->title)
+            ->assertSee($this->team->name)
+            ->assertSee('7:00 AM–11:00 AM')
+            ->assertSee('1:00 PM–5:00 PM')
+            ->assertSee('Open Morning QR')
+            ->assertSee('Open Afternoon QR');
     }
 
     public function test_officer_cannot_scan_before_a_scheduled_window(): void

@@ -78,7 +78,10 @@ class AdviserUserManagementTest extends TestCase
 
         $this->actingAs($this->adviser)->get('/adviser/users?role=Student')
             ->assertOk()
-            ->assertSee('02-xxxx-xxxxxx');
+            ->assertSee('02-xxxx-xxxxxx')
+            ->assertSee('maxlength="14"', false)
+            ->assertSee('pattern="02-[0-9]{4}-[0-9]{6}"', false)
+            ->assertDontSee('ID number <small', false);
 
         $this->post('/adviser/users', $payload)
             ->assertSessionHasErrors('id_number');
@@ -154,6 +157,29 @@ class AdviserUserManagementTest extends TestCase
             'status' => UserStatus::where('label', 'inactive')->value('id'),
         ]);
         $this->assertDatabaseHas('activity_logs', ['subject_user_id' => $faculty->id, 'action' => 'user_status_changed']);
+    }
+
+    public function test_role_filter_uses_roles_assigned_to_users_in_the_system(): void
+    {
+        $customRole = Role::create(['name' => 'Guest Coordinator']);
+        Role::create(['name' => 'Unused Role']);
+        $guest = User::factory()->create([
+            'first_name' => 'Grace',
+            'last_name' => 'Coordinator',
+            'role_id' => $customRole->id,
+            'status' => $this->active->id,
+        ]);
+
+        $response = $this->actingAs($this->adviser)->get('/adviser/users');
+
+        $response->assertOk()
+            ->assertSee('<option value="Guest Coordinator"', false)
+            ->assertDontSee('<option value="Unused Role"', false);
+
+        $this->get('/adviser/users?role=Guest%20Coordinator')
+            ->assertOk()
+            ->assertSee($guest->full_name)
+            ->assertViewHas('users', fn ($users) => $users->total() === 1 && $users->first()->is($guest));
     }
 
     public function test_adviser_can_assign_and_unassign_an_sbo_user(): void

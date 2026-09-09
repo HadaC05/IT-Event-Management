@@ -3,10 +3,12 @@
 namespace App\Http\Controllers;
 
 use App\Models\Attendance;
+use App\Models\AttendanceQrToken;
 use App\Models\Event;
 use App\Models\Score;
 use App\Models\Team;
 use App\Models\User;
+use Illuminate\Support\Str;
 use Illuminate\View\View;
 use Illuminate\Http\RedirectResponse;
 
@@ -18,6 +20,38 @@ class DashboardController extends Controller
 
         if ($user->isSboOfficer()) {
             return redirect()->route('officer.attendance.index');
+        }
+
+        if ($user->role?->name === 'Student') {
+            $user->loadMissing(['studentProfile.yearLevel', 'teams.schoolYear']);
+            $events = Event::query()
+                ->with(['status', 'audienceTeams'])
+                ->where(function ($query) {
+                    $query->whereDoesntHave('status')
+                        ->orWhereHas('status', fn ($query) => $query->where('label', 'active'));
+                })
+                ->where('end_at', '>=', now())
+                ->orderBy('start_at')
+                ->get()
+                ->filter(fn (Event $event) => $event->expectedParticipantsQuery()->whereKey($user->id)->exists())
+                ->values();
+
+            $events->each(function (Event $event) use ($user) {
+                foreach (['morning', 'afternoon'] as $session) {
+                    $token = AttendanceQrToken::firstOrCreate([
+                        'event_id' => $event->id,
+                        'user_id' => $user->id,
+                        'session' => $session,
+                    ], [
+                        'token' => Str::random(40),
+                    ]);
+                    $event->setAttribute($session.'_qr_payload', route('home', [
+                        'attendance_pass' => $token->token,
+                    ]));
+                }
+            });
+
+            return view('student.dashboard', compact('user', 'events'));
         }
 
         if (! $user->isSboAdviser()) {
