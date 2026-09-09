@@ -52,17 +52,16 @@ class TeamManagementTest extends TestCase
             ->assertDontSee('Search tribe or member');
     }
 
-    public function test_empty_state_directs_adviser_to_students_before_creating_a_tribe(): void
+    public function test_tribes_can_be_created_before_students_are_added(): void
     {
         $this->actingAs($this->adviser)->get(route('adviser.teams.index'))
             ->assertOk()
-            ->assertSee('Students need to be added first')
-            ->assertSee('Manage Students')
-            ->assertDontSee('Create Tribe')
+            ->assertSee('No tribes created yet')
+            ->assertSee('Create Tribe')
             ->assertDontSee('Search tribe or member');
     }
 
-    public function test_create_workflow_is_context_aware_and_preselects_the_school_year(): void
+    public function test_create_workflow_only_collects_tribe_details(): void
     {
         $this->actingAs($this->adviser)->get(route('adviser.teams.create'))
             ->assertRedirect(route('adviser.teams.index', ['create' => 1]));
@@ -71,18 +70,40 @@ class TeamManagementTest extends TestCase
 
         $this->get(route('adviser.teams.index', ['create' => 1]))
             ->assertOk()
-            ->assertSeeInOrder(['1', 'Tribe Details', '2', 'Choose Members'])
+            ->assertSee('Tribe Details')
             ->assertSee('Live Tribe Preview')
             ->assertSee('Current school year selected automatically')
             ->assertSee('Green')
             ->assertSee('Custom')
-            ->assertSee('Search by name, student ID, or year level')
-            ->assertSee('<span data-selected-count>0</span>&nbsp;selected', false)
+            ->assertDontSee('Choose Members')
+            ->assertDontSee('Search by name, student ID, or year level')
             ->assertSee('id="create-team-dialog"', false)
             ->assertSee('showModal()', false);
     }
 
-    public function test_adviser_can_create_a_tribe_and_assign_active_students(): void
+    public function test_edit_workflow_shows_a_students_existing_tribe(): void
+    {
+        $student = $this->student();
+        $existingTeam = Team::create([
+            'name' => 'Blue Sharks',
+            'school_year_id' => $this->schoolYear->id,
+            'color' => '#2563EB',
+        ]);
+        $existingTeam->members()->attach($student);
+
+        $otherTeam = Team::create([
+            'name' => 'Red Lions',
+            'school_year_id' => SchoolYear::create(['label' => '2027-2028'])->id,
+            'color' => '#DC2626',
+        ]);
+
+        $this->actingAs($this->adviser)
+            ->get(route('adviser.teams.edit', $otherTeam))
+            ->assertOk()
+            ->assertSee('Blue Sharks · SY '.$this->schoolYear->label);
+    }
+
+    public function test_creating_a_tribe_does_not_assign_students(): void
     {
         $students = collect([$this->student(), $this->student()]);
 
@@ -97,11 +118,49 @@ class TeamManagementTest extends TestCase
         $team = Team::where('name', 'Green Falcons')->firstOrFail();
 
         $this->assertTrue($team->is_active);
-        $this->assertEqualsCanonicalizing($students->pluck('id')->all(), $team->members()->pluck('users.id')->all());
+        $this->assertSame(0, $team->members()->count());
         $this->assertDatabaseHas('activity_logs', [
             'actor_id' => $this->adviser->id,
             'action' => 'team_created',
         ]);
+    }
+
+    public function test_adviser_can_randomly_distribute_students_evenly_across_active_tribes(): void
+    {
+        $students = collect([
+            $this->student(), $this->student(), $this->student(),
+            $this->student(), $this->student(), $this->student(),
+        ]);
+        $firstTeam = Team::create([
+            'name' => 'Blue Sharks',
+            'school_year_id' => $this->schoolYear->id,
+            'color' => '#2563EB',
+        ]);
+        $secondTeam = Team::create([
+            'name' => 'Red Lions',
+            'school_year_id' => $this->schoolYear->id,
+            'color' => '#DC2626',
+        ]);
+        $firstTeam->members()->attach($students);
+
+        $this->actingAs($this->adviser)
+            ->post(route('adviser.teams.randomize'), ['school_year_id' => $this->schoolYear->id])
+            ->assertRedirect(route('adviser.teams.index', ['school_year' => $this->schoolYear->id]))
+            ->assertSessionHasNoErrors();
+
+        $this->assertSame(3, $firstTeam->members()->count());
+        $this->assertSame(3, $secondTeam->members()->count());
+        $this->assertEqualsCanonicalizing(
+            $students->pluck('id')->all(),
+            $firstTeam->members()->pluck('users.id')->merge($secondTeam->members()->pluck('users.id'))->all()
+        );
+        $this->assertDatabaseHas('activity_logs', ['action' => 'team_members_randomized']);
+        $this->assertNotNull($this->schoolYear->fresh()->teams_randomized_at);
+
+        $this->post(route('adviser.teams.randomize'), ['school_year_id' => $this->schoolYear->id])
+            ->assertSessionHasErrors('randomize', null, 'randomize');
+
+        $this->assertSame(1, ActivityLog::where('action', 'team_members_randomized')->count());
     }
 
     public function test_only_active_students_can_be_assigned(): void
@@ -140,7 +199,13 @@ class TeamManagementTest extends TestCase
         ])->assertSessionHasErrors('member_ids');
 
         $nextSchoolYear = SchoolYear::create(['label' => '2027-2028']);
-        $this->post(route('adviser.teams.store'), [
+        $nextTeam = Team::create([
+            'name' => 'Red Lions',
+            'school_year_id' => $nextSchoolYear->id,
+            'color' => '#DC2626',
+        ]);
+
+        $this->put(route('adviser.teams.update', $nextTeam), [
             'name' => 'Red Lions',
             'school_year_id' => $nextSchoolYear->id,
             'color' => '#DC2626',

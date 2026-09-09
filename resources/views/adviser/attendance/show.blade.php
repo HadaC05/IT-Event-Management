@@ -9,7 +9,7 @@
         $schedule = $isSameDay
             ? $event->start_at->format('D, M j, Y · g:i A').'–'.$event->end_at->format('g:i A')
             : $event->start_at->format('D, M j · g:i A').' → '.$event->end_at->format('D, M j, Y · g:i A');
-        $filterQuery = request()->only(['search', 'status']);
+        $filterQuery = request()->only(['search', 'status', 'date']);
         $statusStyles = [
             'present' => 'border-[#397565]/25 bg-[#397565]/8 text-[#397565]',
             'late' => 'border-[#FF6B2C]/25 bg-[#FF6B2C]/8 text-[#b94312]',
@@ -30,6 +30,10 @@
             <label class="grid gap-1.5 xl:w-80"><span class="text-[9px] font-black uppercase tracking-[.14em] text-[#121017]/35">Switch event</span><span class="relative"><select class="h-12 w-full appearance-none rounded-xl border border-[#121017]/10 bg-white/70 px-4 pr-10 text-xs font-black text-[#121017] outline-none transition focus:border-[#397565] focus:ring-4 focus:ring-[#397565]/10" data-event-switch>@foreach($eventOptions as $option)<option value="{{ route('adviser.attendance.show', $option) }}" @selected($option->id === $event->id)>{{ $option->title }} · {{ $option->start_at->format('M j') }}</option>@endforeach</select><svg class="pointer-events-none absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 fill-none stroke-[#397565] stroke-2" viewBox="0 0 24 24" aria-hidden="true"><path d="m7 10 5 5 5-5"/></svg></span></label>
         </div>
     </header>
+
+    @if($attendanceDates->count() > 1)
+        <nav class="mt-5 flex flex-wrap items-center gap-2 rounded-2xl border border-[#121017]/8 bg-white p-3" aria-label="Event attendance days"><span class="px-2 text-[9px] font-black uppercase tracking-[.14em] text-[#121017]/35">Attendance day</span>@foreach($attendanceDates as $date)<a class="rounded-xl px-4 py-2.5 text-xs font-black {{ $attendanceDate === $date ? 'bg-[#397565] text-white' : 'bg-[#F3F0E9]/60 text-[#121017]/55 hover:text-[#397565]' }}" href="{{ route('adviser.attendance.show', [$event, 'date' => $date]) }}">Day {{ $loop->iteration }} · {{ \Carbon\Carbon::parse($date)->format('M j') }}</a>@endforeach</nav>
+    @endif
 
     <section class="grid gap-5 border-b border-[#121017]/12 py-6 lg:grid-cols-[1.25fr_.75fr]" aria-label="Attendance summary" data-summary data-recorded="{{ $summary['recorded'] }}" data-expected="{{ $summary['expected'] }}" data-counts='@json($counts)'>
         <div>
@@ -66,6 +70,7 @@
             <form method="POST" action="{{ route('adviser.attendance.update', $event) }}" data-attendance-form>
                 @csrf
                 @method('PUT')
+                <input type="hidden" name="attendance_date" value="{{ $attendanceDate }}">
                 <div class="overflow-hidden rounded-2xl border border-[#121017]/10 bg-white/75 shadow-[0_16px_45px_rgba(18,16,23,.04)]">
                     <div class="flex flex-col gap-3 border-b border-[#121017]/8 px-5 py-3 sm:flex-row sm:items-center sm:justify-between"><p class="text-[10px] font-semibold text-[#121017]/42">Editing this page only · changes remain local until saved</p><div class="flex items-center gap-3">@if(request()->anyFilled(['search', 'status']))<a class="text-[10px] font-black text-[#FF6B2C]" href="{{ route('adviser.attendance.show', $event) }}" data-discard-link>Clear filters</a>@endif<button class="inline-flex min-h-9 items-center justify-center rounded-lg border border-[#397565]/20 bg-[#397565]/6 px-3 text-[10px] font-black text-[#397565] transition hover:bg-[#397565]/12 focus:outline-none focus:ring-4 focus:ring-[#397565]/10" type="button" data-mark-page-present>Mark this page present</button></div></div>
                     <div class="overflow-x-auto"><table class="w-full border-collapse sm:min-w-[820px]"><thead class="hidden bg-[#121017]/[.025] text-left text-[9px] font-black uppercase tracking-[.14em] text-[#121017]/35 sm:table-header-group"><tr><th class="px-5 py-3.5 sm:px-6">Student</th><th class="px-4 py-3.5">Tribe / Year</th><th class="px-4 py-3.5">Attendance status</th><th class="px-5 py-3.5 sm:px-6">Check-in</th></tr></thead><tbody class="grid divide-y divide-[#121017]/7 sm:table-row-group">

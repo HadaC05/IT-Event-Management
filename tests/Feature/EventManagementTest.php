@@ -130,7 +130,10 @@ class EventManagementTest extends TestCase
         $this->actingAs($this->adviser)->get(route('adviser.events.index'))
             ->assertOk()
             ->assertSee('Quick create')
-            ->assertSee('Event continues to another day')
+            ->assertSee('Event days and attendance')
+            ->assertSee('+ Add another day')
+            ->assertSee('Whole day · one in and out')
+            ->assertSee('Morning + afternoon · two in and out')
             ->assertSee('Who should attend?')
             ->assertSee('All active students')
             ->assertSee('Blue Eagles')
@@ -138,6 +141,62 @@ class EventManagementTest extends TestCase
             ->assertSee('+ Add description')
             ->assertSee('+ Add poster')
             ->assertSee('data-create-event-submit disabled', false);
+    }
+
+    public function test_multi_day_event_saves_a_separate_attendance_schedule_for_each_date(): void
+    {
+        $attendanceDays = [
+            '2026-09-09' => ['morning_in' => '07:00', 'morning_out' => '11:00', 'afternoon_in' => '13:00', 'afternoon_out' => '17:00'],
+            '2026-09-10' => ['morning_in' => '07:30', 'morning_out' => '11:30', 'afternoon_in' => '13:30', 'afternoon_out' => '17:30'],
+            '2026-09-11' => ['morning_in' => '08:00', 'morning_out' => '11:00', 'afternoon_in' => '13:00', 'afternoon_out' => '18:00'],
+        ];
+
+        $this->actingAs($this->adviser)->post(route('adviser.events.store'), [
+            'title' => 'Three-day IT Festival',
+            'location' => 'CITE Campus',
+            'start_date' => '2026-09-09',
+            'start_time' => '07:00',
+            'end_date' => '2026-09-11',
+            'end_time' => '19:00',
+            'audience_type' => 'all_students',
+            'attendance_days' => $attendanceDays,
+        ])->assertRedirect(route('adviser.events.index'))->assertSessionHasNoErrors();
+
+        $event = Event::where('title', 'Three-day IT Festival')->firstOrFail();
+        $this->assertSame(3, $event->attendanceSchedules()->count());
+        $secondDay = $event->attendanceSchedules()->whereDate('schedule_date', '2026-09-10')->firstOrFail();
+        $this->assertSame('07:30', substr($secondDay->morning_in_time, 0, 5));
+        $this->assertSame('17:30', substr($secondDay->afternoon_out_time, 0, 5));
+
+        $this->get(route('adviser.events.show', $event))
+            ->assertOk()
+            ->assertSee('Day 1')
+            ->assertSee('Day 2')
+            ->assertSee('Day 3');
+    }
+
+    public function test_event_day_can_use_one_whole_day_time_in_and_time_out(): void
+    {
+        $this->actingAs($this->adviser)->post(route('adviser.events.store'), [
+            'title' => 'Whole-day Seminar',
+            'location' => 'CITE Hall',
+            'start_date' => '2026-10-09',
+            'start_time' => '08:00',
+            'end_date' => '2026-10-09',
+            'end_time' => '17:00',
+            'audience_type' => 'all_students',
+            'attendance_days' => [[
+                'date' => '2026-10-09',
+                'mode' => 'single',
+                'morning_in' => '08:00',
+                'morning_out' => '17:00',
+            ]],
+        ])->assertRedirect(route('adviser.events.index'))->assertSessionHasNoErrors();
+
+        $schedule = Event::where('title', 'Whole-day Seminar')->firstOrFail()->attendanceSchedules()->firstOrFail();
+        $this->assertSame('single', $schedule->session_mode);
+        $this->assertSame(['Time in', 'Time out'], collect($schedule->slots())->pluck('label')->all());
+        $this->assertNull($schedule->afternoon_in_time);
     }
 
     public function test_selected_tribe_audience_is_saved_and_expected_students_are_counted(): void

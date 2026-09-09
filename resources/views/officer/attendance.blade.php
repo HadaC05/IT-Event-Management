@@ -34,9 +34,9 @@
                 </section>
 
                 <section class="rounded-2xl border border-[#121017]/10 bg-white p-5">
-                    <p class="text-[9px] font-black uppercase tracking-[.15em] text-[#397565]">Today’s scan schedule</p>
+                    <p class="text-[9px] font-black uppercase tracking-[.15em] text-[#397565]">{{ $attendanceDate?->isToday() ? 'Today’s' : $attendanceDate?->format('M j') }} scan schedule</p>
                     <ol class="mt-4 grid grid-cols-2 gap-3">
-                        @foreach([['morning_in', 'Morning in'], ['morning_out', 'Morning out'], ['afternoon_in', 'Afternoon in'], ['afternoon_out', 'Afternoon out']] as [$key, $label])
+                        @foreach($attendanceSchedule?->session_mode === 'single' ? [['morning_in', 'Time in'], ['morning_out', 'Time out']] : [['morning_in', 'Morning in'], ['morning_out', 'Morning out'], ['afternoon_in', 'Afternoon in'], ['afternoon_out', 'Afternoon out']] as [$key, $label])
                             @php($slot = collect($slots)->firstWhere('key', $key))
                             <li class="rounded-xl border px-3 py-3 {{ $activeSlot && $activeSlot['key'] === $key ? 'border-[#397565]/25 bg-[#C6F24E]/18' : 'border-[#121017]/8 bg-[#F3F0E9]/35' }}"><span class="block text-[9px] font-black uppercase tracking-wider text-[#121017]/38">{{ $label }}</span><strong class="mt-1 block text-sm">{{ $slot ? $slot['at']->format('g:i A') : 'Not set' }}</strong></li>
                         @endforeach

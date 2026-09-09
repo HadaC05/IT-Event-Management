@@ -7,7 +7,14 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class SchoolYear extends Model
 {
-    protected $fillable = ['label'];
+    protected $fillable = ['label', 'teams_randomized_at'];
+
+    protected function casts(): array
+    {
+        return [
+            'teams_randomized_at' => 'datetime',
+        ];
+    }
 
     public function teams(): HasMany
     {

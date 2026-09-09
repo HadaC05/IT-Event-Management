@@ -2,9 +2,6 @@
     $field = 'h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-800 outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10';
     $invalid = 'border-red-400 bg-red-50/40';
     $selectedUsers = collect(old('assigned_user_ids', [auth()->id()]))->map(fn ($id) => (int) $id);
-    $oldStartDate = old('start_date');
-    $oldEndDate = old('end_date', $oldStartDate);
-    $isMultiDay = filled($oldStartDate) && filled($oldEndDate) && $oldStartDate !== $oldEndDate;
 @endphp
 
 <dialog class="m-auto max-h-[calc(100vh_-_2rem)] w-[min(820px,calc(100%_-_2rem))] overflow-y-auto rounded-2xl border-0 bg-white p-0 shadow-2xl backdrop:bg-[#121017]/60 backdrop:backdrop-blur-[2px]" id="create-event-dialog">
@@ -19,28 +16,7 @@
         <div class="grid gap-5">
             <label class="grid gap-2"><span class="text-xs font-bold text-slate-700">Event name <i class="font-normal text-rose-500">*</i></span><input class="{{ $field }} {{ $errors->has('title') ? $invalid : '' }}" name="title" value="{{ old('title') }}" placeholder="e.g. IT Week Opening Ceremony" required autofocus data-event-required><x-form-error name="title" /></label>
 
-            <fieldset class="grid gap-3">
-                <legend class="text-xs font-bold text-slate-700">When <i class="font-normal text-rose-500">*</i></legend>
-                <div class="grid gap-3 sm:grid-cols-[1.2fr_1fr_auto_1fr] sm:items-end">
-                    <label class="grid gap-2"><span class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Date</span><input class="{{ $field }} {{ $errors->has('start_date') ? $invalid : '' }}" name="start_date" type="date" value="{{ $oldStartDate }}" required data-start-date data-event-required><x-form-error name="start_date" /></label>
-                    <label class="grid gap-2"><span class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Starts</span><input class="{{ $field }} {{ $errors->has('start_time') ? $invalid : '' }}" name="start_time" type="time" value="{{ old('start_time') }}" required data-start-time data-event-required><x-form-error name="start_time" /></label>
-                    <span class="hidden h-11 items-center text-slate-300 sm:flex" aria-hidden="true">→</span>
-                    <label class="grid gap-2"><span class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Ends</span><input class="{{ $field }} {{ $errors->has('end_time') ? $invalid : '' }}" name="end_time" type="time" value="{{ old('end_time') }}" required data-end-time data-event-required><x-form-error name="end_time" /></label>
-                </div>
-                <label class="inline-flex w-fit cursor-pointer items-center gap-2 text-xs font-semibold text-slate-500"><input class="h-4 w-4 rounded border-slate-300 accent-emerald-600" type="checkbox" @checked($isMultiDay) data-multi-day><span>Event continues to another day</span></label>
-                <label class="grid max-w-xs gap-2" data-end-date-wrap @unless($isMultiDay) hidden @endunless><span class="text-[10px] font-bold uppercase tracking-wider text-slate-400">End date</span><input class="{{ $field }} {{ $errors->has('end_date') ? $invalid : '' }}" name="end_date" type="date" value="{{ $oldEndDate }}" required data-end-date><x-form-error name="end_date" /></label>
-                <p class="hidden rounded-lg bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700" data-schedule-error></p>
-            </fieldset>
-
-            <details class="group rounded-xl border border-[#397565]/15 bg-[#397565]/[.025]" @if(collect(['morning_in_at', 'morning_out_at', 'afternoon_in_at', 'afternoon_out_at'])->contains(fn ($field) => old($field))) open @endif>
-                <summary class="flex min-h-12 cursor-pointer list-none items-center justify-between px-4 text-xs font-extrabold text-[#397565]"><span>+ Configure officer scan times <small class="ml-1 font-medium text-slate-400">Optional</small></span><span class="transition group-open:rotate-45">+</span></summary>
-                <div class="grid gap-3 border-t border-[#397565]/10 p-4 sm:grid-cols-2">
-                    @foreach([['morning_in_at', 'Morning time in'], ['morning_out_at', 'Morning time out'], ['afternoon_in_at', 'Afternoon time in'], ['afternoon_out_at', 'Afternoon time out']] as [$name, $label])
-                        <label class="grid gap-2"><span class="text-[10px] font-bold uppercase tracking-wider text-slate-400">{{ $label }}</span><input class="{{ $field }} {{ $errors->has($name) ? $invalid : '' }}" name="{{ $name }}" type="datetime-local" value="{{ old($name) }}"><x-form-error :name="$name" /></label>
-                    @endforeach
-                    <p class="text-[10px] leading-5 text-slate-400 sm:col-span-2">If used, set all four checkpoints in chronological order within the event schedule.</p>
-                </div>
-            </details>
+            @include('adviser.events._attendance_schedule', ['editing' => false])
 
             <label class="grid gap-2"><span class="text-xs font-bold text-slate-700">Location <i class="font-normal text-rose-500">*</i></span><input class="{{ $field }} {{ $errors->has('location') ? $invalid : '' }}" name="location" value="{{ old('location') }}" list="recent-event-locations" placeholder="e.g. University Gymnasium" required data-location data-event-required><datalist id="recent-event-locations">@foreach($recentLocations as $location)<option value="{{ $location }}"></option>@endforeach</datalist><x-form-error name="location" />@if($recentLocations->isNotEmpty())<small class="text-xs text-slate-400">Recent: {{ $recentLocations->join(' · ') }}</small>@endif</label>
 
@@ -84,38 +60,14 @@
     const createEventForm = createEventDialog?.querySelector('[data-create-event-form]');
     const requiredEventFields = [...(createEventForm?.querySelectorAll('[data-event-required]') || [])];
     const createEventSubmit = createEventForm?.querySelector('[data-create-event-submit]');
-    const startDate = createEventForm?.querySelector('[data-start-date]');
-    const startTime = createEventForm?.querySelector('[data-start-time]');
-    const endDate = createEventForm?.querySelector('[data-end-date]');
-    const endTime = createEventForm?.querySelector('[data-end-time]');
-    const multiDay = createEventForm?.querySelector('[data-multi-day]');
-    const endDateWrap = createEventForm?.querySelector('[data-end-date-wrap]');
-    const scheduleError = createEventForm?.querySelector('[data-schedule-error]');
+    const startDate = createEventForm?.querySelector('[name="start_date"]');
+    const startTime = createEventForm?.querySelector('[name="start_time"]');
+    const endDate = createEventForm?.querySelector('[name="end_date"]');
+    const endTime = createEventForm?.querySelector('[name="end_time"]');
     const createAudience = createEventForm?.querySelector('[data-audience-selector]');
-    let endTimeWasEdited = Boolean(endTime?.value);
-
-    const addDays = (date, days) => {
-        const value = new Date(`${date}T12:00:00`);
-        value.setDate(value.getDate() + days);
-        return value.toISOString().slice(0, 10);
-    };
-    const suggestEnd = () => {
-        if (!startTime?.value || endTimeWasEdited) return;
-        const [hours, minutes] = startTime.value.split(':').map(Number);
-        const total = hours * 60 + minutes + 120;
-        endTime.value = `${String(Math.floor((total % 1440) / 60)).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`;
-        if (total >= 1440 && startDate.value) {
-            multiDay.checked = true;
-            endDateWrap.hidden = false;
-            endDate.value = addDays(startDate.value, 1);
-        }
-    };
     const validateSchedule = () => {
         if (!startDate?.value || !startTime?.value || !endDate?.value || !endTime?.value) return true;
         const valid = new Date(`${endDate.value}T${endTime.value}`) > new Date(`${startDate.value}T${startTime.value}`);
-        endTime.setCustomValidity(valid ? '' : 'The event must end after it starts.');
-        scheduleError.textContent = valid ? '' : 'The event must end after it starts.';
-        scheduleError.classList.toggle('hidden', valid);
         return valid;
     };
     const updateReadiness = () => {
@@ -124,20 +76,7 @@
         const audienceReady = audienceType === 'all_students' || Boolean(createAudience?.querySelector(`[data-audience-panel="${audienceType}"] [data-audience-choice]:checked`));
         createEventSubmit.disabled = !requiredEventFields.every((field) => field.value.trim()) || !validateSchedule() || !audienceReady;
     };
-    startDate?.addEventListener('change', () => {
-        if (!multiDay.checked) endDate.value = startDate.value;
-        else if (!endDate.value) endDate.value = startDate.value;
-        updateReadiness();
-    });
-    startTime?.addEventListener('change', () => { suggestEnd(); updateReadiness(); });
-    endTime?.addEventListener('input', () => { endTimeWasEdited = true; updateReadiness(); });
-    endDate?.addEventListener('change', updateReadiness);
-    multiDay?.addEventListener('change', () => {
-        endDateWrap.hidden = !multiDay.checked;
-        if (!multiDay.checked) endDate.value = startDate.value;
-        else if (!endDate.value) endDate.value = startDate.value;
-        updateReadiness();
-    });
+    [startDate, startTime, endDate, endTime].forEach((field) => field?.addEventListener('change', updateReadiness));
     requiredEventFields.forEach((field) => field.addEventListener('input', updateReadiness));
     createAudience?.addEventListener('change', updateReadiness);
 
@@ -179,7 +118,6 @@
     };
     [startDate, startTime, endDate, endTime, createEventForm?.querySelector('[data-location]'), createEventForm?.querySelector('[data-event-in-charge]')].forEach((field) => field?.addEventListener('change', checkConflicts));
 
-    if (startDate?.value && !endDate?.value) endDate.value = startDate.value;
     updateReadiness();
     checkConflicts();
 </script>

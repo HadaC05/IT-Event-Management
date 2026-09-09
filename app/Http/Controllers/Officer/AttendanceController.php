@@ -7,7 +7,6 @@ use App\Models\ActivityLog;
 use App\Models\Attendance;
 use App\Models\AttendanceQrToken;
 use App\Models\Event;
-use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -47,9 +46,15 @@ class AttendanceController extends Controller
         $records = collect();
         $activeSlot = null;
         $slots = [];
+        $attendanceDate = null;
+        $attendanceSchedule = null;
 
         if ($event && $officer->officerTeam) {
-            $slots = $event->attendanceSlots();
+            $attendanceSchedule = $event->attendanceSchedules->first(
+                fn ($schedule) => $schedule->schedule_date->isToday()
+            ) ?? $event->attendanceSchedules->first();
+            $attendanceDate = $attendanceSchedule?->schedule_date ?? $event->start_at;
+            $slots = $event->attendanceSlots($attendanceDate);
             $activeSlot = $this->activeSlot($event);
             $participantQuery = $event->expectedParticipantsQuery()
                 ->whereHas('teams', fn (Builder $query) => $query->where('teams.id', $officer->officer_team_id))
@@ -68,21 +73,23 @@ class AttendanceController extends Controller
             if (($validated['status'] ?? 'all') === 'unmarked' && $activeSlot) {
                 $column = $activeSlot['key'].'_at';
                 $participantQuery->whereDoesntHave('attendances', fn (Builder $query) => $query
-                    ->where('event_id', $event->id)->whereNotNull($column));
+                    ->where('event_id', $event->id)->whereDate('attendance_date', $attendanceDate)->whereNotNull($column));
             }
 
             if (($validated['status'] ?? 'all') === 'complete') {
                 $participantQuery->whereHas('attendances', fn (Builder $query) => $query
                     ->where('event_id', $event->id)
+                    ->whereDate('attendance_date', $attendanceDate)
                     ->whereNotNull('morning_in_at')->whereNotNull('morning_out_at')
                     ->whereNotNull('afternoon_in_at')->whereNotNull('afternoon_out_at'));
             }
 
             $participants = $participantQuery->orderBy('last_name')->orderBy('first_name')->paginate(50)->withQueryString();
-            $records = $event->attendances()->whereIn('user_id', $participants->getCollection()->pluck('id'))->get()->keyBy('user_id');
+            $records = $event->attendances()->whereDate('attendance_date', $attendanceDate)
+                ->whereIn('user_id', $participants->getCollection()->pluck('id'))->get()->keyBy('user_id');
         }
 
-        return view('officer.attendance', compact('officer', 'events', 'event', 'participants', 'records', 'slots', 'activeSlot'));
+        return view('officer.attendance', compact('officer', 'events', 'event', 'participants', 'records', 'slots', 'activeSlot', 'attendanceDate', 'attendanceSchedule'));
     }
 
     public function scan(Request $request, Event $event): RedirectResponse
@@ -145,7 +152,11 @@ class AttendanceController extends Controller
         $alreadyMarked = false;
 
         DB::transaction(function () use ($event, $student, $officer, $slot, $column, &$alreadyMarked) {
-            $attendance = Attendance::firstOrNew(['event_id' => $event->id, 'user_id' => $student->id]);
+            $attendance = Attendance::firstOrNew([
+                'event_id' => $event->id,
+                'user_id' => $student->id,
+                'attendance_date' => $slot['date']->toDateString(),
+            ]);
             if ($attendance->{$column}) {
                 $alreadyMarked = true;
 
@@ -165,7 +176,7 @@ class AttendanceController extends Controller
                 'event_id' => $event->id,
                 'action' => 'officer_attendance_scanned',
                 'acting_role' => $officer->role?->name,
-                'description' => "{$student->full_name} was recorded for {$slot['label']} by {$officer->full_name}.",
+                'description' => "{$student->full_name} was recorded for {$slot['label']} on {$slot['date']->format('M j, Y')} by {$officer->full_name}.",
             ]);
         });
 
@@ -181,7 +192,7 @@ class AttendanceController extends Controller
             return null;
         }
 
-        $slots = $event->attendanceSlots();
+        $slots = $event->attendanceSlots($now);
         $active = null;
         foreach ($slots as $slot) {
             if ($now->gte($slot['at'])) {

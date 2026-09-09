@@ -74,6 +74,7 @@ class EventManagementController extends Controller
         try {
             $event = DB::transaction(function () use ($request, $data) {
                 $event = Event::create($data);
+                $event->attendanceSchedules()->createMany($request->attendanceScheduleData());
                 $this->syncAssignments($event, $request->input('assigned_user_ids', []), $request->user());
                 $this->syncAudience($event, $request);
                 $this->log($request->user(), 'event_created', "{$event->title} was created.", $event);
@@ -93,7 +94,7 @@ class EventManagementController extends Controller
 
     public function show(Event $event): View
     {
-        $event->load(['status', 'creator', 'assignedUsers.role', 'assignedUsers.userStatus', 'audienceTeams', 'audienceYearLevels', 'participants']);
+        $event->load(['status', 'creator', 'assignedUsers.role', 'assignedUsers.userStatus', 'audienceTeams', 'audienceYearLevels', 'participants', 'attendanceSchedules']);
 
         $assignedIds = $event->assignedUsers->pluck('id');
 
@@ -106,7 +107,7 @@ class EventManagementController extends Controller
 
     public function edit(Event $event): View
     {
-        $event->load(['assignedUsers', 'audienceTeams', 'audienceYearLevels', 'participants']);
+        $event->load(['assignedUsers', 'audienceTeams', 'audienceYearLevels', 'participants', 'attendanceSchedules']);
 
         return view('adviser.events.edit', array_merge($this->formData(), ['event' => $event]));
     }
@@ -126,6 +127,8 @@ class EventManagementController extends Controller
         try {
             DB::transaction(function () use ($request, $event, $data) {
                 $event->update($data);
+                $event->attendanceSchedules()->delete();
+                $event->attendanceSchedules()->createMany($request->attendanceScheduleData());
                 $this->syncAssignments($event, $request->input('assigned_user_ids', []), $request->user());
                 $this->syncAudience($event, $request);
                 $this->log($request->user(), 'event_updated', "{$event->title} was updated.", $event);

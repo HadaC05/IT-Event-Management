@@ -20,10 +20,15 @@ class OfficerAttendanceTest extends TestCase
     use RefreshDatabase;
 
     private UserStatus $active;
+
     private EventStatus $eventStatus;
+
     private Team $team;
+
     private User $officer;
+
     private User $student;
+
     private User $otherStudent;
 
     protected function setUp(): void
@@ -171,6 +176,41 @@ class OfficerAttendanceTest extends TestCase
             'user_id' => $this->student->id,
             'recorded_by' => $this->officer->id,
         ]);
+    }
+
+    public function test_multi_day_event_records_attendance_separately_for_each_day(): void
+    {
+        $this->travelTo('2026-09-09 08:00:00');
+        $event = $this->event([
+            'start_at' => '2026-09-09 07:00:00',
+            'end_at' => '2026-09-10 18:00:00',
+            'morning_in_at' => null,
+            'morning_out_at' => null,
+            'afternoon_in_at' => null,
+            'afternoon_out_at' => null,
+        ]);
+        foreach (['2026-09-09', '2026-09-10'] as $date) {
+            $event->attendanceSchedules()->create([
+                'schedule_date' => $date,
+                'morning_in_time' => '07:00',
+                'morning_out_time' => '11:00',
+                'afternoon_in_time' => '13:00',
+                'afternoon_out_time' => '17:00',
+            ]);
+        }
+
+        $this->actingAs($this->officer)->post(route('officer.attendance.scan', $event), [
+            'id_number' => $this->student->id_number,
+        ])->assertSessionHas('success');
+
+        $this->travelTo('2026-09-10 08:00:00');
+        $this->post(route('officer.attendance.scan', $event), [
+            'id_number' => $this->student->id_number,
+        ])->assertSessionHas('success');
+
+        $this->assertSame(2, Attendance::whereBelongsTo($event)->whereBelongsTo($this->student)->count());
+        $this->assertDatabaseHas('attendances', ['event_id' => $event->id, 'attendance_date' => '2026-09-09 00:00:00']);
+        $this->assertDatabaseHas('attendances', ['event_id' => $event->id, 'attendance_date' => '2026-09-10 00:00:00']);
     }
 
     public function test_qr_must_match_the_active_session_and_officer_team(): void

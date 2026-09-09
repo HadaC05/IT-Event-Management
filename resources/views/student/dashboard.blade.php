@@ -37,17 +37,19 @@
             <div class="grid gap-5 lg:grid-cols-2">
                 @forelse($events as $event)
                     <article class="overflow-hidden rounded-3xl border border-[#121017]/9 bg-white shadow-[0_14px_40px_rgba(18,16,23,.05)]">
-                        <header class="border-b border-[#121017]/7 p-6"><div class="flex items-start justify-between gap-4"><div><p class="text-[9px] font-black uppercase tracking-[.15em] text-[#397565]">{{ $event->start_at->format('M j, Y') }}</p><h3 class="mt-2 text-2xl font-black">{{ $event->title }}</h3><p class="mt-1 text-xs text-[#121017]/45">{{ $event->location ?: 'CITE Campus' }}</p></div><span class="rounded-full bg-[#C6F24E]/35 px-3 py-1.5 text-[9px] font-black uppercase text-[#397565]">{{ $event->schedule_state }}</span></div></header>
-                        <div class="grid gap-4 p-6 sm:grid-cols-2">
-                            @foreach([
-                                ['Morning', $event->morning_in_at, $event->morning_out_at, $event->morning_qr_payload],
-                                ['Afternoon', $event->afternoon_in_at, $event->afternoon_out_at, $event->afternoon_qr_payload],
-                            ] as [$session, $startsAt, $endsAt, $payload])
-                                <section class="rounded-2xl border border-[#121017]/8 bg-[#F3F0E9]/40 p-4">
-                                    <span class="text-[9px] font-black uppercase tracking-wider text-[#121017]/35">{{ $session }} session</span>
-                                    <strong class="mt-2 block text-lg">{{ $startsAt?->format('g:i A') ?? 'Not set' }}–{{ $endsAt?->format('g:i A') ?? 'Not set' }}</strong>
-                                    <button class="mt-4 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#397565] px-4 text-xs font-black text-white disabled:bg-[#121017]/15" type="button" data-open-qr data-event-title="{{ $event->title }}" data-session="{{ $session }}" data-schedule="{{ $startsAt?->format('g:i A') }}–{{ $endsAt?->format('g:i A') }}" data-payload="{{ $payload }}" @disabled(!$startsAt || !$endsAt)><svg class="h-4 w-4 fill-none stroke-current stroke-2" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M15 4h5v5M4 15v5h5m6 0h5v-5M8 8h3v3H8zm5 5h3v3h-3z"/></svg>Open {{ $session }} QR</button>
-                                </section>
+                        <header class="border-b border-[#121017]/7 p-6"><div class="flex items-start justify-between gap-4"><div><p class="text-[9px] font-black uppercase tracking-[.15em] text-[#397565]">{{ $event->start_at->isSameDay($event->end_at) ? $event->start_at->format('M j, Y') : $event->start_at->format('M j').'–'.$event->end_at->format('M j, Y') }}</p><h3 class="mt-2 text-2xl font-black">{{ $event->title }}</h3><p class="mt-1 text-xs text-[#121017]/45">{{ $event->location ?: 'CITE Campus' }}</p></div><span class="rounded-full bg-[#C6F24E]/35 px-3 py-1.5 text-[9px] font-black uppercase text-[#397565]">{{ $event->schedule_state }}</span></div></header>
+                        <div class="grid gap-4 p-6">
+                            @php($eventDays = $event->attendanceSchedules->isNotEmpty() ? $event->attendanceSchedules : collect([null]))
+                            @foreach($eventDays as $day)
+                                <section class="rounded-2xl border border-[#121017]/8 bg-[#F3F0E9]/40 p-4"><strong class="text-xs font-black text-[#397565]">Day {{ $loop->iteration }} · {{ $day?->schedule_date?->format('D, M j') ?? $event->start_at->format('D, M j') }}</strong><div class="mt-3 grid gap-3 sm:grid-cols-2">
+                                @php($sessions = $day?->session_mode === 'single' ? [['Whole day', \Carbon\Carbon::parse($day->morning_in_time), \Carbon\Carbon::parse($day->morning_out_time), $event->morning_qr_payload]] : [
+                                    ['Morning', $day?->morning_in_time ? \Carbon\Carbon::parse($day->morning_in_time) : $event->morning_in_at, $day?->morning_out_time ? \Carbon\Carbon::parse($day->morning_out_time) : $event->morning_out_at, $event->morning_qr_payload],
+                                    ['Afternoon', $day?->afternoon_in_time ? \Carbon\Carbon::parse($day->afternoon_in_time) : $event->afternoon_in_at, $day?->afternoon_out_time ? \Carbon\Carbon::parse($day->afternoon_out_time) : $event->afternoon_out_at, $event->afternoon_qr_payload],
+                                ])
+                                @foreach($sessions as [$session, $startsAt, $endsAt, $payload])
+                                    <div class="rounded-xl border border-[#121017]/7 bg-white p-3"><span class="text-[9px] font-black uppercase tracking-wider text-[#121017]/35">{{ $session }} session</span><strong class="mt-1 block text-sm">{{ $startsAt?->format('g:i A') ?? 'Not set' }}–{{ $endsAt?->format('g:i A') ?? 'Not set' }}</strong><button class="mt-3 inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-xl bg-[#397565] px-3 text-[10px] font-black text-white disabled:bg-[#121017]/15" type="button" data-open-qr data-event-title="{{ $event->title }}" data-session="{{ $session }}" data-schedule="{{ $day?->schedule_date?->format('M j') }} · {{ $startsAt?->format('g:i A') }}–{{ $endsAt?->format('g:i A') }}" data-payload="{{ $payload }}" @disabled(!$startsAt || !$endsAt)>Open {{ $session }} QR</button></div>
+                                @endforeach
+                                </div></section>
                             @endforeach
                         </div>
                     </article>

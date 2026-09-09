@@ -7,9 +7,9 @@ use App\Http\Controllers\Adviser\OfficerManagementController;
 use App\Http\Controllers\Adviser\ScoreManagementController;
 use App\Http\Controllers\Adviser\TeamManagementController;
 use App\Http\Controllers\Adviser\UserManagementController;
+use App\Http\Controllers\Auth\AccountPasswordResetController;
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\Auth\PasswordChangeController;
-use App\Http\Controllers\Auth\AccountPasswordResetController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\Officer\AttendanceController as OfficerAttendanceController;
@@ -59,6 +59,7 @@ Route::middleware('auth')->group(function () {
             Route::delete('/users/{user}/events/{event}', [EventAssignmentController::class, 'destroy'])->name('users.events.destroy');
             Route::post('/users/{user}/events/{event}/restore', [EventAssignmentController::class, 'restore'])->name('users.events.restore');
             Route::resource('teams', TeamManagementController::class)->except(['show', 'destroy']);
+            Route::post('/teams/randomize', [TeamManagementController::class, 'randomize'])->name('teams.randomize');
             Route::patch('/teams/{team}/status', [TeamManagementController::class, 'toggleStatus'])->name('teams.status');
             Route::get('/attendance', [AttendanceManagementController::class, 'index'])->name('attendance.index');
             Route::get('/attendance/{event}', [AttendanceManagementController::class, 'show'])->name('attendance.show');

@@ -7,6 +7,7 @@ use App\Models\Team;
 use App\Models\User;
 use App\Services\EventConflictDetector;
 use Carbon\Carbon;
+use Carbon\CarbonPeriod;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
@@ -39,6 +40,14 @@ class EventRequest extends FormRequest
             'morning_out_at' => ['nullable', 'date_format:Y-m-d\\TH:i'],
             'afternoon_in_at' => ['nullable', 'date_format:Y-m-d\\TH:i'],
             'afternoon_out_at' => ['nullable', 'date_format:Y-m-d\\TH:i'],
+            'attendance_days' => ['nullable', 'array', 'max:31'],
+            'attendance_days.*' => ['array'],
+            'attendance_days.*.date' => ['required', 'date_format:Y-m-d', 'distinct'],
+            'attendance_days.*.mode' => ['required', Rule::in(['none', 'single', 'split'])],
+            'attendance_days.*.morning_in' => ['nullable', 'date_format:H:i'],
+            'attendance_days.*.morning_out' => ['nullable', 'date_format:H:i'],
+            'attendance_days.*.afternoon_in' => ['nullable', 'date_format:H:i'],
+            'attendance_days.*.afternoon_out' => ['nullable', 'date_format:H:i'],
             'event_status_id' => [Rule::requiredIf(! $this->isMethod('POST')), 'nullable', Rule::exists('event_statuses', 'id')],
             'poster' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
             'remove_poster' => ['nullable', 'boolean'],
@@ -51,6 +60,18 @@ class EventRequest extends FormRequest
     protected function prepareForValidation(): void
     {
         $defaults = [];
+
+        if (is_array($this->input('attendance_days'))) {
+            $defaults['attendance_days'] = collect($this->input('attendance_days'))->map(function ($day, $key) {
+                if (is_array($day) && ! isset($day['date']) && preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) $key)) {
+                    $mode = filled($day['afternoon_in'] ?? null) ? 'split' : (filled($day['morning_in'] ?? null) ? 'single' : 'none');
+
+                    return ['date' => $key, 'mode' => $mode, ...$day];
+                }
+
+                return $day;
+            })->values()->all();
+        }
 
         if (is_array($this->input('assigned_user_ids'))) {
             $defaults['assigned_user_ids'] = array_values(array_filter($this->input('assigned_user_ids'), fn ($id) => filled($id)));
@@ -81,6 +102,9 @@ class EventRequest extends FormRequest
                 if ($end->lessThanOrEqualTo($start)) {
                     $validator->errors()->add('end_time', 'The event must end after it starts.');
                 }
+                if ($start->copy()->startOfDay()->diffInDays($end->copy()->startOfDay()) > 30) {
+                    $validator->errors()->add('end_date', 'An event schedule cannot exceed 31 days.');
+                }
             }
 
             $checkpointFields = ['morning_in_at', 'morning_out_at', 'afternoon_in_at', 'afternoon_out_at'];
@@ -96,6 +120,45 @@ class EventRequest extends FormRequest
                 }
                 if ($start && $end && ($checkpoints->first()->lt($start) || $checkpoints->last()->gt($end))) {
                     $validator->errors()->add('morning_in_at', 'Attendance checkpoints must be within the event start and end time.');
+                }
+            }
+
+            if ($start && $end && is_array($this->input('attendance_days'))) {
+                $submittedDates = collect($this->input('attendance_days'))->pluck('date')->filter()->sort()->values();
+                if ($submittedDates->isEmpty()) {
+                    $validator->errors()->add('attendance_days', 'Add at least one event day.');
+                } elseif ($submittedDates->first() !== $start->toDateString() || $submittedDates->last() !== $end->toDateString()) {
+                    $validator->errors()->add('attendance_days', 'The event dates do not match the first and last daily schedules.');
+                }
+
+                foreach ($this->input('attendance_days') as $index => $day) {
+                    $date = $day['date'] ?? "day {$index}";
+                    $mode = $day['mode'] ?? 'none';
+                    $fields = ['morning_in', 'morning_out', 'afternoon_in', 'afternoon_out'];
+                    $provided = collect($fields)->filter(fn (string $field) => filled($day[$field] ?? null));
+                    $requiredCount = $mode === 'split' ? 4 : ($mode === 'single' ? 2 : 0);
+                    if ($provided->count() !== $requiredCount) {
+                        $message = match ($mode) {
+                            'split' => 'Enter all four morning and afternoon times for this day.',
+                            'single' => 'Enter one time in and one time out for this day.',
+                            default => 'Remove checkpoint times when attendance scanning is off.',
+                        };
+                        $validator->errors()->add("attendance_days.{$index}.morning_in", $message);
+
+                        continue;
+                    }
+                    if ($requiredCount > 0) {
+                        $activeFields = $mode === 'split' ? $fields : ['morning_in', 'morning_out'];
+                        $times = collect($activeFields)->map(fn (string $field) => Carbon::createFromFormat('H:i', $day[$field]));
+                        if (! $times->every(fn (Carbon $time, int $index) => $index === 0 || $time->gt($times[$index - 1]))) {
+                            $validator->errors()->add("attendance_days.{$index}.morning_in", 'Time in/out checkpoints must be in chronological order.');
+                        }
+                        $firstCheckpoint = Carbon::parse($date.' '.$day['morning_in']);
+                        $lastCheckpoint = Carbon::parse($date.' '.($mode === 'split' ? $day['afternoon_out'] : $day['morning_out']));
+                        if ($firstCheckpoint->lt($start) || $lastCheckpoint->gt($end)) {
+                            $validator->errors()->add("attendance_days.{$index}.morning_in", 'This day’s times must stay within the overall event duration.');
+                        }
+                    }
                 }
             }
 
@@ -181,5 +244,38 @@ class EventRequest extends FormRequest
         }
 
         return $data;
+    }
+
+    public function attendanceScheduleData(): array
+    {
+        $days = $this->validated('attendance_days');
+        if (is_array($days)) {
+            return collect($days)->map(fn (array $day) => [
+                'schedule_date' => $day['date'],
+                'session_mode' => $day['mode'],
+                'morning_in_time' => $day['morning_in'] ?? null,
+                'morning_out_time' => $day['morning_out'] ?? null,
+                'afternoon_in_time' => $day['afternoon_in'] ?? null,
+                'afternoon_out_time' => $day['afternoon_out'] ?? null,
+            ])->values()->all();
+        }
+
+        $start = Carbon::parse($this->eventData()['start_at'])->startOfDay();
+        $end = Carbon::parse($this->eventData()['end_at'])->startOfDay();
+
+        return collect(CarbonPeriod::create($start, $end))->map(function (Carbon $date, int $index) {
+            $legacy = $index === 0 ? collect(['morning_in', 'morning_out', 'afternoon_in', 'afternoon_out'])
+                ->mapWithKeys(fn (string $key) => [$key.'_time' => $this->filled($key.'_at') ? Carbon::parse($this->input($key.'_at'))->format('H:i') : null])
+                ->all() : [
+                    'morning_in_time' => null, 'morning_out_time' => null,
+                    'afternoon_in_time' => null, 'afternoon_out_time' => null,
+                ];
+
+            return [
+                'schedule_date' => $date->toDateString(),
+                'session_mode' => filled($legacy['afternoon_in_time']) ? 'split' : (filled($legacy['morning_in_time']) ? 'single' : 'none'),
+                ...$legacy,
+            ];
+        })->all();
     }
 }

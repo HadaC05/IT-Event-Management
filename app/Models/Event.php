@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
@@ -78,6 +79,11 @@ class Event extends Model
         return $this->hasMany(Attendance::class);
     }
 
+    public function attendanceSchedules(): HasMany
+    {
+        return $this->hasMany(EventAttendanceSchedule::class)->orderBy('schedule_date');
+    }
+
     public function scores(): HasMany
     {
         return $this->hasMany(Score::class);
@@ -135,13 +141,22 @@ class Event extends Model
         return 'ongoing';
     }
 
-    public function attendanceSlots(): array
+    public function attendanceSlots($date = null): array
     {
+        $date = $date ? Carbon::parse($date) : now();
+        $schedule = $this->attendanceSchedules->first(
+            fn (EventAttendanceSchedule $schedule) => $schedule->schedule_date->isSameDay($date)
+        );
+
+        if ($schedule) {
+            return $schedule->slots();
+        }
+
         return collect([
-            ['key' => 'morning_in', 'label' => 'Morning time in', 'at' => $this->morning_in_at],
-            ['key' => 'morning_out', 'label' => 'Morning time out', 'at' => $this->morning_out_at],
-            ['key' => 'afternoon_in', 'label' => 'Afternoon time in', 'at' => $this->afternoon_in_at],
-            ['key' => 'afternoon_out', 'label' => 'Afternoon time out', 'at' => $this->afternoon_out_at],
+            ['key' => 'morning_in', 'label' => 'Morning time in', 'date' => $this->morning_in_at?->copy()->startOfDay(), 'at' => $this->morning_in_at],
+            ['key' => 'morning_out', 'label' => 'Morning time out', 'date' => $this->morning_out_at?->copy()->startOfDay(), 'at' => $this->morning_out_at],
+            ['key' => 'afternoon_in', 'label' => 'Afternoon time in', 'date' => $this->afternoon_in_at?->copy()->startOfDay(), 'at' => $this->afternoon_in_at],
+            ['key' => 'afternoon_out', 'label' => 'Afternoon time out', 'date' => $this->afternoon_out_at?->copy()->startOfDay(), 'at' => $this->afternoon_out_at],
         ])->filter(fn (array $slot) => $slot['at'] !== null)->values()->all();
     }
 }

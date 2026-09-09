@@ -8,9 +8,9 @@ use App\Models\Event;
 use App\Models\Score;
 use App\Models\Team;
 use App\Models\User;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Str;
 use Illuminate\View\View;
-use Illuminate\Http\RedirectResponse;
 
 class DashboardController extends Controller
 {
@@ -25,7 +25,7 @@ class DashboardController extends Controller
         if ($user->role?->name === 'Student') {
             $user->loadMissing(['studentProfile.yearLevel', 'teams.schoolYear']);
             $events = Event::query()
-                ->with(['status', 'audienceTeams'])
+                ->with(['status', 'audienceTeams', 'attendanceSchedules'])
                 ->where(function ($query) {
                     $query->whereDoesntHave('status')
                         ->orWhereHas('status', fn ($query) => $query->where('label', 'active'));
@@ -65,7 +65,9 @@ class DashboardController extends Controller
         $totalFaculty = User::whereHas('role', fn ($query) => $query->where('name', 'Faculty'))->count();
         $totalStudents = User::whereHas('role', fn ($query) => $query->where('name', 'Student'))->count();
         $todayAttendanceCounts = Attendance::query()
-            ->whereHas('event', fn ($query) => $query->whereDate('start_at', $today))
+            ->where(fn ($query) => $query->whereDate('attendance_date', $today)
+                ->orWhere(fn ($query) => $query->whereNull('attendance_date')
+                    ->whereHas('event', fn ($query) => $query->whereDate('start_at', $today))))
             ->selectRaw('status, count(*) as total')
             ->groupBy('status')
             ->pluck('total', 'status');
@@ -74,7 +76,9 @@ class DashboardController extends Controller
         $todayAbsent = (int) $todayAttendanceCounts->get('absent', 0);
         $todayExcused = (int) $todayAttendanceCounts->get('excused', 0);
         $todayPresentStudents = Attendance::query()
-            ->whereHas('event', fn ($query) => $query->whereDate('start_at', $today))
+            ->where(fn ($query) => $query->whereDate('attendance_date', $today)
+                ->orWhere(fn ($query) => $query->whereNull('attendance_date')
+                    ->whereHas('event', fn ($query) => $query->whereDate('start_at', $today))))
             ->where('status', 'present')
             ->distinct()
             ->count('user_id');
@@ -141,7 +145,8 @@ class DashboardController extends Controller
             'previousAttendanceEvent' => $previousAttendanceEvent,
             'todayEvents' => Event::query()
                 ->with('assignedUsers')
-                ->whereDate('start_at', $today)
+                ->where('start_at', '<=', now()->endOfDay())
+                ->where('end_at', '>=', now()->startOfDay())
                 ->orderBy('start_at')
                 ->get(),
             'upcomingEvents' => Event::query()

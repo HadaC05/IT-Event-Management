@@ -12,7 +12,8 @@
     </header>
 
     <section class="mb-6 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm" aria-label="Tribe overview">
-        <header class="flex flex-col gap-3 border-b border-slate-100 px-5 py-4 sm:flex-row sm:items-center sm:justify-between"><div><p class="text-xs font-extrabold uppercase tracking-[.14em] text-slate-500">Tribe Overview</p><span class="mt-1 block text-[11px] font-semibold text-slate-400">Current student roster</span></div>@if($teamSummary['students'] > 0)<button class="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-[#397565] px-5 text-sm font-extrabold text-white shadow-lg shadow-[#397565]/15 transition hover:bg-[#2e6355]" type="button" data-dialog-open="create-team-dialog"><span class="text-xl font-normal" aria-hidden="true">+</span>Create Tribe</button>@endif</header>
+        <header class="flex flex-col gap-3 border-b border-slate-100 px-5 py-4 xl:flex-row xl:items-center xl:justify-between"><div><p class="text-xs font-extrabold uppercase tracking-[.14em] text-slate-500">Tribe Overview</p><span class="mt-1 block text-[11px] font-semibold text-slate-400">Current student roster</span></div><div class="flex flex-col gap-2 sm:flex-row">@if($teamSummary['total'] > 0 && $teamSummary['students'] > 0)<form class="flex flex-col gap-2 sm:flex-row" method="POST" action="{{ route('adviser.teams.randomize') }}" data-confirm-title="Randomize tribe members?" data-confirm-message="All active students will be shuffled and evenly redistributed among the active tribes in this school year. This can only be done once." data-confirm-action="Randomize students" data-randomize-form>@csrf<select class="h-11 rounded-xl border border-slate-200 bg-white px-3 text-xs font-bold text-slate-600" name="school_year_id" aria-label="School year to randomize" required data-randomize-year>@foreach($schoolYears as $schoolYear)<option value="{{ $schoolYear->id }}" data-randomized-at="{{ $schoolYear->teams_randomized_at?->toIso8601String() }}" @selected((string) old('school_year_id', request('school_year', $schoolYears->first()?->id)) === (string) $schoolYear->id)>SY {{ $schoolYear->label }}</option>@endforeach</select><button class="inline-flex min-h-11 items-center justify-center rounded-xl border border-[#2F3AE0]/25 bg-[#2F3AE0]/8 px-5 text-sm font-extrabold text-[#2F3AE0] transition hover:bg-[#2F3AE0]/14 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400" type="submit" data-loading-text="Randomizing…" data-randomize-button>Randomize Students</button></form>@endif @if($schoolYears->isNotEmpty())<button class="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-[#397565] px-5 text-sm font-extrabold text-white shadow-lg shadow-[#397565]/15 transition hover:bg-[#2e6355]" type="button" data-dialog-open="create-team-dialog"><span class="text-xl font-normal" aria-hidden="true">+</span>Create Tribe</button>@endif</div></header>
+        @if($errors->randomize->any())<div class="border-b border-rose-200 bg-rose-50 px-5 py-3 text-xs font-semibold text-rose-700">{{ $errors->randomize->first() }}</div>@endif
         <div class="grid divide-y divide-slate-100 sm:grid-cols-2 sm:divide-x sm:divide-y-0 xl:grid-cols-4">
             @foreach ([['total', 'Total Tribes'], ['active', 'Active Tribes'], ['students', 'Active Students'], ['assigned', 'Assigned to Tribes']] as [$key, $label])
                 <div class="flex items-center justify-between gap-4 px-5 py-4 xl:block xl:p-5">
@@ -82,10 +83,8 @@
                     <span class="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-emerald-50 text-emerald-700"><svg class="h-7 w-7 fill-none stroke-current" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6Zm8 0a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM2 20v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2m0-5.5a4 4 0 0 1 3-1.5h1a4 4 0 0 1 4 4v3"/></svg></span>
                     @if(request()->anyFilled(['search', 'school_year', 'status']))
                         <strong class="mt-4 block text-sm text-slate-600">No tribes match these filters</strong><p class="mt-1 text-xs text-slate-400">Try adjusting or clearing the filters.</p>
-                    @elseif($teamSummary['students'] === 0)
-                        <strong class="mt-4 block text-sm text-slate-600">Students need to be added first</strong><p class="mt-1 text-xs text-slate-400">Add or activate student accounts before organizing them into tribes.</p><a class="mt-5 inline-flex min-h-10 items-center rounded-xl bg-emerald-600 px-4 text-xs font-extrabold text-white" href="{{ route('adviser.users.index', ['role' => 'Student']) }}">Manage Students</a>
                     @else
-                        <strong class="mt-4 block text-sm text-slate-600">No tribes created yet</strong><p class="mt-1 text-xs text-slate-400">Create your first tribe and assign students to it.</p><button class="mt-5 inline-flex min-h-10 items-center rounded-xl bg-[#397565] px-4 text-xs font-extrabold text-white" type="button" data-dialog-open="create-team-dialog">Create Tribe</button>
+                        <strong class="mt-4 block text-sm text-slate-600">No tribes created yet</strong><p class="mt-1 text-xs text-slate-400">Create the tribes first, then randomize students when the roster is ready.</p>@if($schoolYears->isNotEmpty())<button class="mt-5 inline-flex min-h-10 items-center rounded-xl bg-[#397565] px-4 text-xs font-extrabold text-white" type="button" data-dialog-open="create-team-dialog">Create Tribe</button>@endif
                     @endif
                 </div>
             @endforelse
@@ -96,12 +95,12 @@
         @endif
     </section>
 
-    @if($teamSummary['students'] > 0)
+    @if($schoolYears->isNotEmpty())
         <dialog class="m-auto max-h-[calc(100vh_-_2rem)] w-[min(1120px,calc(100%_-_2rem))] overflow-y-auto rounded-3xl border-0 bg-white p-0 shadow-[0_30px_90px_rgba(18,16,23,.3)] backdrop:bg-[#121017]/60 backdrop:backdrop-blur-[3px]" id="create-team-dialog">
             <form method="POST" action="{{ route('adviser.teams.store') }}" data-tribe-form>
                 @csrf
-                <header class="sticky top-0 z-20 flex items-start justify-between gap-5 border-b border-[#121017]/8 bg-white/95 px-5 py-5 backdrop-blur sm:px-7"><div><p class="text-[10px] font-black uppercase tracking-[.16em] text-[#397565]">New Team</p><h2 class="mt-1 text-2xl font-black tracking-[-.035em] text-[#121017]">Create a Tribe</h2><p class="mt-1 text-xs text-slate-500">Set the team identity and select its student members.</p></div><button class="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#F3F0E9] text-xl text-[#121017]/50 transition hover:text-[#121017]" type="button" data-dialog-close aria-label="Close create team modal">&times;</button></header>
-                <div class="p-4 sm:p-7">@include('adviser.teams._form', ['modal' => true])</div>
+                <header class="sticky top-0 z-20 flex items-start justify-between gap-5 border-b border-[#121017]/8 bg-white/95 px-5 py-5 backdrop-blur sm:px-7"><div><p class="text-[10px] font-black uppercase tracking-[.16em] text-[#397565]">New Team</p><h2 class="mt-1 text-2xl font-black tracking-[-.035em] text-[#121017]">Create a Tribe</h2><p class="mt-1 text-xs text-slate-500">Set the tribe identity now, then use Randomize Students to distribute members without bias.</p></div><button class="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#F3F0E9] text-xl text-[#121017]/50 transition hover:text-[#121017]" type="button" data-dialog-close aria-label="Close create team modal">&times;</button></header>
+                <div class="p-4 sm:p-7">@include('adviser.teams._form', ['modal' => true, 'team' => null])</div>
             </form>
         </dialog>
     @endif
@@ -109,6 +108,18 @@
 
 @push('scripts')
 <script>
+    const randomizeYear = document.querySelector('[data-randomize-year]');
+    const randomizeButton = document.querySelector('[data-randomize-button]');
+    const updateRandomizeState = () => {
+        if (!randomizeButton) return;
+        const alreadyRandomized = Boolean(randomizeYear?.selectedOptions[0]?.dataset.randomizedAt);
+        randomizeButton.disabled = alreadyRandomized;
+        randomizeButton.textContent = alreadyRandomized ? 'Already Randomized' : 'Randomize Students';
+        randomizeButton.title = alreadyRandomized ? 'Students for this school year have already been randomized.' : '';
+    };
+    randomizeYear?.addEventListener('change', updateRandomizeState);
+    updateRandomizeState();
+
     const tribeFilters = document.querySelector('[data-tribe-filters]');
     tribeFilters?.querySelectorAll('[data-auto-submit]').forEach((filter) => filter.addEventListener('change', () => tribeFilters.requestSubmit()));
 

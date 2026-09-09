@@ -41,25 +41,7 @@
     </section>
 
     <div class="grid content-start gap-5 md:grid-cols-2 xl:grid-cols-1">
-        <section class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-            <header class="border-b border-slate-100 px-6 py-5"><h2 class="text-lg font-extrabold tracking-tight text-[#121017]">Schedule</h2><p class="mt-1 text-xs text-slate-500">Set the complete event duration.</p></header>
-            <div class="grid grid-cols-1 gap-4 p-6 sm:grid-cols-2">
-                <label class="grid gap-2"><span class="text-xs font-bold text-slate-700">Start date</span><input class="{{ $field }} {{ $errors->has('start_date') ? $invalid : '' }}" name="start_date" type="date" value="{{ old('start_date', $editing ? $event->start_at->format('Y-m-d') : '') }}" required><x-form-error name="start_date" /></label>
-                <label class="grid gap-2"><span class="text-xs font-bold text-slate-700">Start time</span><input class="{{ $field }} {{ $errors->has('start_time') ? $invalid : '' }}" name="start_time" type="time" value="{{ old('start_time', $editing ? $event->start_at->format('H:i') : '') }}" required><x-form-error name="start_time" /></label>
-                <label class="grid gap-2"><span class="text-xs font-bold text-slate-700">End date</span><input class="{{ $field }} {{ $errors->has('end_date') ? $invalid : '' }}" name="end_date" type="date" value="{{ old('end_date', $editing ? $event->end_at->format('Y-m-d') : '') }}" required><x-form-error name="end_date" /></label>
-                <label class="grid gap-2"><span class="text-xs font-bold text-slate-700">End time</span><input class="{{ $field }} {{ $errors->has('end_time') ? $invalid : '' }}" name="end_time" type="time" value="{{ old('end_time', $editing ? $event->end_at->format('H:i') : '') }}" required><x-form-error name="end_time" /></label>
-            </div>
-        </section>
-
-        <section class="overflow-hidden rounded-2xl border border-[#397565]/15 bg-white shadow-sm">
-            <header class="border-b border-[#121017]/7 px-6 py-5"><div class="flex items-start justify-between gap-3"><div><h2 class="text-lg font-extrabold tracking-tight text-[#121017]">Attendance checkpoints</h2><p class="mt-1 text-xs leading-5 text-slate-500">Set four scan times for the SBO Officers: morning and afternoon time in/out.</p></div><span class="rounded-full bg-[#C6F24E]/35 px-2.5 py-1 text-[9px] font-black uppercase text-[#397565]">Optional</span></div></header>
-            <div class="grid grid-cols-1 gap-4 p-6 sm:grid-cols-2">
-                @foreach([['morning_in_at', 'Morning time in'], ['morning_out_at', 'Morning time out'], ['afternoon_in_at', 'Afternoon time in'], ['afternoon_out_at', 'Afternoon time out']] as [$name, $label])
-                    <label class="grid gap-2"><span class="text-xs font-bold text-slate-700">{{ $label }}</span><input class="{{ $field }} {{ $errors->has($name) ? $invalid : '' }}" name="{{ $name }}" type="datetime-local" value="{{ old($name, $editing && $event->{$name} ? $event->{$name}->format('Y-m-d\\TH:i') : '') }}"><x-form-error :name="$name" /></label>
-                @endforeach
-                <p class="text-[10px] leading-5 text-slate-400 sm:col-span-2">Each checkpoint opens at its scheduled time and remains active until the next checkpoint. The afternoon time-out window closes when the event ends.</p>
-            </div>
-        </section>
+        @include('adviser.events._attendance_schedule', ['editing' => $editing])
 
         <section class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
             <header class="border-b border-slate-100 px-6 py-5"><h2 class="text-lg font-extrabold tracking-tight text-[#121017]">Event poster</h2><p class="mt-1 text-xs text-slate-500">JPG, PNG, or WebP up to 5 MB.</p></header>

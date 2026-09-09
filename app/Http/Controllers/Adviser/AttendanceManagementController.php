@@ -79,9 +79,14 @@ class AttendanceManagementController extends Controller
         $validated = $request->validate([
             'search' => ['nullable', 'string', 'max:100'],
             'status' => ['nullable', Rule::in([...Attendance::STATUSES, 'unrecorded'])],
+            'date' => ['nullable', 'date_format:Y-m-d'],
         ]);
+        $attendanceDates = $event->attendanceSchedules()->pluck('schedule_date');
+        $attendanceDate = collect($attendanceDates)->contains($validated['date'] ?? null)
+            ? $validated['date']
+            : ($attendanceDates->first() ?? $event->start_at->toDateString());
         $expectedParticipantIds = $event->expectedParticipantsQuery()->pluck('users.id');
-        $recordedParticipantIds = $event->attendances()->pluck('user_id');
+        $recordedParticipantIds = $event->attendances()->whereDate('attendance_date', $attendanceDate)->pluck('user_id');
         $participantIds = $expectedParticipantIds->merge($recordedParticipantIds)->unique()->values();
 
         $participants = User::query()
@@ -99,10 +104,13 @@ class AttendanceManagementController extends Controller
                         ->orWhere('last_name', 'like', $term)->orWhere('student_id', 'like', $term)));
             })
             ->when(($validated['status'] ?? null) === 'unrecorded', fn (Builder $query) => $query
-                ->whereDoesntHave('attendances', fn (Builder $query) => $query->where('event_id', $event->id)))
+                ->whereDoesntHave('attendances', fn (Builder $query) => $query
+                    ->where('event_id', $event->id)
+                    ->whereDate('attendance_date', $attendanceDate)))
             ->when(in_array($validated['status'] ?? null, Attendance::STATUSES, true), fn (Builder $query) => $query
                 ->whereHas('attendances', fn (Builder $query) => $query
                     ->where('event_id', $event->id)
+                    ->whereDate('attendance_date', $attendanceDate)
                     ->where('status', $validated['status'])))
             ->orderBy('last_name')
             ->orderBy('first_name')
@@ -110,11 +118,12 @@ class AttendanceManagementController extends Controller
             ->withQueryString();
 
         $records = $event->attendances()
+            ->whereDate('attendance_date', $attendanceDate)
             ->whereIn('user_id', $participants->getCollection()->pluck('id'))
             ->get()
             ->keyBy('user_id');
         $counts = collect(Attendance::STATUSES)->mapWithKeys(fn ($status) => [
-            $status => $event->attendances()->where('status', $status)->count(),
+            $status => $event->attendances()->whereDate('attendance_date', $attendanceDate)->where('status', $status)->count(),
         ]);
         $recorded = $counts->sum();
         $attended = $counts->only(Attendance::ATTENDED_STATUSES)->sum();
@@ -136,6 +145,8 @@ class AttendanceManagementController extends Controller
             ],
             'expectedParticipantIds' => $expectedParticipantIds,
             'eventOptions' => Event::query()->orderByDesc('start_at')->get(['id', 'title', 'start_at']),
+            'attendanceDates' => $attendanceDates,
+            'attendanceDate' => $attendanceDate,
         ]);
     }
 
@@ -146,7 +157,10 @@ class AttendanceManagementController extends Controller
         DB::transaction(function () use ($request, $event, &$changed) {
             foreach ($request->validated('records') as $userId => $record) {
                 $status = $record['status'] ?? null;
-                $attendance = Attendance::where('event_id', $event->id)->where('user_id', $userId)->first();
+                $attendance = Attendance::where('event_id', $event->id)
+                    ->where('user_id', $userId)
+                    ->whereDate('attendance_date', $request->validated('attendance_date'))
+                    ->first();
 
                 if (! $status) {
                     if ($attendance) {
@@ -157,7 +171,11 @@ class AttendanceManagementController extends Controller
                     continue;
                 }
 
-                $attendance ??= new Attendance(['event_id' => $event->id, 'user_id' => $userId]);
+                $attendance ??= new Attendance([
+                    'event_id' => $event->id,
+                    'user_id' => $userId,
+                    'attendance_date' => $request->validated('attendance_date'),
+                ]);
                 if (! $attendance->exists || $attendance->status !== $status) {
                     $changed++;
                 }

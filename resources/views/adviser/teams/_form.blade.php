@@ -21,7 +21,7 @@
 <div class="space-y-6" data-tribe-workflow>
     <section class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
         <header class="flex items-start gap-3 border-b border-slate-100 px-5 py-5 sm:px-6">
-            <span class="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-[#121017] text-xs font-black text-white">1</span>
+            @if($editingTeam)<span class="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-[#121017] text-xs font-black text-white">1</span>@endif
             <div><h2 class="text-lg font-extrabold tracking-tight text-[#121017]">Tribe Details</h2><p class="mt-1 text-xs text-slate-500">Describe the tribe and choose how it will appear across the system.</p></div>
         </header>
 
@@ -77,7 +77,7 @@
                             <span class="grid h-12 w-12 shrink-0 place-items-center rounded-xl text-sm font-black text-white shadow-sm transition-colors" style="background-color: {{ $selectedColor }}" data-preview-badge>{{ strtoupper(substr(old('name', $editingTeam?->name) ?: 'TR', 0, 2)) }}</span>
                             <div class="min-w-0"><strong class="block truncate text-base text-[#121017]" data-preview-name>{{ old('name', $editingTeam?->name) ?: 'Your tribe' }}</strong><span class="mt-0.5 block text-xs text-slate-400" data-preview-year>{{ $schoolYears->firstWhere('id', (int) $selectedSchoolYear)?->label ? 'School Year '.$schoolYears->firstWhere('id', (int) $selectedSchoolYear)->label : 'Choose a school year' }}</span></div>
                         </div>
-                        <div class="mt-5 flex items-center justify-between border-t border-slate-100 pt-4"><span class="text-xs font-semibold text-slate-500">Student members</span><strong class="text-sm text-[#121017]"><span data-preview-members>{{ $selectedMembers->count() }}</span> <span data-preview-member-label>{{ Str::plural('member', $selectedMembers->count()) }}</span></strong></div>
+                        @if($editingTeam)<div class="mt-5 flex items-center justify-between border-t border-slate-100 pt-4"><span class="text-xs font-semibold text-slate-500">Student members</span><strong class="text-sm text-[#121017]"><span data-preview-members>{{ $selectedMembers->count() }}</span> <span data-preview-member-label>{{ Str::plural('member', $selectedMembers->count()) }}</span></strong></div>@endif
                     </div>
                 </div>
                 <p class="mt-3 text-xs leading-5 text-slate-400">This identity will help advisers and students recognize the tribe throughout the application.</p>
@@ -85,6 +85,7 @@
         </div>
     </section>
 
+    @if($editingTeam)
     <section class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
         <header class="flex items-start justify-between gap-4 border-b border-slate-100 px-5 py-5 sm:px-6">
             <div class="flex items-start gap-3"><span class="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-[#121017] text-xs font-black text-white">2</span><div><h2 class="text-lg font-extrabold tracking-tight text-[#121017]">Choose Members</h2><p class="mt-1 text-xs text-slate-500">Select the active students who belong to this tribe.</p></div></div>
@@ -112,7 +113,7 @@
                             <input class="h-4 w-4 shrink-0 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500" type="checkbox" name="member_ids[]" value="{{ $student->id }}" @checked($selectedMembers->contains($student->id)) data-member-checkbox>
                             <span class="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[#121017] text-[9px] font-extrabold text-[#F3F0E9]">{{ strtoupper(substr($student->first_name, 0, 1).substr($student->last_name, 0, 1)) }}</span>
                             <span class="grid min-w-0 flex-1 gap-0.5"><strong class="truncate text-sm text-slate-700">{{ $student->full_name }}</strong><small class="truncate text-[11px] text-slate-400">{{ $student->id_number ?: 'No student ID' }}@if($student->display_year_level) · {{ $student->display_year_level->label }}@endif</small></span>
-                            @if($otherTeams->isNotEmpty())<span class="hidden max-w-36 text-right text-[10px] font-semibold text-slate-400 sm:block">{{ $otherTeams->take(1)->map(fn ($team) => $team->name.' · SY '.$team->schoolYear?->label)->join() }}</span>@endif
+                            @if($otherTeams->isNotEmpty())<span class="hidden max-w-36 text-right text-[10px] font-semibold text-slate-400 sm:block">{{ $otherTeams->take(1)->map(fn ($team) => $team->name.' · SY '.$team->schoolYear?->label)->join(', ') }}</span>@endif
                         </label>
                     @endforeach
                     <div class="hidden rounded-xl border border-dashed border-slate-200 px-5 py-10 text-center lg:col-span-2" data-no-member-results><strong class="text-sm text-slate-600">No students match your search</strong><p class="mt-1 text-xs text-slate-400">Try a different name, ID, or year level.</p></div>
@@ -120,9 +121,10 @@
             </div>
         @endif
     </section>
+    @endif
 
     <div class="flex flex-col gap-4 border-t border-slate-200 pt-5 sm:flex-row sm:items-center sm:justify-between">
-        <p class="flex max-w-xl items-start gap-2 text-xs leading-5 text-slate-500"><span class="mt-0.5 grid h-4 w-4 shrink-0 place-items-center rounded-full bg-slate-200 text-[10px] font-black text-slate-600">i</span><span>A student may belong to one tribe per school year, but can join a different tribe in another year.</span></p>
+        <p class="flex max-w-xl items-start gap-2 text-xs leading-5 text-slate-500"><span class="mt-0.5 grid h-4 w-4 shrink-0 place-items-center rounded-full bg-slate-200 text-[10px] font-black text-slate-600">i</span><span>{{ $editingTeam ? 'A student may belong to one tribe per school year, but can join a different tribe in another year.' : 'Student assignments are handled separately with Randomize Students after the tribes are created.' }}</span></p>
         <div class="flex shrink-0 flex-col-reverse gap-2 sm:flex-row">
             @if($modal ?? false)<button class="inline-flex min-h-11 items-center justify-center rounded-xl border border-slate-200 bg-white px-5 text-sm font-extrabold text-slate-600 transition hover:bg-slate-50" type="button" data-dialog-close>Cancel</button>@else<a class="inline-flex min-h-11 items-center justify-center rounded-xl border border-slate-200 bg-white px-5 text-sm font-extrabold text-slate-600 transition hover:bg-slate-50" href="{{ route('adviser.teams.index') }}">Cancel</a>@endif
             <button class="inline-flex min-h-11 items-center justify-center rounded-xl bg-emerald-600 px-6 text-sm font-extrabold text-white shadow-lg shadow-emerald-600/15 transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:shadow-none" type="submit" data-loading-text="Saving…" data-submit-tribe @disabled(! $identityReady)>{{ $editingTeam ? 'Save Changes' : 'Create Tribe' }}</button>

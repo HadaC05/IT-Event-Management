@@ -27,7 +27,7 @@ class TeamManagementController extends Controller
         ]);
 
         $teams = Team::query()
-            ->with(['schoolYear', 'members'])
+            ->with(['schoolYear', 'members' => fn ($query) => $query->limit(5)])
             ->withCount('members')
             ->withSum('scores', 'points')
             ->when($validated['search'] ?? null, function (Builder $query, string $search) {
@@ -50,12 +50,11 @@ class TeamManagementController extends Controller
             ->where('role_id', Role::where('name', 'Student')->value('id'))
             ->whereHas('userStatus', fn (Builder $query) => $query->where('label', 'active'));
 
-        $formData = $this->formData();
+        $schoolYears = SchoolYear::orderByDesc('label')->get();
 
         return view('adviser.teams.index', [
             'teams' => $teams,
-            'schoolYears' => $formData['schoolYears'],
-            'students' => $formData['students'],
+            'schoolYears' => $schoolYears,
             'teamSummary' => [
                 'total' => Team::count(),
                 'active' => Team::where('is_active', true)->count(),
@@ -73,17 +72,88 @@ class TeamManagementController extends Controller
 
     public function store(TeamRequest $request): RedirectResponse
     {
-        [$data, $memberIds] = $this->teamData($request);
+        [$data] = $this->teamData($request);
 
-        $team = DB::transaction(function () use ($request, $data, $memberIds) {
+        $team = DB::transaction(function () use ($request, $data) {
             $team = Team::create($data);
-            $team->members()->sync($memberIds);
-            $this->log($request, 'team_created', "{$team->name} was created with ".count($memberIds).' members.');
+            $this->log($request, 'team_created', "{$team->name} was created without assigned members.");
 
             return $team;
         });
 
         return to_route('adviser.teams.index')->with('success', "{$team->name} was created successfully.");
+    }
+
+    public function randomize(Request $request): RedirectResponse
+    {
+        $validated = $request->validateWithBag('randomize', [
+            'school_year_id' => ['required', Rule::exists('school_years', 'id')],
+        ]);
+
+        $result = DB::transaction(function () use ($request, $validated) {
+            $schoolYear = SchoolYear::query()->lockForUpdate()->findOrFail($validated['school_year_id']);
+
+            if ($schoolYear->teams_randomized_at) {
+                return ['error' => "Students for SY {$schoolYear->label} have already been randomized and cannot be randomized again."];
+            }
+
+            $activeTeams = Team::query()
+                ->where('school_year_id', $schoolYear->id)
+                ->where('is_active', true)
+                ->orderBy('id')
+                ->get();
+
+            if ($activeTeams->count() < 2) {
+                return ['error' => 'Create at least two active tribes for this school year before randomizing students.'];
+            }
+
+            $studentIds = User::query()
+                ->where('role_id', Role::where('name', 'Student')->value('id'))
+                ->whereHas('userStatus', fn (Builder $query) => $query->where('label', 'active'))
+                ->pluck('id')
+                ->shuffle()
+                ->values();
+
+            if ($studentIds->isEmpty()) {
+                return ['error' => 'There are no active students to distribute.'];
+            }
+
+            Team::query()
+                ->where('school_year_id', $schoolYear->id)
+                ->get()
+                ->each(fn (Team $team) => $team->members()->detach($studentIds->all()));
+
+            $assignments = $activeTeams->mapWithKeys(fn (Team $team) => [$team->id => []])->all();
+            foreach ($studentIds as $index => $studentId) {
+                $teamId = $activeTeams[$index % $activeTeams->count()]->id;
+                $assignments[$teamId][] = $studentId;
+            }
+
+            foreach ($activeTeams as $team) {
+                $team->members()->attach($assignments[$team->id]);
+            }
+
+            $schoolYear->update(['teams_randomized_at' => now()]);
+
+            $this->log(
+                $request,
+                'team_members_randomized',
+                $studentIds->count()." active students were distributed across {$activeTeams->count()} tribes for SY {$schoolYear->label}."
+            );
+
+            return [
+                'school_year_id' => $schoolYear->id,
+                'student_count' => $studentIds->count(),
+                'team_count' => $activeTeams->count(),
+            ];
+        });
+
+        if (isset($result['error'])) {
+            return back()->withErrors(['randomize' => $result['error']], 'randomize');
+        }
+
+        return to_route('adviser.teams.index', ['school_year' => $result['school_year_id']])
+            ->with('success', $result['student_count']." students were randomly and evenly distributed across {$result['team_count']} tribes. This distribution is now locked.");
     }
 
     public function edit(Team $team): View
