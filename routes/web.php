@@ -3,6 +3,7 @@
 use App\Http\Controllers\Adviser\AttendanceManagementController;
 use App\Http\Controllers\Adviser\EventAssignmentController;
 use App\Http\Controllers\Adviser\EventManagementController;
+use App\Http\Controllers\Adviser\LeaderboardController as AdviserLeaderboardController;
 use App\Http\Controllers\Adviser\OfficerManagementController;
 use App\Http\Controllers\Adviser\PostReviewController;
 use App\Http\Controllers\Adviser\ScoreManagementController;
@@ -94,6 +95,7 @@ Route::middleware('auth')->group(function () {
             Route::post('/scores/{event}/categories', [ScoreManagementController::class, 'storeCategory'])->name('scores.categories.store');
             Route::put('/scores/{event}/categories/{scoreCategory}', [ScoreManagementController::class, 'updateCategory'])->name('scores.categories.update');
             Route::delete('/scores/{event}/categories/{scoreCategory}', [ScoreManagementController::class, 'destroyCategory'])->name('scores.categories.destroy');
+            Route::get('/leaderboard', AdviserLeaderboardController::class)->name('leaderboard.index');
             Route::get('/posts', [PostReviewController::class, 'index'])->name('posts.index');
             Route::patch('/posts/{post}/review', [PostReviewController::class, 'update'])->name('posts.review');
         });

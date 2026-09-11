@@ -94,11 +94,24 @@ rankTabs.forEach(tab => tab.addEventListener('click', () => {
         item.classList.toggle('bg-white', !active); item.classList.toggle('text-[#121017]/55', !active);
     });
     const rows = [...rankList.querySelectorAll('[data-rank-row]')];
-    rows.sort((a, b) => Number(b.dataset[category] || b.getAttribute(`data-score-${category}`) || 0) - Number(a.dataset[category] || a.getAttribute(`data-score-${category}`) || 0));
+    const rowScore = row => Number(category === 'overall' ? row.dataset.overall : row.getAttribute(`data-score-${category}`)) || 0;
+    const rowIsScored = row => (category === 'overall' ? row.dataset.scoredOverall : row.getAttribute(`data-scored-${category}`)) === '1';
+    rows.sort((a, b) => {
+        if (rowIsScored(a) !== rowIsScored(b)) return rowIsScored(a) ? -1 : 1;
+        return rowScore(b) - rowScore(a) || a.dataset.teamName.localeCompare(b.dataset.teamName);
+    });
+    let previousScore = null;
+    let previousRank = null;
     rows.forEach((row, index) => {
-        const score = category === 'overall' ? row.dataset.overall : row.getAttribute(`data-score-${category}`);
-        row.querySelector('[data-rank-number]').textContent = index + 1;
+        const score = rowScore(row);
+        const isScored = rowIsScored(row);
+        const rank = !isScored ? '—' : (previousScore !== null && Math.abs(score - previousScore) < 0.00001 ? previousRank : index + 1);
+        row.querySelector('[data-rank-number]').textContent = rank;
         row.querySelector('[data-rank-score]').textContent = Number(score || 0).toLocaleString(undefined, { maximumFractionDigits: 1 });
         rankList.appendChild(row);
+        if (isScored) {
+            previousScore = score;
+            previousRank = rank;
+        }
     });
 }));

@@ -40,6 +40,9 @@
             <a href="{{ route('adviser.scores.index') }}" @class(['flex min-h-12 items-center gap-3 rounded-xl px-4 text-sm font-bold transition', 'bg-[#397565] text-white shadow-lg shadow-black/10' => request()->routeIs('adviser.scores.*'), 'text-[#F3F0E9]/65 hover:bg-white/5 hover:text-[#F3F0E9]' => !request()->routeIs('adviser.scores.*')])>
                 <svg class="h-5 w-5 fill-none stroke-current" aria-hidden="true" viewBox="0 0 24 24"><path d="M8 21h8M12 17v4M7 4h10v4a5 5 0 0 1-10 0V4Zm0 2H4v1a4 4 0 0 0 4 4m9-5h3v1a4 4 0 0 1-4 4"/></svg>Scores
             </a>
+            <a href="{{ route('adviser.leaderboard.index') }}" @class(['flex min-h-12 items-center gap-3 rounded-xl px-4 text-sm font-bold transition', 'bg-[#397565] text-white shadow-lg shadow-black/10' => request()->routeIs('adviser.leaderboard.*'), 'text-[#F3F0E9]/65 hover:bg-white/5 hover:text-[#F3F0E9]' => !request()->routeIs('adviser.leaderboard.*')])>
+                <svg class="h-5 w-5 fill-none stroke-current" aria-hidden="true" viewBox="0 0 24 24"><path d="M4 20V10h4v10H4Zm6 0V4h4v16h-4Zm6 0v-7h4v7h-4Z"/></svg>Leaderboard
+            </a>
             <a href="{{ route('adviser.posts.index') }}" @class(['flex min-h-12 items-center gap-3 rounded-xl px-4 text-sm font-bold transition', 'bg-[#397565] text-white shadow-lg shadow-black/10' => request()->routeIs('adviser.posts.*'), 'text-[#F3F0E9]/65 hover:bg-white/5 hover:text-[#F3F0E9]' => !request()->routeIs('adviser.posts.*')])>
                 <svg class="h-5 w-5 fill-none stroke-current" aria-hidden="true" viewBox="0 0 24 24"><path d="M4 5h16v12H8l-4 4V5Zm4 4h8m-8 4h5"/></svg>Post Review
             </a>

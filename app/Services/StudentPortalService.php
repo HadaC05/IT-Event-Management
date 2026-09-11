@@ -3,12 +3,13 @@
 namespace App\Services;
 
 use App\Models\Event;
-use App\Models\Team;
 use App\Models\User;
 use Illuminate\Support\Collection;
 
 class StudentPortalService
 {
+    public function __construct(private readonly LeaderboardService $leaderboards) {}
+
     public function eligibleEvents(User $user, bool $futureOnly = false): Collection
     {
         $events = Event::query()
@@ -33,19 +34,6 @@ class StudentPortalService
 
     public function leaderboard(?Event $event): Collection
     {
-        if (! $event) {
-            return collect();
-        }
-
-        $teams = Team::query()
-            ->where('is_active', true)
-            ->with(['scores' => fn ($query) => $query->where('event_id', $event->id)->with('category')])
-            ->get();
-
-        return $teams->map(function (Team $team) {
-            $team->setAttribute('total_score', (float) $team->scores->sum('points'));
-
-            return $team;
-        })->sortByDesc('total_score')->values()->each(fn (Team $team, int $index) => $team->setAttribute('rank', $index + 1));
+        return $event ? $this->leaderboards->rankings($event) : collect();
     }
 }

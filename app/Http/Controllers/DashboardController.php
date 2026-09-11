@@ -8,13 +8,14 @@ use App\Models\Event;
 use App\Models\Score;
 use App\Models\Team;
 use App\Models\User;
+use App\Services\LeaderboardService;
 use App\Services\StudentPortalService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\View\View;
 
 class DashboardController extends Controller
 {
-    public function __invoke(): View|RedirectResponse
+    public function __invoke(LeaderboardService $leaderboards): View|RedirectResponse
     {
         $user = request()->user()->loadMissing('role');
 
@@ -71,26 +72,7 @@ class DashboardController extends Controller
             ? round(($previousAttendanceEvent->attended_count / $previousAttendanceEvent->attendance_marked_count) * 100, 1)
             : null;
 
-        $leaderboard = Team::query()
-            ->where('is_active', true)
-            ->whereHas('scores')
-            ->withCount('members')
-            ->withSum('scores', 'points')
-            ->orderByDesc('scores_sum_points')
-            ->orderBy('name')
-            ->limit(5)
-            ->get();
-
-        $previousPoints = null;
-        $previousRank = 0;
-        $leaderboard->each(function (Team $team, int $index) use (&$previousPoints, &$previousRank) {
-            $points = (float) $team->scores_sum_points;
-            $rank = $previousPoints !== null && $points === $previousPoints ? $previousRank : $index + 1;
-
-            $team->setAttribute('rank', $rank);
-            $previousPoints = $points;
-            $previousRank = $rank;
-        });
+        $leaderboard = $leaderboards->rankings()->where('has_score', true)->take(5);
 
         return view('adviser.dashboard', [
             'stats' => [
