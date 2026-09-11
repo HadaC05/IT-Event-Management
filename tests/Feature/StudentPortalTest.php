@@ -9,8 +9,11 @@ use App\Models\Post;
 use App\Models\Role;
 use App\Models\User;
 use App\Models\UserStatus;
+use App\Notifications\PostReviewed;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Notification;
+use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 class StudentPortalTest extends TestCase
@@ -78,6 +81,74 @@ class StudentPortalTest extends TestCase
         $post->refresh();
         $this->assertSame('pending', $post->status);
         $this->assertNull($post->reviewed_at);
+    }
+
+    public function test_post_images_use_a_consistent_preview_and_reject_excessive_dimensions(): void
+    {
+        Storage::fake('public');
+        $student = $this->user('Student');
+
+        $this->actingAs($student)
+            ->get(route('student.home'))
+            ->assertOk()
+            ->assertSee('Feed image preview')
+            ->assertSee('Instagram-style 4:5 portrait frame')
+            ->assertSee('data-student-feature-carousel', false);
+
+        $oversizedPng = base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=');
+        $oversizedPng = substr_replace($oversizedPng, pack('N', 4097), 16, 4);
+
+        $this->post(route('student.posts.store'), [
+            'content' => 'Image dimensions should be limited.',
+            'category' => 'general',
+            'image' => UploadedFile::fake()->createWithContent('oversized.png', $oversizedPng),
+        ])->assertSessionHasErrors('image');
+
+        $this->assertDatabaseMissing('posts', ['content' => 'Image dimensions should be limited.']);
+    }
+
+    public function test_post_review_notifications_appear_with_a_date_and_can_be_marked_as_read(): void
+    {
+        $student = $this->user('Student');
+        $adviser = $this->user('SBO Adviser');
+        $faculty = $this->user('Faculty');
+        $post = Post::create([
+            'user_id' => $student->id,
+            'content' => 'Notify me after review',
+            'category' => 'general',
+            'status' => 'pending',
+        ]);
+
+        $this->actingAs($adviser)
+            ->patch(route('adviser.posts.review', $post), ['status' => 'approved'])
+            ->assertSessionHas('success');
+
+        $notification = $student->notifications()->firstOrFail();
+
+        $this->actingAs($student)
+            ->get(route('student.home'))
+            ->assertOk()
+            ->assertSee('aria-label="1 unread notification"', false)
+            ->assertSee('Your post was approved.')
+            ->assertSee($notification->created_at->format('M j, Y · g:i A'));
+
+        foreach (range(1, 9) as $index) {
+            $student->notify(new PostReviewed($post));
+        }
+
+        $this->get(route('student.home'))
+            ->assertOk()
+            ->assertSee('9+');
+
+        $this->patch(route('student.notifications.read'))
+            ->assertRedirect()
+            ->assertSessionHas('success');
+
+        $this->assertNotNull($notification->fresh()->read_at);
+
+        $this->actingAs($faculty)
+            ->patch(route('student.notifications.read'))
+            ->assertForbidden();
     }
 
     public function test_attendance_page_never_accepts_another_student_identifier(): void

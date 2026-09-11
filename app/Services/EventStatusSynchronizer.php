@@ -21,6 +21,11 @@ class EventStatusSynchronizer
 
         (clone $activeEvents)->where('start_at', '>', $now)->update(['event_status_id' => $statusIds['upcoming']]);
         (clone $activeEvents)->where('start_at', '<=', $now)->where('end_at', '>', $now)->update(['event_status_id' => $statusIds['ongoing']]);
-        (clone $activeEvents)->where('end_at', '<=', $now)->update(['event_status_id' => $statusIds['completed']]);
+        (clone $activeEvents)->where('end_at', '<=', $now)->update([
+            'event_status_id' => $statusIds['completed'],
+            'is_featured' => false,
+            'featured_order' => null,
+            'featured_until' => null,
+        ]);
     }
 }

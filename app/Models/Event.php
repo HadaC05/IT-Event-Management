@@ -21,6 +21,9 @@ class Event extends Model
         'location',
         'audience_type',
         'poster_path',
+        'is_featured',
+        'featured_order',
+        'featured_until',
         'start_at',
         'end_at',
         'event_type_id',
@@ -33,7 +36,25 @@ class Event extends Model
         return [
             'start_at' => 'datetime',
             'end_at' => 'datetime',
+            'is_featured' => 'boolean',
+            'featured_order' => 'integer',
+            'featured_until' => 'datetime',
         ];
+    }
+
+    public function scopeFeaturedForCarousel(Builder $query): Builder
+    {
+        return $query
+            ->where('is_featured', true)
+            ->where('end_at', '>=', now())
+            ->whereHas('status', fn (Builder $query) => $query->whereIn('label', ['upcoming', 'ongoing']))
+            ->where(function (Builder $query) {
+                $query->whereNull('featured_until')
+                    ->orWhere('featured_until', '>=', now());
+            })
+            ->orderByRaw('featured_order IS NULL')
+            ->orderBy('featured_order')
+            ->orderBy('start_at');
     }
 
     public function type(): BelongsTo

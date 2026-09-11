@@ -155,30 +155,72 @@
                         </a>
                     </div>
 
-                    <div class="poster-glow poster-grid relative mt-10 min-h-[300px] overflow-hidden rounded-[14px] p-7 text-white shadow-[0_22px_45px_rgba(18,16,23,.16)] sm:min-h-[340px] sm:p-10">
-                        <div class="ring-shape absolute -right-10 -top-16 h-52 w-52 rounded-full border-[34px] border-[#C6F24E]/20"></div>
-                        <div class="float-shape absolute bottom-[-50px] right-[8%] h-36 w-36 rotate-12 rounded-[32px] bg-white/15 backdrop-blur-sm"></div>
-                        <div class="accent-dot absolute bottom-8 right-[30%] h-5 w-5 rounded-full bg-[#FF6B2C] shadow-[0_0_0_0_rgba(255,107,44,.4)]"></div>
-                        <div class="relative flex h-full min-h-[235px] flex-col justify-between">
-                            <div class="flex items-start justify-between gap-4">
-                                <p class="text-xs font-black uppercase tracking-[.2em] text-white/85">CITE Fest 2026<br><span class="mt-2 inline-block text-[10px] text-white/50">Featured event</span></p>
-                                <span class="feature-count rounded-full bg-white/15 px-3 py-1 text-xs font-extrabold backdrop-blur">{{ max($featuredEvents->count(), 1) }} featured</span>
+                    <div class="relative mt-10" data-feature-carousel aria-label="Featured CITE events">
+                        @forelse ($featuredEvents as $featured)
+                            <article
+                                class="poster-glow poster-grid relative min-h-[320px] overflow-hidden rounded-[14px] bg-cover bg-center p-7 text-white shadow-[0_22px_45px_rgba(18,16,23,.16)] sm:min-h-[360px] sm:p-10 {{ $loop->first ? '' : 'hidden' }}"
+                                data-carousel-slide
+                                data-slide-index="{{ $loop->index }}"
+                                aria-hidden="{{ $loop->first ? 'false' : 'true' }}"
+                                @if ($featured->poster_path)
+                                    style="background-image: linear-gradient(90deg, rgba(18,16,23,.88), rgba(18,16,23,.45)), url('{{ asset('storage/'.$featured->poster_path) }}')"
+                                @endif
+                            >
+                                <div class="ring-shape absolute -right-10 -top-16 h-52 w-52 rounded-full border-[34px] border-[#C6F24E]/20"></div>
+                                <div class="relative flex min-h-[266px] flex-col justify-between sm:min-h-[286px]">
+                                    <div class="flex items-start justify-between gap-4">
+                                        <p class="text-xs font-black uppercase tracking-[.2em] text-[#C6F24E]">
+                                            Featured event
+                                        </p>
+                                        <span class="rounded-full bg-[#121017]/35 px-3 py-1 text-xs font-extrabold backdrop-blur">
+                                            {{ $loop->iteration }} / {{ $featuredEvents->count() }}
+                                        </span>
+                                    </div>
+
+                                    <div class="max-w-2xl">
+                                        <div class="mb-3 flex flex-wrap items-center gap-2">
+                                            <span class="inline-flex rounded-full bg-[#C6F24E] px-3 py-1 text-[10px] font-black uppercase tracking-wider text-[#121017]">
+                                                {{ $featured->type?->label ?? 'Community Event' }}
+                                            </span>
+                                            <span class="rounded-full bg-white/15 px-3 py-1 text-[10px] font-black uppercase tracking-wider backdrop-blur">
+                                                {{ $featured->schedule_state }}
+                                            </span>
+                                        </div>
+                                        <h2 class="text-3xl font-black tracking-[-.04em] sm:text-5xl">{{ $featured->title }}</h2>
+                                        @if ($featured->description)
+                                            <p class="mt-3 line-clamp-2 max-w-xl text-sm leading-6 text-white/75">{{ $featured->description }}</p>
+                                        @endif
+                                        <p class="mt-3 text-sm font-bold text-white/80">
+                                            {{ $featured->start_at->format('M j, Y · g:i A') }}
+                                            @unless ($featured->start_at->isSameDay($featured->end_at))
+                                                – {{ $featured->end_at->format('M j, Y · g:i A') }}
+                                            @endunless
+                                            · {{ $featured->location ?: 'CITE Campus' }}
+                                        </p>
+                                    </div>
+                                </div>
+                            </article>
+                        @empty
+                            <div class="poster-glow poster-grid relative grid min-h-[320px] place-items-center overflow-hidden rounded-[14px] p-8 text-center text-white shadow-[0_22px_45px_rgba(18,16,23,.16)]">
+                                <div>
+                                    <span class="mx-auto grid h-12 w-12 place-items-center rounded-full bg-[#C6F24E] text-xl text-[#121017]">✦</span>
+                                    <h2 class="mt-5 text-3xl font-black tracking-[-.04em]">No featured events yet</h2>
+                                    <p class="mt-2 text-sm text-white/65">Upcoming featured events will appear here.</p>
+                                </div>
                             </div>
-                            @if($featuredEvents->isNotEmpty())
-                                @php($featured = $featuredEvents->first())
-                                <div class="max-w-2xl">
-                                    <span class="mb-3 inline-flex rounded-full bg-[#C6F24E] px-3 py-1 text-[10px] font-black uppercase tracking-wider text-[#121017]">{{ $featured->type?->label ?? 'Community Event' }}</span>
-                                    <h2 class="text-3xl font-black tracking-[-.04em] sm:text-5xl">{{ $featured->title }}</h2>
-                                    <p class="mt-3 text-sm text-white/70">{{ $featured->start_at->format('M j · g:i A') }} · {{ $featured->location ?: 'CITE Campus' }}</p>
+                        @endforelse
+
+                        @if ($featuredEvents->count() > 1)
+                            <div class="absolute bottom-5 right-5 z-10 flex items-center gap-2">
+                                <button class="grid h-11 w-11 place-items-center rounded-full bg-[#121017]/55 text-white backdrop-blur transition hover:bg-[#C6F24E] hover:text-[#121017] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C6F24E]" type="button" data-carousel-previous aria-label="Previous featured event">←</button>
+                                <div class="flex gap-1.5 rounded-full bg-[#121017]/45 px-3 py-2 backdrop-blur" aria-label="Select featured event">
+                                    @foreach ($featuredEvents as $featured)
+                                        <button class="h-2.5 w-2.5 rounded-full transition {{ $loop->first ? 'bg-[#C6F24E]' : 'bg-white/45' }}" type="button" data-carousel-dot="{{ $loop->index }}" aria-label="Show {{ $featured->title }}" aria-pressed="{{ $loop->first ? 'true' : 'false' }}"></button>
+                                    @endforeach
                                 </div>
-                            @else
-                                <div class="max-w-xl">
-                                    <span class="mb-3 inline-flex rounded-full bg-[#C6F24E] px-3 py-1 text-[10px] font-black uppercase tracking-wider text-[#121017]">The next big thing</span>
-                                    <h2 class="text-3xl font-black tracking-[-.04em] sm:text-5xl">Made by the tribe,<br>for the tribe.</h2>
-                                    <p class="mt-3 text-sm text-white/65">New CITE experiences are on the way.</p>
-                                </div>
-                            @endif
-                        </div>
+                                <button class="grid h-11 w-11 place-items-center rounded-full bg-[#121017]/55 text-white backdrop-blur transition hover:bg-[#C6F24E] hover:text-[#121017] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C6F24E]" type="button" data-carousel-next aria-label="Next featured event">→</button>
+                            </div>
+                        @endif
                     </div>
                 </div>
 
@@ -196,7 +238,7 @@
                     </div>
 
                     <div class="mt-7 divide-y divide-[#121017]/8" id="agenda-list">
-                        @foreach($calendarEvents as $event)
+                        @forelse ($calendarEvents as $event)
                             <article class="agenda-item grid grid-cols-[56px_minmax(0,1fr)] gap-4 py-5 first:pt-0 sm:grid-cols-[56px_minmax(0,1fr)_auto] sm:items-center" data-name="{{ Str::lower($event['name'].' '.$event['title'].' '.$event['location']) }}" data-type="{{ $event['timing'] }}">
                                 <time class="grid h-14 place-content-center rounded-lg {{ $event['timing'] === 'current' ? 'bg-[#C6F24E]/35 text-[#397565]' : 'bg-[#FF6B2C]/10 text-[#FF6B2C]' }} text-center" datetime="{{ $event['start_at']->toDateString() }}"><strong class="text-xl font-black leading-none">{{ $event['start_at']->format('d') }}</strong><span class="mt-1 text-[9px] font-black uppercase">{{ $event['start_at']->format('M') }}</span></time>
                                 <div class="min-w-0">
@@ -206,7 +248,12 @@
                                 </div>
                                 <span class="col-start-2 w-fit rounded-full px-2.5 py-1 text-[9px] font-black uppercase tracking-wide sm:col-start-auto {{ $event['timing'] === 'current' ? 'bg-[#C6F24E] text-[#121017]' : 'bg-[#2F3AE0]/10 text-[#2F3AE0]' }}">{{ $event['timing'] }}</span>
                             </article>
-                        @endforeach
+                        @empty
+                            <div class="rounded-xl border border-dashed border-[#397565]/25 bg-[#397565]/5 px-5 py-10 text-center">
+                                <strong class="text-sm">No upcoming events</strong>
+                                <p class="mt-1 text-xs text-[#121017]/50">Published event schedules will appear here.</p>
+                            </div>
+                        @endforelse
                     </div>
                     <p id="agenda-empty" class="mt-6 hidden rounded-lg bg-[#FF6B2C]/8 p-4 text-sm font-bold text-[#121017]/65">No events match that filter.</p>
                 </aside>
@@ -334,6 +381,53 @@
             const searchEmpty = document.querySelector('#search-empty');
             let activeType = 'all';
             let searchTerm = '';
+
+            const carousel = document.querySelector('[data-feature-carousel]');
+            const carouselSlides = [...document.querySelectorAll('[data-carousel-slide]')];
+            const carouselDots = [...document.querySelectorAll('[data-carousel-dot]')];
+            let activeSlide = 0;
+            let carouselTimer;
+
+            const showSlide = index => {
+                if (carouselSlides.length < 2) return;
+                activeSlide = (index + carouselSlides.length) % carouselSlides.length;
+                carouselSlides.forEach((slide, slideIndex) => {
+                    const active = slideIndex === activeSlide;
+                    slide.classList.toggle('hidden', !active);
+                    slide.setAttribute('aria-hidden', String(!active));
+                });
+                carouselDots.forEach((dot, dotIndex) => {
+                    const active = dotIndex === activeSlide;
+                    dot.classList.toggle('bg-[#C6F24E]', active);
+                    dot.classList.toggle('bg-white/45', !active);
+                    dot.setAttribute('aria-pressed', String(active));
+                });
+            };
+
+            const startCarousel = () => {
+                window.clearInterval(carouselTimer);
+                if (carouselSlides.length > 1) {
+                    carouselTimer = window.setInterval(() => showSlide(activeSlide + 1), 7000);
+                }
+            };
+
+            document.querySelector('[data-carousel-previous]')?.addEventListener('click', () => {
+                showSlide(activeSlide - 1);
+                startCarousel();
+            });
+            document.querySelector('[data-carousel-next]')?.addEventListener('click', () => {
+                showSlide(activeSlide + 1);
+                startCarousel();
+            });
+            carouselDots.forEach(dot => dot.addEventListener('click', () => {
+                showSlide(Number(dot.dataset.carouselDot));
+                startCarousel();
+            }));
+            carousel?.addEventListener('mouseenter', () => window.clearInterval(carouselTimer));
+            carousel?.addEventListener('mouseleave', startCarousel);
+            carousel?.addEventListener('focusin', () => window.clearInterval(carouselTimer));
+            carousel?.addEventListener('focusout', startCarousel);
+            startCarousel();
 
             const applyFilters = () => {
                 const term = searchTerm;

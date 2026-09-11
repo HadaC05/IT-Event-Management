@@ -82,7 +82,7 @@ class PostController extends Controller
             'content' => ['required', 'string', 'max:3000'],
             'event_id' => ['nullable', 'integer', 'exists:events,id'],
             'category' => ['required', Rule::in(Post::CATEGORIES)],
-            'image' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
+            'image' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120', 'dimensions:max_width=4096,max_height=4096'],
             'remove_image' => ['nullable', 'boolean'],
         ]);
         if (! empty($data['event_id'])) {

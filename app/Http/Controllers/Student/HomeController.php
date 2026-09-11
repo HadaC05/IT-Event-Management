@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Student;
 
 use App\Http\Controllers\Controller;
+use App\Models\Event;
 use App\Models\Post;
 use App\Services\StudentPortalService;
 use Illuminate\View\View;
@@ -19,6 +20,11 @@ class HomeController extends Controller
             'currentEvent' => $currentEvent,
             'leaderboard' => $portal->leaderboard($currentEvent)->take(4),
             'events' => $portal->eligibleEvents($user, true),
+            'featuredEvents' => Event::query()
+                ->with(['type', 'status'])
+                ->featuredForCarousel()
+                ->limit(6)
+                ->get(),
             'posts' => Post::approved()->with(['author.teams', 'event'])->latest('reviewed_at')->paginate(10),
             'myPosts' => $user->posts()->whereIn('status', ['pending', 'rejected'])->with('event')->latest()->get(),
             'announcements' => $currentEvent?->posts()->approved()->where('category', 'announcement')->with('author')->latest('reviewed_at')->limit(3)->get() ?? collect(),

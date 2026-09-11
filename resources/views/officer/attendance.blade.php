@@ -14,6 +14,14 @@
         @endif
     </header>
 
+    @if ($event)
+        @can('feature', $event)
+            <div class="mt-8">
+                <x-event-feature-controls :event="$event" :action="route('officer.events.feature', $event)" />
+            </div>
+        @endcan
+    @endif
+
     @if(!$officer->officerTeam)
         <section class="mt-8 rounded-2xl border border-[#FF6B2C]/20 bg-[#FF6B2C]/7 px-6 py-12 text-center"><span class="mx-auto grid h-14 w-14 place-items-center rounded-full bg-[#FF6B2C]/12 text-2xl text-[#FF6B2C]">!</span><h2 class="mt-5 text-xl font-black">No tribe assigned</h2><p class="mx-auto mt-2 max-w-md text-sm leading-6 text-[#121017]/52">Ask the SBO Adviser to assign your officer account to a tribe before recording attendance.</p></section>
     @elseif(!$event)

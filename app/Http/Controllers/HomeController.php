@@ -3,19 +3,27 @@
 namespace App\Http\Controllers;
 
 use App\Models\Event;
-use Illuminate\Support\Carbon;
+use App\Services\EventStatusSynchronizer;
 use Illuminate\View\View;
 
 class HomeController extends Controller
 {
-    public function __invoke(): View
+    public function __invoke(EventStatusSynchronizer $statusSynchronizer): View
     {
+        $statusSynchronizer->sync();
+
         $events = Event::query()
             ->with(['type', 'status'])
             ->where('end_at', '>=', now())
             ->whereHas('status', fn ($query) => $query->whereIn('label', ['upcoming', 'ongoing']))
             ->orderBy('start_at')
             ->limit(8)
+            ->get();
+
+        $featuredEvents = Event::query()
+            ->with(['type', 'status'])
+            ->featuredForCarousel()
+            ->limit(6)
             ->get();
 
         $calendarEvents = $events->take(3)->map(fn (Event $event) => [
@@ -27,29 +35,8 @@ class HomeController extends Controller
             'timing' => $event->start_at->lte(now()) ? 'current' : 'upcoming',
         ]);
 
-        if ($calendarEvents->isEmpty()) {
-            $calendarEvents = collect([
-                [
-                    'name' => 'IT Days',
-                    'title' => 'IT Days 2026',
-                    'start_at' => Carbon::create(2026, 9, 12, 9),
-                    'end_at' => Carbon::create(2026, 9, 16, 17),
-                    'location' => 'CITE Campus',
-                    'timing' => now()->between(Carbon::create(2026, 9, 12), Carbon::create(2026, 9, 16, 23, 59)) ? 'current' : 'upcoming',
-                ],
-                [
-                    'name' => 'IT Expo',
-                    'title' => 'IT Expo 2026',
-                    'start_at' => Carbon::create(2026, 9, 19, 9),
-                    'end_at' => Carbon::create(2026, 9, 19, 17),
-                    'location' => 'CITE Multimedia Room',
-                    'timing' => now()->between(Carbon::create(2026, 9, 19), Carbon::create(2026, 9, 19, 23, 59)) ? 'current' : 'upcoming',
-                ],
-            ]);
-        }
-
         return view('welcome', [
-            'featuredEvents' => $events->take(3),
+            'featuredEvents' => $featuredEvents,
             'upcomingEvents' => $events->take(5),
             'calendarEvents' => $calendarEvents,
         ]);

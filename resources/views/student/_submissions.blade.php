@@ -14,7 +14,7 @@
         <article class="rounded-2xl border p-4 {{ $post->status==='rejected'?'border-[#FF6B2C]/25 bg-[#FF6B2C]/5':'border-[#397565]/15 bg-[#397565]/5' }}">
             <div class="flex items-center justify-between gap-3"><span class="rounded-full px-2.5 py-1 text-[9px] font-black uppercase {{ $post->status==='rejected'?'bg-[#FF6B2C]/15 text-[#c84510]':'bg-[#C6F24E]/35 text-[#397565]' }}">{{ $post->status==='pending'?'Waiting for adviser approval':'Rejected' }}</span><time class="text-[10px] text-[#121017]/40">{{ $post->created_at->diffForHumans() }}</time></div>
             <p class="mt-3 whitespace-pre-line text-sm leading-6">{{ $post->content }}</p>
-            @if($post->image_path)<img class="mt-3 max-h-56 w-full rounded-xl object-cover" src="{{ asset('storage/'.$post->image_path) }}" alt="Post attachment">@endif
+            @if($post->image_path)<x-post-image class="mt-3" :post="$post" compact />@endif
             @if($post->rejection_reason)<p class="mt-3 rounded-xl bg-white px-3 py-2 text-xs"><strong>Adviser note:</strong> {{ $post->rejection_reason }}</p>@endif
             @if($post->status==='pending')
             <div class="mt-3 flex items-start gap-2">

@@ -1,8 +1,25 @@
 import QRCode from 'qrcode';
 
 const accountMenu = document.querySelector('[data-account-menu]');
-document.addEventListener('click', event => { if (accountMenu?.open && !accountMenu.contains(event.target)) accountMenu.removeAttribute('open'); });
-document.addEventListener('keydown', event => { if (event.key === 'Escape') accountMenu?.removeAttribute('open'); });
+const notificationMenu = document.querySelector('[data-notification-menu]');
+const headerMenus = [accountMenu, notificationMenu].filter(Boolean);
+
+headerMenus.forEach(menu => menu.addEventListener('toggle', () => {
+    if (!menu.open) return;
+    headerMenus.forEach(otherMenu => {
+        if (otherMenu !== menu) otherMenu.removeAttribute('open');
+    });
+}));
+
+document.addEventListener('click', event => {
+    headerMenus.forEach(menu => {
+        if (menu.open && !menu.contains(event.target)) menu.removeAttribute('open');
+    });
+});
+
+document.addEventListener('keydown', event => {
+    if (event.key === 'Escape') headerMenus.forEach(menu => menu.removeAttribute('open'));
+});
 
 const studentSidebar = document.querySelector('[data-student-sidebar]');
 const studentSidebarToggle = document.querySelector('[data-student-sidebar-toggle]');
@@ -55,10 +72,112 @@ if (themeChoices.length) {
     });
 }
 
-document.querySelectorAll('[data-image-input]').forEach(input => input.addEventListener('change', () => {
-    const label = input.closest('form')?.querySelector('[data-file-name]');
-    if (label) label.textContent = input.files?.[0]?.name || 'No file selected';
+document.querySelectorAll('[data-image-input]').forEach(input => {
+    const form = input.closest('form');
+    const fileName = form?.querySelector('[data-file-name]');
+    const preview = form?.querySelector('[data-post-image-preview]');
+    const previewImage = form?.querySelector('[data-post-image-preview-image]');
+    const previewError = form?.querySelector('[data-post-image-error]');
+    const removeButton = form?.querySelector('[data-post-image-remove]');
+    let previewUrl;
+
+    const clearPreview = () => {
+        if (previewUrl) URL.revokeObjectURL(previewUrl);
+        previewUrl = undefined;
+        input.value = '';
+        if (previewImage) previewImage.src = '';
+        preview?.classList.add('hidden');
+        previewError?.classList.add('hidden');
+        if (fileName) fileName.textContent = 'JPG, PNG or WebP · 5 MB · max 4096×4096';
+    };
+
+    input.addEventListener('change', () => {
+        const file = input.files?.[0];
+        if (!file) {
+            clearPreview();
+            return;
+        }
+
+        if (fileName) fileName.textContent = file.name;
+        if (!preview || !previewImage) return;
+
+        if (file.size > 5 * 1024 * 1024) {
+            clearPreview();
+            if (previewError) {
+                previewError.textContent = 'Choose an image no larger than 5 MB.';
+                previewError.classList.remove('hidden');
+            }
+            return;
+        }
+
+        previewUrl = URL.createObjectURL(file);
+        const image = new Image();
+        image.onload = () => {
+            if (image.naturalWidth > 4096 || image.naturalHeight > 4096) {
+                clearPreview();
+                if (previewError) {
+                    previewError.textContent = 'Choose an image no larger than 4096 × 4096 pixels.';
+                    previewError.classList.remove('hidden');
+                }
+                return;
+            }
+
+            previewImage.src = previewUrl;
+            preview.classList.remove('hidden');
+            previewError?.classList.add('hidden');
+        };
+        image.src = previewUrl;
+    });
+
+    removeButton?.addEventListener('click', clearPreview);
+});
+
+const studentFeatureCarousel = document.querySelector('[data-student-feature-carousel]');
+const studentFeatureSlides = [...document.querySelectorAll('[data-student-feature-slide]')];
+const studentFeatureDots = [...document.querySelectorAll('[data-student-feature-dot]')];
+let activeStudentFeature = 0;
+let studentFeatureTimer;
+
+const showStudentFeature = index => {
+    if (studentFeatureSlides.length < 2) return;
+    activeStudentFeature = (index + studentFeatureSlides.length) % studentFeatureSlides.length;
+    studentFeatureSlides.forEach((slide, slideIndex) => {
+        const active = slideIndex === activeStudentFeature;
+        slide.classList.toggle('hidden', !active);
+        slide.setAttribute('aria-hidden', String(!active));
+    });
+    studentFeatureDots.forEach((dot, dotIndex) => {
+        const active = dotIndex === activeStudentFeature;
+        dot.classList.toggle('bg-[#C6F24E]', active);
+        dot.classList.toggle('bg-white/45', !active);
+        dot.setAttribute('aria-pressed', String(active));
+    });
+};
+
+const startStudentFeatureCarousel = () => {
+    window.clearInterval(studentFeatureTimer);
+    if (studentFeatureSlides.length > 1) {
+        studentFeatureTimer = window.setInterval(() => showStudentFeature(activeStudentFeature + 1), 7000);
+    }
+};
+
+document.querySelector('[data-student-feature-previous]')?.addEventListener('click', () => {
+    showStudentFeature(activeStudentFeature - 1);
+    startStudentFeatureCarousel();
+});
+document.querySelector('[data-student-feature-next]')?.addEventListener('click', () => {
+    showStudentFeature(activeStudentFeature + 1);
+    startStudentFeatureCarousel();
+});
+studentFeatureDots.forEach(dot => dot.addEventListener('click', () => {
+    showStudentFeature(Number(dot.dataset.studentFeatureDot));
+    startStudentFeatureCarousel();
 }));
+studentFeatureCarousel?.addEventListener('mouseenter', () => window.clearInterval(studentFeatureTimer));
+studentFeatureCarousel?.addEventListener('mouseleave', startStudentFeatureCarousel);
+studentFeatureCarousel?.addEventListener('focusin', () => window.clearInterval(studentFeatureTimer));
+studentFeatureCarousel?.addEventListener('focusout', startStudentFeatureCarousel);
+startStudentFeatureCarousel();
 
 const submissionsDialog = document.querySelector('[data-submissions-dialog]');
 document.querySelector('[data-submissions-open]')?.addEventListener('click', () => submissionsDialog?.showModal());

@@ -8,16 +8,147 @@
         <form class="mt-4" method="POST" action="{{ route('student.posts.store') }}" enctype="multipart/form-data" data-submit-form>@csrf
             <label class="sr-only" for="post-content">Post caption</label><textarea class="min-h-28 w-full resize-y rounded-2xl border border-[#121017]/10 bg-[#F7F4ED]/70 p-4 text-sm outline-none placeholder:text-[#121017]/35 focus:border-[#397565]/50 focus:bg-white focus:ring-4 focus:ring-[#397565]/8" id="post-content" name="content" placeholder="What would you like the CITE community to know?" required maxlength="3000">{{ old('content') }}</textarea>
             <div class="mt-3 grid gap-3 sm:grid-cols-2"><label><span class="mb-1.5 block text-[10px] font-black uppercase tracking-wider text-[#121017]/45">Event</span><select class="h-11 w-full rounded-xl border border-[#121017]/10 bg-white px-3 text-xs font-bold" name="event_id"><option value="">General community</option>@foreach($events as $event)<option value="{{ $event->id }}" @selected(old('event_id')==$event->id)>{{ $event->title }}</option>@endforeach</select></label><label><span class="mb-1.5 block text-[10px] font-black uppercase tracking-wider text-[#121017]/45">Category</span><select class="h-11 w-full rounded-xl border border-[#121017]/10 bg-white px-3 text-xs font-bold" name="category" required>@foreach(\App\Models\Post::CATEGORIES as $category)<option value="{{ $category }}" @selected(old('category')===$category)>{{ str($category)->replace('-',' ')->title() }}</option>@endforeach</select></label></div>
-            <div class="mt-4 flex flex-wrap items-center gap-3"><label class="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-xl border border-[#121017]/10 px-4 text-xs font-black text-[#397565] hover:bg-[#397565]/7"><svg class="h-4 w-4 fill-none stroke-current stroke-2" viewBox="0 0 24 24"><path d="M4 16l4-4 4 4 3-3 5 5M4 5h16v14H4V5Z"/></svg>Add image<input class="sr-only" type="file" name="image" accept="image/jpeg,image/png,image/webp" data-image-input></label><span class="min-w-0 flex-1 truncate text-xs text-[#121017]/40" data-file-name>JPG, PNG or WebP · up to 5 MB</span><button class="min-h-11 rounded-xl bg-[#397565] px-6 text-xs font-black text-white shadow-lg shadow-[#397565]/15 hover:bg-[#2f6658] disabled:opacity-50" type="submit" data-loading-text="Submitting…">Submit post</button></div>
+
+            <section class="mt-4 hidden overflow-hidden rounded-2xl border border-[#121017]/10" data-post-image-preview>
+                <header class="flex items-center justify-between gap-3 bg-[#F7F4ED] px-4 py-3">
+                    <div>
+                        <strong class="block text-xs">Feed image preview</strong>
+                        <span class="text-[10px] text-[#121017]/45">Full image inside an Instagram-style 4:5 portrait frame</span>
+                    </div>
+                    <button class="min-h-9 rounded-lg px-3 text-[10px] font-black text-[#FF6B2C] hover:bg-[#FF6B2C]/10" type="button" data-post-image-remove>
+                        Remove
+                    </button>
+                </header>
+                <div class="aspect-[4/5] max-h-[650px] w-full bg-[#121017]">
+                    <img class="h-full w-full object-contain" src="" alt="Selected post image preview" data-post-image-preview-image>
+                </div>
+            </section>
+            <p class="mt-2 hidden text-xs font-bold text-[#c84510]" data-post-image-error></p>
+
+            <div class="mt-4 flex flex-wrap items-center gap-3"><label class="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-xl border border-[#121017]/10 px-4 text-xs font-black text-[#397565] hover:bg-[#397565]/7"><svg class="h-4 w-4 fill-none stroke-current stroke-2" viewBox="0 0 24 24"><path d="M4 16l4-4 4 4 3-3 5 5M4 5h16v14H4V5Z"/></svg>Add image<input class="sr-only" type="file" name="image" accept="image/jpeg,image/png,image/webp" data-image-input></label><span class="min-w-0 flex-1 truncate text-xs text-[#121017]/40" data-file-name>JPG, PNG or WebP · 5 MB · max 4096×4096</span><button class="min-h-11 rounded-xl bg-[#397565] px-6 text-xs font-black text-white shadow-lg shadow-[#397565]/15 hover:bg-[#2f6658] disabled:opacity-50" type="submit" data-loading-text="Submitting…">Submit post</button></div>
         </form>
         @if($errors->any())<div class="mt-4 rounded-xl bg-[#FF6B2C]/9 px-4 py-3 text-xs font-bold text-[#c84510]" role="alert">{{ $errors->first() }}</div>@endif
     </section>
 
-    <div class="flex items-end justify-between"><div><p class="text-[10px] font-black uppercase tracking-[.15em] text-[#397565]">Community feed</p><h2 class="mt-1 text-2xl font-black tracking-tight">What’s happening</h2></div><span class="text-xs text-[#121017]/40">Approved posts only</span></div>
-    @forelse($posts as $post)<article class="overflow-hidden rounded-3xl border border-[#121017]/8 bg-white shadow-[0_12px_35px_rgba(18,16,23,.045)]"><header class="flex items-center gap-3 p-5"><x-student-avatar :user="$post->author"/><div class="min-w-0 flex-1"><strong class="block truncate text-sm">{{ $post->author->full_name }}</strong><div class="flex flex-wrap items-center gap-1.5 text-[10px] text-[#121017]/40"><time datetime="{{ $post->reviewed_at?->toIso8601String() }}">{{ $post->reviewed_at?->diffForHumans() }}</time><span>·</span><span class="font-bold text-[#397565]">{{ str($post->category)->replace('-',' ')->title() }}</span>@if($post->event)<span>· {{ $post->event->title }}</span>@endif</div></div>@if($post->user_id===$user->id)<span class="rounded-full bg-[#397565]/8 px-2 py-1 text-[9px] font-black text-[#397565]">Yours</span>@endif</header><div class="px-5 pb-5"><p class="whitespace-pre-line text-sm leading-6">{{ $post->content }}</p></div>@if($post->image_path)<img class="max-h-[620px] w-full border-t border-[#121017]/7 bg-[#F7F4ED] object-contain" src="{{ asset('storage/'.$post->image_path) }}" alt="Image attached to {{ $post->author->full_name }}'s post" loading="lazy">@endif
-    @if($post->user_id===$user->id)<details class="border-t border-[#121017]/7 p-4"><summary class="inline-flex min-h-10 cursor-pointer items-center rounded-xl px-3 text-xs font-black text-[#397565] hover:bg-[#397565]/7">Edit approved post</summary><form class="mt-3 grid gap-3 rounded-2xl bg-[#F7F4ED]/70 p-4" method="POST" action="{{ route('student.posts.update',$post) }}" enctype="multipart/form-data">@csrf @method('PUT')<p class="text-[10px] font-bold text-[#FF6B2C]">Saving changes returns this post to Pending for adviser review.</p><textarea class="min-h-24 rounded-xl border border-[#121017]/10 bg-white p-3 text-sm" name="content" required>{{ $post->content }}</textarea><div class="grid gap-2 sm:grid-cols-2"><select class="h-10 rounded-xl border border-[#121017]/10 bg-white px-3 text-xs" name="event_id"><option value="">General community</option>@foreach($events as $event)<option value="{{ $event->id }}" @selected($post->event_id===$event->id)>{{ $event->title }}</option>@endforeach</select><select class="h-10 rounded-xl border border-[#121017]/10 bg-white px-3 text-xs" name="category">@foreach(\App\Models\Post::CATEGORIES as $category)<option value="{{ $category }}" @selected($post->category===$category)>{{ str($category)->replace('-',' ')->title() }}</option>@endforeach</select></div><input class="text-xs" type="file" name="image" accept="image/jpeg,image/png,image/webp"><button class="min-h-10 rounded-xl bg-[#397565] px-4 text-xs font-black text-white">Save and resubmit</button></form></details>@endif</article>
-    @empty<div class="rounded-3xl border border-dashed border-[#397565]/25 bg-white px-6 py-16 text-center"><span class="text-3xl" aria-hidden="true">🌿</span><h3 class="mt-3 font-black">The feed is ready for its first story</h3><p class="mt-1 text-sm text-[#121017]/45">Approved student posts will appear here.</p></div>@endforelse
-    @if($posts->hasPages())<div>{{ $posts->links() }}</div>@endif
+    <x-student-featured-events :events="$featuredEvents" />
+
+    <section class="mx-auto w-full max-w-[560px] space-y-5" aria-labelledby="community-feed-heading" data-social-feed>
+        <header class="flex items-end justify-between gap-4">
+            <div>
+                <p class="text-[10px] font-black uppercase tracking-[.15em] text-[#397565]">Community feed</p>
+                <h2 class="mt-1 text-2xl font-black tracking-tight" id="community-feed-heading">What’s happening</h2>
+            </div>
+            <span class="shrink-0 text-xs text-[#121017]/40">Approved posts only</span>
+        </header>
+
+        @forelse($posts as $post)
+            <article
+                class="overflow-hidden rounded-3xl border border-[#397565]/15 bg-white shadow-[0_14px_38px_rgba(18,16,23,.07)]"
+                data-feed-post
+            >
+                <header class="flex items-center gap-3 p-4">
+                    <x-student-avatar :user="$post->author" />
+
+                    <div class="min-w-0 flex-1">
+                        <strong class="block truncate text-sm">{{ $post->author->full_name }}</strong>
+                        <div class="flex flex-wrap items-center gap-1.5 text-[10px] text-[#121017]/40">
+                            <time datetime="{{ $post->reviewed_at?->toIso8601String() }}">
+                                {{ $post->reviewed_at?->diffForHumans() }}
+                            </time>
+                            <span aria-hidden="true">·</span>
+                            <span class="font-bold text-[#397565]">
+                                {{ str($post->category)->replace('-', ' ')->title() }}
+                            </span>
+                            @if($post->event)
+                                <span aria-hidden="true">·</span>
+                                <span class="truncate">{{ $post->event->title }}</span>
+                            @endif
+                        </div>
+                    </div>
+
+                    @if($post->user_id === $user->id)
+                        <span class="rounded-full bg-[#C6F24E]/30 px-2.5 py-1 text-[9px] font-black text-[#397565]">
+                            Yours
+                        </span>
+                    @endif
+                </header>
+
+                @if($post->image_path)
+                    <x-post-image
+                        :post="$post"
+                        :alt="$post->author->full_name.' post image'"
+                    />
+                @endif
+
+                <div class="px-4 py-4">
+                    <p class="whitespace-pre-line text-sm leading-6">{{ $post->content }}</p>
+                </div>
+
+                @if($post->user_id === $user->id)
+                    <details class="border-t border-[#397565]/10 p-4">
+                        <summary class="inline-flex min-h-10 cursor-pointer items-center rounded-xl px-3 text-xs font-black text-[#397565] transition hover:bg-[#397565]/7 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#397565]">
+                            Edit approved post
+                        </summary>
+
+                        <form
+                            class="mt-3 grid gap-3 rounded-2xl bg-[#F7F4ED]/70 p-4"
+                            method="POST"
+                            action="{{ route('student.posts.update', $post) }}"
+                            enctype="multipart/form-data"
+                        >
+                            @csrf
+                            @method('PUT')
+
+                            <p class="text-[10px] font-bold text-[#FF6B2C]">
+                                Saving changes returns this post to Pending for adviser review.
+                            </p>
+
+                            <textarea
+                                class="min-h-24 rounded-xl border border-[#121017]/10 bg-white p-3 text-sm"
+                                name="content"
+                                required
+                            >{{ $post->content }}</textarea>
+
+                            <div class="grid gap-2 sm:grid-cols-2">
+                                <select class="h-10 rounded-xl border border-[#121017]/10 bg-white px-3 text-xs" name="event_id">
+                                    <option value="">General community</option>
+                                    @foreach($events as $event)
+                                        <option value="{{ $event->id }}" @selected($post->event_id === $event->id)>
+                                            {{ $event->title }}
+                                        </option>
+                                    @endforeach
+                                </select>
+
+                                <select class="h-10 rounded-xl border border-[#121017]/10 bg-white px-3 text-xs" name="category">
+                                    @foreach(\App\Models\Post::CATEGORIES as $category)
+                                        <option value="{{ $category }}" @selected($post->category === $category)>
+                                            {{ str($category)->replace('-', ' ')->title() }}
+                                        </option>
+                                    @endforeach
+                                </select>
+                            </div>
+
+                            <input class="text-xs" type="file" name="image" accept="image/jpeg,image/png,image/webp">
+
+                            <button class="min-h-10 rounded-xl bg-[#397565] px-4 text-xs font-black text-white transition hover:bg-[#2f6658]">
+                                Save and resubmit
+                            </button>
+                        </form>
+                    </details>
+                @endif
+            </article>
+        @empty
+            <div class="rounded-3xl border border-dashed border-[#397565]/25 bg-[#397565]/5 px-6 py-16 text-center">
+                <span class="text-3xl" aria-hidden="true">🌿</span>
+                <h3 class="mt-3 font-black">The feed is ready for its first story</h3>
+                <p class="mt-1 text-sm text-[#121017]/45">Approved student posts will appear here.</p>
+            </div>
+        @endforelse
+
+        @if($posts->hasPages())
+            <div>{{ $posts->links() }}</div>
+        @endif
+    </section>
 </div>
 
 <aside class="space-y-5 lg:sticky lg:top-24">
@@ -41,7 +172,7 @@
         <article class="rounded-2xl border p-4 {{ $post->status==='rejected'?'border-[#FF6B2C]/25 bg-[#FF6B2C]/5':'border-[#397565]/15 bg-[#397565]/5' }}">
             <div class="flex items-center justify-between gap-3"><span class="rounded-full px-2.5 py-1 text-[9px] font-black uppercase {{ $post->status==='rejected'?'bg-[#FF6B2C]/15 text-[#c84510]':'bg-[#C6F24E]/35 text-[#397565]' }}">{{ $post->status==='pending'?'Waiting for adviser approval':'Rejected' }}</span><time class="text-[10px] text-[#121017]/40">{{ $post->created_at->diffForHumans() }}</time></div>
             <p class="mt-3 whitespace-pre-line text-sm leading-6">{{ $post->content }}</p>
-            @if($post->image_path)<img class="mt-3 max-h-56 w-full rounded-xl object-cover" src="{{ asset('storage/'.$post->image_path) }}" alt="Post attachment">@endif
+            @if($post->image_path)<x-post-image class="mt-3" :post="$post" compact />@endif
             @if($post->rejection_reason)<p class="mt-3 rounded-xl bg-white px-3 py-2 text-xs"><strong>Adviser note:</strong> {{ $post->rejection_reason }}</p>@endif
             @if($post->status==='pending')
             <div class="mt-3 flex items-start gap-2"><details class="min-w-0 flex-1"><summary class="inline-flex min-h-10 cursor-pointer items-center rounded-xl border border-[#121017]/10 bg-white px-4 text-xs font-black">Edit</summary><form class="mt-3 grid gap-3 rounded-xl bg-white p-3" method="POST" action="{{ route('student.posts.update',$post) }}" enctype="multipart/form-data">@csrf @method('PUT')<textarea class="min-h-24 rounded-xl border border-[#121017]/10 p-3 text-sm" name="content" required>{{ $post->content }}</textarea><div class="grid gap-2 sm:grid-cols-2"><select class="h-10 rounded-xl border border-[#121017]/10 px-3 text-xs" name="event_id"><option value="">General community</option>@foreach($events as $event)<option value="{{ $event->id }}" @selected($post->event_id===$event->id)>{{ $event->title }}</option>@endforeach</select><select class="h-10 rounded-xl border border-[#121017]/10 px-3 text-xs" name="category">@foreach(\App\Models\Post::CATEGORIES as $category)<option value="{{ $category }}" @selected($post->category===$category)>{{ str($category)->replace('-',' ')->title() }}</option>@endforeach</select></div><input class="text-xs" type="file" name="image" accept="image/jpeg,image/png,image/webp"><button class="min-h-10 rounded-xl bg-[#397565] px-4 text-xs font-black text-white">Save changes</button></form></details><form method="POST" action="{{ route('student.posts.destroy',$post) }}" onsubmit="return confirm('Delete this pending post?')">@csrf @method('DELETE')<button class="min-h-10 rounded-xl border border-[#FF6B2C]/25 bg-white px-4 text-xs font-black text-[#c84510]">Delete</button></form></div>

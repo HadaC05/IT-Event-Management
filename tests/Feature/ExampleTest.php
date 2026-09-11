@@ -18,7 +18,8 @@ class ExampleTest extends TestCase
 
         $response->assertOk();
         $response->assertSee('Where IT events');
-        $response->assertSee('IT Days 2026');
-        $response->assertSee('IT Expo 2026');
+        $response->assertSee('No featured events yet');
+        $response->assertDontSee('IT Days 2026');
+        $response->assertDontSee('IT Expo 2026');
     }
 }

@@ -40,6 +40,10 @@
         <x-notification-banner type="warning" title="This event is deactivated">Activate the event before assigning additional people or using future attendance features.</x-notification-banner>
     @endif
 
+    @can('feature', $event)
+        <x-event-feature-controls :event="$event" :action="route('adviser.events.feature', $event)" />
+    @endcan
+
     <section class="mb-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <article class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><span class="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">Starts</span><strong class="mt-2 block text-sm text-[#121017]">{{ $event->start_at->format('M j, Y') }}</strong><span class="mt-1 block text-xs text-slate-500">{{ $event->start_at->format('g:i A') }}</span></article>
         <article class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><span class="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">Ends</span><strong class="mt-2 block text-sm text-[#121017]">{{ $event->end_at->format('M j, Y') }}</strong><span class="mt-1 block text-xs text-slate-500">{{ $event->end_at->format('g:i A') }}</span></article>

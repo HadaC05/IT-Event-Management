@@ -13,12 +13,14 @@ use App\Http\Controllers\Auth\AccountPasswordResetController;
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\Auth\PasswordChangeController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\EventFeatureController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\Officer\AttendanceController as OfficerAttendanceController;
 use App\Http\Controllers\Student\AttendanceController as StudentAttendanceController;
 use App\Http\Controllers\Student\EventController as StudentEventController;
 use App\Http\Controllers\Student\HomeController as StudentHomeController;
 use App\Http\Controllers\Student\LeaderboardController;
+use App\Http\Controllers\Student\NotificationController as StudentNotificationController;
 use App\Http\Controllers\Student\PostController;
 use App\Http\Controllers\Student\ProfileController;
 use App\Http\Controllers\Student\TeamController as StudentTeamController;
@@ -54,6 +56,7 @@ Route::middleware('auth')->group(function () {
             Route::get('/profile/edit', [ProfileController::class, 'edit'])->name('profile.edit');
             Route::get('/settings', [ProfileController::class, 'settings'])->name('settings');
             Route::put('/profile', [ProfileController::class, 'update'])->name('profile.update');
+            Route::patch('/notifications/read', [StudentNotificationController::class, 'markAllAsRead'])->name('notifications.read');
             Route::post('/posts', [PostController::class, 'store'])->name('posts.store');
             Route::put('/posts/{post}', [PostController::class, 'update'])->name('posts.update');
             Route::delete('/posts/{post}', [PostController::class, 'destroy'])->name('posts.destroy');
@@ -62,6 +65,7 @@ Route::middleware('auth')->group(function () {
         Route::prefix('officer')->name('officer.')->middleware('sbo.officer')->group(function () {
             Route::get('/attendance/{event?}', [OfficerAttendanceController::class, 'index'])->name('attendance.index');
             Route::post('/attendance/{event}/scan', [OfficerAttendanceController::class, 'scan'])->name('attendance.scan');
+            Route::patch('/events/{event}/feature', [EventFeatureController::class, 'update'])->name('events.feature');
         });
 
         Route::prefix('adviser')->name('adviser.')->middleware('sbo.adviser')->group(function () {
@@ -71,6 +75,7 @@ Route::middleware('auth')->group(function () {
             Route::delete('/events/{event}', [EventManagementController::class, 'destroy'])->name('events.destroy');
             Route::post('/events/{event}/assignments', [EventAssignmentController::class, 'storeForEvent'])->name('events.assignments.store');
             Route::post('/events/{event}/restore', [EventManagementController::class, 'restore'])->name('events.restore');
+            Route::patch('/events/{event}/feature', [EventFeatureController::class, 'update'])->name('events.feature');
             Route::delete('/events/{event}/force', [EventManagementController::class, 'forceDelete'])->name('events.force-delete');
             Route::get('/users', [UserManagementController::class, 'index'])->name('users.index');
             Route::post('/users', [UserManagementController::class, 'store'])->name('users.store');
