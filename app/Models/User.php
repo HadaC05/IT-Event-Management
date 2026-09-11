@@ -122,6 +122,16 @@ class User extends Authenticatable
         return $this->hasMany(Post::class);
     }
 
+    public function postReactions(): HasMany
+    {
+        return $this->hasMany(PostReaction::class);
+    }
+
+    public function postComments(): HasMany
+    {
+        return $this->hasMany(PostComment::class);
+    }
+
     public function getInitialsAttribute(): string
     {
         return strtoupper(substr((string) $this->first_name, 0, 1).substr((string) $this->last_name, 0, 1));

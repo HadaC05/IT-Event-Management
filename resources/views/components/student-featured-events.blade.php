@@ -14,7 +14,7 @@
     <div class="relative">
         @forelse ($events as $event)
             <article
-                class="relative min-h-72 overflow-hidden bg-cover bg-center p-6 sm:min-h-80 sm:p-8 {{ $loop->first ? '' : 'hidden' }}"
+                class="relative min-h-60 overflow-hidden bg-cover bg-center p-5 sm:min-h-68 sm:p-6 {{ $loop->first ? '' : 'hidden' }}"
                 data-student-feature-slide
                 aria-hidden="{{ $loop->first ? 'false' : 'true' }}"
                 @if ($event->poster_path)
@@ -23,7 +23,7 @@
                     style="background-image: radial-gradient(circle at 85% 20%, rgba(198,242,78,.25), transparent 30%), linear-gradient(135deg, #397565, #121017 72%)"
                 @endif
             >
-                <div class="relative flex min-h-60 max-w-2xl flex-col justify-end sm:min-h-64">
+                <div class="relative flex min-h-52 max-w-2xl flex-col justify-end sm:min-h-56">
                     <div class="mb-auto flex flex-wrap items-center gap-2">
                         <span class="rounded-full bg-[#C6F24E] px-3 py-1 text-[9px] font-black uppercase tracking-wider text-[#121017]">
                             {{ $event->schedule_state }}
@@ -44,7 +44,7 @@
                 </div>
             </article>
         @empty
-            <div class="grid min-h-64 place-items-center px-6 py-12 text-center">
+            <div class="grid min-h-52 place-items-center px-6 py-9 text-center">
                 <div>
                     <span class="mx-auto grid h-12 w-12 place-items-center rounded-full bg-[#C6F24E] text-xl text-[#121017]">✦</span>
                     <h3 class="mt-4 text-xl font-black">Event spotlight is ready</h3>

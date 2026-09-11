@@ -83,6 +83,69 @@ class StudentPortalTest extends TestCase
         $this->assertNull($post->reviewed_at);
     }
 
+    public function test_students_can_react_and_comment_only_on_approved_posts(): void
+    {
+        $author = $this->user('Student');
+        $student = $this->user('Student');
+        $other = $this->user('Student');
+        $faculty = $this->user('Faculty');
+        $approvedPost = Post::create([
+            'user_id' => $author->id,
+            'content' => 'Caption appears before the image.',
+            'category' => 'general',
+            'image_path' => 'posts/example.jpg',
+            'status' => 'approved',
+            'reviewed_at' => now(),
+        ]);
+        $pendingPost = Post::create([
+            'user_id' => $author->id,
+            'content' => 'Still pending',
+            'category' => 'general',
+            'status' => 'pending',
+        ]);
+
+        $this->actingAs($student)
+            ->put(route('student.posts.reactions.update', $approvedPost), ['reaction' => 'love'])
+            ->assertSessionHas('success');
+
+        $this->assertDatabaseHas('post_reactions', [
+            'post_id' => $approvedPost->id,
+            'user_id' => $student->id,
+            'type' => 'love',
+        ]);
+
+        $this->put(route('student.posts.reactions.update', $approvedPost), ['reaction' => 'love'])
+            ->assertSessionHas('success');
+        $this->assertDatabaseMissing('post_reactions', ['post_id' => $approvedPost->id, 'user_id' => $student->id]);
+
+        $this->put(route('student.posts.reactions.update', $pendingPost), ['reaction' => 'like'])->assertForbidden();
+        $this->post(route('student.posts.comments.store', $pendingPost), ['body' => 'Not public'])->assertForbidden();
+
+        $this->post(route('student.posts.comments.store', $approvedPost), ['body' => 'Great event!'])
+            ->assertSessionHas('success');
+        $comment = $approvedPost->comments()->firstOrFail();
+
+        $this->actingAs($other)
+            ->delete(route('student.posts.comments.destroy', $comment))
+            ->assertForbidden();
+
+        $this->actingAs($faculty)
+            ->post(route('student.posts.comments.store', $approvedPost), ['body' => 'Not a student'])
+            ->assertForbidden();
+
+        $this->actingAs($author)
+            ->get(route('student.home'))
+            ->assertOk()
+            ->assertSee('Great event!')
+            ->assertSee('aria-label="Edit post"', false)
+            ->assertSeeInOrder(['Caption appears before the image.', 'data-post-media'], false);
+
+        $this->actingAs($student)
+            ->delete(route('student.posts.comments.destroy', $comment))
+            ->assertSessionHas('success');
+        $this->assertDatabaseMissing('post_comments', ['id' => $comment->id]);
+    }
+
     public function test_post_images_use_a_consistent_preview_and_reject_excessive_dimensions(): void
     {
         Storage::fake('public');

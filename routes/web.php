@@ -21,7 +21,9 @@ use App\Http\Controllers\Student\EventController as StudentEventController;
 use App\Http\Controllers\Student\HomeController as StudentHomeController;
 use App\Http\Controllers\Student\LeaderboardController;
 use App\Http\Controllers\Student\NotificationController as StudentNotificationController;
+use App\Http\Controllers\Student\PostCommentController;
 use App\Http\Controllers\Student\PostController;
+use App\Http\Controllers\Student\PostReactionController;
 use App\Http\Controllers\Student\ProfileController;
 use App\Http\Controllers\Student\TeamController as StudentTeamController;
 use Illuminate\Support\Facades\Route;
@@ -60,6 +62,9 @@ Route::middleware('auth')->group(function () {
             Route::post('/posts', [PostController::class, 'store'])->name('posts.store');
             Route::put('/posts/{post}', [PostController::class, 'update'])->name('posts.update');
             Route::delete('/posts/{post}', [PostController::class, 'destroy'])->name('posts.destroy');
+            Route::put('/posts/{post}/reaction', [PostReactionController::class, 'update'])->name('posts.reactions.update');
+            Route::post('/posts/{post}/comments', [PostCommentController::class, 'store'])->name('posts.comments.store');
+            Route::delete('/post-comments/{comment}', [PostCommentController::class, 'destroy'])->name('posts.comments.destroy');
         });
 
         Route::prefix('officer')->name('officer.')->middleware('sbo.officer')->group(function () {

@@ -25,7 +25,16 @@ class HomeController extends Controller
                 ->featuredForCarousel()
                 ->limit(6)
                 ->get(),
-            'posts' => Post::approved()->with(['author.teams', 'event'])->latest('reviewed_at')->paginate(10),
+            'posts' => Post::approved()
+                ->with([
+                    'author.teams',
+                    'event',
+                    'reactions' => fn ($query) => $query->where('user_id', $user->id),
+                    'comments' => fn ($query) => $query->with('author')->latest()->limit(3),
+                ])
+                ->withCount(['reactions', 'comments'])
+                ->latest('reviewed_at')
+                ->paginate(10),
             'myPosts' => $user->posts()->whereIn('status', ['pending', 'rejected'])->with('event')->latest()->get(),
             'announcements' => $currentEvent?->posts()->approved()->where('category', 'announcement')->with('author')->latest('reviewed_at')->limit(3)->get() ?? collect(),
         ]);

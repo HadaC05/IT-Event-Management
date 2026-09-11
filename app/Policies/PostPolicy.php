@@ -26,4 +26,9 @@ class PostPolicy
     {
         return $user->isSboAdviser() && $post->user_id !== $user->id && $post->status === 'pending';
     }
+
+    public function interact(User $user, Post $post): bool
+    {
+        return $user->role?->name === 'Student' && $post->status === 'approved';
+    }
 }
