@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Dashboard | CITE Events</title>
+    <x-favicon />
     @vite('resources/css/app.css')
     <script src="{{ asset('js/notifications.js') }}" defer></script>
     <script src="{{ asset('js/interactions.js') }}" defer></script>

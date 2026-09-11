@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>@yield('title') | CITE Events</title>
+    <x-favicon />
     @vite('resources/css/app.css')
     <script src="{{ asset('js/notifications.js') }}" defer></script>
     <script src="{{ asset('js/interactions.js') }}" defer></script>
@@ -39,13 +40,16 @@
             <a href="{{ route('adviser.scores.index') }}" @class(['flex min-h-12 items-center gap-3 rounded-xl px-4 text-sm font-bold transition', 'bg-[#397565] text-white shadow-lg shadow-black/10' => request()->routeIs('adviser.scores.*'), 'text-[#F3F0E9]/65 hover:bg-white/5 hover:text-[#F3F0E9]' => !request()->routeIs('adviser.scores.*')])>
                 <svg class="h-5 w-5 fill-none stroke-current" aria-hidden="true" viewBox="0 0 24 24"><path d="M8 21h8M12 17v4M7 4h10v4a5 5 0 0 1-10 0V4Zm0 2H4v1a4 4 0 0 0 4 4m9-5h3v1a4 4 0 0 1-4 4"/></svg>Scores
             </a>
+            <a href="{{ route('adviser.posts.index') }}" @class(['flex min-h-12 items-center gap-3 rounded-xl px-4 text-sm font-bold transition', 'bg-[#397565] text-white shadow-lg shadow-black/10' => request()->routeIs('adviser.posts.*'), 'text-[#F3F0E9]/65 hover:bg-white/5 hover:text-[#F3F0E9]' => !request()->routeIs('adviser.posts.*')])>
+                <svg class="h-5 w-5 fill-none stroke-current" aria-hidden="true" viewBox="0 0 24 24"><path d="M4 5h16v12H8l-4 4V5Zm4 4h8m-8 4h5"/></svg>Post Review
+            </a>
         </nav>
 
         <p class="mt-auto px-3 text-[9px] font-bold uppercase tracking-[.15em] text-[#F3F0E9]/30">Campus Event Management</p>
     </aside>
 
     <div class="min-h-screen lg:ml-64">
-        <header class="sticky top-0 z-30 border-b border-[#121017]/8 bg-white/95 backdrop-blur-xl">
+        <header class="sticky top-0 z-30 border-b border-[#397565]/25 bg-[#DDEBE6]/90 shadow-[0_8px_30px_rgba(57,117,101,.14)] backdrop-blur-xl">
             <div class="mx-auto flex h-[72px] w-full max-w-[1500px] items-center gap-3 px-4 sm:px-6 lg:px-10 xl:px-16">
                 <button class="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-[#121017]/10 text-[#121017]/65 transition hover:border-[#397565]/35 hover:text-[#397565] lg:hidden" type="button" data-sidebar-toggle aria-controls="sidebar" aria-expanded="false" aria-label="Open navigation"><svg class="h-5 w-5 fill-none stroke-current stroke-2" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button>
 

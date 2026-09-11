@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>Student Dashboard | CITE Events</title>
+    <x-favicon />
     @vite(['resources/css/app.css', 'resources/js/student-dashboard.js'])
     <script src="{{ asset('js/notifications.js') }}" defer></script>
     <script src="{{ asset('js/interactions.js') }}" defer></script>

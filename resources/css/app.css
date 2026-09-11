@@ -1,5 +1,7 @@
 @import 'tailwindcss';
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 @source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
 @source '../../storage/framework/views/*.php';
 @source '../**/*.blade.php';
@@ -92,6 +94,48 @@
             linear-gradient(90deg, rgb(57 117 101 / 3%) 1px, transparent 1px);
         background-size: auto, 88px 88px, 88px 88px;
         color: #121017;
+    }
+
+    html.dark .student-shell {
+        background-color: #0d1714 !important;
+        background-image:
+            radial-gradient(circle at 88% 8%, rgb(198 242 78 / 4%), transparent 20rem),
+            linear-gradient(rgb(232 240 236 / 4%) 1px, transparent 1px),
+            linear-gradient(90deg, rgb(232 240 236 / 4%) 1px, transparent 1px) !important;
+        color: #eef5f2 !important;
+        color-scheme: dark;
+    }
+
+    html.dark .student-shell [class*='bg-white']:not([data-theme-swatch]) {
+        background-color: #17231f !important;
+    }
+
+    html.dark .student-shell [class*='bg-[#F7F4ED]'],
+    html.dark .student-shell [class*='bg-[#E8F0EC]'] {
+        background-color: #101b17 !important;
+    }
+
+    html.dark .student-shell [class*='text-[#121017]'],
+    html.dark .student-shell [class*='text-[#52635E]'] {
+        color: #dce8e3 !important;
+    }
+
+    html.dark .student-shell [class*='border-[#121017]'],
+    html.dark .student-shell [class*='border-[#397565]'] {
+        border-color: rgb(220 232 227 / 14%) !important;
+    }
+
+    html.dark .student-shell input,
+    html.dark .student-shell textarea,
+    html.dark .student-shell select {
+        background-color: #101b17;
+        border-color: rgb(220 232 227 / 16%);
+        color: #eef5f2;
+    }
+
+    html.dark .student-shell input::placeholder,
+    html.dark .student-shell textarea::placeholder {
+        color: rgb(220 232 227 / 42%);
     }
 
     .route-progress {

@@ -10,6 +10,7 @@ export default defineConfig({
                 'resources/js/app.js',
                 'resources/js/officer-attendance.js',
                 'resources/js/student-dashboard.js',
+                'resources/js/student-portal.js',
             ],
             refresh: true,
         }),

@@ -2,14 +2,14 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\Student\HomeController as StudentHomeController;
 use App\Models\Attendance;
-use App\Models\AttendanceQrToken;
 use App\Models\Event;
 use App\Models\Score;
 use App\Models\Team;
 use App\Models\User;
+use App\Services\StudentPortalService;
 use Illuminate\Http\RedirectResponse;
-use Illuminate\Support\Str;
 use Illuminate\View\View;
 
 class DashboardController extends Controller
@@ -23,35 +23,7 @@ class DashboardController extends Controller
         }
 
         if ($user->role?->name === 'Student') {
-            $user->loadMissing(['yearLevel', 'teams.schoolYear']);
-            $events = Event::query()
-                ->with(['status', 'audienceTeams', 'attendanceSchedules.attendanceSessionMode'])
-                ->where(function ($query) {
-                    $query->whereDoesntHave('status')
-                        ->orWhereHas('status', fn ($query) => $query->whereIn('label', ['upcoming', 'ongoing']));
-                })
-                ->where('end_at', '>=', now())
-                ->orderBy('start_at')
-                ->get()
-                ->filter(fn (Event $event) => $event->expectedParticipantsQuery()->whereKey($user->id)->exists())
-                ->values();
-
-            $events->each(function (Event $event) use ($user) {
-                foreach (['morning', 'afternoon'] as $session) {
-                    $token = AttendanceQrToken::firstOrCreate([
-                        'event_id' => $event->id,
-                        'user_id' => $user->id,
-                        'session' => $session,
-                    ], [
-                        'token' => Str::random(40),
-                    ]);
-                    $event->setAttribute($session.'_qr_payload', route('home', [
-                        'attendance_pass' => $token->token,
-                    ]));
-                }
-            });
-
-            return view('student.dashboard', compact('user', 'events'));
+            return app(StudentHomeController::class)(app(StudentPortalService::class));
         }
 
         if (! $user->isSboAdviser()) {

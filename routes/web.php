@@ -4,6 +4,7 @@ use App\Http\Controllers\Adviser\AttendanceManagementController;
 use App\Http\Controllers\Adviser\EventAssignmentController;
 use App\Http\Controllers\Adviser\EventManagementController;
 use App\Http\Controllers\Adviser\OfficerManagementController;
+use App\Http\Controllers\Adviser\PostReviewController;
 use App\Http\Controllers\Adviser\ScoreManagementController;
 use App\Http\Controllers\Adviser\TeamManagementController;
 use App\Http\Controllers\Adviser\UserManagementController;
@@ -13,6 +14,13 @@ use App\Http\Controllers\Auth\PasswordChangeController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\Officer\AttendanceController as OfficerAttendanceController;
+use App\Http\Controllers\Student\AttendanceController as StudentAttendanceController;
+use App\Http\Controllers\Student\EventController as StudentEventController;
+use App\Http\Controllers\Student\HomeController as StudentHomeController;
+use App\Http\Controllers\Student\LeaderboardController;
+use App\Http\Controllers\Student\PostController;
+use App\Http\Controllers\Student\ProfileController;
+use App\Http\Controllers\Student\TeamController as StudentTeamController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', HomeController::class)->name('home');
@@ -34,6 +42,21 @@ Route::middleware('auth')->group(function () {
 
     Route::middleware(['active', 'password.changed'])->group(function () {
         Route::get('/dashboard', DashboardController::class)->name('dashboard');
+
+        Route::prefix('student')->name('student.')->middleware('student')->group(function () {
+            Route::get('/home', StudentHomeController::class)->name('home');
+            Route::get('/events', [StudentEventController::class, 'index'])->name('events.index');
+            Route::get('/attendance', [StudentAttendanceController::class, 'show'])->name('attendance.show');
+            Route::get('/team', [StudentTeamController::class, 'show'])->name('team.show');
+            Route::get('/rankings', [LeaderboardController::class, 'index'])->name('leaderboard.index');
+            Route::get('/profile', [ProfileController::class, 'show'])->name('profile.show');
+            Route::get('/profile/edit', [ProfileController::class, 'edit'])->name('profile.edit');
+            Route::get('/settings', [ProfileController::class, 'settings'])->name('settings');
+            Route::put('/profile', [ProfileController::class, 'update'])->name('profile.update');
+            Route::post('/posts', [PostController::class, 'store'])->name('posts.store');
+            Route::put('/posts/{post}', [PostController::class, 'update'])->name('posts.update');
+            Route::delete('/posts/{post}', [PostController::class, 'destroy'])->name('posts.destroy');
+        });
 
         Route::prefix('officer')->name('officer.')->middleware('sbo.officer')->group(function () {
             Route::get('/attendance/{event?}', [OfficerAttendanceController::class, 'index'])->name('attendance.index');
@@ -71,6 +94,8 @@ Route::middleware('auth')->group(function () {
             Route::post('/scores/{event}/categories', [ScoreManagementController::class, 'storeCategory'])->name('scores.categories.store');
             Route::put('/scores/{event}/categories/{scoreCategory}', [ScoreManagementController::class, 'updateCategory'])->name('scores.categories.update');
             Route::delete('/scores/{event}/categories/{scoreCategory}', [ScoreManagementController::class, 'destroyCategory'])->name('scores.categories.destroy');
+            Route::get('/posts', [PostReviewController::class, 'index'])->name('posts.index');
+            Route::patch('/posts/{post}/review', [PostReviewController::class, 'update'])->name('posts.review');
         });
     });
 });

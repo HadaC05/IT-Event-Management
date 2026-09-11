@@ -40,7 +40,7 @@ class OfficerAttendanceTest extends TestCase
             Role::firstOrCreate(['name' => $role]);
         }
         $this->active = UserStatus::create(['label' => 'active']);
-        $this->eventStatus = EventStatus::create(['label' => 'active']);
+        $this->eventStatus = EventStatus::create(['label' => 'ongoing']);
         $schoolYear = SchoolYear::create(['label' => '2026-2027']);
         $this->team = Team::create(['school_year_id' => $schoolYear->id, 'name' => 'Emerald Tribe', 'color' => '#397565']);
         $otherTeam = Team::create(['school_year_id' => $schoolYear->id, 'name' => 'Cobalt Tribe', 'color' => '#2F3AE0']);
@@ -234,7 +234,7 @@ class OfficerAttendanceTest extends TestCase
         $this->assertDatabaseCount('attendances', 0);
     }
 
-    public function test_student_dashboard_shows_event_session_qr_buttons(): void
+    public function test_student_attendance_page_shows_event_session_passes(): void
     {
         $event = $this->event([
             'morning_in_at' => now()->setTime(7, 0),
@@ -244,15 +244,14 @@ class OfficerAttendanceTest extends TestCase
             'end_at' => now()->addDay(),
         ]);
 
-        $this->actingAs($this->student)->get(route('dashboard'))
+        $this->actingAs($this->student)->get(route('student.attendance.show'))
             ->assertOk()
-            ->assertSee('Student attendance pass')
+            ->assertSee('Secure attendance pass')
             ->assertSee($event->title)
             ->assertSee($this->team->name)
-            ->assertSee('7:00 AM–11:00 AM')
-            ->assertSee('1:00 PM–5:00 PM')
-            ->assertSee('Open Morning QR')
-            ->assertSee('Open Afternoon QR');
+            ->assertSee('Morning')
+            ->assertSee('Afternoon')
+            ->assertSee('must not be shared');
     }
 
     public function test_officer_cannot_scan_before_a_scheduled_window(): void

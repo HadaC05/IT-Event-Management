@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>@yield('title') | CITE Events</title>
+    <x-favicon />
     @vite('resources/css/app.css')
     <script src="{{ asset('js/notifications.js') }}" defer></script>
     <script src="{{ asset('js/interactions.js') }}" defer></script>

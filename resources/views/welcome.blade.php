@@ -6,6 +6,7 @@
     <meta name="description" content="Discover competitions, activities, and memorable moments created for the CITE community.">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>CITE | Campus Events</title>
+    <x-favicon />
     @vite('resources/css/app.css')
     <script src="{{ asset('js/interactions.js') }}" defer></script>
     <style>
@@ -246,6 +247,8 @@
             <p class="text-sm text-[#C6F24E]/85">Plan. Connect. Celebrate.</p>
             <p class="text-sm text-white/55">Campus Event Management System</p>
         </div>
+
+        <
     </footer>
 
     @guest

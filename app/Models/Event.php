@@ -91,6 +91,11 @@ class Event extends Model
         return $this->hasMany(ActivityLog::class);
     }
 
+    public function posts(): HasMany
+    {
+        return $this->hasMany(Post::class);
+    }
+
     public function creator(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by')->withDefault();

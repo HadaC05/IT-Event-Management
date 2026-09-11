@@ -35,6 +35,8 @@ class User extends Authenticatable
         'officer_team_id',
         'status',
         'must_change_password',
+        'profile_photo_path',
+        'bio',
     ];
 
     /**
@@ -113,6 +115,16 @@ class User extends Authenticatable
     public function activities(): HasMany
     {
         return $this->hasMany(ActivityLog::class, 'actor_id');
+    }
+
+    public function posts(): HasMany
+    {
+        return $this->hasMany(Post::class);
+    }
+
+    public function getInitialsAttribute(): string
+    {
+        return strtoupper(substr((string) $this->first_name, 0, 1).substr((string) $this->last_name, 0, 1));
     }
 
     public function isSboAdviser(): bool
