@@ -1,6 +1,6 @@
 @props(['events'])
 
-<section class="overflow-hidden rounded-3xl border border-[#397565]/25 bg-[#121017] text-white shadow-[0_16px_45px_rgba(18,16,23,.14)]" data-student-feature-carousel aria-labelledby="featured-events-heading">
+<section class="overflow-hidden rounded-xl border border-[#397565]/25 bg-[#121017] text-white shadow-[0_16px_45px_rgba(18,16,23,.14)]" data-student-feature-carousel aria-labelledby="featured-events-heading">
     <header class="flex items-center justify-between gap-4 border-b border-white/10 px-5 py-4">
         <div>
             <p class="text-[9px] font-black uppercase tracking-[.17em] text-[#C6F24E]">Featured in CITE</p>

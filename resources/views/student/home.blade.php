@@ -1,9 +1,9 @@
 @extends('layouts.student')
 @section('title','Home')
 @section('content')
-<div class="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
+<div class="mx-auto grid w-full max-w-[1120px] items-start gap-6 lg:grid-cols-[minmax(0,1fr)_300px] xl:grid-cols-[minmax(0,756px)_340px]">
 <div class="min-w-0 space-y-5">
-    <section class="rounded-3xl border border-[#121017]/8 bg-white p-5 shadow-[0_12px_35px_rgba(18,16,23,.05)]">
+    <section class="rounded-xl border border-[#121017]/8 bg-white p-5 shadow-[0_12px_35px_rgba(18,16,23,.05)]">
         <div class="flex gap-3"><x-student-avatar :user="$user"/><div><h1 class="text-lg font-black">Share with CITE</h1><p class="text-xs text-[#121017]/45">Posts are reviewed by an SBO Adviser before everyone can see them.</p></div></div>
         <form class="mt-4" method="POST" action="{{ route('student.posts.store') }}" enctype="multipart/form-data" data-submit-form>@csrf
             <label class="sr-only" for="post-content">Post caption</label><textarea class="min-h-28 w-full resize-y rounded-2xl border border-[#121017]/10 bg-[#F7F4ED]/70 p-4 text-sm outline-none placeholder:text-[#121017]/35 focus:border-[#397565]/50 focus:bg-white focus:ring-4 focus:ring-[#397565]/8" id="post-content" name="content" placeholder="What would you like the CITE community to know?" required maxlength="3000">{{ old('content') }}</textarea>
@@ -32,7 +32,11 @@
 
     <x-student-featured-events :events="$featuredEvents" />
 
-    <section class="mx-auto w-full max-w-[560px] space-y-5" aria-labelledby="community-feed-heading" data-social-feed>
+    <section
+        class="mx-auto w-full max-w-[600px] space-y-5"
+        aria-labelledby="community-feed-heading"
+        data-social-feed
+    >
         <header class="flex items-end justify-between gap-4">
             <div>
                 <p class="text-[10px] font-black uppercase tracking-[.15em] text-[#397565]">Community feed</p>
@@ -43,7 +47,7 @@
 
         @forelse($posts as $post)
             <article
-                class="overflow-hidden rounded-3xl border border-[#397565]/15 bg-white shadow-[0_14px_38px_rgba(18,16,23,.07)]"
+                class="overflow-hidden rounded-xl border border-[#397565]/15 bg-white shadow-[0_14px_38px_rgba(18,16,23,.07)]"
                 data-feed-post
             >
                 <header class="flex items-center gap-3 p-4">
@@ -138,7 +142,7 @@
                 @endif
             </article>
         @empty
-            <div class="rounded-3xl border border-dashed border-[#397565]/25 bg-[#397565]/5 px-6 py-16 text-center">
+            <div class="rounded-xl border border-dashed border-[#397565]/25 bg-[#397565]/5 px-6 py-16 text-center">
                 <span class="text-3xl" aria-hidden="true">🌿</span>
                 <h3 class="mt-3 font-black">The feed is ready for its first story</h3>
                 <p class="mt-1 text-sm text-[#121017]/45">Approved student posts will appear here.</p>
@@ -153,19 +157,19 @@
 
 <aside class="space-y-5 lg:sticky lg:top-24">
     @if($myPosts->isNotEmpty())
-    <section class="rounded-3xl border border-[#397565]/15 bg-[#397565]/8 p-5 shadow-[0_12px_35px_rgba(18,16,23,.05)]">
+    <section class="rounded-xl border border-[#397565]/15 bg-[#397565]/8 p-5 shadow-[0_12px_35px_rgba(18,16,23,.05)]">
         <div class="flex items-start gap-3"><span class="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-[#397565] text-white"><svg class="h-5 w-5 fill-none stroke-current stroke-2" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h14v16H5V4Zm3 4h8m-8 4h8m-8 4h5"/></svg></span><div class="min-w-0 flex-1"><div class="flex items-center justify-between gap-2"><h2 class="font-black">Your submissions</h2><span class="rounded-full bg-[#C6F24E] px-2.5 py-1 text-[10px] font-black text-[#121017]">{{ $myPosts->count() }}</span></div><p class="mt-1 text-xs leading-5 text-[#121017]/50">{{ $myPosts->where('status','pending')->count() }} waiting · {{ $myPosts->where('status','rejected')->count() }} rejected</p></div></div>
         <button class="mt-4 flex min-h-11 w-full items-center justify-center rounded-xl bg-white text-xs font-black text-[#397565] shadow-sm hover:bg-[#F7F4ED]" type="button" data-submissions-open>View pending posts</button>
     </section>
     @endif
-    @if($currentEvent)<section class="overflow-hidden rounded-3xl border border-[#121017]/8 bg-white shadow-[0_12px_35px_rgba(18,16,23,.05)]">@if($currentEvent->poster_path)<img class="h-40 w-full object-cover" src="{{ asset('storage/'.$currentEvent->poster_path) }}" alt="{{ $currentEvent->title }} poster">@else<div class="grid h-28 place-items-center bg-gradient-to-br from-[#397565] to-[#234f44] text-5xl font-black text-white/20">CITE</div>@endif<div class="p-5"><div class="flex items-center justify-between gap-2"><span class="text-[9px] font-black uppercase tracking-wider text-[#397565]">Current event</span><span class="rounded-full bg-[#C6F24E]/35 px-2.5 py-1 text-[9px] font-black uppercase text-[#397565]">{{ $currentEvent->schedule_state==='ongoing'?'Live':($currentEvent->schedule_state==='completed'?'Finished':'Upcoming') }}</span></div><h2 class="mt-2 text-xl font-black">{{ $currentEvent->title }}</h2><p class="mt-2 text-xs leading-5 text-[#121017]/50">{{ $currentEvent->start_at->format('M j, Y · g:i A') }}<br>{{ $currentEvent->location ?: 'CITE Campus' }}</p><div class="mt-4 rounded-xl bg-[#F7F4ED] p-3"><span class="text-[9px] font-black uppercase text-[#121017]/40">Your tribe</span><strong class="mt-1 block text-sm">{{ $user->teams->pluck('name')->join(', ') ?: 'Not assigned' }}</strong></div></div></section>
-    <section class="rounded-3xl border border-[#121017]/8 bg-white p-5"><div class="flex items-center justify-between"><h2 class="font-black">Leaderboard</h2><span class="text-[10px] text-[#121017]/40">Overall</span></div><ol class="mt-4 space-y-2">@foreach($leaderboard as $team)<li class="flex items-center gap-3 rounded-xl bg-[#F7F4ED]/70 p-3"><span class="grid h-7 w-7 place-items-center rounded-lg bg-white text-xs font-black">{{ $team->rank }}</span><i class="h-3 w-3 rounded-full" style="background:{{ $team->color }}"></i><strong class="min-w-0 flex-1 truncate text-xs">{{ $team->name }}</strong><span class="text-xs font-black text-[#397565]">{{ number_format($team->total_score,1) }}</span></li>@endforeach</ol><a class="mt-4 flex min-h-11 items-center justify-center rounded-xl border border-[#397565]/20 text-xs font-black text-[#397565] hover:bg-[#397565]/7" href="{{ route('student.leaderboard.index') }}">View Full Leaderboard</a></section>
-    @if($announcements->isNotEmpty())<section class="rounded-3xl border border-[#121017]/8 bg-white p-5"><h2 class="font-black">Event announcements</h2><div class="mt-3 space-y-3">@foreach($announcements as $item)<div class="border-l-2 border-[#397565] pl-3"><p class="line-clamp-3 text-xs leading-5">{{ $item->content }}</p><span class="mt-1 block text-[9px] text-[#121017]/40">{{ $item->author->full_name }}</span></div>@endforeach</div></section>@endif
-    @else<div class="rounded-3xl border border-dashed border-[#397565]/25 bg-white p-6"><h2 class="font-black">No active event</h2><p class="mt-2 text-xs leading-5 text-[#121017]/45">Your next assigned event will appear here when it is scheduled.</p></div>@endif
+    @if($currentEvent)<section class="overflow-hidden rounded-xl border border-[#121017]/8 bg-white shadow-[0_12px_35px_rgba(18,16,23,.05)]">@if($currentEvent->poster_path)<img class="h-40 w-full object-cover" src="{{ asset('storage/'.$currentEvent->poster_path) }}" alt="{{ $currentEvent->title }} poster">@else<div class="grid h-28 place-items-center bg-gradient-to-br from-[#397565] to-[#234f44] text-5xl font-black text-white/20">CITE</div>@endif<div class="p-5"><div class="flex items-center justify-between gap-2"><span class="text-[9px] font-black uppercase tracking-wider text-[#397565]">Current event</span><span class="rounded-full bg-[#C6F24E]/35 px-2.5 py-1 text-[9px] font-black uppercase text-[#397565]">{{ $currentEvent->schedule_state==='ongoing'?'Live':($currentEvent->schedule_state==='completed'?'Finished':'Upcoming') }}</span></div><h2 class="mt-2 text-xl font-black">{{ $currentEvent->title }}</h2><p class="mt-2 text-xs leading-5 text-[#121017]/50">{{ $currentEvent->start_at->format('M j, Y · g:i A') }}<br>{{ $currentEvent->location ?: 'CITE Campus' }}</p><div class="mt-4 rounded-xl bg-[#F7F4ED] p-3"><span class="text-[9px] font-black uppercase text-[#121017]/40">Your tribe</span><strong class="mt-1 block text-sm">{{ $user->teams->pluck('name')->join(', ') ?: 'Not assigned' }}</strong></div></div></section>
+    <section class="rounded-xl border border-[#121017]/8 bg-white p-5"><div class="flex items-center justify-between"><h2 class="font-black">Leaderboard</h2><span class="text-[10px] text-[#121017]/40">Overall</span></div><ol class="mt-4 space-y-2">@foreach($leaderboard as $team)<li class="flex items-center gap-3 rounded-xl bg-[#F7F4ED]/70 p-3"><span class="grid h-7 w-7 place-items-center rounded-lg bg-white text-xs font-black">{{ $team->rank }}</span><i class="h-3 w-3 rounded-full" style="background:{{ $team->color }}"></i><strong class="min-w-0 flex-1 truncate text-xs">{{ $team->name }}</strong><span class="text-xs font-black text-[#397565]">{{ number_format($team->total_score,1) }}</span></li>@endforeach</ol><a class="mt-4 flex min-h-11 items-center justify-center rounded-xl border border-[#397565]/20 text-xs font-black text-[#397565] hover:bg-[#397565]/7" href="{{ route('student.leaderboard.index') }}">View Full Leaderboard</a></section>
+    @if($announcements->isNotEmpty())<section class="rounded-xl border border-[#121017]/8 bg-white p-5"><h2 class="font-black">Event announcements</h2><div class="mt-3 space-y-3">@foreach($announcements as $item)<div class="border-l-2 border-[#397565] pl-3"><p class="line-clamp-3 text-xs leading-5">{{ $item->content }}</p><span class="mt-1 block text-[9px] text-[#121017]/40">{{ $item->author->full_name }}</span></div>@endforeach</div></section>@endif
+    @else<div class="rounded-xl border border-dashed border-[#397565]/25 bg-white p-6"><h2 class="font-black">No active event</h2><p class="mt-2 text-xs leading-5 text-[#121017]/45">Your next assigned event will appear here when it is scheduled.</p></div>@endif
 </aside></div>
 
 @if($myPosts->isNotEmpty())
-<dialog class="m-auto max-h-[calc(100vh_-_2rem)] w-[min(760px,calc(100%_-_2rem))] overflow-hidden rounded-3xl border-0 bg-white p-0 text-[#121017] shadow-[0_28px_90px_rgba(18,16,23,.3)] backdrop:bg-[#0d1714]/75 backdrop:backdrop-blur-sm dark:bg-[#17231f] dark:text-[#eef5f2]" data-submissions-dialog aria-labelledby="submissions-title">
+<dialog class="m-auto max-h-[calc(100vh_-_2rem)] w-[min(760px,calc(100%_-_2rem))] overflow-hidden rounded-xl border-0 bg-white p-0 text-[#121017] shadow-[0_28px_90px_rgba(18,16,23,.3)] backdrop:bg-[#0d1714]/75 backdrop:backdrop-blur-sm dark:bg-[#17231f] dark:text-[#eef5f2]" data-submissions-dialog aria-labelledby="submissions-title">
     <header class="flex items-start justify-between gap-4 border-b border-[#121017]/8 p-5 sm:p-6"><div><div class="flex items-center gap-2"><h2 class="text-xl font-black" id="submissions-title">Your submissions</h2><span class="rounded-full bg-[#C6F24E] px-2.5 py-1 text-[10px] font-black text-[#121017]">{{ $myPosts->count() }}</span></div><p class="mt-1 text-xs text-[#121017]/45">Only you can see these review updates.</p></div><button class="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-[#F7F4ED] text-xl hover:bg-[#397565]/10" type="button" data-submissions-close aria-label="Close submissions">&times;</button></header>
     <div class="max-h-[calc(100vh_-_9rem)] space-y-3 overflow-y-auto p-5 sm:p-6">
         @foreach($myPosts as $post)
