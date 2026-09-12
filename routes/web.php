@@ -7,6 +7,7 @@ use App\Http\Controllers\Adviser\EventManagementController;
 use App\Http\Controllers\Adviser\LeaderboardController as AdviserLeaderboardController;
 use App\Http\Controllers\Adviser\OfficerManagementController;
 use App\Http\Controllers\Adviser\PostReviewController;
+use App\Http\Controllers\Adviser\ReportController;
 use App\Http\Controllers\Adviser\ScoreManagementController;
 use App\Http\Controllers\Adviser\TeamManagementController;
 use App\Http\Controllers\Adviser\UserManagementController;
@@ -113,6 +114,8 @@ Route::middleware('auth')->group(function () {
             Route::patch('/announcements/{announcement}/status', [AnnouncementController::class, 'updateStatus'])->name('announcements.status');
             Route::delete('/announcements/{announcement}', [AnnouncementController::class, 'destroy'])->name('announcements.destroy');
             Route::post('/announcements/{announcement}/restore', [AnnouncementController::class, 'restore'])->name('announcements.restore');
+            Route::get('/reports', [ReportController::class, 'index'])->name('reports.index');
+            Route::get('/reports/export', [ReportController::class, 'export'])->name('reports.export');
             Route::get('/posts', [PostReviewController::class, 'index'])->name('posts.index');
             Route::patch('/posts/{post}/review', [PostReviewController::class, 'update'])->name('posts.review');
         });

@@ -46,6 +46,9 @@
             <a href="{{ route('adviser.announcements.index') }}" @class(['flex min-h-12 items-center gap-3 rounded-xl px-4 text-sm font-bold transition', 'bg-[#397565] text-white shadow-lg shadow-black/10' => request()->routeIs('adviser.announcements.*'), 'text-[#F3F0E9]/65 hover:bg-white/5 hover:text-[#F3F0E9]' => !request()->routeIs('adviser.announcements.*')])>
                 <svg class="h-5 w-5 fill-none stroke-current" aria-hidden="true" viewBox="0 0 24 24"><path d="M4 13V9l11-5v14L4 13Zm0 0v5h4v-3m7-7h3a3 3 0 0 1 0 6h-3"/></svg>Announcements
             </a>
+            <a href="{{ route('adviser.reports.index') }}" @class(['flex min-h-12 items-center gap-3 rounded-xl px-4 text-sm font-bold transition', 'bg-[#397565] text-white shadow-lg shadow-black/10' => request()->routeIs('adviser.reports.*'), 'text-[#F3F0E9]/65 hover:bg-white/5 hover:text-[#F3F0E9]' => !request()->routeIs('adviser.reports.*')])>
+                <svg class="h-5 w-5 fill-none stroke-current" aria-hidden="true" viewBox="0 0 24 24"><path d="M5 3h10l4 4v14H5V3Zm10 0v5h4M8 12h8M8 16h8M8 8h3"/></svg>Reports
+            </a>
             <a href="{{ route('adviser.posts.index') }}" @class(['flex min-h-12 items-center gap-3 rounded-xl px-4 text-sm font-bold transition', 'bg-[#397565] text-white shadow-lg shadow-black/10' => request()->routeIs('adviser.posts.*'), 'text-[#F3F0E9]/65 hover:bg-white/5 hover:text-[#F3F0E9]' => !request()->routeIs('adviser.posts.*')])>
                 <svg class="h-5 w-5 fill-none stroke-current" aria-hidden="true" viewBox="0 0 24 24"><path d="M4 5h16v12H8l-4 4V5Zm4 4h8m-8 4h5"/></svg>Post Review
             </a>
