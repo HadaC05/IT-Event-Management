@@ -14,7 +14,12 @@
         <x-student-avatar :user="$post->author" />
 
         <div class="min-w-0 flex-1">
-            <strong class="block truncate text-sm">{{ $post->author->full_name }}</strong>
+            <div class="flex flex-wrap items-center gap-2">
+                <strong class="truncate text-sm">{{ $post->author->full_name }}</strong>
+                @if($post->is_official)
+                    <span class="rounded-full bg-[#C6F24E]/40 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-[#397565]">Official announcement</span>
+                @endif
+            </div>
             <div class="flex flex-wrap items-center gap-1.5 text-[10px] text-[#121017]/40">
                 <time datetime="{{ $post->reviewed_at?->toIso8601String() }}">
                     {{ $post->reviewed_at?->diffForHumans() }}

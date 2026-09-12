@@ -14,13 +14,13 @@ class Post extends Model
 
     public const CATEGORIES = ['general', 'announcement', 'sports', 'esports', 'academic', 'cultural', 'special-events'];
 
-    public const STATUSES = ['pending', 'approved', 'rejected'];
+    public const STATUSES = ['draft', 'pending', 'approved', 'rejected'];
 
-    protected $fillable = ['user_id', 'event_id', 'category', 'content', 'image_path', 'status', 'rejection_reason', 'reviewed_by', 'reviewed_at'];
+    protected $fillable = ['user_id', 'event_id', 'category', 'is_official', 'content', 'image_path', 'status', 'rejection_reason', 'reviewed_by', 'reviewed_at'];
 
     protected function casts(): array
     {
-        return ['reviewed_at' => 'datetime'];
+        return ['is_official' => 'boolean', 'reviewed_at' => 'datetime'];
     }
 
     public function author(): BelongsTo
@@ -56,5 +56,15 @@ class Post extends Model
     public function scopeApproved(Builder $query): Builder
     {
         return $query->where('status', 'approved');
+    }
+
+    public function scopeOfficial(Builder $query): Builder
+    {
+        return $query->where('is_official', true);
+    }
+
+    public function scopeCommunity(Builder $query): Builder
+    {
+        return $query->where('is_official', false);
     }
 }

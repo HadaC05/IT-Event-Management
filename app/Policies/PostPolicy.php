@@ -31,4 +31,24 @@ class PostPolicy
     {
         return $user->role?->name === 'Student' && $post->status === 'approved';
     }
+
+    public function createAnnouncement(User $user): bool
+    {
+        return $user->isSboAdviser();
+    }
+
+    public function updateAnnouncement(User $user, Post $post): bool
+    {
+        return $user->isSboAdviser() && $post->is_official;
+    }
+
+    public function deleteAnnouncement(User $user, Post $post): bool
+    {
+        return $user->isSboAdviser() && $post->is_official && ! $post->trashed();
+    }
+
+    public function restoreAnnouncement(User $user, Post $post): bool
+    {
+        return $user->isSboAdviser() && $post->is_official && $post->trashed();
+    }
 }

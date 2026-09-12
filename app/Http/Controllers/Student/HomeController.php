@@ -13,19 +13,27 @@ class HomeController extends Controller
     public function __invoke(StudentPortalService $portal): View
     {
         $user = request()->user()->loadMissing(['yearLevel', 'teams.schoolYear']);
-        $currentEvent = $portal->currentEvent($user);
+        $events = $portal->eligibleEvents($user, true);
+        $currentEvent = $events
+            ->sortBy(fn (Event $event) => $event->start_at->isPast() ? 0 : $event->start_at->timestamp)
+            ->first();
+        $eligibleEventIds = $events->pluck('id');
 
         return view('student.home', [
             'user' => $user,
             'currentEvent' => $currentEvent,
             'leaderboard' => $portal->leaderboard($currentEvent)->take(4),
-            'events' => $portal->eligibleEvents($user, true),
+            'events' => $events,
             'featuredEvents' => Event::query()
                 ->with(['type', 'status'])
                 ->featuredForCarousel()
                 ->limit(6)
                 ->get(),
             'posts' => Post::approved()
+                ->where(fn ($query) => $query
+                    ->where('is_official', false)
+                    ->orWhereNull('event_id')
+                    ->orWhereIn('event_id', $eligibleEventIds))
                 ->with([
                     'author.teams',
                     'event',

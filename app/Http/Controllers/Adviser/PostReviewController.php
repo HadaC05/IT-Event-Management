@@ -16,7 +16,10 @@ class PostReviewController extends Controller
 {
     public function index(): View
     {
-        return view('adviser.posts.index', ['posts' => Post::with(['author', 'event', 'reviewer'])->latest()->paginate(15), 'pendingCount' => Post::where('status', 'pending')->count()]);
+        return view('adviser.posts.index', [
+            'posts' => Post::community()->with(['author', 'event', 'reviewer'])->latest()->paginate(15),
+            'pendingCount' => Post::community()->where('status', 'pending')->count(),
+        ]);
     }
 
     public function update(Request $request, Post $post): RedirectResponse

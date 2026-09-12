@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Adviser\AttendanceManagementController;
+use App\Http\Controllers\Adviser\AnnouncementController;
 use App\Http\Controllers\Adviser\EventAssignmentController;
 use App\Http\Controllers\Adviser\EventManagementController;
 use App\Http\Controllers\Adviser\LeaderboardController as AdviserLeaderboardController;
@@ -106,6 +107,12 @@ Route::middleware('auth')->group(function () {
             Route::put('/scores/{event}/categories/{scoreCategory}', [ScoreManagementController::class, 'updateCategory'])->name('scores.categories.update');
             Route::delete('/scores/{event}/categories/{scoreCategory}', [ScoreManagementController::class, 'destroyCategory'])->name('scores.categories.destroy');
             Route::get('/leaderboard', AdviserLeaderboardController::class)->name('leaderboard.index');
+            Route::get('/announcements', [AnnouncementController::class, 'index'])->name('announcements.index');
+            Route::post('/announcements', [AnnouncementController::class, 'store'])->name('announcements.store');
+            Route::put('/announcements/{announcement}', [AnnouncementController::class, 'update'])->name('announcements.update');
+            Route::patch('/announcements/{announcement}/status', [AnnouncementController::class, 'updateStatus'])->name('announcements.status');
+            Route::delete('/announcements/{announcement}', [AnnouncementController::class, 'destroy'])->name('announcements.destroy');
+            Route::post('/announcements/{announcement}/restore', [AnnouncementController::class, 'restore'])->name('announcements.restore');
             Route::get('/posts', [PostReviewController::class, 'index'])->name('posts.index');
             Route::patch('/posts/{post}/review', [PostReviewController::class, 'update'])->name('posts.review');
         });
