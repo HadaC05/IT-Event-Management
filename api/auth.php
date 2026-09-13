@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-require_once __DIR__.'/Database.php';
+require_once __DIR__.'/db_connect.php';
 require_once __DIR__.'/ApiSupport.php';
 
 final class UserRepository
@@ -94,9 +94,11 @@ final class AuthController
             SessionManager::rememberCurrentSession();
         }
 
-        $redirectUrl = $account['role'] === 'SBO Adviser'
-            ? 'pages/adviser/dashboard.html'
-            : 'pages/dashboard.html';
+        $redirectUrl = match ($account['role']) {
+            'SBO Adviser' => 'pages/adviser/dashboard.html',
+            'Student' => 'pages/student/home.html',
+            default => 'pages/dashboard.html',
+        };
 
         return [
             'user' => $account,

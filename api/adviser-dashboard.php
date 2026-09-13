@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-require_once __DIR__.'/Database.php';
+require_once __DIR__.'/db_connect.php';
 require_once __DIR__.'/ApiSupport.php';
 
 final class AdviserDashboardRepository
@@ -23,7 +23,7 @@ final class AdviserDashboardRepository
                 'faculty' => $this->roleCount('Faculty'),
                 'sbo' => $this->rolesCount(['SBO', 'SBO Officer']),
                 'students_present' => $this->todayPresentStudents(),
-                'upcoming_events' => $this->scalar("SELECT COUNT(*) FROM events WHERE deleted_at IS NULL AND datetime(start_at) > datetime('now', 'localtime')"),
+                'upcoming_events' => $this->scalar('SELECT COUNT(*) FROM events WHERE deleted_at IS NULL AND start_at > CURRENT_TIMESTAMP'),
                 'points_awarded' => (float) $this->database->query('SELECT COALESCE(SUM(points), 0) FROM scores')->fetchColumn(),
                 'ranked_teams' => $this->scalar('SELECT COUNT(DISTINCT teams.id) FROM teams JOIN scores ON scores.team_id = teams.id WHERE teams.is_active = 1'),
                 'attendance_rate' => $attendance['rate'],
@@ -43,8 +43,8 @@ final class AdviserDashboardRepository
             "SELECT attendance.status, COUNT(*) AS total
              FROM attendances AS attendance
              LEFT JOIN events ON events.id = attendance.event_id
-             WHERE date(attendance.attendance_date) = date('now', 'localtime')
-                OR (attendance.attendance_date IS NULL AND date(events.start_at) = date('now', 'localtime'))
+             WHERE DATE(attendance.attendance_date) = CURRENT_DATE
+                OR (attendance.attendance_date IS NULL AND DATE(events.start_at) = CURRENT_DATE)
              GROUP BY attendance.status"
         );
         $counts = ['present' => 0, 'late' => 0, 'absent' => 0, 'excused' => 0];
@@ -66,8 +66,8 @@ final class AdviserDashboardRepository
              FROM attendances AS attendance
              LEFT JOIN events ON events.id = attendance.event_id
              WHERE attendance.status = 'present'
-               AND (date(attendance.attendance_date) = date('now', 'localtime')
-                    OR (attendance.attendance_date IS NULL AND date(events.start_at) = date('now', 'localtime')))"
+               AND (DATE(attendance.attendance_date) = CURRENT_DATE
+                    OR (attendance.attendance_date IS NULL AND DATE(events.start_at) = CURRENT_DATE))"
         );
     }
 
@@ -79,10 +79,10 @@ final class AdviserDashboardRepository
              FROM events
              LEFT JOIN event_user ON event_user.event_id = events.id
              WHERE events.deleted_at IS NULL
-               AND datetime(events.start_at) <= datetime('now', 'localtime', 'start of day', '+1 day', '-1 second')
-               AND datetime(events.end_at) >= datetime('now', 'localtime', 'start of day')
+               AND events.start_at < CURRENT_DATE + INTERVAL 1 DAY
+               AND events.end_at >= CURRENT_DATE
              GROUP BY events.id
-             ORDER BY datetime(events.start_at)"
+             ORDER BY events.start_at"
         )->fetchAll();
     }
 
@@ -91,8 +91,8 @@ final class AdviserDashboardRepository
         return $this->database->query(
             "SELECT id, title, start_at, end_at, location
              FROM events
-             WHERE deleted_at IS NULL AND datetime(start_at) > datetime('now', 'localtime')
-             ORDER BY datetime(start_at)
+             WHERE deleted_at IS NULL AND start_at > CURRENT_TIMESTAMP
+             ORDER BY start_at
              LIMIT 3"
         )->fetchAll();
     }
@@ -102,11 +102,11 @@ final class AdviserDashboardRepository
         return $this->database->query(
             "SELECT attendance.id, attendance.status, attendance.checked_in_at, attendance.updated_at,
                     events.title AS event_title,
-                    TRIM(COALESCE(users.first_name, '') || ' ' || COALESCE(users.middle_name || ' ', '') || COALESCE(users.last_name, '')) AS student_name
+                    TRIM(CONCAT_WS(' ', users.first_name, NULLIF(users.middle_name, ''), users.last_name)) AS student_name
              FROM attendances AS attendance
              JOIN users ON users.id = attendance.user_id
              JOIN events ON events.id = attendance.event_id
-             ORDER BY datetime(COALESCE(attendance.checked_in_at, attendance.updated_at)) DESC
+             ORDER BY COALESCE(attendance.checked_in_at, attendance.updated_at) DESC
              LIMIT 6"
         )->fetchAll();
     }
@@ -136,8 +136,8 @@ final class AdviserDashboardRepository
         $statement = $this->database->query(
             "SELECT id, title, start_at
              FROM events
-             WHERE deleted_at IS NULL AND date(start_at) = date('now', 'localtime', '+1 day')
-             ORDER BY datetime(start_at)
+             WHERE deleted_at IS NULL AND DATE(start_at) = CURRENT_DATE + INTERVAL 1 DAY
+             ORDER BY start_at
              LIMIT 1"
         );
         return $statement->fetch() ?: null;

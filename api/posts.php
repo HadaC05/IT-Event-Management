@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-require_once __DIR__.'/Database.php';
+require_once __DIR__.'/db_connect.php';
 require_once __DIR__.'/ApiSupport.php';
 
 final class PostReviewValidationException extends RuntimeException
@@ -36,7 +36,7 @@ final class PostReviewRepository
              LEFT JOIN users a ON a.id=p.user_id
              LEFT JOIN users r ON r.id=p.reviewed_by
              WHERE p.is_official=0 AND p.deleted_at IS NULL
-             ORDER BY datetime(p.created_at) DESC,p.id DESC LIMIT ? OFFSET ?"
+             ORDER BY p.created_at DESC,p.id DESC LIMIT ? OFFSET ?"
         );
         $statement->bindValue(1, self::PAGE_SIZE, PDO::PARAM_INT);
         $statement->bindValue(2, ($page - 1) * self::PAGE_SIZE, PDO::PARAM_INT);
@@ -72,15 +72,15 @@ final class PostReviewRepository
         $this->db->beginTransaction();
         try {
             $reviewedAt = date('Y-m-d H:i:s');
-            $update = $this->db->prepare('UPDATE posts SET status=?,rejection_reason=?,reviewed_by=?,reviewed_at=?,updated_at=datetime(\'now\') WHERE id=? AND status=\'pending\'');
+            $update = $this->db->prepare('UPDATE posts SET status=?,rejection_reason=?,reviewed_by=?,reviewed_at=?,updated_at=CURRENT_TIMESTAMP WHERE id=? AND status=\'pending\'');
             $update->execute([$status, $status === 'rejected' ? $reason : null, $actorId, $reviewedAt, $id]);
             if ($update->rowCount() !== 1) throw new PostReviewValidationException(['post' => ['This post has already been reviewed.']]);
 
-            $audit = $this->db->prepare("INSERT INTO post_audits(post_id,actor_id,action,from_status,to_status,notes,created_at,updated_at) VALUES(?,?,?,'pending',?,?,datetime('now'),datetime('now'))");
+            $audit = $this->db->prepare("INSERT INTO post_audits(post_id,actor_id,action,from_status,to_status,notes,created_at,updated_at) VALUES(?,?,?,'pending',?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)");
             $audit->execute([$id, $actorId, $status, $status, $status === 'rejected' ? $reason : null]);
-            $activity = $this->db->prepare("INSERT INTO activity_logs(actor_id,event_id,action,acting_role,description,created_at,updated_at) VALUES(?,?,?,'SBO Adviser',?,datetime('now'),datetime('now'))");
+            $activity = $this->db->prepare("INSERT INTO activity_logs(actor_id,event_id,action,acting_role,description,created_at,updated_at) VALUES(?,?,?,'SBO Adviser',?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)");
             $activity->execute([$actorId, $post['event_id'], 'post_'.$status, "Post #$id was $status."]);
-            $notification = $this->db->prepare("INSERT INTO notifications(id,type,notifiable_type,notifiable_id,data,created_at,updated_at) VALUES(?,?,?,?,?,datetime('now'),datetime('now'))");
+            $notification = $this->db->prepare('INSERT INTO notifications(id,type,notifiable_type,notifiable_id,data,created_at,updated_at) VALUES(?,?,?,?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)');
             $notification->execute([
                 $this->uuid(), 'App\\Notifications\\PostReviewed', 'App\\Models\\User', (int) $post['user_id'],
                 json_encode(['post_id' => $id, 'status' => $status, 'reason' => $status === 'rejected' ? $reason : null, 'message' => 'Your post was '.$status.'.'], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR),

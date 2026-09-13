@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-require_once __DIR__.'/Database.php';
+require_once __DIR__.'/db_connect.php';
 require_once __DIR__.'/ApiSupport.php';
 
 final class ScoreManagementRepository
@@ -20,7 +20,7 @@ final class ScoreManagementRepository
         if ($timing !== '' && !in_array($timing, ['upcoming', 'ongoing', 'completed'], true)) throw new InvalidArgumentException('Invalid timing filter.');
 
         $where = ['e.deleted_at IS NULL']; $params = [];
-        if ($search !== '') {$where[] = "(e.title LIKE :search ESCAPE '\\' OR e.location LIKE :search ESCAPE '\\')"; $params['search'] = '%'.addcslashes($search, '%_\\').'%';}
+        if ($search !== '') {$where[] = "(e.title LIKE :search ESCAPE '\\\\' OR e.location LIKE :search ESCAPE '\\\\')"; $params['search'] = '%'.addcslashes($search, '%_\\').'%';}
         $now = (new DateTimeImmutable('now', new DateTimeZone('Asia/Manila')))->format('Y-m-d H:i:s');
         if ($timing === 'upcoming') {$where[] = 'e.start_at > :now'; $params['now'] = $now;}
         if ($timing === 'ongoing') {$where[] = 'e.start_at <= :now AND e.end_at >= :now'; $params['now'] = $now;}
@@ -42,7 +42,7 @@ final class ScoreManagementRepository
         $summary = $this->db->query("SELECT
             (SELECT COUNT(*) FROM events WHERE deleted_at IS NULL) events,
             (SELECT COUNT(DISTINCT event_id) FROM score_categories) configured,
-            (SELECT COUNT(*) FROM (SELECT DISTINCT event_id,team_id FROM scores WHERE score_category_id IS NOT NULL)) results,
+            (SELECT COUNT(*) FROM (SELECT DISTINCT event_id,team_id FROM scores WHERE score_category_id IS NOT NULL) AS scored_pairs) AS results,
             COALESCE((SELECT SUM(points) FROM scores),0) points")->fetch();
         foreach (['events','configured','results'] as $key) $summary[$key] = (int)$summary[$key]; $summary['points'] = (float)$summary['points'];
         return ['events'=>$events,'summary'=>$summary,'pagination'=>['current_page'=>$page,'last_page'=>$lastPage,'total'=>$total,'from'=>$total?($page-1)*self::PAGE_SIZE+1:null,'to'=>$total?min($page*self::PAGE_SIZE,$total):null]];
@@ -69,7 +69,7 @@ final class ScoreManagementRepository
     {
         $event=$this->event($eventId);[$name,$maximum]=$this->validateCategory($eventId,$input);
         $order=(int)$this->scalar('SELECT COALESCE(MAX(sort_order),0)+1 FROM score_categories WHERE event_id=?',[$eventId]);
-        $statement=$this->db->prepare("INSERT INTO score_categories(event_id,name,max_points,sort_order,created_at,updated_at) VALUES(?,?,?,?,datetime('now'),datetime('now'))");$statement->execute([$eventId,$name,$maximum,$order]);
+        $statement=$this->db->prepare('INSERT INTO score_categories(event_id,name,max_points,sort_order,created_at,updated_at) VALUES(?,?,?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)');$statement->execute([$eventId,$name,$maximum,$order]);
         $this->log($actorId,$eventId,'score_category_created',"A scoring category was added to {$event['title']}.");
         return ['id'=>(int)$this->db->lastInsertId(),'message'=>'Scoring category added.'];
     }
@@ -79,7 +79,7 @@ final class ScoreManagementRepository
         $event=$this->event($eventId);$category=$this->category($eventId,$categoryId);[$name,$maximum]=$this->validateCategory($eventId,$input,$categoryId);
         $highest=(float)$this->scalar('SELECT COALESCE(MAX(points),0) FROM scores WHERE score_category_id=?',[$categoryId]);
         if($maximum<$highest)throw new InvalidArgumentException("Maximum points cannot be lower than the existing score of {$this->format($highest)}.");
-        $statement=$this->db->prepare("UPDATE score_categories SET name=?,max_points=?,updated_at=datetime('now') WHERE id=?");$statement->execute([$name,$maximum,$categoryId]);
+        $statement=$this->db->prepare('UPDATE score_categories SET name=?,max_points=?,updated_at=CURRENT_TIMESTAMP WHERE id=?');$statement->execute([$name,$maximum,$categoryId]);
         $this->log($actorId,$eventId,'score_category_updated',"The $name scoring category was updated for {$event['title']}.");return 'Scoring category updated.';
     }
 
@@ -95,13 +95,13 @@ final class ScoreManagementRepository
         $categoryRows=$this->rows('SELECT id,max_points FROM score_categories WHERE event_id=?',[$eventId]);$categories=[];foreach($categoryRows as $row)$categories[(int)$row['id']] = (float)$row['max_points'];
         $allowed=array_map('intval',$this->column('SELECT id FROM teams WHERE is_active=1 OR EXISTS(SELECT 1 FROM scores WHERE scores.team_id=teams.id AND scores.event_id=?)',[$eventId]));
         foreach($submitted as $categoryId=>$teamScores){$categoryId=(int)$categoryId;if(!$categoryId||!isset($categories[$categoryId]))throw new InvalidArgumentException("Scores can only be recorded in this event's categories.");if(!is_array($teamScores))throw new InvalidArgumentException('Each scoring category must contain tribe scores.');foreach($teamScores as $teamId=>$points){$teamId=(int)$teamId;if(!$teamId||!in_array($teamId,$allowed,true))throw new InvalidArgumentException('Scores can only be recorded for available tribes.');if($points===''||$points===null)continue;if(!is_numeric($points)||!preg_match('/^\d+(?:\.\d{1,2})?$/',(string)$points)||(float)$points<0||(float)$points>1000000)throw new InvalidArgumentException('Scores must be numbers with up to two decimal places.');if((float)$points>$categories[$categoryId])throw new InvalidArgumentException("The score may not exceed {$this->format($categories[$categoryId])} points.");}}
-        $changed=0;$this->db->beginTransaction();try{$find=$this->db->prepare('SELECT id,points FROM scores WHERE event_id=? AND team_id=? AND score_category_id=?');$delete=$this->db->prepare('DELETE FROM scores WHERE id=?');$insert=$this->db->prepare("INSERT INTO scores(event_id,team_id,score_category_id,points,recorded_by,created_at,updated_at) VALUES(?,?,?,?,?,datetime('now'),datetime('now'))");$update=$this->db->prepare("UPDATE scores SET points=?,recorded_by=?,updated_at=datetime('now') WHERE id=?");foreach($submitted as $categoryId=>$teamScores)foreach($teamScores as $teamId=>$points){$find->execute([$eventId,(int)$teamId,(int)$categoryId]);$current=$find->fetch();if($points===''||$points===null){if($current){$delete->execute([$current['id']]);$changed++;}continue;}if(!$current){$insert->execute([$eventId,(int)$teamId,(int)$categoryId,(float)$points,$actorId]);$changed++;}elseif(abs((float)$current['points']-(float)$points)>0.00001){$update->execute([(float)$points,$actorId,$current['id']]);$changed++;}}if($changed)$this->log($actorId,$eventId,'scores_updated',"Scores for {$event['title']} were updated ($changed entries changed).");$this->db->commit();return $changed;}catch(Throwable $e){$this->db->rollBack();throw $e;}
+        $changed=0;$this->db->beginTransaction();try{$find=$this->db->prepare('SELECT id,points FROM scores WHERE event_id=? AND team_id=? AND score_category_id=?');$delete=$this->db->prepare('DELETE FROM scores WHERE id=?');$insert=$this->db->prepare('INSERT INTO scores(event_id,team_id,score_category_id,points,recorded_by,created_at,updated_at) VALUES(?,?,?,?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)');$update=$this->db->prepare('UPDATE scores SET points=?,recorded_by=?,updated_at=CURRENT_TIMESTAMP WHERE id=?');foreach($submitted as $categoryId=>$teamScores)foreach($teamScores as $teamId=>$points){$find->execute([$eventId,(int)$teamId,(int)$categoryId]);$current=$find->fetch();if($points===''||$points===null){if($current){$delete->execute([$current['id']]);$changed++;}continue;}if(!$current){$insert->execute([$eventId,(int)$teamId,(int)$categoryId,(float)$points,$actorId]);$changed++;}elseif(abs((float)$current['points']-(float)$points)>0.00001){$update->execute([(float)$points,$actorId,$current['id']]);$changed++;}}if($changed)$this->log($actorId,$eventId,'scores_updated',"Scores for {$event['title']} were updated ($changed entries changed).");$this->db->commit();return $changed;}catch(Throwable $e){$this->db->rollBack();throw $e;}
     }
 
     private function validateCategory(int $eventId,array $input,?int $ignore=null):array{$name=trim((string)($input['name']??''));$maximum=$input['max_points']??null;if($name===''||mb_strlen($name)>80)throw new InvalidArgumentException('Criterion name is required and may not exceed 80 characters.');if(!is_numeric($maximum)||!preg_match('/^\d+(?:\.\d{1,2})?$/',(string)$maximum)||(float)$maximum<=0||(float)$maximum>1000000)throw new InvalidArgumentException('Maximum points must be greater than zero and use up to two decimal places.');$sql='SELECT COUNT(*) FROM score_categories WHERE event_id=? AND lower(name)=lower(?)';$params=[$eventId,$name];if($ignore){$sql.=' AND id<>?';$params[]=$ignore;}if((int)$this->scalar($sql,$params))throw new InvalidArgumentException('That criterion name is already used for this event.');return[$name,(float)$maximum];}
     private function event(int $id):array{$rows=$this->rows('SELECT id,title,location,start_at,end_at FROM events WHERE id=? AND deleted_at IS NULL',[$id]);if(!$rows)throw new InvalidArgumentException('Event not found.');$event=$rows[0];$event['id']=(int)$event['id'];$now=(new DateTimeImmutable('now',new DateTimeZone('Asia/Manila')))->format('Y-m-d H:i:s');$event['schedule_state']=$this->scheduleState($event,$now);return $event;}
     private function category(int $eventId,int $id):array{$rows=$this->rows('SELECT * FROM score_categories WHERE id=? AND event_id=?',[$id,$eventId]);if(!$rows)throw new InvalidArgumentException('Scoring category not found.');return$rows[0];}
-    private function log(int $actor,int $event,string $action,string $description):void{$this->db->prepare("INSERT INTO activity_logs(actor_id,event_id,action,description,created_at,updated_at) VALUES(?,?,?,?,datetime('now'),datetime('now'))")->execute([$actor,$event,$action,$description]);}
+    private function log(int $actor,int $event,string $action,string $description):void{$this->db->prepare('INSERT INTO activity_logs(actor_id,event_id,action,description,created_at,updated_at) VALUES(?,?,?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)')->execute([$actor,$event,$action,$description]);}
     private function rows(string $sql,array $params=[]):array{$s=$this->db->prepare($sql);$s->execute($params);return$s->fetchAll();}
     private function column(string $sql,array $params=[]):array{$s=$this->db->prepare($sql);$s->execute($params);return$s->fetchAll(PDO::FETCH_COLUMN);}
     private function scalar(string $sql,array $params=[]):mixed{$s=$this->db->prepare($sql);$s->execute($params);return$s->fetchColumn();}

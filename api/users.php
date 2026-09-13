@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-require_once __DIR__.'/Database.php';
+require_once __DIR__.'/db_connect.php';
 require_once __DIR__.'/ApiSupport.php';
 
 final class UserManagementRepository
@@ -26,7 +26,7 @@ final class UserManagementRepository
             throw new InvalidArgumentException('Search may not exceed 100 characters.');
         }
         if ($search !== '') {
-            $where[] = '(u.first_name LIKE :q ESCAPE \'\\\' OR u.middle_name LIKE :q ESCAPE \'\\\' OR u.last_name LIKE :q ESCAPE \'\\\' OR u.email LIKE :q ESCAPE \'\\\' OR u.username LIKE :q ESCAPE \'\\\' OR u.id_number LIKE :q ESCAPE \'\\\')';
+            $where[] = '(u.first_name LIKE :q ESCAPE \'\\\\\' OR u.middle_name LIKE :q ESCAPE \'\\\\\' OR u.last_name LIKE :q ESCAPE \'\\\\\' OR u.email LIKE :q ESCAPE \'\\\\\' OR u.username LIKE :q ESCAPE \'\\\\\' OR u.id_number LIKE :q ESCAPE \'\\\\\')';
             $params['q'] = '%'.addcslashes($search, '%_\\').'%';
         }
         if ($role !== '') {
@@ -182,7 +182,7 @@ final class UserManagementRepository
                     $set[] = 'password = :password';
                 }
                 $values['id'] = $id;
-                $statement = $this->db->prepare('UPDATE users SET '.implode(', ', $set).", updated_at = datetime('now') WHERE id = :id");
+                $statement = $this->db->prepare('UPDATE users SET '.implode(', ', $set).', updated_at = CURRENT_TIMESTAMP WHERE id = :id');
                 $statement->execute($values);
                 if ($role === 'Student') {
                     $statement = $this->db->prepare('DELETE FROM event_user WHERE user_id = ?');
@@ -193,7 +193,7 @@ final class UserManagementRepository
                 $values['status'] = $this->value("SELECT id FROM user_statuses WHERE label = 'active'");
                 $statement = $this->db->prepare("INSERT INTO users
                     (first_name, middle_name, last_name, id_number, username, email, password, role_id, year_level, status, created_at, updated_at)
-                    VALUES (:first_name, :middle_name, :last_name, :id_number, :username, :email, :password, :role_id, :year_level, :status, datetime('now'), datetime('now'))");
+                    VALUES (:first_name, :middle_name, :last_name, :id_number, :username, :email, :password, :role_id, :year_level, :status, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)");
                 $statement->execute($values);
                 $id = (int) $this->db->lastInsertId();
                 $fullName = trim(implode(' ', array_filter([$values['first_name'], $values['middle_name'], $values['last_name']])));
@@ -212,7 +212,7 @@ final class UserManagementRepository
         $user = $this->requireManageableUser($id);
         $next = $user['status'] === 'active' ? 'inactive' : 'active';
         $statement = $this->db->prepare("UPDATE users
-            SET status = (SELECT id FROM user_statuses WHERE label = :status), updated_at = datetime('now')
+            SET status = (SELECT id FROM user_statuses WHERE label = :status), updated_at = CURRENT_TIMESTAMP
             WHERE id = :id");
         $statement->execute(['status' => $next, 'id' => $id]);
         $verb = $next === 'active' ? 'activated' : 'deactivated';
@@ -233,7 +233,7 @@ final class UserManagementRepository
         }
         $this->db->beginTransaction();
         try {
-            $statement = $this->db->prepare("INSERT INTO event_user (user_id, event_id, created_at, updated_at) VALUES (?, ?, datetime('now'), datetime('now'))");
+            $statement = $this->db->prepare('INSERT INTO event_user (user_id, event_id, created_at, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)');
             $statement->execute([$userId, $eventId]);
             $this->log($actorId, $userId, 'event_assigned', $user['full_name'].' was assigned to '.$event['title'].'.', $eventId);
             $this->db->commit();
@@ -265,7 +265,7 @@ final class UserManagementRepository
     private function requireManageableUser(int $id): array
     {
         $statement = $this->db->prepare("SELECT u.id, r.name AS role, s.label AS status,
-                trim(u.first_name || ' ' || coalesce(u.middle_name || ' ', '') || u.last_name) AS full_name
+                TRIM(CONCAT_WS(' ', u.first_name, NULLIF(u.middle_name, ''), u.last_name)) AS full_name
             FROM users u
             LEFT JOIN roles r ON r.id = u.role_id
             LEFT JOIN user_statuses s ON s.id = u.status
@@ -306,7 +306,7 @@ final class UserManagementRepository
     {
         $statement = $this->db->prepare("INSERT INTO activity_logs
             (actor_id, subject_user_id, event_id, action, description, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, datetime('now'), datetime('now'))");
+            VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)");
         $statement->execute([$actorId, $subjectId, $eventId, $action, $description]);
     }
 

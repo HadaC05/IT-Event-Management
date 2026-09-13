@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-require_once __DIR__.'/Database.php';
+require_once __DIR__.'/db_connect.php';
 require_once __DIR__.'/ApiSupport.php';
 
 final class TeamManagementRepository
@@ -23,7 +23,7 @@ final class TeamManagementRepository
 
         $where=[]; $params=[];
         if ($search !== '') {
-            $where[]="(t.name LIKE :q ESCAPE '\\' OR EXISTS(SELECT 1 FROM team_user tu2 JOIN users u2 ON u2.id=tu2.user_id WHERE tu2.team_id=t.id AND (u2.first_name LIKE :q ESCAPE '\\' OR u2.last_name LIKE :q ESCAPE '\\')))";
+            $where[]="(t.name LIKE :q ESCAPE '\\\\' OR EXISTS(SELECT 1 FROM team_user tu2 JOIN users u2 ON u2.id=tu2.user_id WHERE tu2.team_id=t.id AND (u2.first_name LIKE :q ESCAPE '\\\\' OR u2.last_name LIKE :q ESCAPE '\\\\')))";
             $params['q']='%'.addcslashes($search, '%_\\').'%';
         }
         if ($status !== '') {$where[]='t.is_active=:active';$params['active']=$status==='active'?1:0;}
@@ -57,27 +57,27 @@ final class TeamManagementRepository
         $members=array_values(array_unique(array_map('intval',(array)($data['member_ids']??[]))));
         if($members)$this->validateMembers($members,$year,$id);
         $this->db->beginTransaction();try{
-            if($id){if(!$this->value('SELECT id FROM teams WHERE id=?',[$id]))throw new InvalidArgumentException('Tribe not found.');$st=$this->db->prepare("UPDATE teams SET name=?,school_year_id=?,color=?,updated_at=datetime('now') WHERE id=?");$st->execute([$name,$year,$color,$id]);$this->db->prepare('DELETE FROM team_user WHERE team_id=?')->execute([$id]);$attach=$this->db->prepare("INSERT INTO team_user(team_id,user_id,created_at,updated_at) VALUES(?,?,datetime('now'),datetime('now'))");foreach($members as $member)$attach->execute([$id,$member]);$action='team_updated';$description="$name was updated with ".count($members).' members.';
-            }else{$st=$this->db->prepare("INSERT INTO teams(school_year_id,name,color,is_active,created_at,updated_at) VALUES(?,?,?,1,datetime('now'),datetime('now'))");$st->execute([$year,$name,$color]);$id=(int)$this->db->lastInsertId();$action='team_created';$description="$name was created without assigned members.";}
+            if($id){if(!$this->value('SELECT id FROM teams WHERE id=?',[$id]))throw new InvalidArgumentException('Tribe not found.');$st=$this->db->prepare('UPDATE teams SET name=?,school_year_id=?,color=?,updated_at=CURRENT_TIMESTAMP WHERE id=?');$st->execute([$name,$year,$color,$id]);$this->db->prepare('DELETE FROM team_user WHERE team_id=?')->execute([$id]);$attach=$this->db->prepare('INSERT INTO team_user(team_id,user_id,created_at,updated_at) VALUES(?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)');foreach($members as $member)$attach->execute([$id,$member]);$action='team_updated';$description="$name was updated with ".count($members).' members.';
+            }else{$st=$this->db->prepare('INSERT INTO teams(school_year_id,name,color,is_active,created_at,updated_at) VALUES(?,?,?,1,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)');$st->execute([$year,$name,$color]);$id=(int)$this->db->lastInsertId();$action='team_created';$description="$name was created without assigned members.";}
             $this->log($actorId,$action,$description);$this->db->commit();return $id;
         }catch(Throwable $e){$this->db->rollBack();throw $e;}
     }
 
     public function toggle(int $id,int $actorId): void
-    {$team=$this->team($id);$active=!$team['is_active'];$this->db->prepare("UPDATE teams SET is_active=?,updated_at=datetime('now') WHERE id=?")->execute([$active?1:0,$id]);$this->log($actorId,'team_status_changed',$team['name'].' was '.($active?'activated':'deactivated').'.');}
+    {$team=$this->team($id);$active=!$team['is_active'];$this->db->prepare('UPDATE teams SET is_active=?,updated_at=CURRENT_TIMESTAMP WHERE id=?')->execute([$active?1:0,$id]);$this->log($actorId,'team_status_changed',$team['name'].' was '.($active?'activated':'deactivated').'.');}
 
     public function randomize(int $year,int $actorId): array
     {
         $sy=$this->db->prepare('SELECT * FROM school_years WHERE id=?');$sy->execute([$year]);$sy=$sy->fetch();if(!$sy)throw new InvalidArgumentException('Select a valid school year.');if($sy['teams_randomized_at'])throw new InvalidArgumentException("Students for SY {$sy['label']} have already been randomized and cannot be randomized again.");
         $teams=$this->db->prepare('SELECT id FROM teams WHERE school_year_id=? AND is_active=1 ORDER BY id');$teams->execute([$year]);$teamIds=array_column($teams->fetchAll(),'id');if(count($teamIds)<2)throw new InvalidArgumentException('Create at least two active tribes for this school year before randomizing students.');
         $students=$this->db->query("SELECT u.id FROM users u JOIN roles r ON r.id=u.role_id JOIN user_statuses s ON s.id=u.status WHERE r.name='Student' AND s.label='active'")->fetchAll(PDO::FETCH_COLUMN);if(!$students)throw new InvalidArgumentException('There are no active students to distribute.');shuffle($students);
-        $this->db->beginTransaction();try{$all=$this->db->prepare('DELETE FROM team_user WHERE team_id IN (SELECT id FROM teams WHERE school_year_id=?) AND user_id=?');foreach($students as $student)$all->execute([$year,$student]);$insert=$this->db->prepare("INSERT INTO team_user(team_id,user_id,created_at,updated_at) VALUES(?,?,datetime('now'),datetime('now'))");foreach($students as $i=>$student)$insert->execute([$teamIds[$i%count($teamIds)],$student]);$this->db->prepare("UPDATE school_years SET teams_randomized_at=datetime('now'),updated_at=datetime('now') WHERE id=?")->execute([$year]);$this->log($actorId,'team_members_randomized',count($students).' active students were distributed across '.count($teamIds)." tribes for SY {$sy['label']}.");$this->db->commit();return ['students'=>count($students),'teams'=>count($teamIds),'school_year'=>$sy['label']];}catch(Throwable $e){$this->db->rollBack();throw $e;}
+        $this->db->beginTransaction();try{$all=$this->db->prepare('DELETE FROM team_user WHERE team_id IN (SELECT id FROM teams WHERE school_year_id=?) AND user_id=?');foreach($students as $student)$all->execute([$year,$student]);$insert=$this->db->prepare('INSERT INTO team_user(team_id,user_id,created_at,updated_at) VALUES(?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)');foreach($students as $i=>$student)$insert->execute([$teamIds[$i%count($teamIds)],$student]);$this->db->prepare('UPDATE school_years SET teams_randomized_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP WHERE id=?')->execute([$year]);$this->log($actorId,'team_members_randomized',count($students).' active students were distributed across '.count($teamIds)." tribes for SY {$sy['label']}.");$this->db->commit();return ['students'=>count($students),'teams'=>count($teamIds),'school_year'=>$sy['label']];}catch(Throwable $e){$this->db->rollBack();throw $e;}
     }
 
     private function validateMembers(array $ids,int $year,?int $teamId): void
     {$marks=implode(',',array_fill(0,count($ids),'?'));$st=$this->db->prepare("SELECT COUNT(*) FROM users u JOIN roles r ON r.id=u.role_id JOIN user_statuses s ON s.id=u.status WHERE u.id IN ($marks) AND r.name='Student' AND s.label='active'");$st->execute($ids);if((int)$st->fetchColumn()!==count($ids))throw new InvalidArgumentException('Only active student accounts can be assigned as tribe members.');$sql="SELECT 1 FROM team_user tu JOIN teams t ON t.id=tu.team_id WHERE tu.user_id IN ($marks) AND t.school_year_id=?".($teamId?' AND t.id<>?':'').' LIMIT 1';$st=$this->db->prepare($sql);$st->execute(array_merge($ids,[$year],$teamId?[$teamId]:[]));if($st->fetch())throw new InvalidArgumentException('A student can belong to only one tribe in the same school year.');}
     private function team(int $id): array{$st=$this->db->prepare('SELECT * FROM teams WHERE id=?');$st->execute([$id]);$row=$st->fetch();if(!$row)throw new InvalidArgumentException('Tribe not found.');return $row;}
-    private function log(int $actor,string $action,string $description):void{$this->db->prepare("INSERT INTO activity_logs(actor_id,action,description,created_at,updated_at) VALUES(?,?,?,datetime('now'),datetime('now'))")->execute([$actor,$action,$description]);}
+    private function log(int $actor,string $action,string $description):void{$this->db->prepare('INSERT INTO activity_logs(actor_id,action,description,created_at,updated_at) VALUES(?,?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)')->execute([$actor,$action,$description]);}
     private function value(string $sql,array $p=[]):mixed{$st=$this->db->prepare($sql);$st->execute($p);return $st->fetchColumn();}
     private function fullName(array $p):string{return trim(implode(' ',array_filter([$p['first_name'],$p['middle_name'],$p['last_name']])));}
 }

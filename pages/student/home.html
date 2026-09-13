@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <base href="/IT-Event-Management/">
+    <meta name="csrf-token" content="">
+    <title>Home | CITE Events</title>
+    <link rel="icon" type="image/png" href="assets/images/cite_favicon.png">
+    <link rel="stylesheet" href="css/tailwind.css">
+    <script src="js/vendor/axios.min.js" defer></script>
+    <script src="js/shared/interactions.js" defer></script>
+    <script src="js/student/home.js" defer></script>
+</head>
+<body class="student-shell app-shell min-h-screen bg-[#F7F4ED] font-sans text-[#121017] antialiased" data-student-shell>
+    <span
+        class="route-progress"
+        data-route-progress
+        data-active="false"
+        aria-hidden="true"
+    ></span>
+
+    <aside
+        class="fixed inset-y-0 left-0 z-50 hidden w-20 flex-col border-r border-[#397565]/35 bg-[#121017] text-[#F3F0E9] shadow-[8px_0_30px_rgba(18,16,23,.16)] transition-[width] duration-200 lg:flex"
+        data-student-sidebar
+        aria-label="Desktop student navigation"
+    >
+        <div
+            class="flex h-[68px] shrink-0 items-center gap-3 border-b border-white/10 px-3"
+            data-sidebar-header
+        >
+            <span
+                class="hidden flex-1 whitespace-nowrap text-center text-xs font-black uppercase tracking-[.12em] text-[#C6F24E]"
+                data-sidebar-label
+            >
+                Student Menu
+            </span>
+            <button
+                class="grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-[#C6F24E]/25 bg-[#C6F24E]/12 text-[#C6F24E] shadow-sm transition hover:bg-[#C6F24E]/20 focus-visible:ring-2 focus-visible:ring-[#C6F24E]"
+                type="button"
+                data-student-sidebar-toggle
+                aria-controls="student-desktop-nav"
+                aria-expanded="false"
+                aria-label="Expand navigation"
+            >
+                <svg class="h-6 w-6 fill-none stroke-current stroke-2" viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M4 6h16M4 12h16M4 18h16"></path>
+                </svg>
+            </button>
+        </div>
+
+        <nav class="grid gap-2 px-3 py-5" id="student-desktop-nav">
+            <a
+                class="group flex min-h-14 items-center gap-4 overflow-hidden rounded-2xl border border-[#C6F24E]/30 bg-[#397565]/55 px-3 text-sm font-black text-[#C6F24E] shadow-lg shadow-black/20 transition"
+                href="pages/student/home.html"
+                aria-current="page"
+                aria-label="Home"
+            >
+                <svg class="h-6 w-6 shrink-0 fill-none stroke-current stroke-[2.1]" viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M3 11.5 12 4l9 7.5V21h-6v-6H9v6H3v-9.5Z"></path>
+                </svg>
+                <span class="hidden whitespace-nowrap" data-sidebar-label>Home</span>
+            </a>
+
+            <a
+                class="group flex min-h-14 items-center gap-4 overflow-hidden rounded-2xl border border-white/5 bg-white/[.06] px-3 text-sm font-black text-[#F3F0E9]/75 transition hover:border-[#C6F24E]/20 hover:bg-white/[.1] hover:text-[#C6F24E]"
+                href="pages/student/events.html"
+                aria-label="Events"
+            >
+                <svg class="h-6 w-6 shrink-0 fill-none stroke-current stroke-[2.1]" viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M6 3v3m12-3v3M4 9h16M5 5h14a2 2 0 0 1 2 2v13H3V7a2 2 0 0 1 2-2Z"></path>
+                </svg>
+                <span class="hidden whitespace-nowrap" data-sidebar-label>Events</span>
+            </a>
+
+            <a
+                class="group flex min-h-14 items-center gap-4 overflow-hidden rounded-2xl border border-white/5 bg-white/[.06] px-3 text-sm font-black text-[#F3F0E9]/75 transition hover:border-[#C6F24E]/20 hover:bg-white/[.1] hover:text-[#C6F24E]"
+                href="pages/student/attendance.html"
+                aria-label="Attendance"
+            >
+                <svg class="h-6 w-6 shrink-0 fill-none stroke-current stroke-[2.1]" viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M5 4h14v16H5V4Zm3 4h8m-8 4 2 2 5-5m-7 9h8"></path>
+                </svg>
+                <span class="hidden whitespace-nowrap" data-sidebar-label>Attendance</span>
+            </a>
+
+            <a
+                class="group flex min-h-14 items-center gap-4 overflow-hidden rounded-2xl border border-white/5 bg-white/[.06] px-3 text-sm font-black text-[#F3F0E9]/75 transition hover:border-[#C6F24E]/20 hover:bg-white/[.1] hover:text-[#C6F24E]"
+                href="pages/student/team.html"
+                aria-label="Team"
+            >
+                <svg class="h-6 w-6 shrink-0 fill-none stroke-current stroke-[2.1]" viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M8 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm8-1a3 3 0 1 0 0-6M2 21v-2a5 5 0 0 1 5-5h2a5 5 0 0 1 5 5v2m1-7a5 5 0 0 1 7 4.6V21"></path>
+                </svg>
+                <span class="hidden whitespace-nowrap" data-sidebar-label>Team</span>
+            </a>
+
+            <a
+                class="group flex min-h-14 items-center gap-4 overflow-hidden rounded-2xl border border-white/5 bg-white/[.06] px-3 text-sm font-black text-[#F3F0E9]/75 transition hover:border-[#C6F24E]/20 hover:bg-white/[.1] hover:text-[#C6F24E]"
+                href="pages/student/leaderboard.html"
+                aria-label="Leaderboard"
+            >
+                <svg class="h-6 w-6 shrink-0 fill-none stroke-current stroke-[2.1]" viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M8 21h8m-4-4v4M7 4h10v4a5 5 0 0 1-10 0V4Zm0 2H4v1a4 4 0 0 0 4 4m9-5h3v1a4 4 0 0 1-4 4"></path>
+                </svg>
+                <span class="hidden whitespace-nowrap" data-sidebar-label>Leaderboard</span>
+            </a>
+        </nav>
+
+        <div
+            class="mx-3 mb-5 mt-auto hidden rounded-2xl border border-white/10 bg-white/[.06] p-3"
+            data-sidebar-user
+            data-sidebar-label
+        >
+            <span class="block text-[9px] font-black uppercase tracking-wider text-[#C6F24E]">Signed in as</span>
+            <strong class="mt-1 block truncate text-xs text-[#F3F0E9]" data-student-name>Student</strong>
+        </div>
+    </aside>
+
+    <header
+        class="sticky top-0 z-40 border-b border-[#121017]/8 bg-white/90 backdrop-blur-xl transition-[margin] duration-200 lg:ml-20"
+        data-student-sidebar-content
+    >
+        <nav class="flex h-[68px] w-full items-center pl-3 pr-2 sm:pl-4 sm:pr-3 lg:px-4" aria-label="Student header">
+            <a class="flex items-center gap-2.5 text-lg font-black tracking-tight" href="pages/student/home.html">
+                <img class="h-9 w-9 rounded-full object-contain" src="assets/images/cite-logo.png" alt="CITE logo">
+                <span>CITE<span class="text-[#397565]">.</span></span>
+            </a>
+
+            <details class="group relative ml-auto" data-notification-menu>
+                <summary
+                    class="relative grid h-11 w-11 cursor-pointer list-none place-items-center rounded-full bg-[#121017]/8 text-[#121017] transition hover:bg-[#397565]/15 hover:text-[#397565]"
+                    aria-label="Notifications"
+                >
+                    <svg class="h-5 w-5 fill-current" viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M12 22a2.5 2.5 0 0 0 2.35-1.65h-4.7A2.5 2.5 0 0 0 12 22Zm7-6.5-1.5-2V9a5.5 5.5 0 0 0-4.25-5.35V3a1.25 1.25 0 0 0-2.5 0v.65A5.5 5.5 0 0 0 6.5 9v4.5l-1.5 2V18h14v-2.5Z"></path>
+                    </svg>
+                    <span
+                        class="absolute -right-1 -top-1 hidden min-h-5 min-w-5 place-items-center rounded-full border-2 border-white bg-[#FF4D4F] px-1 text-[9px] font-black leading-none text-white"
+                        data-notification-count
+                    >0</span>
+                </summary>
+                <div class="absolute right-0 top-[calc(100%+.65rem)] w-[min(22rem,calc(100vw-2rem))] overflow-hidden rounded-2xl border border-[#121017]/10 bg-white shadow-[0_22px_60px_rgba(18,16,23,.18)]">
+                    <div class="flex items-center justify-between gap-3 border-b border-[#121017]/8 px-4 py-3">
+                        <div>
+                            <strong class="block text-sm font-black">Notifications</strong>
+                            <span class="text-[10px] text-[#121017]/45" data-notification-summary>No unread notifications</span>
+                        </div>
+                        <button
+                            class="hidden shrink-0 text-[10px] font-black text-[#397565] hover:underline"
+                            type="button"
+                            data-mark-all-notifications
+                        >Mark all as read</button>
+                    </div>
+                    <div class="max-h-80 overflow-y-auto" data-notification-list>
+                        <div class="px-6 py-10 text-center" data-notification-empty>
+                            <span class="mx-auto grid h-11 w-11 place-items-center rounded-full bg-[#121017]/7 text-[#121017]/45">
+                                <svg class="h-5 w-5 fill-current" viewBox="0 0 24 24" aria-hidden="true">
+                                    <path d="M12 22a2.5 2.5 0 0 0 2.35-1.65h-4.7A2.5 2.5 0 0 0 12 22Zm7-6.5-1.5-2V9a5.5 5.5 0 0 0-4.25-5.35V3a1.25 1.25 0 0 0-2.5 0v.65A5.5 5.5 0 0 0 6.5 9v4.5l-1.5 2V18h14v-2.5Z"></path>
+                                </svg>
+                            </span>
+                            <strong class="mt-3 block text-sm">No notifications yet</strong>
+                            <span class="mt-1 block text-[11px] text-[#121017]/45">Review updates will appear here.</span>
+                        </div>
+                    </div>
+                </div>
+            </details>
+
+            <details class="group relative ml-1" data-account-menu>
+                <summary class="flex min-h-11 cursor-pointer list-none items-center gap-1 rounded-full p-1 transition hover:bg-[#397565]/7">
+                    <span
+                        class="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[#C6F24E] text-xs font-black text-[#121017] ring-2 ring-[#397565]/10"
+                        data-student-initials
+                    >ST</span>
+                    <svg class="h-4 w-4 fill-none stroke-current stroke-2 transition group-open:rotate-180" viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="m7 10 5 5 5-5"></path>
+                    </svg>
+                </summary>
+                <div class="absolute right-0 top-[calc(100%+.6rem)] w-64 rounded-2xl border border-[#121017]/10 bg-white p-2 shadow-[0_22px_60px_rgba(18,16,23,.16)]">
+                    <div class="border-b border-[#121017]/7 px-3 py-3">
+                        <strong class="block truncate text-sm" data-student-name>Student</strong>
+                        <span class="block truncate text-xs text-[#121017]/45" data-student-email></span>
+                    </div>
+                    <button
+                        class="flex min-h-11 w-full items-center rounded-xl px-3 text-sm font-bold text-[#FF6B2C] hover:bg-[#FF6B2C]/8"
+                        type="button"
+                        data-logout
+                    >
+                        Logout
+                    </button>
+                </div>
+            </details>
+        </nav>
+    </header>
+
+    <main
+        class="w-auto px-4 pb-28 pt-6 transition-[margin] duration-200 sm:px-6 sm:pt-8 lg:ml-20 lg:pb-10 lg:pl-6 lg:pr-5"
+        data-page-content
+        data-student-sidebar-content
+    >
+        <div class="mx-auto grid w-full max-w-[994px] items-start gap-6 lg:grid-cols-[minmax(0,1fr)_300px] xl:grid-cols-[minmax(0,650px)_320px]">
+            <div class="min-w-0 space-y-5">
+                <section class="rounded-xl border border-[#121017]/8 bg-white p-5 shadow-[0_12px_35px_rgba(18,16,23,.05)]">
+                    <div class="flex gap-3">
+                        <span
+                            class="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-[#C6F24E] text-xs font-black text-[#121017] ring-2 ring-[#397565]/10"
+                            data-student-initials
+                        >ST</span>
+                        <div>
+                            <h1 class="text-lg font-black">Share with CITE</h1>
+                            <p class="text-xs text-[#121017]/45">Posts are reviewed by an SBO Adviser before everyone can see them.</p>
+                        </div>
+                    </div>
+
+                    <form class="mt-4" enctype="multipart/form-data" data-post-form>
+                        <label class="sr-only" for="post-content">Post caption</label>
+                        <textarea
+                            class="min-h-28 w-full resize-y rounded-2xl border border-[#121017]/10 bg-[#F7F4ED]/70 p-4 text-sm outline-none placeholder:text-[#121017]/35 focus:border-[#397565]/50 focus:bg-white focus:ring-4 focus:ring-[#397565]/8"
+                            id="post-content"
+                            name="content"
+                            placeholder="What would you like the CITE community to know?"
+                            maxlength="3000"
+                            required
+                        ></textarea>
+
+                        <section
+                            class="mx-auto mt-4 hidden w-full max-w-[470px] overflow-hidden rounded-xl border border-[#121017]/10"
+                            data-post-media-preview
+                        >
+                            <header class="flex items-center justify-between gap-3 bg-[#F7F4ED] px-4 py-3">
+                                <div>
+                                    <strong class="block text-xs" data-media-preview-title>Post preview</strong>
+                                    <span class="text-[10px] text-[#121017]/45" data-media-preview-help></span>
+                                </div>
+                                <button
+                                    class="min-h-9 rounded-lg px-3 text-[10px] font-black text-[#FF6B2C] hover:bg-[#FF6B2C]/10"
+                                    type="button"
+                                    data-post-media-remove
+                                >Remove</button>
+                            </header>
+                            <div class="aspect-[4/5] max-h-[590px] w-full bg-[#121017]">
+                                <img
+                                    class="hidden h-full w-full object-contain"
+                                    src=""
+                                    alt="Selected post image preview"
+                                    data-media-preview-image
+                                >
+                                <video
+                                    class="hidden h-full w-full object-contain"
+                                    controls
+                                    playsinline
+                                    data-media-preview-video
+                                ></video>
+                            </div>
+                        </section>
+
+                        <p class="mt-2 hidden text-xs font-bold text-[#c84510]" data-post-media-error></p>
+
+                        <div class="mt-4 flex flex-wrap items-center gap-3">
+                            <div class="flex items-center gap-2" aria-label="Attach media">
+                                <label class="grid h-11 w-11 cursor-pointer place-items-center rounded-xl text-[#397565] transition hover:bg-[#397565]/10" title="Add a photo">
+                                    <span class="sr-only">Add a photo</span>
+                                    <svg class="h-7 w-7 fill-current" viewBox="0 0 24 24" aria-hidden="true">
+                                        <path d="M19 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2Zm0 16H5l3.5-4.5 2.5 3 3.5-4.5L19 19ZM8.5 10.5A2.5 2.5 0 1 1 8.5 5a2.5 2.5 0 0 1 0 5.5Z"></path>
+                                    </svg>
+                                    <input
+                                        class="sr-only"
+                                        type="file"
+                                        name="image"
+                                        accept="image/jpeg,image/png,image/webp"
+                                        data-image-input
+                                    >
+                                </label>
+                                <label class="grid h-11 w-11 cursor-pointer place-items-center rounded-xl text-[#FF6B2C] transition hover:bg-[#FF6B2C]/10" title="Add a video">
+                                    <span class="sr-only">Add a video</span>
+                                    <svg class="h-7 w-7 fill-current" viewBox="0 0 24 24" aria-hidden="true">
+                                        <path d="M20 5h-3.2l1.6-2H15l-1.6 2h-2.2l1.6-2H9.4L7.8 5H5.6l1.6-2H5a3 3 0 0 0-3 3v12a3 3 0 0 0 3 3h15a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2Zm-5.5 9.4-4 2.4a1 1 0 0 1-1.5-.86v-4.8a1 1 0 0 1 1.5-.86l4 2.4a1 1 0 0 1 0 1.72Z"></path>
+                                    </svg>
+                                    <input
+                                        class="sr-only"
+                                        type="file"
+                                        name="video"
+                                        accept="video/mp4,video/webm,video/quicktime"
+                                        data-video-input
+                                    >
+                                </label>
+                            </div>
+                            <span class="min-w-0 flex-1 truncate text-xs text-[#121017]/40" data-file-name>
+                                Add a photo or video
+                            </span>
+                            <button
+                                class="min-h-11 rounded-xl bg-[#397565] px-6 text-xs font-black text-white shadow-lg shadow-[#397565]/15 hover:bg-[#2f6658] disabled:opacity-50"
+                                type="submit"
+                                data-submit-post
+                            >Submit post</button>
+                        </div>
+                    </form>
+                </section>
+
+                <section
+                    class="overflow-hidden rounded-xl border border-[#397565]/25 bg-[#121017] text-white shadow-[0_16px_45px_rgba(18,16,23,.14)]"
+                    id="events"
+                    data-featured-events
+                    aria-labelledby="featured-events-heading"
+                >
+                    <header class="flex items-center justify-between gap-4 border-b border-white/10 px-5 py-4">
+                        <div>
+                            <p class="text-[9px] font-black uppercase tracking-[.17em] text-[#C6F24E]">Featured in CITE</p>
+                            <h2 class="mt-1 text-lg font-black" id="featured-events-heading">Event spotlight</h2>
+                        </div>
+                        <span class="rounded-full bg-white/10 px-3 py-1 text-[10px] font-bold text-white/65" data-featured-count>
+                            0 featured
+                        </span>
+                    </header>
+                    <div data-featured-content>
+                        <div class="grid min-h-52 place-items-center px-6 py-9 text-center">
+                            <div>
+                                <span class="mx-auto grid h-12 w-12 place-items-center rounded-full bg-[#C6F24E] text-xl text-[#121017]">✦</span>
+                                <h3 class="mt-4 text-xl font-black">Event spotlight is ready</h3>
+                                <p class="mt-1 text-sm text-white/55">Featured upcoming events will appear in this carousel.</p>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <section
+                    class="mx-auto w-full max-w-[470px] space-y-4"
+                    aria-labelledby="community-feed-heading"
+                    data-social-feed
+                >
+                    <header class="flex items-end justify-between gap-4">
+                        <div>
+                            <p class="text-[10px] font-black uppercase tracking-[.15em] text-[#397565]">Community feed</p>
+                            <h2 class="mt-1 text-2xl font-black tracking-tight" id="community-feed-heading">What’s happening</h2>
+                        </div>
+                        <span class="shrink-0 text-xs text-[#121017]/40">Approved posts only</span>
+                    </header>
+                    <div class="space-y-4" data-feed-posts>
+                        <div class="rounded-xl border border-dashed border-[#397565]/25 bg-[#397565]/5 px-6 py-16 text-center">
+                            <span class="text-3xl" aria-hidden="true">🌿</span>
+                            <h3 class="mt-3 font-black">The feed is ready for its first story</h3>
+                            <p class="mt-1 text-sm text-[#121017]/45">Approved student posts will appear here.</p>
+                        </div>
+                    </div>
+                </section>
+            </div>
+
+            <aside class="space-y-5 lg:sticky lg:top-24">
+                <section
+                    class="hidden rounded-xl border border-[#397565]/15 bg-[#397565]/8 p-5 shadow-[0_12px_35px_rgba(18,16,23,.05)]"
+                    data-submissions-card
+                >
+                    <div class="flex items-start gap-3">
+                        <span class="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-[#397565] text-white">
+                            <svg class="h-5 w-5 fill-none stroke-current stroke-2" viewBox="0 0 24 24" aria-hidden="true">
+                                <path d="M5 4h14v16H5V4Zm3 4h8m-8 4h8m-8 4h5"></path>
+                            </svg>
+                        </span>
+                        <div class="min-w-0 flex-1">
+                            <div class="flex items-center justify-between gap-2">
+                                <h2 class="font-black">Your submissions</h2>
+                                <span class="rounded-full bg-[#C6F24E] px-2.5 py-1 text-[10px] font-black text-[#121017]" data-submission-count>0</span>
+                            </div>
+                            <p class="mt-1 text-xs leading-5 text-[#121017]/50" data-submission-summary></p>
+                        </div>
+                    </div>
+                </section>
+
+                <section
+                    class="rounded-xl border border-dashed border-[#397565]/25 bg-white p-6"
+                    data-current-event
+                >
+                    <h2 class="font-black">No active event</h2>
+                    <p class="mt-2 text-xs leading-5 text-[#121017]/45">
+                        Your next assigned event will appear here when it is scheduled.
+                    </p>
+                </section>
+            </aside>
+        </div>
+    </main>
+
+    <nav
+        class="fixed inset-x-0 bottom-0 z-40 border-t border-[#397565]/35 bg-[#121017]/95 pb-[env(safe-area-inset-bottom)] shadow-[0_-12px_35px_rgba(18,16,23,.18)] backdrop-blur-xl lg:hidden"
+        aria-label="Student pages"
+    >
+        <div class="mx-auto grid h-[76px] max-w-3xl grid-cols-5 gap-1 px-1.5 py-1.5">
+            <a class="flex min-h-11 flex-col items-center justify-center gap-1 rounded-xl bg-[#397565]/55 text-[10px] font-black text-[#C6F24E] ring-1 ring-[#C6F24E]/20" href="pages/student/home.html" aria-current="page">
+                <svg class="h-5 w-5 fill-none stroke-current stroke-[2.1]" viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M3 11.5 12 4l9 7.5V21h-6v-6H9v6H3v-9.5Z"></path>
+                </svg>
+                <span>Home</span>
+            </a>
+            <a class="flex min-h-11 flex-col items-center justify-center gap-1 rounded-xl text-[10px] font-black text-[#F3F0E9]/65" href="pages/student/events.html">
+                <svg class="h-5 w-5 fill-none stroke-current stroke-[2.1]" viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M6 3v3m12-3v3M4 9h16M5 5h14a2 2 0 0 1 2 2v13H3V7a2 2 0 0 1 2-2Z"></path>
+                </svg>
+                <span>Events</span>
+            </a>
+            <a class="flex min-h-11 flex-col items-center justify-center gap-1 rounded-xl text-[10px] font-black text-[#F3F0E9]/65" href="pages/student/attendance.html">
+                <svg class="h-5 w-5 fill-none stroke-current stroke-[2.1]" viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M5 4h14v16H5V4Zm3 4h8m-8 4 2 2 5-5m-7 9h8"></path>
+                </svg>
+                <span>Attendance</span>
+            </a>
+            <a class="flex min-h-11 flex-col items-center justify-center gap-1 rounded-xl text-[10px] font-black text-[#F3F0E9]/65" href="pages/student/team.html">
+                <svg class="h-5 w-5 fill-none stroke-current stroke-[2.1]" viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M8 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm8-1a3 3 0 1 0 0-6M2 21v-2a5 5 0 0 1 5-5h2a5 5 0 0 1 5 5v2m1-7a5 5 0 0 1 7 4.6V21"></path>
+                </svg>
+                <span>Team</span>
+            </a>
+            <a class="flex min-h-11 flex-col items-center justify-center gap-1 rounded-xl text-[10px] font-black text-[#F3F0E9]/65" href="pages/student/leaderboard.html">
+                <svg class="h-5 w-5 fill-none stroke-current stroke-[2.1]" viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M8 21h8m-4-4v4M7 4h10v4a5 5 0 0 1-10 0V4Zm0 2H4v1a4 4 0 0 0 4 4m9-5h3v1a4 4 0 0 1-4 4"></path>
+                </svg>
+                <span>Leaderboard</span>
+            </a>
+        </div>
+    </nav>
+
+    <div
+        class="pointer-events-none fixed inset-x-4 top-4 z-[100] mx-auto hidden max-w-md rounded-xl px-4 py-3 text-sm font-bold text-white shadow-2xl"
+        role="status"
+        data-toast
+    ></div>
+</body>
+</html>

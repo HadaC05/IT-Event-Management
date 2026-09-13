@@ -131,10 +131,37 @@
     const reason = post.rejection_reason
       ? `<p class="mt-3 rounded-xl bg-[#FF6B2C]/7 p-3 text-xs"><strong>Rejection reason:</strong> ${escapeHtml(post.rejection_reason)}</p>`
       : "";
-    const image = post.image_path
-      ? `<div class="aspect-[4/5] max-h-[590px] w-full overflow-hidden border-y border-[#121017]/7 bg-[#121017]"><img class="h-full w-full object-contain" src="${escapeHtml(assetPath(post.image_path))}" alt="${escapeHtml(post.author_name)} post image" loading="lazy"></div>`
-      : "";
-    return `<article class="overflow-hidden rounded-3xl border border-[#121017]/8 bg-white"><header class="flex items-center gap-3 p-5">${avatar(post)}<div class="min-w-0 flex-1"><strong class="block truncate text-sm">${escapeHtml(post.author_name)}</strong><span class="text-[10px] text-[#121017]/40">${dateTime(post.created_at)}${event}</span></div><span class="rounded-full px-2.5 py-1 text-[9px] font-black uppercase ${statusTone(post.status)}">${escapeHtml(post.status)}</span></header><div class="px-5 pb-5"><span class="text-[9px] font-black uppercase tracking-wider text-[#397565]">${escapeHtml(titleCase(post.category))}</span><p class="mt-2 whitespace-pre-line text-sm leading-6">${escapeHtml(post.content)}</p>${reason}</div>${image}${reviewControls(post)}</article>`;
+    let media = "";
+    if (post.image_path) {
+      media = `
+        <div class="aspect-[4/5] max-h-[590px] w-full overflow-hidden border-y border-[#121017]/7 bg-[#121017]">
+          <img class="h-full w-full object-contain" src="${escapeHtml(assetPath(post.image_path))}" alt="${escapeHtml(post.author_name)} post image" loading="lazy">
+        </div>`;
+    } else if (post.video_path) {
+      media = `
+        <div class="aspect-[4/5] max-h-[590px] w-full overflow-hidden border-y border-[#121017]/7 bg-[#121017]">
+          <video class="h-full w-full object-contain" src="${escapeHtml(assetPath(post.video_path))}" controls preload="metadata" playsinline></video>
+        </div>`;
+    }
+
+    return `
+      <article class="overflow-hidden rounded-3xl border border-[#121017]/8 bg-white">
+        <header class="flex items-center gap-3 p-5">
+          ${avatar(post)}
+          <div class="min-w-0 flex-1">
+            <strong class="block truncate text-sm">${escapeHtml(post.author_name)}</strong>
+            <span class="text-[10px] text-[#121017]/40">${dateTime(post.created_at)}${event}</span>
+          </div>
+          <span class="rounded-full px-2.5 py-1 text-[9px] font-black uppercase ${statusTone(post.status)}">${escapeHtml(post.status)}</span>
+        </header>
+        <div class="px-5 pb-5">
+          <span class="text-[9px] font-black uppercase tracking-wider text-[#397565]">${escapeHtml(titleCase(post.category))}</span>
+          <p class="mt-2 whitespace-pre-line text-sm leading-6">${escapeHtml(post.content)}</p>
+          ${reason}
+        </div>
+        ${media}
+        ${reviewControls(post)}
+      </article>`;
   }
 
   function renderPagination(pagination) {

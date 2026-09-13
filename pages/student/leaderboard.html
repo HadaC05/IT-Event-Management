@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <base href="/IT-Event-Management/">
+    <title>Leaderboard | CITE Events</title>
+    <link rel="icon" type="image/png" href="assets/images/cite_favicon.png">
+    <link rel="stylesheet" href="css/tailwind.css">
+    <script src="js/vendor/axios.min.js" defer></script>
+    <script src="js/student/portal.js" defer></script>
+    <script src="js/student/leaderboard.js" defer></script>
+</head>
+<body class="min-h-screen bg-[#F7F4ED] font-sans text-[#121017] antialiased">
+    <div data-student-sidebar-host></div>
+    <div data-student-header-host></div>
+
+    <main class="w-auto pb-28 transition-[margin] duration-200 lg:ml-20 lg:pb-10" data-student-main data-student-sidebar-content>
+        <div class="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:py-10">
+            <header>
+                <p class="text-[10px] font-black uppercase tracking-[.15em] text-[#397565]">Live activity results</p>
+                <h1 class="mt-1 text-3xl font-black tracking-tight">Leaderboard</h1>
+                <p class="mt-2 text-sm text-[#121017]/50" data-leaderboard-subtitle>Current activity totals and team rankings.</p>
+            </header>
+            <div class="mt-6 flex gap-2 overflow-x-auto pb-2" data-category-tabs></div>
+            <section class="mt-4 overflow-hidden rounded-3xl border border-[#121017]/8 bg-white" data-leaderboard></section>
+        </div>
+    </main>
+</body>
+</html>

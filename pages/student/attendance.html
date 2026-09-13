@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <base href="/IT-Event-Management/">
+    <title>Attendance | CITE Events</title>
+    <link rel="icon" type="image/png" href="assets/images/cite_favicon.png">
+    <link rel="stylesheet" href="css/tailwind.css">
+    <script src="js/vendor/axios.min.js" defer></script>
+    <script src="js/student/portal.js" defer></script>
+    <script src="js/student/attendance.js" defer></script>
+</head>
+<body class="min-h-screen bg-[#F7F4ED] font-sans text-[#121017] antialiased">
+    <div data-student-sidebar-host></div>
+    <div data-student-header-host></div>
+
+    <main class="w-auto pb-28 transition-[margin] duration-200 lg:ml-20 lg:pb-10" data-student-main data-student-sidebar-content>
+        <div class="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:py-10">
+            <header class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+                <div>
+                    <p class="text-[10px] font-black uppercase tracking-[.15em] text-[#397565]">Student attendance</p>
+                    <h1 class="mt-1 text-3xl font-black tracking-tight">Attendance overview</h1>
+                    <p class="mt-2 text-sm text-[#121017]/50">Track your event attendance and recorded session times.</p>
+                </div>
+                <div class="hidden w-fit rounded-2xl bg-[#397565] px-5 py-3 text-white" data-attendance-rate-card>
+                    <span class="block text-[9px] font-black uppercase tracking-wider text-white/65">Attendance rate</span>
+                    <strong class="mt-1 block text-2xl" data-attendance-rate>0%</strong>
+                </div>
+            </header>
+
+            <section class="mt-6 grid gap-3 sm:grid-cols-4" data-attendance-summary></section>
+
+            <div class="mt-6 grid items-start gap-6 xl:grid-cols-[360px_minmax(0,1fr)]">
+                <aside class="rounded-3xl border border-[#121017]/8 bg-white p-5 xl:sticky xl:top-24" data-current-event></aside>
+                <section class="overflow-hidden rounded-3xl border border-[#121017]/8 bg-white">
+                    <header class="flex items-center justify-between gap-4 border-b border-[#121017]/8 p-5 sm:p-6">
+                        <div>
+                            <h2 class="text-lg font-black">Attendance history</h2>
+                            <p class="mt-1 text-xs text-[#121017]/45">Your recorded event attendance and session times.</p>
+                        </div>
+                        <span class="rounded-full bg-[#F7F4ED] px-3 py-1.5 text-[10px] font-black" data-record-count>0 records</span>
+                    </header>
+                    <div class="divide-y divide-[#121017]/7" data-attendance-records></div>
+                </section>
+            </div>
+        </div>
+    </main>
+</body>
+</html>

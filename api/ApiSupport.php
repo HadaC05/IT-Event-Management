@@ -19,7 +19,7 @@ final class JsonResponse
 final class SessionManager
 {
     private const COOKIE_NAME = 'cite_event_session';
-    private const COOKIE_PATH = '/IT-Event-Management-Converted/';
+    private const COOKIE_PATH = '/IT-Event-Management/';
 
     public static function start(): void
     {

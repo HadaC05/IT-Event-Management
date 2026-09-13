@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-require_once __DIR__.'/Database.php';
+require_once __DIR__.'/db_connect.php';
 require_once __DIR__.'/ApiSupport.php';
 
 final class AnnouncementValidationException extends RuntimeException
@@ -43,7 +43,7 @@ final class AnnouncementRepository
         if ($status === 'draft') $where[] = "p.status='draft'";
         if ($status === 'published') $where[] = "p.status='approved'";
         if ($eventId) {$where[] = 'p.event_id=?'; $params[] = $eventId;}
-        if ($search !== '') {$where[] = "p.content LIKE ? ESCAPE '\\'"; $params[] = '%'.$this->escapeLike($search).'%';}
+        if ($search !== '') {$where[] = "p.content LIKE ? ESCAPE '\\\\'"; $params[] = '%'.$this->escapeLike($search).'%';}
         $whereSql = implode(' AND ', $where);
 
         $total = (int) $this->scalar("SELECT COUNT(*) FROM posts p WHERE $whereSql", $params);
@@ -53,7 +53,7 @@ final class AnnouncementRepository
         $statement = $this->db->prepare(
             "SELECT p.*,e.title event_title,u.first_name,u.middle_name,u.last_name,u.username
              FROM posts p LEFT JOIN events e ON e.id=p.event_id LEFT JOIN users u ON u.id=p.user_id
-             WHERE $whereSql ORDER BY datetime(p.updated_at) DESC,p.id DESC LIMIT ? OFFSET ?"
+             WHERE $whereSql ORDER BY p.updated_at DESC,p.id DESC LIMIT ? OFFSET ?"
         );
         $index = 1;
         foreach ($params as $value) $statement->bindValue($index++, $value, is_int($value) ? PDO::PARAM_INT : PDO::PARAM_STR);
@@ -88,7 +88,7 @@ final class AnnouncementRepository
             $status = $data['intent'] === 'publish' ? 'approved' : 'draft';
             $statement = $this->db->prepare(
                 "INSERT INTO posts(user_id,event_id,category,is_official,content,image_path,status,reviewed_by,reviewed_at,created_at,updated_at)
-                 VALUES(?,?,'announcement',1,?,?,?,?,?,datetime('now'),datetime('now'))"
+                 VALUES(?,?,'announcement',1,?,?,?,?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)"
             );
             $statement->execute([$actorId, $data['event_id'], $data['content'], $imagePath, $status, $status === 'approved' ? $actorId : null, $status === 'approved' ? date('Y-m-d H:i:s') : null]);
             $id = (int) $this->db->lastInsertId();
@@ -114,7 +114,7 @@ final class AnnouncementRepository
         try {
             $this->db->beginTransaction();
             $status = $data['intent'] === 'publish' ? 'approved' : 'draft';
-            $statement = $this->db->prepare("UPDATE posts SET event_id=?,content=?,image_path=?,status=?,rejection_reason=NULL,reviewed_by=?,reviewed_at=?,updated_at=datetime('now') WHERE id=? AND is_official=1 AND deleted_at IS NULL");
+            $statement = $this->db->prepare("UPDATE posts SET event_id=?,content=?,image_path=?,status=?,rejection_reason=NULL,reviewed_by=?,reviewed_at=?,updated_at=CURRENT_TIMESTAMP WHERE id=? AND is_official=1 AND deleted_at IS NULL");
             $statement->execute([$data['event_id'], $data['content'], $imagePath, $status, $status === 'approved' ? $actorId : null, $status === 'approved' ? date('Y-m-d H:i:s') : null, $id]);
             $action = $status === 'approved' ? 'announcement_published' : 'announcement_drafted';
             $this->audit($id, $actorId, $action, (string) $announcement['status'], $status);
@@ -135,7 +135,7 @@ final class AnnouncementRepository
         $announcement = $this->official($id);
         $this->db->beginTransaction();
         try {
-            $statement = $this->db->prepare("UPDATE posts SET status=?,reviewed_by=?,reviewed_at=?,updated_at=datetime('now') WHERE id=?");
+            $statement = $this->db->prepare("UPDATE posts SET status=?,reviewed_by=?,reviewed_at=?,updated_at=CURRENT_TIMESTAMP WHERE id=?");
             $statement->execute([$status, $status === 'approved' ? $actorId : null, $status === 'approved' ? date('Y-m-d H:i:s') : null, $id]);
             $action = $status === 'approved' ? 'announcement_published' : 'announcement_unpublished';
             $this->audit($id, $actorId, $action, (string) $announcement['status'], $status);
@@ -155,7 +155,7 @@ final class AnnouncementRepository
         try {
             $this->audit($id, $actorId, 'announcement_archived', (string) $announcement['status'], null);
             $this->log($actorId, $announcement['event_id'] === null ? null : (int) $announcement['event_id'], 'announcement_archived', "Official announcement #$id was archived.");
-            $this->db->prepare("UPDATE posts SET deleted_at=datetime('now'),updated_at=datetime('now') WHERE id=?")->execute([$id]);
+            $this->db->prepare('UPDATE posts SET deleted_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP WHERE id=?')->execute([$id]);
             $this->db->commit();
             return 'Announcement archived.';
         } catch (Throwable $exception) {
@@ -170,7 +170,7 @@ final class AnnouncementRepository
         if ($announcement['deleted_at'] === null) throw new AnnouncementValidationException(['announcement' => ['Announcement is not archived.']]);
         $this->db->beginTransaction();
         try {
-            $this->db->prepare("UPDATE posts SET deleted_at=NULL,status='draft',reviewed_by=NULL,reviewed_at=NULL,updated_at=datetime('now') WHERE id=?")->execute([$id]);
+            $this->db->prepare("UPDATE posts SET deleted_at=NULL,status='draft',reviewed_by=NULL,reviewed_at=NULL,updated_at=CURRENT_TIMESTAMP WHERE id=?")->execute([$id]);
             $this->audit($id, $actorId, 'announcement_restored', null, 'draft');
             $this->log($actorId, $announcement['event_id'] === null ? null : (int) $announcement['event_id'], 'announcement_restored', "Official announcement #$id was restored.");
             $this->db->commit();
@@ -239,7 +239,7 @@ final class AnnouncementRepository
 
     private function events(): array
     {
-        $rows = $this->db->query('SELECT id,title,start_at FROM events WHERE deleted_at IS NULL ORDER BY datetime(start_at) DESC,id DESC')->fetchAll();
+        $rows = $this->db->query('SELECT id,title,start_at FROM events WHERE deleted_at IS NULL ORDER BY start_at DESC,id DESC')->fetchAll();
         foreach ($rows as &$row) $row['id'] = (int) $row['id'];
         unset($row);
         return $rows;
@@ -266,13 +266,13 @@ final class AnnouncementRepository
 
     private function audit(int $postId, int $actorId, string $action, ?string $from, ?string $to): void
     {
-        $statement = $this->db->prepare("INSERT INTO post_audits(post_id,actor_id,action,from_status,to_status,created_at,updated_at) VALUES(?,?,?,?,?,datetime('now'),datetime('now'))");
+        $statement = $this->db->prepare('INSERT INTO post_audits(post_id,actor_id,action,from_status,to_status,created_at,updated_at) VALUES(?,?,?,?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)');
         $statement->execute([$postId, $actorId, $action, $from, $to]);
     }
 
     private function log(int $actorId, ?int $eventId, string $action, string $description): void
     {
-        $statement = $this->db->prepare("INSERT INTO activity_logs(actor_id,event_id,action,acting_role,description,created_at,updated_at) VALUES(?,?,?,'SBO Adviser',?,datetime('now'),datetime('now'))");
+        $statement = $this->db->prepare("INSERT INTO activity_logs(actor_id,event_id,action,acting_role,description,created_at,updated_at) VALUES(?,?,?,'SBO Adviser',?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)");
         $statement->execute([$actorId, $eventId, $action, $description]);
     }
 

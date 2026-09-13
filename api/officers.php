@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-require_once __DIR__.'/Database.php';
+require_once __DIR__.'/db_connect.php';
 require_once __DIR__.'/ApiSupport.php';
 
 final class OfficerManagementRepository
@@ -22,7 +22,7 @@ final class OfficerManagementRepository
                 a.position, a.term, a.assigned_by, a.assigned_at, a.ended_by, a.ended_at, a.status,
                 u.first_name, u.middle_name, u.last_name, u.email, u.username,
                 us.label AS account_status, t.name AS team_name,
-                trim(assigner.first_name || ' ' || coalesce(assigner.middle_name || ' ', '') || assigner.last_name) AS assigned_by_name
+                TRIM(CONCAT_WS(' ', assigner.first_name, NULLIF(assigner.middle_name, ''), assigner.last_name)) AS assigned_by_name
             FROM sbo_officer_assignments a
             JOIN users u ON u.id = a.officer_user_id
             LEFT JOIN user_statuses us ON us.id = u.status
@@ -138,7 +138,7 @@ final class OfficerManagementRepository
                 $statement = $this->db->prepare("UPDATE users SET id_number=:id_number, first_name=:first_name,
                     middle_name=:middle_name, last_name=:last_name, email=:email, year_level=:year_level,
                     role_id=:role_id, username=:username, password=:password, status=:status,
-                    officer_team_id=:officer_team_id, must_change_password=1, updated_at=datetime('now') WHERE id=:id");
+                    officer_team_id=:officer_team_id, must_change_password=1, updated_at=CURRENT_TIMESTAMP WHERE id=:id");
                 $statement->execute($account);
                 $officerId = (int) $existingOfficerId;
             } else {
@@ -146,14 +146,14 @@ final class OfficerManagementRepository
                     (id_number, first_name, middle_name, last_name, email, year_level, role_id, username,
                      password, status, officer_team_id, must_change_password, created_at, updated_at)
                     VALUES (:id_number,:first_name,:middle_name,:last_name,:email,:year_level,:role_id,:username,
-                     :password,:status,:officer_team_id,1,datetime('now'),datetime('now'))");
+                     :password,:status,:officer_team_id,1,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)");
                 $statement->execute($account);
                 $officerId = (int) $this->db->lastInsertId();
             }
 
             $statement = $this->db->prepare("INSERT INTO sbo_officer_assignments
                 (student_id, officer_user_id, team_id, position, term, assigned_by, assigned_at, status, created_at, updated_at)
-                VALUES (?, ?, ?, ?, ?, ?, datetime('now'), 'Active', datetime('now'), datetime('now'))");
+                VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, 'Active', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)");
             $statement->execute([
                 $student['id_number'], $officerId, $teamId, trim((string) $data['position']),
                 trim((string) $data['term']), (int) $actor['id'],
@@ -183,8 +183,8 @@ final class OfficerManagementRepository
 
         $this->db->beginTransaction();
         try {
-            $updateAssignment = $this->db->prepare("UPDATE sbo_officer_assignments SET status='Inactive', ended_at=datetime('now'), ended_by=?, updated_at=datetime('now') WHERE id=?");
-            $updateOfficer = $this->db->prepare("UPDATE users SET status=?, officer_team_id=NULL, updated_at=datetime('now') WHERE id=?");
+            $updateAssignment = $this->db->prepare("UPDATE sbo_officer_assignments SET status='Inactive', ended_at=CURRENT_TIMESTAMP, ended_by=?, updated_at=CURRENT_TIMESTAMP WHERE id=?");
+            $updateOfficer = $this->db->prepare('UPDATE users SET status=?, officer_team_id=NULL, updated_at=CURRENT_TIMESTAMP WHERE id=?');
             foreach ($assignments as $assignment) {
                 $updateAssignment->execute([(int) $actor['id'], (int) $assignment['id']]);
                 $updateOfficer->execute([$inactiveStatusId, (int) $assignment['officer_user_id']]);
@@ -216,7 +216,7 @@ final class OfficerManagementRepository
     {
         $statement = $this->db->prepare("INSERT INTO activity_logs
             (actor_id, subject_user_id, student_id, officer_assignment_id, action, acting_role, description, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))");
+            VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)");
         $statement->execute([$actorId, $subjectId, $studentId, $assignmentId, $action, $role, $description]);
     }
 

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-require_once __DIR__.'/Database.php';
+require_once __DIR__.'/db_connect.php';
 
 final class EventRepository
 {
@@ -31,9 +31,9 @@ final class EventRepository
                 LEFT JOIN event_types ON event_types.id = events.event_type_id
                 LEFT JOIN event_statuses ON event_statuses.id = events.event_status_id
                 WHERE events.deleted_at IS NULL
-                  AND datetime(events.end_at) >= datetime('now', 'localtime')
+                  AND events.end_at >= CURRENT_TIMESTAMP
                   AND event_statuses.label IN ('upcoming', 'ongoing')
-                ORDER BY datetime(events.start_at), events.id
+                ORDER BY events.start_at, events.id
                 LIMIT 8
             SQL
         );

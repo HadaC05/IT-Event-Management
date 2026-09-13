@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-require_once __DIR__.'/Database.php';
+require_once __DIR__.'/db_connect.php';
 require_once __DIR__.'/ApiSupport.php';
 
 final class EventValidationException extends InvalidArgumentException
@@ -57,7 +57,7 @@ final class EventManagementRepository
             $params['type'] = $type;
         }
         if ($search !== '') {
-            $where[] = "(e.title LIKE :search ESCAPE '\\' OR e.description LIKE :search ESCAPE '\\' OR e.location LIKE :search ESCAPE '\\')";
+            $where[] = "(e.title LIKE :search ESCAPE '\\\\' OR e.description LIKE :search ESCAPE '\\\\' OR e.location LIKE :search ESCAPE '\\\\')";
             $params['search'] = '%'.addcslashes($search, '%_\\').'%';
         }
         $whereSql = 'WHERE '.implode(' AND ', $where);
@@ -73,7 +73,7 @@ final class EventManagementRepository
              LEFT JOIN event_types et ON et.id=e.event_type_id
              LEFT JOIN event_statuses es ON es.id=e.event_status_id
              $whereSql
-             ORDER BY CASE WHEN e.deleted_at IS NOT NULL THEN 1 ELSE 0 END,datetime(e.start_at),e.id
+             ORDER BY CASE WHEN e.deleted_at IS NOT NULL THEN 1 ELSE 0 END,e.start_at,e.id
              LIMIT :limit OFFSET :offset"
         );
         foreach ($params as $key => $value) {
@@ -211,7 +211,7 @@ final class EventManagementRepository
             if ($id) {
                 $statement = $this->db->prepare(
                     "UPDATE events SET title=?,description=?,location=?,audience_type=?,poster_path=?,
-                     start_at=?,end_at=?,event_type_id=?,event_status_id=?,updated_at=datetime('now') WHERE id=?"
+                     start_at=?,end_at=?,event_type_id=?,event_status_id=?,updated_at=CURRENT_TIMESTAMP WHERE id=?"
                 );
                 $statement->execute([$data['title'], $data['description'], $data['location'], $data['audience_type'], $posterPath,
                     $data['start_at'], $data['end_at'], $data['event_type_id'], $data['event_status_id'], $id]);
@@ -219,7 +219,7 @@ final class EventManagementRepository
                 $upcoming = (int) $this->scalar("SELECT id FROM event_statuses WHERE label='upcoming'");
                 $statement = $this->db->prepare(
                     "INSERT INTO events(title,description,location,audience_type,poster_path,start_at,end_at,event_type_id,event_status_id,created_by,is_featured,created_at,updated_at)
-                     VALUES(?,?,?,?,?,?,?,?,?,?,0,datetime('now'),datetime('now'))"
+                     VALUES(?,?,?,?,?,?,?,?,?,?,0,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)"
                 );
                 $statement->execute([$data['title'], $data['description'], $data['location'], $data['audience_type'], $posterPath,
                     $data['start_at'], $data['end_at'], $data['event_type_id'], $upcoming, $actorId]);
@@ -256,7 +256,7 @@ final class EventManagementRepository
         $eventId = (int) ($input['event_id'] ?? 0);
         $users = $this->integerList($input['assigned_user_ids'] ?? []);
         $params = [$end->format('Y-m-d H:i:s'), $start->format('Y-m-d H:i:s')];
-        $sql = "SELECT id,title,location,start_at,end_at FROM events WHERE deleted_at IS NULL AND datetime(start_at)<datetime(?) AND datetime(end_at)>datetime(?)";
+        $sql = 'SELECT id,title,location,start_at,end_at FROM events WHERE deleted_at IS NULL AND start_at < ? AND end_at > ?';
         if ($eventId) {
             $sql .= ' AND id<>?';
             $params[] = $eventId;
@@ -291,7 +291,7 @@ final class EventManagementRepository
         }
         $label = (string) $this->scalar('SELECT label FROM event_statuses WHERE id=?', [$statusId]);
         $deletedAt = $label === 'archived' ? date('Y-m-d H:i:s') : null;
-        $statement = $this->db->prepare("UPDATE events SET event_status_id=?,deleted_at=?,is_featured=CASE WHEN ?='archived' THEN 0 ELSE is_featured END,updated_at=datetime('now') WHERE id=?");
+        $statement = $this->db->prepare("UPDATE events SET event_status_id=?,deleted_at=?,is_featured=CASE WHEN ?='archived' THEN 0 ELSE is_featured END,updated_at=CURRENT_TIMESTAMP WHERE id=?");
         $statement->execute([$statusId, $deletedAt, $label, $id]);
         $this->log($actorId, $id, $label === 'archived' ? 'event_archived' : 'event_status_updated', $event['title'].' status was updated to '.$label.'.');
     }
@@ -306,7 +306,7 @@ final class EventManagementRepository
     {
         $event = $this->eventRow($id);
         $upcoming = (int) $this->scalar("SELECT id FROM event_statuses WHERE label='upcoming'");
-        $this->db->prepare("UPDATE events SET event_status_id=?,deleted_at=NULL,updated_at=datetime('now') WHERE id=?")->execute([$upcoming, $id]);
+        $this->db->prepare('UPDATE events SET event_status_id=?,deleted_at=NULL,updated_at=CURRENT_TIMESTAMP WHERE id=?')->execute([$upcoming, $id]);
         $this->log($actorId, $id, 'event_restored', $event['title'].' was restored.');
     }
 
@@ -354,7 +354,7 @@ final class EventManagementRepository
             throw new EventValidationException(['featured_until' => ['Featured-until must be in the future and no later than the event end.']]);
         }
         $until = $untilDate?->format('Y-m-d H:i:s');
-        $this->db->prepare("UPDATE events SET is_featured=?,featured_order=?,featured_until=?,updated_at=datetime('now') WHERE id=?")
+        $this->db->prepare('UPDATE events SET is_featured=?,featured_order=?,featured_until=?,updated_at=CURRENT_TIMESTAMP WHERE id=?')
             ->execute([$featured ? 1 : 0, $featured ? $order : null, $featured ? $until : null, $id]);
         $this->log($actorId, $id, $featured ? 'event_featured' : 'event_unfeatured', $event['title'].($featured ? ' was added to the featured carousel.' : ' was removed from the featured carousel.'));
     }
@@ -371,7 +371,7 @@ final class EventManagementRepository
         if ((string) $this->scalar('SELECT label FROM event_statuses WHERE id=?', [(int) $event['event_status_id']]) === 'archived') {
             throw new EventValidationException(['user_id' => ['Users cannot be assigned while this event is archived.']]);
         }
-        $statement = $this->db->prepare("INSERT OR IGNORE INTO event_user(event_id,user_id,created_at,updated_at) VALUES(?,?,datetime('now'),datetime('now'))");
+        $statement = $this->db->prepare('INSERT IGNORE INTO event_user(event_id,user_id,created_at,updated_at) VALUES(?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)');
         $statement->execute([$eventId, $userId]);
         if ($statement->rowCount()) {
             $this->log($actorId, $eventId, 'event_assigned', $this->fullName($user).' was assigned to '.$event['title'].'.', $userId);
@@ -525,7 +525,7 @@ final class EventManagementRepository
         $this->db->prepare('DELETE FROM event_attendance_schedules WHERE event_id=?')->execute([$eventId]);
         $statement = $this->db->prepare(
             "INSERT INTO event_attendance_schedules(event_id,schedule_date,attendance_session_mode_id,whole_day_in_time,whole_day_out_time,morning_in_time,morning_out_time,afternoon_in_time,afternoon_out_time,created_at,updated_at)
-             VALUES(?,?,?,?,?,?,?,?,?,datetime('now'),datetime('now'))"
+             VALUES(?,?,?,?,?,?,?,?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)"
         );
         foreach ($schedules as $schedule) {
             $statement->execute([$eventId, $schedule['schedule_date'], $schedule['attendance_session_mode_id'], $schedule['whole_day_in_time'], $schedule['whole_day_out_time'], $schedule['morning_in_time'], $schedule['morning_out_time'], $schedule['afternoon_in_time'], $schedule['afternoon_out_time']]);
@@ -536,7 +536,7 @@ final class EventManagementRepository
     {
         $this->db->prepare("DELETE FROM $table WHERE event_id=?")->execute([$eventId]);
         if (!$ids) return;
-        $statement = $this->db->prepare("INSERT INTO $table(event_id,$column,created_at,updated_at) VALUES(?,?,datetime('now'),datetime('now'))");
+        $statement = $this->db->prepare("INSERT INTO $table(event_id,$column,created_at,updated_at) VALUES(?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)");
         foreach ($ids as $id) $statement->execute([$eventId, $id]);
     }
 
@@ -577,7 +577,7 @@ final class EventManagementRepository
         $ongoing = (int) $this->scalar("SELECT id FROM event_statuses WHERE label='ongoing'");
         $completed = (int) $this->scalar("SELECT id FROM event_statuses WHERE label='completed'");
         $now = date('Y-m-d H:i:s');
-        $statement = $this->db->prepare('UPDATE events SET event_status_id=CASE WHEN datetime(start_at)>datetime(?) THEN ? WHEN datetime(end_at)<=datetime(?) THEN ? ELSE ? END,is_featured=CASE WHEN datetime(end_at)<=datetime(?) THEN 0 ELSE is_featured END,featured_order=CASE WHEN datetime(end_at)<=datetime(?) THEN NULL ELSE featured_order END,featured_until=CASE WHEN datetime(end_at)<=datetime(?) THEN NULL ELSE featured_until END WHERE deleted_at IS NULL');
+        $statement = $this->db->prepare('UPDATE events SET event_status_id=CASE WHEN start_at > ? THEN ? WHEN end_at <= ? THEN ? ELSE ? END,is_featured=CASE WHEN end_at <= ? THEN 0 ELSE is_featured END,featured_order=CASE WHEN end_at <= ? THEN NULL ELSE featured_order END,featured_until=CASE WHEN end_at <= ? THEN NULL ELSE featured_until END WHERE deleted_at IS NULL');
         $statement->execute([$now, $upcoming, $now, $completed, $ongoing, $now, $now, $now]);
     }
 
@@ -690,7 +690,7 @@ final class EventManagementRepository
     private function log(int $actorId, int $eventId, string $action, string $description, ?int $subjectId = null): void
     {
         $role = $this->scalar('SELECT r.name FROM users u LEFT JOIN roles r ON r.id=u.role_id WHERE u.id=?', [$actorId]);
-        $statement = $this->db->prepare("INSERT INTO activity_logs(actor_id,subject_user_id,event_id,action,description,acting_role,created_at,updated_at) VALUES(?,?,?,?,?,?,datetime('now'),datetime('now'))");
+        $statement = $this->db->prepare('INSERT INTO activity_logs(actor_id,subject_user_id,event_id,action,description,acting_role,created_at,updated_at) VALUES(?,?,?,?,?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)');
         $statement->execute([$actorId, $subjectId, $eventId, $action, $description, $role ?: null]);
     }
 }

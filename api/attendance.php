@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-require_once __DIR__.'/Database.php';
+require_once __DIR__.'/db_connect.php';
 require_once __DIR__.'/ApiSupport.php';
 
 final class AttendanceManagementRepository
@@ -23,7 +23,7 @@ final class AttendanceManagementRepository
 
         $where = ['e.deleted_at IS NULL']; $params = [];
         if ($search !== '') {
-            $where[] = "(e.title LIKE :search ESCAPE '\\' OR e.location LIKE :search ESCAPE '\\')";
+            $where[] = "(e.title LIKE :search ESCAPE '\\\\' OR e.location LIKE :search ESCAPE '\\\\')";
             $params['search'] = '%'.addcslashes($search, '%_\\').'%';
         }
         $now = (new DateTimeImmutable('now', new DateTimeZone('Asia/Manila')))->format('Y-m-d H:i:s');
@@ -76,13 +76,13 @@ final class AttendanceManagementRepository
         $participantIds=array_values(array_unique(array_merge($expectedIds,array_map('intval',$recorded))));
         $where=[];$params=[];
         if($participantIds){$where[]='u.id IN ('.implode(',',array_fill(0,count($participantIds),'?')).')';$params=$participantIds;}else{$where[]='0=1';}
-        if($search!==''){$where[]="(u.first_name LIKE ? ESCAPE '\\' OR u.middle_name LIKE ? ESCAPE '\\' OR u.last_name LIKE ? ESCAPE '\\' OR u.id_number LIKE ? ESCAPE '\\')";$term='%'.addcslashes($search,'%_\\').'%';array_push($params,$term,$term,$term,$term);}
+        if($search!==''){$where[]="(u.first_name LIKE ? ESCAPE '\\\\' OR u.middle_name LIKE ? ESCAPE '\\\\' OR u.last_name LIKE ? ESCAPE '\\\\' OR u.id_number LIKE ? ESCAPE '\\\\')";$term='%'.addcslashes($search,'%_\\').'%';array_push($params,$term,$term,$term,$term);}
         if($status==='unrecorded'){$where[]='NOT EXISTS(SELECT 1 FROM attendances ax WHERE ax.user_id=u.id AND ax.event_id=? AND ax.attendance_date=?)';array_push($params,$eventId,$date);}
         elseif(in_array($status,self::STATUSES,true)){$where[]='EXISTS(SELECT 1 FROM attendances ax WHERE ax.user_id=u.id AND ax.event_id=? AND ax.attendance_date=? AND ax.status=?)';array_push($params,$eventId,$date,$status);}
         $whereSql=' WHERE '.implode(' AND ',$where);$count=$this->db->prepare('SELECT COUNT(*) FROM users u'.$whereSql);$count->execute($params);$total=(int)$count->fetchColumn();$lastPage=max(1,(int)ceil($total/self::ROSTER_PAGE_SIZE));$page=min($page,$lastPage);
         $sql="SELECT u.id,u.id_number,u.first_name,u.middle_name,u.last_name,yl.label year_level_label,
              a.status attendance_status,a.checked_in_at,
-             (SELECT GROUP_CONCAT(t.name, ', ') FROM team_user tu JOIN teams t ON t.id=tu.team_id WHERE tu.user_id=u.id) team_names
+             (SELECT GROUP_CONCAT(t.name SEPARATOR ', ') FROM team_user tu JOIN teams t ON t.id=tu.team_id WHERE tu.user_id=u.id) team_names
              FROM users u LEFT JOIN year_levels yl ON yl.id=u.year_level
              LEFT JOIN attendances a ON a.user_id=u.id AND a.event_id=? AND a.attendance_date=?
              $whereSql ORDER BY u.last_name,u.first_name LIMIT ? OFFSET ?";
@@ -106,10 +106,10 @@ final class AttendanceManagementRepository
         $changed=0;$this->db->beginTransaction();try{
             $find=$this->db->prepare('SELECT id,status,checked_in_at FROM attendances WHERE event_id=? AND user_id=? AND attendance_date=?');
             $delete=$this->db->prepare('DELETE FROM attendances WHERE id=?');
-            $insert=$this->db->prepare("INSERT INTO attendances(event_id,user_id,attendance_date,status,checked_in_at,recorded_by,created_at,updated_at) VALUES(?,?,?,?,?,?,datetime('now'),datetime('now'))");
-            $update=$this->db->prepare("UPDATE attendances SET status=?,checked_in_at=?,recorded_by=?,updated_at=datetime('now') WHERE id=?");
+            $insert=$this->db->prepare('INSERT INTO attendances(event_id,user_id,attendance_date,status,checked_in_at,recorded_by,created_at,updated_at) VALUES(?,?,?,?,?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)');
+            $update=$this->db->prepare('UPDATE attendances SET status=?,checked_in_at=?,recorded_by=?,updated_at=CURRENT_TIMESTAMP WHERE id=?');
             foreach($records as $userId=>$record){$new=$record['status']??'';$find->execute([$eventId,(int)$userId,$date]);$current=$find->fetch();if($new===''){if($current){$delete->execute([$current['id']]);$changed++;}continue;}$checked=in_array($new,['present','late'],true)?($current['checked_in_at']??(new DateTimeImmutable('now',new DateTimeZone('Asia/Manila')))->format('Y-m-d H:i:s')):null;if(!$current){$insert->execute([$eventId,(int)$userId,$date,$new,$checked,$actorId]);$changed++;}else{$update->execute([$new,$checked,$actorId,$current['id']]);if($current['status']!==$new)$changed++;}}
-            if($changed){$log=$this->db->prepare("INSERT INTO activity_logs(actor_id,event_id,action,description,created_at,updated_at) VALUES(?,?,?, ?,datetime('now'),datetime('now'))");$log->execute([$actorId,$eventId,'attendance_updated',"Attendance for {$event['title']} was updated ($changed records changed)."]);}$this->db->commit();return $changed;
+            if($changed){$log=$this->db->prepare('INSERT INTO activity_logs(actor_id,event_id,action,description,created_at,updated_at) VALUES(?,?,?, ?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)');$log->execute([$actorId,$eventId,'attendance_updated',"Attendance for {$event['title']} was updated ($changed records changed)."]);}$this->db->commit();return $changed;
         }catch(Throwable $exception){$this->db->rollBack();throw $exception;}
     }
 

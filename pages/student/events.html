@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <base href="/IT-Event-Management/">
+    <title>Events | CITE Events</title>
+    <link rel="icon" type="image/png" href="assets/images/cite_favicon.png">
+    <link rel="stylesheet" href="css/tailwind.css">
+    <script src="js/vendor/axios.min.js" defer></script>
+    <script src="js/student/portal.js" defer></script>
+    <script src="js/student/events.js" defer></script>
+</head>
+<body class="min-h-screen bg-[#F7F4ED] font-sans text-[#121017] antialiased">
+    <div data-student-sidebar-host></div>
+    <div data-student-header-host></div>
+
+    <main class="w-auto pb-28 transition-[margin] duration-200 lg:ml-20 lg:pb-10" data-student-main data-student-sidebar-content>
+        <div class="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:py-10">
+            <header>
+                <p class="text-[10px] font-black uppercase tracking-[.15em] text-[#397565]">CITE calendar</p>
+                <h1 class="mt-1 text-3xl font-black tracking-tight">Your events</h1>
+                <p class="mt-2 text-sm text-[#121017]/50">Active activities, available events, and their complete schedules.</p>
+            </header>
+
+            <section class="mt-7" aria-labelledby="active-events-heading">
+                <div class="flex items-end justify-between gap-4">
+                    <div>
+                        <p class="text-[10px] font-black uppercase tracking-[.15em] text-[#397565]">Now and next</p>
+                        <h2 class="mt-1 text-2xl font-black" id="active-events-heading">Active and available events</h2>
+                    </div>
+                    <span class="text-xs font-bold text-[#121017]/40" data-active-count>0 events</span>
+                </div>
+                <div class="mt-5 grid gap-5 md:grid-cols-2 xl:grid-cols-3" data-active-events></div>
+            </section>
+
+            <section class="mt-12" aria-labelledby="past-events-heading">
+                <div class="flex items-end justify-between gap-4">
+                    <div>
+                        <p class="text-[10px] font-black uppercase tracking-[.15em] text-[#397565]">Event archive</p>
+                        <h2 class="mt-1 text-2xl font-black" id="past-events-heading">Past events</h2>
+                    </div>
+                    <span class="text-xs font-bold text-[#121017]/40" data-past-count>0 events</span>
+                </div>
+                <div class="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-3" data-past-events></div>
+            </section>
+        </div>
+    </main>
+</body>
+</html>
