@@ -1,0 +1,483 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <base href="/IT-Event-Management-Converted/" />
+    <title>Event Scores | CITE Events</title>
+    <link rel="icon" type="image/png" href="assets/images/cite_favicon.png" />
+    <link rel="stylesheet" href="css/tailwind.css" />
+    <script src="js/shared/notifications.js" defer></script>
+    <script src="js/shared/interactions.js" defer></script>
+  </head>
+  <body
+    class="app-shell min-h-screen bg-white font-sans text-[#121017] antialiased"
+    data-admin-shell
+  >
+    <aside
+      class="fixed inset-y-0 left-0 z-40 flex w-64 -translate-x-full flex-col bg-[#121017] px-5 pb-5 pt-5 text-[#F3F0E9] shadow-2xl transition-transform duration-200 lg:translate-x-0 lg:shadow-none"
+      id="sidebar"
+    >
+      <a
+        class="mb-10 flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[.07] p-3 text-xl font-extrabold tracking-tight shadow-[0_12px_30px_rgba(0,0,0,.18)] transition hover:border-[#C6F24E]/30 hover:bg-white/[.1]"
+        href="pages/adviser/dashboard.html"
+      >
+        <img
+          class="h-10 w-10 rounded-full object-contain"
+          src="assets/images/cite-logo.png"
+          alt="CITE logo"
+        />
+        <span class="grid leading-tight"
+          >CITE<span
+            class="text-[9px] font-bold uppercase tracking-[.15em] text-[#F3F0E9]/45"
+            >Events Admin</span
+          ></span
+        >
+      </a>
+
+      <nav class="grid gap-2" aria-label="Main navigation">
+        <a
+          href="pages/adviser/dashboard.html"
+          class="flex min-h-12 items-center gap-3 rounded-xl px-4 text-sm font-bold transition text-[#F3F0E9]/65 hover:bg-white/5 hover:text-[#F3F0E9]"
+        >
+          <svg
+            class="h-5 w-5 fill-none stroke-current"
+            aria-hidden="true"
+            viewBox="0 0 24 24"
+          >
+            <path
+              d="M4 13h6V4H4v9Zm0 7h6v-4H4v4Zm10 0h6v-9h-6v9Zm0-16v4h6V4h-6Z"
+            /></svg
+          >Dashboard
+        </a>
+        <a
+          href="pages/adviser/users.html"
+          class="flex min-h-12 items-center gap-3 rounded-xl px-4 text-sm font-bold transition text-[#F3F0E9]/65 hover:bg-white/5 hover:text-[#F3F0E9]"
+        >
+          <svg
+            class="h-5 w-5 fill-none stroke-current"
+            aria-hidden="true"
+            viewBox="0 0 24 24"
+          >
+            <path
+              d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm13 10v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"
+            /></svg
+          >User Management
+        </a>
+        <a
+          href="pages/adviser/officers.html"
+          class="flex min-h-12 items-center gap-3 rounded-xl px-4 text-sm font-bold transition text-[#F3F0E9]/65 hover:bg-white/5 hover:text-[#F3F0E9]"
+        >
+          <svg
+            class="h-5 w-5 fill-none stroke-current"
+            aria-hidden="true"
+            viewBox="0 0 24 24"
+          >
+            <path
+              d="M12 3 4 7v5c0 4.6 3.2 7.8 8 9 4.8-1.2 8-4.4 8-9V7l-8-4Zm-3 9 2 2 4-5"
+            /></svg
+          >Officer Management
+        </a>
+        <a
+          href="pages/adviser/teams.html"
+          class="flex min-h-12 items-center gap-3 rounded-xl px-4 text-sm font-bold transition text-[#F3F0E9]/65 hover:bg-white/5 hover:text-[#F3F0E9]"
+        >
+          <svg
+            class="h-5 w-5 fill-none stroke-current"
+            aria-hidden="true"
+            viewBox="0 0 24 24"
+          >
+            <path
+              d="M8 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6Zm8 0a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM2 20v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2m0-5.5a4 4 0 0 1 3-1.5h1a4 4 0 0 1 4 4v3"
+            /></svg
+          >Team Management
+        </a>
+        <a
+          href="pages/adviser/events.html"
+          class="flex min-h-12 items-center gap-3 rounded-xl px-4 text-sm font-bold transition text-[#F3F0E9]/65 hover:bg-white/5 hover:text-[#F3F0E9]"
+        >
+          <svg
+            class="h-5 w-5 fill-none stroke-current"
+            aria-hidden="true"
+            viewBox="0 0 24 24"
+          >
+            <path
+              d="M6 2v4m12-4v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14H3V6a2 2 0 0 1 2-2Z"
+            /></svg
+          >Event Management
+        </a>
+        <a
+          href="pages/adviser/attendance.html"
+          class="flex min-h-12 items-center gap-3 rounded-xl px-4 text-sm font-bold transition text-[#F3F0E9]/65 hover:bg-white/5 hover:text-[#F3F0E9]"
+        >
+          <svg
+            class="h-5 w-5 fill-none stroke-current"
+            aria-hidden="true"
+            viewBox="0 0 24 24"
+          >
+            <path d="M9 11l2 2 4-4m6 3a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg
+          >Attendance
+        </a>
+        <a
+          href="pages/adviser/scores.html"
+          class="flex min-h-12 items-center gap-3 rounded-xl px-4 text-sm font-bold transition bg-[#397565] text-white shadow-lg shadow-black/10"
+        >
+          <svg
+            class="h-5 w-5 fill-none stroke-current"
+            aria-hidden="true"
+            viewBox="0 0 24 24"
+          >
+            <path
+              d="M8 21h8M12 17v4M7 4h10v4a5 5 0 0 1-10 0V4Zm0 2H4v1a4 4 0 0 0 4 4m9-5h3v1a4 4 0 0 1-4 4"
+            /></svg
+          >Scores
+        </a>
+        <a
+          href="pages/adviser/leaderboard.html"
+          class="flex min-h-12 items-center gap-3 rounded-xl px-4 text-sm font-bold transition text-[#F3F0E9]/65 hover:bg-white/5 hover:text-[#F3F0E9]"
+        >
+          <svg
+            class="h-5 w-5 fill-none stroke-current"
+            aria-hidden="true"
+            viewBox="0 0 24 24"
+          >
+            <path d="M4 20V10h4v10H4Zm6 0V4h4v16h-4Zm6 0v-7h4v7h-4Z" /></svg
+          >Leaderboard
+        </a>
+        <a
+          href="pages/adviser/announcements.html"
+          class="flex min-h-12 items-center gap-3 rounded-xl px-4 text-sm font-bold transition text-[#F3F0E9]/65 hover:bg-white/5 hover:text-[#F3F0E9]"
+        >
+          <svg
+            class="h-5 w-5 fill-none stroke-current"
+            aria-hidden="true"
+            viewBox="0 0 24 24"
+          >
+            <path
+              d="M4 13V9l11-5v14L4 13Zm0 0v5h4v-3m7-7h3a3 3 0 0 1 0 6h-3"
+            /></svg
+          >Announcements
+        </a>
+        <a
+          href="pages/adviser/reports.html"
+          class="flex min-h-12 items-center gap-3 rounded-xl px-4 text-sm font-bold transition text-[#F3F0E9]/65 hover:bg-white/5 hover:text-[#F3F0E9]"
+        >
+          <svg
+            class="h-5 w-5 fill-none stroke-current"
+            aria-hidden="true"
+            viewBox="0 0 24 24"
+          >
+            <path d="M5 3h10l4 4v14H5V3Zm10 0v5h4M8 12h8M8 16h8M8 8h3" /></svg
+          >Reports
+        </a>
+        <a
+          href="pages/adviser/posts.html"
+          class="flex min-h-12 items-center gap-3 rounded-xl px-4 text-sm font-bold transition text-[#F3F0E9]/65 hover:bg-white/5 hover:text-[#F3F0E9]"
+        >
+          <svg
+            class="h-5 w-5 fill-none stroke-current"
+            aria-hidden="true"
+            viewBox="0 0 24 24"
+          >
+            <path d="M4 5h16v12H8l-4 4V5Zm4 4h8m-8 4h5" /></svg
+          >Post Review
+        </a>
+      </nav>
+
+      <p
+        class="mt-auto px-3 text-[9px] font-bold uppercase tracking-[.15em] text-[#F3F0E9]/30"
+      >
+        Campus Event Management
+      </p>
+    </aside>
+    <div class="min-h-screen lg:ml-64">
+      <header
+        class="sticky top-0 z-30 border-b border-[#397565]/25 bg-[#DDEBE6]/90 shadow-[0_8px_30px_rgba(57,117,101,.14)] backdrop-blur-xl"
+      >
+        <div
+          class="mx-auto flex h-[72px] w-full max-w-[1500px] items-center gap-3 px-4 sm:px-6 lg:px-10 xl:px-16"
+        >
+          <button
+            class="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-[#121017]/10 text-[#121017]/65 transition hover:border-[#397565]/35 hover:text-[#397565] lg:hidden"
+            type="button"
+            data-sidebar-toggle
+            aria-controls="sidebar"
+            aria-expanded="false"
+            aria-label="Open navigation"
+          >
+            <svg
+              class="h-5 w-5 fill-none stroke-current stroke-2"
+              viewBox="0 0 24 24"
+            >
+              <path d="M4 6h16M4 12h16M4 18h16" />
+            </svg>
+          </button>
+          <details class="group relative ml-auto shrink-0" data-account-menu>
+            <summary
+              class="flex min-h-11 cursor-pointer list-none items-center gap-2.5 rounded-xl border border-transparent px-1.5 py-1 transition hover:border-[#121017]/8 hover:bg-[#F3F0E9]/60 focus:outline-none focus-visible:ring-4 focus-visible:ring-[#397565]/12"
+            >
+              <span
+                class="relative grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[#C6F24E] text-[10px] font-black text-[#121017] ring-2 ring-[#397565]/12"
+                >SA<i
+                  class="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full border-2 border-white bg-[#397565]"
+                  aria-hidden="true"
+                ></i
+              ></span>
+              <span class="hidden min-w-0 text-left sm:grid"
+                ><strong
+                  class="max-w-36 truncate text-xs font-black text-[#121017]"
+                  >SBO Adviser</strong
+                ><small
+                  class="mt-0.5 text-[9px] font-bold uppercase tracking-[.1em] text-[#397565]"
+                  >SBO Adviser</small
+                ></span
+              >
+              <svg
+                class="hidden h-4 w-4 fill-none stroke-[#121017]/35 stroke-2 transition group-open:rotate-180 sm:block"
+                viewBox="0 0 24 24"
+                aria-hidden="true"
+              >
+                <path d="m7 10 5 5 5-5" />
+              </svg>
+            </summary>
+            <div
+              class="absolute right-0 top-[calc(100%+.65rem)] w-64 overflow-hidden rounded-2xl border border-[#121017]/10 bg-white p-2 shadow-[0_20px_55px_rgba(18,16,23,.16)]"
+            >
+              <div class="border-b border-[#121017]/7 px-3 py-3">
+                <strong class="block truncate text-sm font-black"
+                  >SBO Adviser</strong
+                ><span class="mt-1 block truncate text-xs text-[#121017]/45"
+                  >adviser@itevents.local</span
+                >
+              </div>
+              <a
+                class="mt-2 flex min-h-10 items-center gap-3 rounded-xl px-3 text-xs font-bold text-[#121017]/65 transition hover:bg-[#397565]/8 hover:text-[#397565]"
+                href="./"
+                ><svg
+                  class="h-4 w-4 fill-none stroke-current stroke-2"
+                  viewBox="0 0 24 24"
+                  aria-hidden="true"
+                >
+                  <path d="M3 11 12 3l9 8M5 10v10h14V10" /></svg
+                >View public homepage</a
+              >
+              <form method="POST" action="api/auth.php?action=logout">
+                <button
+                  class="flex min-h-10 w-full items-center gap-3 rounded-xl px-3 text-xs font-bold text-[#FF6B2C] transition hover:bg-[#FF6B2C]/8"
+                  type="submit"
+                  data-loading-text="Signing out…"
+                >
+                  <svg
+                    class="h-4 w-4 fill-none stroke-current stroke-2"
+                    viewBox="0 0 24 24"
+                    aria-hidden="true"
+                  >
+                    <path
+                      d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4m7 14 5-5-5-5m5 5H9"
+                    /></svg
+                  >Sign out
+                </button>
+              </form>
+            </div>
+          </details>
+        </div>
+      </header>
+      <main
+        class="admin-main mx-auto w-full max-w-[1500px] px-4 py-7 sm:px-6 lg:px-10 lg:py-9 xl:px-16"
+      >
+        <div class="mb-6 flex items-center justify-between">
+          <a
+            class="text-xs font-black text-[#397565]"
+            href="pages/adviser/scores.html"
+            >← All event scoreboards</a
+          ><span
+            class="hidden text-[10px] font-black uppercase tracking-[.18em] text-[#121017]/35 sm:block"
+            >Adviser workspace</span
+          >
+        </div>
+        <header class="border-b border-[#121017]/12 pb-7">
+          <div
+            class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_300px] lg:items-end"
+          >
+            <div>
+              <div class="mb-3 flex gap-2">
+                <span
+                  class="rounded-full bg-[#397565]/10 px-3 py-1 text-[10px] font-black uppercase text-[#397565]"
+                  >● Event scoring</span
+                ><span
+                  class="rounded-full bg-white/55 px-3 py-1 text-[10px] font-extrabold text-[#121017]/55"
+                  data-event-state
+                  >Loading</span
+                >
+              </div>
+              <h1
+                class="truncate text-3xl font-black tracking-[-.045em] sm:text-4xl lg:text-5xl"
+                data-event-title
+              >
+                Loading event…
+              </h1>
+              <div
+                class="mt-4 flex flex-wrap gap-x-5 gap-y-2 text-xs font-semibold text-[#121017]/55"
+              >
+                <span data-event-date>—</span><span data-event-location>—</span>
+              </div>
+            </div>
+            <label class="grid gap-2"
+              ><span
+                class="text-[10px] font-black uppercase tracking-[.16em] text-[#121017]/45"
+                >Switch event</span
+              ><select
+                class="h-12 rounded-xl border border-[#121017]/12 bg-white/75 px-4 text-sm font-extrabold outline-none"
+                data-event-switch
+              ></select
+            ></label>
+          </div>
+          <div
+            class="mt-7 grid gap-5 border-t border-[#121017]/10 pt-5 sm:grid-cols-[auto_auto_minmax(220px,1fr)] sm:items-center"
+          >
+            <div>
+              <span
+                class="text-[9px] font-black uppercase tracking-[.14em] text-[#121017]/35"
+                >Criteria</span
+              ><strong
+                class="mt-1 block text-lg font-black"
+                data-summary-categories
+                >0</strong
+              >
+            </div>
+            <div>
+              <span
+                class="text-[9px] font-black uppercase tracking-[.14em] text-[#121017]/35"
+                >Eligible tribes</span
+              ><strong class="mt-1 block text-lg font-black" data-summary-teams
+                >0</strong
+              >
+            </div>
+            <div class="sm:ml-auto sm:w-full sm:max-w-md">
+              <div class="flex justify-between text-[10px] font-extrabold">
+                <span class="text-[#121017]/45">Scoring progress</span
+                ><span class="text-[#397565]" data-completion
+                  >Not configured</span
+                >
+              </div>
+              <div
+                class="mt-2 h-1.5 overflow-hidden rounded-full bg-[#121017]/8"
+              >
+                <div
+                  class="h-full rounded-full bg-[#397565]"
+                  data-completion-bar
+                ></div>
+              </div>
+              <p class="mt-1.5 text-right text-[9px] text-[#121017]/35">
+                <span data-entry-count>0</span> recorded entries ·
+                <span data-grand-total>0</span> points awarded
+              </p>
+            </div>
+          </div>
+        </header>
+        <nav class="border-b border-[#121017]/12">
+          <ol class="grid sm:grid-cols-3">
+            <li class="flex items-center gap-3 py-4">
+              <span
+                class="grid h-7 w-7 place-items-center rounded-full bg-[#397565] text-[10px] font-black text-white"
+                data-step-one
+                >1</span
+              ><strong class="text-xs">Configure criteria</strong>
+            </li>
+            <li class="flex items-center gap-3 py-4 sm:border-l sm:px-5">
+              <span
+                class="grid h-7 w-7 place-items-center rounded-full bg-[#121017]/8 text-[10px] font-black"
+                data-step-two
+                >2</span
+              ><strong class="text-xs">Enter tribe scores</strong>
+            </li>
+            <li class="flex items-center gap-3 py-4 sm:border-l sm:pl-5">
+              <span
+                class="grid h-7 w-7 place-items-center rounded-full bg-[#121017]/8 text-[10px] font-black"
+                data-step-three
+                >3</span
+              ><strong class="text-xs">Review results</strong>
+            </li>
+          </ol>
+        </nav>
+        <section class="py-8" data-criteria-section>
+          <p class="p-10 text-center text-sm text-[#121017]/45">
+            Loading scoring criteria…
+          </p>
+        </section>
+        <section class="pb-10" data-matrix-section></section>
+      </main>
+    </div>
+    <button
+      class="fixed inset-0 z-30 hidden bg-[#121017]/60 lg:hidden"
+      data-sidebar-scrim
+      data-sidebar-toggle
+    ></button>
+    <div
+      class="pointer-events-none fixed right-4 top-4 z-[80] grid w-[min(380px,calc(100%_-_2rem))] gap-2.5"
+      data-notification-region
+    ></div>
+    <dialog
+      class="m-auto w-[min(430px,calc(100%_-_2rem))] rounded-2xl bg-[#F3F0E9] p-0 shadow-2xl backdrop:bg-[#121017]/65"
+      data-category-dialog
+    >
+      <form class="p-6" data-category-form>
+        <div class="mb-5 flex items-start justify-between">
+          <div>
+            <p
+              class="text-[9px] font-black uppercase tracking-[.16em] text-[#397565]"
+            >
+              Edit criterion
+            </p>
+            <h3 class="mt-1 text-xl font-black" data-dialog-title>
+              Edit criterion
+            </h3>
+          </div>
+          <button class="text-2xl" type="button" data-dialog-close>
+            &times;
+          </button>
+        </div>
+        <input type="hidden" name="category_id" /><label class="grid gap-2"
+          ><span class="text-xs font-extrabold">Criterion name</span
+          ><input
+            class="h-11 rounded-xl border bg-white px-3 text-sm"
+            name="name"
+            maxlength="80"
+            required /><small
+            class="hidden text-[10px] text-red-600"
+            data-error="name"
+          ></small></label
+        ><label class="mt-4 grid gap-2"
+          ><span class="text-xs font-extrabold">Maximum points</span
+          ><input
+            class="h-11 rounded-xl border bg-white px-3 text-sm"
+            type="number"
+            name="max_points"
+            min="0.01"
+            max="1000000"
+            step="0.01"
+            required /><small
+            class="hidden text-[10px] text-red-600"
+            data-error="max_points"
+          ></small
+        ></label>
+        <div class="mt-6 flex gap-2">
+          <button
+            class="min-h-11 flex-1 rounded-xl border"
+            type="button"
+            data-dialog-close
+          >
+            Cancel</button
+          ><button
+            class="min-h-11 flex-1 rounded-xl bg-[#2F3AE0] text-xs font-black text-white"
+            type="submit"
+          >
+            Save Changes
+          </button>
+        </div>
+      </form>
+    </dialog>
+    <script src="js/vendor/axios.min.js"></script>
+    <script src="js/adviser/scoreboard.js"></script>
+  </body>
+</html>

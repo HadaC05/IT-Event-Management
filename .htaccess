@@ -1,0 +1,7 @@
+DirectoryIndex pages/home.html
+Options -Indexes
+
+RewriteEngine On
+RewriteRule ^api/login\.php$ api/auth.php?action=login [L,QSA]
+RewriteRule ^api/logout\.php$ api/auth.php?action=logout [L,QSA]
+RewriteRule ^api/session\.php$ api/auth.php?action=session [L,QSA]

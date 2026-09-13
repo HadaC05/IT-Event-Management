@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <base href="/IT-Event-Management-Converted/">
+    <meta name="csrf-token" content="">
+    <title>Attendance Roster | CITE Events</title>
+    <link
+    rel="icon"
+    type="image/png"
+    sizes="512x512"
+    href="assets/images/cite_favicon.png"
+>
+<link rel="stylesheet" href="css/tailwind.css" />    <script src="js/shared/notifications.js" defer></script>
+    <script src="js/shared/interactions.js" defer></script>
+</head>
+<body class="app-shell min-h-screen bg-white font-sans text-[#121017] antialiased" data-admin-shell>
+    <span class="route-progress" data-route-progress data-active="false" aria-hidden="true"></span>
+    <aside class="fixed inset-y-0 left-0 z-40 flex w-64 -translate-x-full flex-col bg-[#121017] px-5 pb-5 pt-5 text-[#F3F0E9] shadow-2xl transition-transform duration-200 lg:translate-x-0 lg:shadow-none" id="sidebar">
+        <a class="mb-10 flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[.07] p-3 text-xl font-extrabold tracking-tight shadow-[0_12px_30px_rgba(0,0,0,.18)] transition hover:border-[#C6F24E]/30 hover:bg-white/[.1]" href="pages/adviser/dashboard.html">
+            <img class="h-10 w-10 rounded-full object-contain" src="assets/images/cite-logo.png" alt="CITE logo">
+            <span class="grid leading-tight">CITE<span class="text-[9px] font-bold uppercase tracking-[.15em] text-[#F3F0E9]/45">Events Admin</span></span>
+        </a>
+
+        <nav class="grid gap-2" aria-label="Main navigation">
+            <a href="pages/adviser/dashboard.html" class="flex min-h-12 items-center gap-3 rounded-xl px-4 text-sm font-bold transition text-[#F3F0E9]/65 hover:bg-white/5 hover:text-[#F3F0E9]">
+                <svg class="h-5 w-5 fill-none stroke-current" aria-hidden="true" viewBox="0 0 24 24"><path d="M4 13h6V4H4v9Zm0 7h6v-4H4v4Zm10 0h6v-9h-6v9Zm0-16v4h6V4h-6Z"/></svg>Dashboard
+            </a>
+            <a href="pages/adviser/users.html" class="flex min-h-12 items-center gap-3 rounded-xl px-4 text-sm font-bold transition text-[#F3F0E9]/65 hover:bg-white/5 hover:text-[#F3F0E9]">
+                <svg class="h-5 w-5 fill-none stroke-current" aria-hidden="true" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm13 10v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>User Management
+            </a>
+            <a href="pages/adviser/officers.html" class="flex min-h-12 items-center gap-3 rounded-xl px-4 text-sm font-bold transition text-[#F3F0E9]/65 hover:bg-white/5 hover:text-[#F3F0E9]">
+                <svg class="h-5 w-5 fill-none stroke-current" aria-hidden="true" viewBox="0 0 24 24"><path d="M12 3 4 7v5c0 4.6 3.2 7.8 8 9 4.8-1.2 8-4.4 8-9V7l-8-4Zm-3 9 2 2 4-5"/></svg>Officer Management
+            </a>
+            <a href="pages/adviser/teams.html" class="flex min-h-12 items-center gap-3 rounded-xl px-4 text-sm font-bold transition text-[#F3F0E9]/65 hover:bg-white/5 hover:text-[#F3F0E9]">
+                <svg class="h-5 w-5 fill-none stroke-current" aria-hidden="true" viewBox="0 0 24 24"><path d="M8 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6Zm8 0a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM2 20v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2m0-5.5a4 4 0 0 1 3-1.5h1a4 4 0 0 1 4 4v3"/></svg>Team Management
+            </a>
+            <a href="pages/adviser/events.html" class="flex min-h-12 items-center gap-3 rounded-xl px-4 text-sm font-bold transition text-[#F3F0E9]/65 hover:bg-white/5 hover:text-[#F3F0E9]">
+                <svg class="h-5 w-5 fill-none stroke-current" aria-hidden="true" viewBox="0 0 24 24"><path d="M6 2v4m12-4v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14H3V6a2 2 0 0 1 2-2Z"/></svg>Event Management
+            </a>
+            <a href="pages/adviser/attendance.html" class="flex min-h-12 items-center gap-3 rounded-xl px-4 text-sm font-bold transition bg-[#397565] text-white shadow-lg shadow-black/10">
+                <svg class="h-5 w-5 fill-none stroke-current" aria-hidden="true" viewBox="0 0 24 24"><path d="M9 11l2 2 4-4m6 3a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/></svg>Attendance
+            </a>
+            <a href="pages/adviser/scores.html" class="flex min-h-12 items-center gap-3 rounded-xl px-4 text-sm font-bold transition text-[#F3F0E9]/65 hover:bg-white/5 hover:text-[#F3F0E9]">
+                <svg class="h-5 w-5 fill-none stroke-current" aria-hidden="true" viewBox="0 0 24 24"><path d="M8 21h8M12 17v4M7 4h10v4a5 5 0 0 1-10 0V4Zm0 2H4v1a4 4 0 0 0 4 4m9-5h3v1a4 4 0 0 1-4 4"/></svg>Scores
+            </a>
+            <a href="pages/adviser/leaderboard.html" class="flex min-h-12 items-center gap-3 rounded-xl px-4 text-sm font-bold transition text-[#F3F0E9]/65 hover:bg-white/5 hover:text-[#F3F0E9]">
+                <svg class="h-5 w-5 fill-none stroke-current" aria-hidden="true" viewBox="0 0 24 24"><path d="M4 20V10h4v10H4Zm6 0V4h4v16h-4Zm6 0v-7h4v7h-4Z"/></svg>Leaderboard
+            </a>
+            <a href="pages/adviser/announcements.html" class="flex min-h-12 items-center gap-3 rounded-xl px-4 text-sm font-bold transition text-[#F3F0E9]/65 hover:bg-white/5 hover:text-[#F3F0E9]">
+                <svg class="h-5 w-5 fill-none stroke-current" aria-hidden="true" viewBox="0 0 24 24"><path d="M4 13V9l11-5v14L4 13Zm0 0v5h4v-3m7-7h3a3 3 0 0 1 0 6h-3"/></svg>Announcements
+            </a>
+            <a href="pages/adviser/reports.html" class="flex min-h-12 items-center gap-3 rounded-xl px-4 text-sm font-bold transition text-[#F3F0E9]/65 hover:bg-white/5 hover:text-[#F3F0E9]">
+                <svg class="h-5 w-5 fill-none stroke-current" aria-hidden="true" viewBox="0 0 24 24"><path d="M5 3h10l4 4v14H5V3Zm10 0v5h4M8 12h8M8 16h8M8 8h3"/></svg>Reports
+            </a>
+            <a href="pages/adviser/posts.html" class="flex min-h-12 items-center gap-3 rounded-xl px-4 text-sm font-bold transition text-[#F3F0E9]/65 hover:bg-white/5 hover:text-[#F3F0E9]">
+                <svg class="h-5 w-5 fill-none stroke-current" aria-hidden="true" viewBox="0 0 24 24"><path d="M4 5h16v12H8l-4 4V5Zm4 4h8m-8 4h5"/></svg>Post Review
+            </a>
+        </nav>
+
+        <p class="mt-auto px-3 text-[9px] font-bold uppercase tracking-[.15em] text-[#F3F0E9]/30">Campus Event Management</p>
+    </aside>
+
+    <div class="min-h-screen lg:ml-64">
+        <header class="sticky top-0 z-30 border-b border-[#397565]/25 bg-[#DDEBE6]/90 shadow-[0_8px_30px_rgba(57,117,101,.14)] backdrop-blur-xl">
+            <div class="mx-auto flex h-[72px] w-full max-w-[1500px] items-center gap-3 px-4 sm:px-6 lg:px-10 xl:px-16">
+                <button class="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-[#121017]/10 text-[#121017]/65 transition hover:border-[#397565]/35 hover:text-[#397565] lg:hidden" type="button" data-sidebar-toggle aria-controls="sidebar" aria-expanded="false" aria-label="Open navigation"><svg class="h-5 w-5 fill-none stroke-current stroke-2" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button>
+                <details class="group relative ml-auto shrink-0" data-account-menu>
+                    <summary class="flex min-h-11 cursor-pointer list-none items-center gap-2.5 rounded-xl border border-transparent px-1.5 py-1 transition hover:border-[#121017]/8 hover:bg-[#F3F0E9]/60 focus:outline-none focus-visible:ring-4 focus-visible:ring-[#397565]/12">
+                        <span class="relative grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[#C6F24E] text-[10px] font-black text-[#121017] ring-2 ring-[#397565]/12">SA<i class="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full border-2 border-white bg-[#397565]" aria-hidden="true"></i></span>
+                        <span class="hidden min-w-0 text-left sm:grid"><strong class="max-w-36 truncate text-xs font-black text-[#121017]">SBO Adviser</strong><small class="mt-0.5 text-[9px] font-bold uppercase tracking-[.1em] text-[#397565]">SBO Adviser</small></span>
+                        <svg class="hidden h-4 w-4 fill-none stroke-[#121017]/35 stroke-2 transition group-open:rotate-180 sm:block" viewBox="0 0 24 24" aria-hidden="true"><path d="m7 10 5 5 5-5"/></svg>
+                    </summary>
+                    <div class="absolute right-0 top-[calc(100%+.65rem)] w-64 overflow-hidden rounded-2xl border border-[#121017]/10 bg-white p-2 shadow-[0_20px_55px_rgba(18,16,23,.16)]">
+                        <div class="border-b border-[#121017]/7 px-3 py-3"><strong class="block truncate text-sm font-black">SBO Adviser</strong><span class="mt-1 block truncate text-xs text-[#121017]/45">adviser@itevents.local</span></div>
+                        <a class="mt-2 flex min-h-10 items-center gap-3 rounded-xl px-3 text-xs font-bold text-[#121017]/65 transition hover:bg-[#397565]/8 hover:text-[#397565]" href="./"><svg class="h-4 w-4 fill-none stroke-current stroke-2" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11 12 3l9 8M5 10v10h14V10"/></svg>View public homepage</a>
+                        <form method="POST" action="api/auth.php?action=logout"><button class="flex min-h-10 w-full items-center gap-3 rounded-xl px-3 text-xs font-bold text-[#FF6B2C] transition hover:bg-[#FF6B2C]/8" type="submit" data-loading-text="Signing out…"><svg class="h-4 w-4 fill-none stroke-current stroke-2" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4m7 14 5-5-5-5m5 5H9"/></svg>Sign out</button></form>
+                    </div>
+                </details>
+            </div>
+        </header>
+        <main class="admin-main mx-auto w-full max-w-[1500px] px-4 py-7 sm:px-6 lg:px-10 lg:py-9 xl:px-16" data-page-content>
+<header class="border-b border-[#121017]/12 pb-6"><div class="flex flex-col gap-6 xl:flex-row xl:items-end xl:justify-between"><div class="min-w-0"><a class="mb-5 inline-flex items-center gap-2 text-[10px] font-black text-[#397565] transition hover:text-[#2f6658]" href="pages/adviser/attendance.html">← All event rosters</a><div class="flex flex-wrap items-center gap-2"><span class="inline-flex items-center gap-1.5 rounded-full bg-[#397565]/8 px-2.5 py-1 text-[9px] font-black uppercase tracking-[.12em] text-[#397565]"><span class="h-1.5 w-1.5 rounded-full bg-[#C6F24E]"></span>Attendance roster</span><span class="rounded-full px-2.5 py-1 text-[9px] font-black uppercase tracking-wide" data-schedule-state></span></div><h1 class="mt-4 truncate text-4xl font-black tracking-[-.055em] text-[#121017] sm:text-5xl" data-event-title>Loading event…</h1><p class="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs font-semibold text-[#121017]/48" data-event-details></p></div><label class="grid gap-1.5 xl:w-80"><span class="text-[9px] font-black uppercase tracking-[.14em] text-[#121017]/35">Switch event</span><span class="relative"><select class="h-12 w-full appearance-none rounded-xl border border-[#121017]/10 bg-white/70 px-4 pr-10 text-xs font-black text-[#121017] outline-none transition focus:border-[#397565] focus:ring-4 focus:ring-[#397565]/10" data-event-switch></select><svg class="pointer-events-none absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 fill-none stroke-[#397565] stroke-2" viewBox="0 0 24 24"><path d="m7 10 5 5 5-5"/></svg></span></label></div></header>
+<nav class="mt-5 hidden flex-wrap items-center gap-2 rounded-2xl border border-[#121017]/8 bg-white p-3" aria-label="Event attendance days" data-date-navigation></nav>
+<section class="grid gap-5 border-b border-[#121017]/12 py-6 lg:grid-cols-[1.25fr_.75fr]" aria-label="Attendance summary"><div><div class="flex items-end justify-between gap-4"><div><p class="text-[9px] font-black uppercase tracking-[.15em] text-[#397565]">Roster completion</p><div class="mt-1 flex items-baseline gap-2"><strong class="text-3xl font-black tracking-[-.04em] text-[#121017]" data-completion>—</strong><span class="text-[10px] font-semibold text-[#121017]/40"><span data-recorded>0</span> of <span data-expected>0</span> expected students recorded</span></div></div><strong class="text-xs font-black text-[#FF6B2C]" data-unrecorded>0 awaiting status</strong></div><div class="mt-4 h-2 overflow-hidden rounded-full bg-[#121017]/6"><div class="h-full rounded-full bg-[#397565] transition-all" style="width:0%" data-completion-bar></div></div></div><div class="border-t border-[#121017]/8 pt-4 lg:border-l lg:border-t-0 lg:pl-6 lg:pt-0"><p class="text-[9px] font-black uppercase tracking-[.15em] text-[#121017]/35">Present or late rate</p><div class="mt-1 flex items-baseline gap-2"><strong class="text-3xl font-black tracking-[-.04em] text-[#397565]" data-rate>—</strong><span class="text-[10px] font-semibold text-[#121017]/40">among recorded statuses</span></div></div><dl class="grid grid-cols-2 gap-x-6 gap-y-4 border-t border-[#121017]/8 pt-5 sm:grid-cols-4 lg:col-span-2"><div><dt class="flex items-center gap-2 text-[9px] font-black uppercase tracking-[.12em] text-[#397565]"><span class="h-1.5 w-1.5 rounded-full bg-[#C6F24E]"></span>Present</dt><dd class="mt-1 text-xl font-black" data-count="present">0</dd></div><div><dt class="flex items-center gap-2 text-[9px] font-black uppercase tracking-[.12em] text-[#b94312]"><span class="h-1.5 w-1.5 rounded-full bg-[#FF6B2C]"></span>Late</dt><dd class="mt-1 text-xl font-black" data-count="late">0</dd></div><div><dt class="flex items-center gap-2 text-[9px] font-black uppercase tracking-[.12em] text-red-700"><span class="h-1.5 w-1.5 rounded-full bg-red-500"></span>Absent</dt><dd class="mt-1 text-xl font-black" data-count="absent">0</dd></div><div><dt class="flex items-center gap-2 text-[9px] font-black uppercase tracking-[.12em] text-[#2F3AE0]"><span class="h-1.5 w-1.5 rounded-full bg-[#2F3AE0]"></span>Excused</dt><dd class="mt-1 text-xl font-black" data-count="excused">0</dd></div></dl></section>
+<section class="py-7" aria-labelledby="student-roster-heading"><div class="mb-5 flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between"><div><p class="text-[10px] font-black uppercase tracking-[.16em] text-[#397565]">Operational workspace</p><h2 id="student-roster-heading" class="mt-1 text-xl font-black tracking-[-.025em] text-[#121017]">Student Participants</h2><p class="mt-1 text-[10px] font-semibold text-[#121017]/40" data-roster-count>Loading students…</p></div><form class="grid gap-2 sm:grid-cols-[minmax(250px,1fr)_180px_auto] xl:w-[720px]" data-roster-filters><label class="relative"><svg class="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 fill-none stroke-[#121017]/35 stroke-2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg><input class="h-11 w-full rounded-xl border border-[#121017]/10 bg-white/70 pl-10 pr-3 text-sm text-[#121017] outline-none transition placeholder:text-[#121017]/30 focus:border-[#397565] focus:bg-white focus:ring-4 focus:ring-[#397565]/10" name="search" maxlength="100" placeholder="Search name or student ID…"><span class="sr-only">Search students</span></label><label class="relative"><select class="h-11 w-full appearance-none rounded-xl border border-[#121017]/10 bg-white/70 px-3 pr-9 text-xs font-bold text-[#121017]/60 outline-none transition focus:border-[#397565] focus:bg-white focus:ring-4 focus:ring-[#397565]/10" name="status"><option value="">Every status</option><option value="unrecorded">Not recorded</option><option value="present">Present</option><option value="late">Late</option><option value="absent">Absent</option><option value="excused">Excused</option></select><span class="sr-only">Filter attendance status</span><svg class="pointer-events-none absolute right-3.5 top-1/2 h-4 w-4 -translate-y-1/2 fill-none stroke-[#397565] stroke-2" viewBox="0 0 24 24"><path d="m7 10 5 5 5-5"/></svg></label><button class="h-11 rounded-xl bg-[#397565] px-4 text-xs font-black text-white transition hover:bg-[#2f6658]" type="submit">Apply</button></form></div>
+<div class="hidden rounded-2xl border border-[#121017]/10 bg-white/70 px-6 py-12 text-center" data-roster-empty></div>
+<form data-attendance-form><input type="hidden" name="attendance_date" data-attendance-date><div class="overflow-hidden rounded-2xl border border-[#121017]/10 bg-white/75 shadow-[0_16px_45px_rgba(18,16,23,.04)]"><div class="flex flex-col gap-3 border-b border-[#121017]/8 px-5 py-3 sm:flex-row sm:items-center sm:justify-between"><p class="text-[10px] font-semibold text-[#121017]/42">Editing this page only · changes remain local until saved</p><div class="flex items-center gap-3"><button class="inline-flex min-h-9 items-center justify-center rounded-lg border border-[#397565]/20 bg-[#397565]/6 px-3 text-[10px] font-black text-[#397565] transition hover:bg-[#397565]/12" type="button" data-mark-present>Mark this page present</button></div></div><div class="overflow-x-auto"><table class="w-full border-collapse sm:min-w-[820px]"><thead class="hidden bg-[#121017]/[.025] text-left text-[9px] font-black uppercase tracking-[.14em] text-[#121017]/35 sm:table-header-group"><tr><th class="px-5 py-3.5 sm:px-6">Student</th><th class="px-4 py-3.5">Tribe / Year</th><th class="px-4 py-3.5">Attendance status</th><th class="px-5 py-3.5 sm:px-6">Check-in</th></tr></thead><tbody class="grid divide-y divide-[#121017]/7 sm:table-row-group" data-roster-rows></tbody></table></div><nav class="hidden items-center justify-between border-t border-[#121017]/8 px-5 py-4 text-[10px] sm:px-6" data-pagination></nav><footer class="sticky bottom-3 z-10 flex flex-col gap-3 border-t border-[#121017]/8 bg-white/95 px-5 py-4 backdrop-blur sm:flex-row sm:items-center sm:justify-between sm:px-6"><p class="text-[10px] font-semibold text-[#121017]/40"><strong class="text-[#121017]" data-changed-count>0</strong> unsaved changes on this page</p><div class="flex gap-2"><button class="inline-flex min-h-10 flex-1 items-center justify-center rounded-xl border border-[#121017]/12 px-4 text-[10px] font-black text-[#121017]/55 transition sm:flex-none" type="button" data-discard>Discard Changes</button><button class="inline-flex min-h-10 flex-1 items-center justify-center rounded-xl bg-[#397565] px-5 text-[10px] font-black text-white transition disabled:cursor-not-allowed disabled:bg-[#121017]/15 disabled:text-[#121017]/30 sm:flex-none" type="submit" data-save disabled>Save Attendance</button></div></footer></div></form></section>
+</main>
+    </div>
+    <button class="fixed inset-0 z-30 hidden bg-[#121017]/60 lg:hidden" data-sidebar-scrim data-sidebar-toggle aria-label="Close navigation"></button>
+    <div class="pointer-events-none fixed right-4 top-4 z-[80] grid w-[min(380px,calc(100%_-_2rem))] gap-2.5 sm:right-6 sm:top-6" data-notification-region data-flash-type="" data-flash-message="" aria-live="polite" aria-atomic="true"></div>
+<div class="pointer-events-none fixed bottom-4 right-4 z-[75] w-[min(470px,calc(100%_-_2rem))] sm:bottom-6 sm:right-6" data-snackbar-region aria-live="polite" aria-atomic="true"></div>
+
+<dialog class="m-auto w-[min(440px,calc(100%_-_2rem))] rounded-2xl border-0 bg-white p-0 text-slate-700 shadow-2xl backdrop:bg-[#121017]/60 backdrop:backdrop-blur-[2px]" data-confirm-dialog aria-labelledby="confirm-title" aria-describedby="confirm-message">
+    <div class="flex items-start gap-4 p-6 pb-5">
+        <span class="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-red-50 text-red-600" aria-hidden="true"><svg class="h-5 w-5 fill-none stroke-current" viewBox="0 0 24 24"><path d="M12 9v4m0 4h.01M10.3 3.6 2.4 17.2A2 2 0 0 0 4.1 20h15.8a2 2 0 0 0 1.7-2.8L13.7 3.6a2 2 0 0 0-3.4 0Z"/></svg></span>
+        <div><h2 class="text-lg font-extrabold tracking-tight text-[#121017]" id="confirm-title" data-confirm-title>Confirm action</h2><p class="mt-1.5 text-sm leading-6 text-slate-500" id="confirm-message" data-confirm-message>Are you sure you want to continue?</p></div>
+    </div>
+    <div class="flex justify-end gap-2 border-t border-slate-100 px-6 py-4">
+        <button class="inline-flex min-h-10 items-center justify-center rounded-xl border border-slate-200 px-4 text-sm font-bold text-slate-600 hover:bg-slate-50" type="button" data-confirm-cancel>Cancel</button>
+        <button class="inline-flex min-h-10 items-center justify-center rounded-xl bg-red-600 px-4 text-sm font-bold text-white hover:bg-red-700" type="button" data-confirm-accept>Confirm</button>
+    </div>
+</dialog>
+    <script src="js/vendor/axios.min.js"></script>
+    <script src="js/adviser/attendance-roster.js"></script>
+</body>
+</html>

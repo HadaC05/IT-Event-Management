@@ -1,0 +1,178 @@
+<?php
+
+declare(strict_types=1);
+
+require_once __DIR__.'/Database.php';
+require_once __DIR__.'/ApiSupport.php';
+
+final class AdviserDashboardRepository
+{
+    public function __construct(private readonly PDO $database)
+    {
+    }
+
+    public function metrics(): array
+    {
+        $attendance = $this->todayAttendance();
+        $upcoming = $this->upcomingEvents();
+
+        return [
+            'stats' => [
+                'total_users' => $this->scalar('SELECT COUNT(*) FROM users'),
+                'students' => $this->roleCount('Student'),
+                'faculty' => $this->roleCount('Faculty'),
+                'sbo' => $this->rolesCount(['SBO', 'SBO Officer']),
+                'students_present' => $this->todayPresentStudents(),
+                'upcoming_events' => $this->scalar("SELECT COUNT(*) FROM events WHERE deleted_at IS NULL AND datetime(start_at) > datetime('now', 'localtime')"),
+                'points_awarded' => (float) $this->database->query('SELECT COALESCE(SUM(points), 0) FROM scores')->fetchColumn(),
+                'ranked_teams' => $this->scalar('SELECT COUNT(DISTINCT teams.id) FROM teams JOIN scores ON scores.team_id = teams.id WHERE teams.is_active = 1'),
+                'attendance_rate' => $attendance['rate'],
+            ],
+            'today_attendance' => $attendance,
+            'today_events' => $this->todayEvents(),
+            'upcoming_events' => $upcoming,
+            'recent_attendance' => $this->recentAttendance(),
+            'leaderboard' => $this->leaderboard(),
+            'starting_tomorrow' => $this->startingTomorrow(),
+        ];
+    }
+
+    private function todayAttendance(): array
+    {
+        $statement = $this->database->query(
+            "SELECT attendance.status, COUNT(*) AS total
+             FROM attendances AS attendance
+             LEFT JOIN events ON events.id = attendance.event_id
+             WHERE date(attendance.attendance_date) = date('now', 'localtime')
+                OR (attendance.attendance_date IS NULL AND date(events.start_at) = date('now', 'localtime'))
+             GROUP BY attendance.status"
+        );
+        $counts = ['present' => 0, 'late' => 0, 'absent' => 0, 'excused' => 0];
+        foreach ($statement->fetchAll() as $row) {
+            if (array_key_exists($row['status'], $counts)) {
+                $counts[$row['status']] = (int) $row['total'];
+            }
+        }
+        $counts['marked'] = array_sum($counts);
+        $counts['attended'] = $counts['present'] + $counts['late'];
+        $counts['rate'] = $counts['marked'] > 0 ? round($counts['attended'] / $counts['marked'] * 100, 1) : null;
+        return $counts;
+    }
+
+    private function todayPresentStudents(): int
+    {
+        return $this->scalar(
+            "SELECT COUNT(DISTINCT attendance.user_id)
+             FROM attendances AS attendance
+             LEFT JOIN events ON events.id = attendance.event_id
+             WHERE attendance.status = 'present'
+               AND (date(attendance.attendance_date) = date('now', 'localtime')
+                    OR (attendance.attendance_date IS NULL AND date(events.start_at) = date('now', 'localtime')))"
+        );
+    }
+
+    private function todayEvents(): array
+    {
+        return $this->database->query(
+            "SELECT events.id, events.title, events.start_at, events.end_at, events.location,
+                    COUNT(event_user.user_id) AS assigned_count
+             FROM events
+             LEFT JOIN event_user ON event_user.event_id = events.id
+             WHERE events.deleted_at IS NULL
+               AND datetime(events.start_at) <= datetime('now', 'localtime', 'start of day', '+1 day', '-1 second')
+               AND datetime(events.end_at) >= datetime('now', 'localtime', 'start of day')
+             GROUP BY events.id
+             ORDER BY datetime(events.start_at)"
+        )->fetchAll();
+    }
+
+    private function upcomingEvents(): array
+    {
+        return $this->database->query(
+            "SELECT id, title, start_at, end_at, location
+             FROM events
+             WHERE deleted_at IS NULL AND datetime(start_at) > datetime('now', 'localtime')
+             ORDER BY datetime(start_at)
+             LIMIT 3"
+        )->fetchAll();
+    }
+
+    private function recentAttendance(): array
+    {
+        return $this->database->query(
+            "SELECT attendance.id, attendance.status, attendance.checked_in_at, attendance.updated_at,
+                    events.title AS event_title,
+                    TRIM(COALESCE(users.first_name, '') || ' ' || COALESCE(users.middle_name || ' ', '') || COALESCE(users.last_name, '')) AS student_name
+             FROM attendances AS attendance
+             JOIN users ON users.id = attendance.user_id
+             JOIN events ON events.id = attendance.event_id
+             ORDER BY datetime(COALESCE(attendance.checked_in_at, attendance.updated_at)) DESC
+             LIMIT 6"
+        )->fetchAll();
+    }
+
+    private function leaderboard(): array
+    {
+        $rows = $this->database->query(
+            "SELECT teams.id, teams.name, COUNT(DISTINCT team_user.user_id) AS members_count, SUM(scores.points) AS total_score
+             FROM teams
+             JOIN scores ON scores.team_id = teams.id
+             LEFT JOIN team_user ON team_user.team_id = teams.id
+             WHERE teams.is_active = 1
+             GROUP BY teams.id
+             ORDER BY total_score DESC, teams.name
+             LIMIT 5"
+        )->fetchAll();
+        foreach ($rows as $index => &$row) {
+            $row['rank'] = $index + 1;
+            $row['members_count'] = (int) $row['members_count'];
+            $row['total_score'] = (float) $row['total_score'];
+        }
+        return $rows;
+    }
+
+    private function startingTomorrow(): ?array
+    {
+        $statement = $this->database->query(
+            "SELECT id, title, start_at
+             FROM events
+             WHERE deleted_at IS NULL AND date(start_at) = date('now', 'localtime', '+1 day')
+             ORDER BY datetime(start_at)
+             LIMIT 1"
+        );
+        return $statement->fetch() ?: null;
+    }
+
+    private function roleCount(string $role): int
+    {
+        $statement = $this->database->prepare('SELECT COUNT(*) FROM users JOIN roles ON roles.id = users.role_id WHERE roles.name = :role');
+        $statement->execute(['role' => $role]);
+        return (int) $statement->fetchColumn();
+    }
+
+    private function rolesCount(array $roles): int
+    {
+        $statement = $this->database->prepare('SELECT COUNT(*) FROM users JOIN roles ON roles.id = users.role_id WHERE roles.name IN (:first, :second)');
+        $statement->execute(['first' => $roles[0], 'second' => $roles[1]]);
+        return (int) $statement->fetchColumn();
+    }
+
+    private function scalar(string $sql): int
+    {
+        return (int) $this->database->query($sql)->fetchColumn();
+    }
+}
+
+if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
+    JsonResponse::send(['success' => false, 'message' => 'Method not allowed.'], 405);
+}
+
+$user = AuthGuard::requireRole('SBO Adviser');
+
+try {
+    $repository = new AdviserDashboardRepository((new Database())->connection());
+    JsonResponse::send(['success' => true, 'user' => $user, 'data' => $repository->metrics()]);
+} catch (Throwable $exception) {
+    error_log($exception->getMessage());
+    JsonResponse::send(['success' => false, 'message' => 'Dashboard data could not be loaded.'], 500);
+}

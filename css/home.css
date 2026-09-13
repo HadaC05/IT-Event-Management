@@ -1,0 +1,78 @@
+:root {
+    --ink: #121017;
+    --teal: #397565;
+    --cobalt: #2f3ae0;
+    --lime: #c6f24e;
+    --orange: #ff6b2c;
+}
+
+body {
+    position: relative;
+    isolation: isolate;
+    overflow-x: hidden;
+}
+
+body::before {
+    position: fixed;
+    inset: -90px;
+    z-index: -2;
+    content: "";
+    pointer-events: none;
+    background-image:
+        radial-gradient(circle at 12% 18%, rgb(57 117 101 / 4.5%), transparent 25%),
+        radial-gradient(circle at 88% 68%, rgb(47 58 224 / 2.5%), transparent 22%),
+        linear-gradient(rgb(57 117 101 / 3%) 1px, transparent 1px),
+        linear-gradient(90deg, rgb(57 117 101 / 3%) 1px, transparent 1px);
+    background-size: auto, auto, 88px 88px, 88px 88px;
+}
+
+.page-atmosphere {
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    overflow: hidden;
+    pointer-events: none;
+}
+
+.page-atmosphere span { position: absolute; display: block; }
+.page-ring { top: 10%; left: -105px; width: 290px; height: 290px; border: 46px solid rgb(198 242 78 / 16%); border-radius: 999px; }
+.page-tile { top: 48%; right: -72px; width: 210px; height: 210px; border: 1px solid rgb(57 117 101 / 8%); border-radius: 48px; background: rgb(57 117 101 / 7.5%); transform: rotate(17deg); }
+.page-orb { top: 32%; right: 13%; width: 18px; height: 18px; border-radius: 999px; background: rgb(255 107 44 / 20%); }
+.page-capsule { bottom: 8%; left: 8%; width: 150px; height: 46px; border: 1px solid rgb(47 58 224 / 7%); border-radius: 999px; background: rgb(47 58 224 / 4%); transform: rotate(-12deg); }
+
+.poster-glow {
+    background-color: #1f5548;
+    background-image:
+        linear-gradient(rgb(255 255 255 / 7%) 1px, transparent 1px),
+        linear-gradient(90deg, rgb(255 255 255 / 7%) 1px, transparent 1px),
+        radial-gradient(circle at 82% 18%, rgb(198 242 78 / 38%), transparent 28%),
+        radial-gradient(circle at 8% 88%, rgb(47 58 224 / 28%), transparent 32%),
+        linear-gradient(135deg, #43816e, #1f5548);
+    background-size: 42px 42px, 42px 42px, auto, auto, auto;
+}
+
+.event-filter[aria-pressed="true"] {
+    border-color: var(--teal);
+    background: var(--teal);
+    color: white;
+    box-shadow: 0 6px 16px rgb(57 117 101 / 22%);
+}
+
+.login-dialog::backdrop {
+    background: rgb(18 16 23 / 66%);
+    backdrop-filter: blur(5px);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+    .page-ring { animation: ring-float 14s ease-in-out infinite; }
+    .page-tile { animation: tile-float 17s ease-in-out infinite; }
+    @keyframes ring-float { 50% { transform: translate(18px, 26px) scale(1.04); } }
+    @keyframes tile-float { 50% { transform: translate(-20px, -24px) rotate(11deg); } }
+}
+
+@media (max-width: 640px) {
+    .page-ring { left: -190px; }
+    .page-tile { right: -145px; }
+    .page-capsule { display: none; }
+}
+
