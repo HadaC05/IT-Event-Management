@@ -40,6 +40,7 @@ final class ReportRepository
             'events' => $this->typedRows('SELECT id,title,start_at FROM tbl_events WHERE deleted_at IS NULL ORDER BY start_at DESC,id DESC'),
             'school_years' => $this->typedRows('SELECT id,label FROM tbl_school_years ORDER BY label DESC,id DESC'),
             'categories' => $filters['event_id'] ? $this->typedRows('SELECT id,name,max_points FROM tbl_score_categories WHERE event_id=? ORDER BY sort_order,id', [$filters['event_id']]) : [],
+            'has_any_data' => $this->hasAnyData($filters['type']),
             'generated_at' => date('Y-m-d H:i:s'),
         ];
     }
@@ -240,6 +241,16 @@ final class ReportRepository
     private function pagination(int $page, int $total, bool $all): array
     {
         return ['page' => $all ? 1 : $this->page($page, $total), 'last_page' => $all ? 1 : max(1, (int) ceil($total / self::PAGE_SIZE)), 'per_page' => self::PAGE_SIZE, 'total' => $total];
+    }
+
+    private function hasAnyData(string $type): bool
+    {
+        return match ($type) {
+            'participation' => (bool) $this->scalar('SELECT 1 FROM tbl_events WHERE deleted_at IS NULL LIMIT 1'),
+            'scores' => (bool) $this->scalar('SELECT 1 FROM tbl_scores WHERE score_category_id IS NOT NULL LIMIT 1'),
+            'rankings' => (bool) $this->scalar('SELECT 1 FROM tbl_teams LIMIT 1'),
+            default => (bool) $this->scalar('SELECT 1 FROM tbl_attendances LIMIT 1'),
+        };
     }
 
     private function page(int $requested, int $total): int { return min(max(1, $requested), max(1, (int) ceil($total / self::PAGE_SIZE))); }

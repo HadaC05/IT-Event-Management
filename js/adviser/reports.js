@@ -5,88 +5,64 @@
   const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
   const filters = $("[data-report-filters]");
   const results = $("[data-report-results]");
-  const query = Object.fromEntries(new URLSearchParams(location.search));
-  const type = ["attendance", "participation", "scores", "rankings"].includes(query.type)
-    ? query.type
-    : "attendance";
+  const initial = Object.fromEntries(new URLSearchParams(location.search));
+  const validTypes = ["attendance", "participation", "scores", "rankings"];
+  const filterNames = ["event_id", "school_year_id", "category_id", "status", "date_from", "date_to", "search"];
+  const state = {
+    type: validTypes.includes(initial.type) ? initial.type : "attendance",
+    page: Math.max(1, Number(initial.page) || 1),
+    values: Object.fromEntries(filterNames.map((name) => [name, initial[name] || ""])),
+    requestId: 0,
+    debounce: null,
+  };
 
   const definitions = {
     attendance: {
-      eyebrow: "Student records",
-      title: "Attendance report",
-      description: "Review every recorded attendance status and check-in across events.",
-      summary: [
-        ["Records", "records", "Included in this report"],
-        ["Attended", "attended", "Present or late"],
-        ["Absent", "absent", "Marked absent"],
-        ["Attendance rate", "rate", "Across recorded statuses", "%"],
-      ],
+      eyebrow: "Attendance records",
+      title: "Attendance Records",
+      summary: [["Records", "records"], ["Present", "attended"], ["Absent", "absent"], ["Attendance rate", "rate", "%"]],
+      emptyTitle: "No attendance records yet",
+      emptyText: "Records will appear here when students check in.",
     },
     participation: {
-      eyebrow: "Event coverage",
-      title: "Event participation",
-      description: "Compare expected audiences with recorded and attended students for each event.",
-      summary: [
-        ["Events", "events", "Included in this report"],
-        ["Expected", "expected", "Student opportunities"],
-        ["Attended", "attended", "Present or late"],
-        ["Participation", "rate", "Across included events", "%"],
-      ],
+      eyebrow: "Event participation",
+      title: "Participation Records",
+      summary: [["Events", "events"], ["Expected", "expected"], ["Attended", "attended"], ["Participation rate", "rate", "%"]],
+      emptyTitle: "No participation records yet",
+      emptyText: "Participation appears after events have students and attendance activity.",
     },
     scores: {
-      eyebrow: "Competition results",
-      title: "Score report",
-      description: "Audit recorded tribe points by event, school year, and scoring criterion.",
-      summary: [
-        ["Entries", "entries", "Recorded score values"],
-        ["Tribes", "teams", "With a result"],
-        ["Points", "points", "Total awarded", "points"],
-        ["Average", "average", "Points per entry", "points"],
-      ],
+      eyebrow: "Competition scores",
+      title: "Score Records",
+      summary: [["Entries", "entries"], ["Scored tribes", "teams"], ["Points awarded", "points", "points"], ["Average score", "average", "points"]],
+      emptyTitle: "No scores recorded yet",
+      emptyText: "Scores will appear here after judging begins.",
     },
     rankings: {
       eyebrow: "Tribe standings",
-      title: "Ranking report",
-      description: "Review current tribe positions, total points, and scoring coverage.",
-      summary: [
-        ["Ranked tribes", "ranked", "With recorded scores"],
-        ["Eligible tribes", "eligible", "Included in this scope"],
-        ["Points", "points", "Total awarded", "points"],
-        ["Leader", "leader", "Current first place", "leader"],
-      ],
+      title: "Ranking Records",
+      summary: [["Ranked tribes", "ranked"], ["Eligible tribes", "eligible"], ["Points awarded", "points", "points"], ["Current leader", "leader", "text"]],
+      emptyTitle: "No rankings available yet",
+      emptyText: "Rankings will appear after tribes receive scores.",
     },
   };
 
   const escapeHtml = (value) =>
     String(value ?? "").replace(
       /[&<>'"]/g,
-      (character) =>
-        ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;" })[
-          character
-        ],
+      (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;" })[character],
     );
-
-  const formatNumber = (value) => Number(value).toLocaleString("en-PH");
-  const formatPoints = (value) =>
-    Number(value).toFixed(2).replace(/\.00$/, "").replace(/(\.\d)0$/, "$1");
+  const formatNumber = (value) => Number(value || 0).toLocaleString("en-PH");
+  const formatPoints = (value) => Number(value).toFixed(2).replace(/\.00$/, "").replace(/(\.\d)0$/, "$1");
   const asDate = (value) => new Date(String(value).replace(" ", "T"));
-  const formatDate = (value) =>
-    value
-      ? new Intl.DateTimeFormat("en-PH", { month: "short", day: "numeric", year: "numeric" }).format(asDate(value))
-      : "—";
-  const formatTime = (value) =>
-    value
-      ? new Intl.DateTimeFormat("en-PH", { hour: "numeric", minute: "2-digit" }).format(asDate(value))
-      : "Not checked in";
-  const formatDateTime = (value) =>
-    value
-      ? `${formatDate(value)} · ${formatTime(value)}`
-      : "—";
+  const formatDate = (value) => value ? new Intl.DateTimeFormat("en-PH", { month: "short", day: "numeric", year: "numeric" }).format(asDate(value)) : "—";
+  const formatTime = (value) => value ? new Intl.DateTimeFormat("en-PH", { hour: "numeric", minute: "2-digit" }).format(asDate(value)) : "Not checked in";
+  const formatDateTime = (value) => value ? `${formatDate(value)} · ${formatTime(value)}` : "—";
 
   function initializeShell() {
     const sidebar = $("#sidebar");
     const scrim = $("[data-sidebar-scrim]");
-    $$('[data-sidebar-toggle]').forEach((button) => {
+    $$("[data-sidebar-toggle]").forEach((button) => {
       button.onclick = () => {
         const opening = sidebar.classList.contains("-translate-x-full");
         sidebar.classList.toggle("-translate-x-full", !opening);
@@ -97,14 +73,15 @@
     const menu = $("[data-account-menu]");
     document.addEventListener("click", (event) => {
       if (menu?.open && !menu.contains(event.target)) menu.removeAttribute("open");
+      const dateArea = $("[data-date-field]");
+      if (!dateArea?.contains(event.target)) closeDatePopover();
     });
   }
 
   function applyAccount(user) {
     const account = $("[data-account-menu]");
     const name = user.full_name || user.username;
-    account.querySelector("summary > span:first-child").childNodes[0].textContent =
-      `${user.first_name?.[0] || ""}${user.last_name?.[0] || ""}`.toUpperCase();
+    account.querySelector("summary > span:first-child").childNodes[0].textContent = `${user.first_name?.[0] || ""}${user.last_name?.[0] || ""}`.toUpperCase();
     account.querySelector("summary strong").textContent = name;
     account.querySelector("summary small").textContent = user.role;
     account.querySelector(":scope > div > div strong").textContent = name;
@@ -128,81 +105,35 @@
     };
   }
 
-  function initializeType() {
-    const definition = definitions[type];
-    $("[data-report-eyebrow]").textContent = definition.eyebrow;
-    $("[data-report-title]").textContent = definition.title;
-    $("[data-report-description]").textContent = definition.description;
-    filters.type.value = type;
-    $$('[data-report-tabs] a').forEach((tab) => {
-      const active = tab.dataset.type === type;
-      tab.classList.toggle("bg-[#397565]", active);
-      tab.classList.toggle("text-white", active);
-      tab.classList.toggle("shadow-sm", active);
-      tab.classList.toggle("text-[#121017]/50", !active);
-      tab.classList.toggle("hover:bg-[#397565]/7", !active);
-      tab.classList.toggle("hover:text-[#397565]", !active);
-      tab.setAttribute("aria-current", active ? "page" : "false");
-    });
-    $("[data-category-field]").hidden = !["scores", "rankings"].includes(type);
-    $("[data-status-field]").hidden = type !== "attendance";
-    $$('[data-date-field]').forEach((field) => (field.hidden = type === "rankings"));
-    const hasFilters = ["event_id", "school_year_id", "category_id", "status", "date_from", "date_to", "search"].some((key) => query[key]);
-    const clear = $("[data-clear-filters]");
-    clear.classList.toggle("hidden", !hasFilters);
-    clear.href = `pages/adviser/reports.html?type=${type}`;
-  }
-
-  function option(value, label, selected) {
-    return `<option value="${value}" ${String(selected) === String(value) ? "selected" : ""}>${escapeHtml(label)}</option>`;
-  }
-
-  function fillFilters(data) {
-    filters.event_id.innerHTML = '<option value="">All events</option>' + data.events.map((event) => option(event.id, `${event.title} · ${formatDate(event.start_at)}`, query.event_id)).join("");
-    filters.school_year_id.innerHTML = '<option value="">All school years</option>' + data.school_years.map((year) => option(year.id, year.label, query.school_year_id)).join("");
-    filters.category_id.innerHTML = '<option value="">All criteria</option>' + data.categories.map((category) => option(category.id, category.name, query.category_id)).join("");
-    filters.category_id.disabled = !query.event_id;
-    ["status", "date_from", "date_to", "search"].forEach((name) => {
-      filters[name].value = query[name] || "";
-    });
-  }
-
-  function displaySummaryValue(summary, key, mode) {
+  function displayValue(summary, key, mode) {
     const value = summary[key];
     if (value === null || value === undefined || value === "") return "—";
     if (mode === "%") return `${formatPoints(value)}%`;
-    if (mode === "points") return formatPoints(value);
+    if (mode === "points") return `${formatPoints(value)} pts`;
     return typeof value === "number" ? formatNumber(value) : value;
   }
 
   function renderSummary(summary) {
-    const cards = definitions[type].summary;
-    $("[data-summary]").innerHTML = cards
-      .map(([label, key, originalHint, mode], index) => {
-        const hint = mode === "leader" && !summary[key] ? "No results yet" : originalHint;
-        const border = index < 2
-          ? "border-b border-[#121017]/7 sm:border-r"
-          : index === 2
-            ? "border-b border-[#121017]/7 xl:border-b-0 xl:border-r"
-            : "";
-        const second = index === 1 ? "sm:border-r-0" : "";
-        return `<div class="px-5 py-5 sm:px-7 ${border} ${second}"><span class="text-[9px] font-black uppercase tracking-[.15em] text-[#121017]/35">${label}</span><strong class="mt-2 block truncate text-2xl font-black ${index === 3 ? "text-[#397565]" : ""}">${escapeHtml(displaySummaryValue(summary, key, mode))}</strong><small class="mt-1 block text-xs text-[#121017]/40">${hint}</small></div>`;
-      })
-      .join("");
+    $("[data-summary]").innerHTML = definitions[state.type].summary.map(([label, key, mode], index) => `
+      <div class="flex items-baseline gap-2 border-b border-[#121017]/7 px-5 py-5 sm:px-6 ${index % 2 === 0 ? "sm:border-r" : ""} ${index >= 2 ? "sm:border-b-0" : ""} ${index < 3 ? "xl:border-r" : ""} xl:border-b-0">
+        <strong class="truncate text-2xl font-black ${index === 3 ? "text-[#397565]" : ""}">${escapeHtml(displayValue(summary, key, mode))}</strong>
+        <span class="text-[10px] font-bold text-[#121017]/38">${escapeHtml(label)}</span>
+      </div>`).join("");
   }
 
   function statusBadge(status) {
     const tone = ["present", "late"].includes(status)
       ? "bg-[#C6F24E]/35 text-[#397565]"
-      : status === "absent"
-        ? "bg-[#FF6B2C]/10 text-[#FF6B2C]"
-        : "bg-[#2F3AE0]/8 text-[#2F3AE0]";
+      : status === "absent" ? "bg-[#FF6B2C]/10 text-[#FF6B2C]" : "bg-[#2F3AE0]/8 text-[#2F3AE0]";
     return `<span class="rounded-full px-2.5 py-1 text-[9px] font-black uppercase tracking-wider ${tone}">${escapeHtml(status)}</span>`;
   }
 
   function attendanceTable(rows) {
-    const body = rows.map((row) => `<tr class="transition hover:bg-[#397565]/[.025]"><td class="px-6 py-4"><strong class="block text-xs">${escapeHtml(row.student_name || "Deleted user")}</strong><small class="mt-0.5 block text-[10px] text-[#121017]/38">${escapeHtml(row.id_number || "No student ID")}</small></td><td class="px-3 py-4 text-xs font-bold">${escapeHtml(row.event_title || "Deleted event")}</td><td class="px-3 py-4 text-xs text-[#121017]/55">${formatDate(row.attendance_date)}</td><td class="px-3 py-4"><span class="block text-xs font-bold">${escapeHtml(row.team_name || "No tribe")}</span><small class="text-[10px] text-[#121017]/38">${escapeHtml(row.year_level || "No year level")}</small></td><td class="px-3 py-4">${statusBadge(row.status)}</td><td class="px-6 py-4 text-xs text-[#121017]/48">${formatTime(row.checked_in_at)}</td></tr>`).join("");
-    return `<div class="overflow-x-auto"><table class="w-full min-w-[980px] text-left"><thead><tr class="bg-[#121017]/[.025] text-[9px] font-black uppercase tracking-[.14em] text-[#121017]/38"><th class="px-6 py-3.5">Student</th><th class="px-3 py-3.5">Event</th><th class="px-3 py-3.5">Date</th><th class="px-3 py-3.5">Tribe / Year</th><th class="px-3 py-3.5">Status</th><th class="px-6 py-3.5">Check-in</th></tr></thead><tbody class="divide-y divide-[#121017]/7">${body}</tbody></table></div>`;
+    const body = rows.map((row) => {
+      const detail = [row.id_number, row.team_name, row.year_level].filter(Boolean).join(" · ");
+      return `<tr class="transition hover:bg-[#397565]/[.025]"><td class="px-6 py-4"><strong class="block text-xs">${escapeHtml(row.student_name || "Deleted user")}</strong><small class="mt-0.5 block text-[10px] text-[#121017]/38">${escapeHtml(detail || "No student details")}</small></td><td class="px-3 py-4 text-xs font-bold">${escapeHtml(row.event_title || "Deleted event")}</td><td class="px-3 py-4 text-xs text-[#121017]/55">${formatDate(row.attendance_date)}</td><td class="px-3 py-4">${statusBadge(row.status)}</td><td class="px-6 py-4 text-xs text-[#121017]/48">${formatTime(row.checked_in_at)}</td></tr>`;
+    }).join("");
+    return `<div class="overflow-x-auto"><table class="w-full min-w-[820px] text-left"><thead><tr class="bg-[#121017]/[.025] text-[9px] font-black uppercase tracking-[.14em] text-[#121017]/38"><th class="px-6 py-3.5">Student</th><th class="px-3 py-3.5">Event</th><th class="px-3 py-3.5">Date</th><th class="px-3 py-3.5">Status</th><th class="px-6 py-3.5">Check-in</th></tr></thead><tbody class="divide-y divide-[#121017]/7">${body}</tbody></table></div>`;
   }
 
   function participationTable(rows) {
@@ -220,13 +151,21 @@
     return `<div class="overflow-x-auto"><table class="w-full min-w-[900px] text-left"><thead><tr class="bg-[#121017]/[.025] text-[9px] font-black uppercase tracking-[.14em] text-[#121017]/38"><th class="px-6 py-3.5">Rank</th><th class="px-3 py-3.5">Tribe</th><th class="px-3 py-3.5">School year</th><th class="px-3 py-3.5">Coverage</th><th class="px-6 py-3.5 text-right">Total points</th></tr></thead><tbody class="divide-y divide-[#121017]/7">${body}</tbody></table></div>`;
   }
 
+  function hasActiveFilters() {
+    return filterNames.some((name) => state.values[name]);
+  }
+
+  function emptyState(data) {
+    const filtered = data.has_any_data && hasActiveFilters();
+    const definition = definitions[state.type];
+    return `<div class="px-6 py-16 text-center"><span class="mx-auto grid h-14 w-14 place-items-center rounded-full bg-[#397565]/8 text-[#397565]"><svg class="h-6 w-6 fill-none stroke-current stroke-2" viewBox="0 0 24 24"><path d="M5 3h10l4 4v14H5V3Zm10 0v5h4M8 12h8M8 16h6"/></svg></span><h3 class="mt-5 text-lg font-black">${filtered ? "No records match your filters" : definition.emptyTitle}</h3><p class="mx-auto mt-2 max-w-md text-sm leading-6 text-[#121017]/45">${filtered ? "Change or clear the current filters to see more results." : definition.emptyText}</p>${filtered ? '<button class="mt-5 min-h-10 rounded-xl border border-[#397565]/25 px-4 text-xs font-black text-[#397565]" type="button" data-empty-clear>Clear filters</button>' : ""}</div>`;
+  }
+
   function renderResults(data) {
-    $("[data-result-count]").textContent = `${formatNumber(data.pagination.total)} ${data.pagination.total === 1 ? "result" : "results"}`;
-    if (!data.rows.length) {
-      results.innerHTML = '<div class="px-6 py-16 text-center"><span class="mx-auto grid h-14 w-14 place-items-center rounded-full bg-[#397565]/8 text-[#397565]"><svg class="h-6 w-6 fill-none stroke-current stroke-2" viewBox="0 0 24 24"><path d="M5 3h10l4 4v14H5V3Zm10 0v5h4M8 12h8M8 16h6"/></svg></span><h3 class="mt-5 text-lg font-black">No report data found</h3><p class="mx-auto mt-2 max-w-md text-sm leading-6 text-[#121017]/45">Try clearing the filters or record activity in the related management screen first.</p></div>';
-    } else {
-      results.innerHTML = { attendance: attendanceTable, participation: participationTable, scores: scoresTable, rankings: rankingsTable }[type](data.rows);
-    }
+    $("[data-result-count]").textContent = `${formatNumber(data.pagination.total)} ${data.pagination.total === 1 ? "record" : "records"}`;
+    results.innerHTML = data.rows.length
+      ? { attendance: attendanceTable, participation: participationTable, scores: scoresTable, rankings: rankingsTable }[state.type](data.rows)
+      : emptyState(data);
     renderPagination(data.pagination);
   }
 
@@ -238,55 +177,228 @@
     nav.innerHTML = `<span class="font-bold text-[#121017]/40">Page ${pagination.page} of ${pagination.last_page}</span><span class="flex gap-2"><button class="min-h-10 rounded-xl border border-[#121017]/10 px-4 font-black disabled:opacity-30" data-page="${pagination.page - 1}" ${pagination.page === 1 ? "disabled" : ""}>Previous</button><button class="min-h-10 rounded-xl border border-[#121017]/10 px-4 font-black disabled:opacity-30" data-page="${pagination.page + 1}" ${pagination.page === pagination.last_page ? "disabled" : ""}>Next</button></span>`;
   }
 
+  function option(value, label, selected) {
+    return `<option value="${value}" ${String(selected) === String(value) ? "selected" : ""}>${escapeHtml(label)}</option>`;
+  }
+
+  function fillFilters(data) {
+    filters.event_id.innerHTML = '<option value="">All events</option>' + data.events.map((event) => option(event.id, `${event.title} · ${formatDate(event.start_at)}`, state.values.event_id)).join("");
+    filters.school_year_id.innerHTML = '<option value="">All school years</option>' + data.school_years.map((year) => option(year.id, year.label, state.values.school_year_id)).join("");
+    filters.category_id.innerHTML = '<option value="">All criteria</option>' + data.categories.map((category) => option(category.id, category.name, state.values.category_id)).join("");
+    if (!data.categories.some((category) => String(category.id) === String(state.values.category_id))) state.values.category_id = "";
+    filters.category_id.disabled = !state.values.event_id;
+    for (const name of ["status", "date_from", "date_to", "search"]) filters[name].value = state.values[name];
+  }
+
+  function renderType() {
+    const definition = definitions[state.type];
+    filters.type.value = state.type;
+    $("[data-report-eyebrow]").textContent = definition.eyebrow;
+    $("[data-report-title]").textContent = definition.title;
+    $$("[data-report-tabs] [data-type]").forEach((tab) => {
+      const active = tab.dataset.type === state.type;
+      tab.classList.toggle("text-[#397565]", active);
+      tab.classList.toggle("text-[#121017]/45", !active);
+      tab.classList.toggle("hover:bg-[#397565]/7", !active);
+      tab.style.boxShadow = active ? "inset 0 -2px 0 #397565" : "";
+      tab.setAttribute("aria-pressed", String(active));
+    });
+    $("[data-status-field]").hidden = state.type !== "attendance";
+    $("[data-date-field]").hidden = state.type === "rankings";
+    $("[data-category-field]").hidden = !["scores", "rankings"].includes(state.type);
+    const moreFilters = $("[data-more-filters]");
+    const canShowMoreFilters = ["scores", "rankings"].includes(state.type);
+    moreFilters.style.display = canShowMoreFilters ? "" : "none";
+    if (!canShowMoreFilters) {
+      $("[data-extra-filters]").classList.add("hidden");
+      $("[data-extra-filters]").classList.remove("flex");
+      moreFilters.setAttribute("aria-expanded", "false");
+    }
+    updateDateLabel();
+    updateFilterBadge();
+  }
+
+  function requestParams() {
+    return { type: state.type, page: state.page, ...state.values };
+  }
+
+  function syncUrl() {
+    const url = new URL(location.href);
+    url.search = "";
+    url.searchParams.set("type", state.type);
+    for (const [name, value] of Object.entries(state.values)) if (value) url.searchParams.set(name, value);
+    if (state.page > 1) url.searchParams.set("page", state.page);
+    history.replaceState(null, "", url);
+  }
+
+  function updateExport(total) {
+    const exportLink = $("[data-export]");
+    const url = new URL("api/reports.php", document.baseURI);
+    const params = requestParams();
+    for (const [name, value] of Object.entries(params)) if (name !== "page" && value) url.searchParams.set(name, value);
+    url.searchParams.set("action", "export");
+    exportLink.href = url.href;
+    exportLink.classList.toggle("pointer-events-none", total === 0);
+    exportLink.style.opacity = total === 0 ? "0.4" : "";
+    exportLink.tabIndex = total === 0 ? -1 : 0;
+    exportLink.setAttribute("aria-disabled", String(total === 0));
+  }
+
+  function showLoading() {
+    results.classList.add("opacity-50");
+    $("[data-generated]").textContent = "Updating…";
+  }
+
   async function load() {
+    const requestId = ++state.requestId;
+    $("[data-filter-error]").classList.add("hidden");
+    showLoading();
+    syncUrl();
     try {
-      const response = await axios.get("api/reports.php", { params: { ...query, type } });
+      const response = await axios.get("api/reports.php", { params: requestParams() });
+      if (requestId !== state.requestId) return;
       const data = response.data.data;
+      state.page = data.pagination.page;
       fillFilters(data);
+      renderType();
       renderSummary(data.summary);
       renderResults(data);
-      $("[data-generated]").textContent = `Generated ${formatDateTime(data.generated_at)}`;
-      const exportUrl = new URL("api/reports.php", document.baseURI);
-      Object.entries({ ...query, type, action: "export" }).forEach(([key, value]) => {
-        if (key !== "page" && value) exportUrl.searchParams.set(key, value);
-      });
-      $("[data-export]").href = exportUrl.href;
+      updateExport(data.pagination.total);
+      $("[data-generated]").textContent = "Updated just now";
     } catch (error) {
-      const message = error.response?.data?.errors?.category_id?.[0] || error.response?.data?.message || "Report could not be loaded.";
+      if (requestId !== state.requestId) return;
+      const message = error.response?.data?.errors?.date_to?.[0] || error.response?.data?.errors?.category_id?.[0] || error.response?.data?.message || "Report could not be loaded.";
       $("[data-filter-error]").textContent = message;
       $("[data-filter-error]").classList.remove("hidden");
-      results.innerHTML = `<p class="px-6 py-16 text-center text-sm text-red-600">${escapeHtml(message)}</p>`;
+      results.innerHTML = `<p class="px-6 py-16 text-center text-sm text-[#FF6B2C]">${escapeHtml(message)}</p>`;
+    } finally {
+      if (requestId === state.requestId) results.classList.remove("opacity-50");
     }
   }
 
-  filters.addEventListener("submit", (event) => {
-    event.preventDefault();
-    if (filters.date_from.value && filters.date_to.value && filters.date_to.value < filters.date_from.value) {
-      $("[data-filter-error]").textContent = "The to date must be on or after the from date.";
+  function updateValue(name, value) {
+    state.values[name] = value;
+    state.page = 1;
+  }
+
+  function updateDateLabel() {
+    const from = state.values.date_from;
+    const to = state.values.date_to;
+    $("[data-date-label]").textContent = from && to ? `${formatDate(from)} – ${formatDate(to)}` : from ? `From ${formatDate(from)}` : to ? `Until ${formatDate(to)}` : "Any date";
+  }
+
+  function updateFilterBadge() {
+    const count = filterNames.filter((name) => state.values[name]).length;
+    const badge = $("[data-filter-count]");
+    badge.textContent = count;
+    badge.classList.toggle("hidden", count === 0);
+  }
+
+  function closeDatePopover() {
+    $("[data-date-popover]").classList.add("hidden");
+    $("[data-date-toggle]").setAttribute("aria-expanded", "false");
+  }
+
+  function clearFilters() {
+    filterNames.forEach((name) => state.values[name] = "");
+    state.page = 1;
+    filters.reset();
+    closeDatePopover();
+    $("[data-extra-filters]").classList.add("hidden");
+    $("[data-more-filters]").setAttribute("aria-expanded", "false");
+    load();
+  }
+
+  $$("[data-report-tabs] [data-type]").forEach((tab) => tab.addEventListener("click", () => {
+    if (state.type === tab.dataset.type) return;
+    state.type = tab.dataset.type;
+    state.page = 1;
+    state.values.category_id = "";
+    state.values.status = "";
+    if (state.type === "rankings") {
+      state.values.date_from = "";
+      state.values.date_to = "";
+    }
+    renderType();
+    load();
+  }));
+
+  ["event_id", "school_year_id", "status", "category_id"].forEach((name) => filters[name].addEventListener("change", () => {
+    updateValue(name, filters[name].value);
+    if (name === "event_id") {
+      state.values.category_id = "";
+      filters.category_id.value = "";
+    }
+    load();
+  }));
+
+  ["date_from", "date_to"].forEach((name) => filters[name].addEventListener("change", () => {
+    updateValue(name, filters[name].value);
+    updateDateLabel();
+    if (state.values.date_from && state.values.date_to && state.values.date_to < state.values.date_from) {
+      $("[data-filter-error]").textContent = "The end date must be on or after the start date.";
       $("[data-filter-error]").classList.remove("hidden");
       return;
     }
-    const url = new URL(location.href);
-    url.search = "";
-    new FormData(filters).forEach((value, key) => {
-      if (value) url.searchParams.set(key, value);
-    });
-    location.assign(url.href);
+    load();
+  }));
+
+  filters.search.addEventListener("input", () => {
+    clearTimeout(state.debounce);
+    state.debounce = setTimeout(() => {
+      updateValue("search", filters.search.value.trim());
+      load();
+    }, 320);
   });
 
-  filters.event_id.addEventListener("change", () => {
-    filters.category_id.value = "";
+  filters.addEventListener("submit", (event) => {
+    event.preventDefault();
+    clearTimeout(state.debounce);
+    updateValue("search", filters.search.value.trim());
+    load();
+  });
+
+  $("[data-date-toggle]").addEventListener("click", (event) => {
+    event.stopPropagation();
+    const opening = $("[data-date-popover]").classList.contains("hidden");
+    $("[data-date-popover]").classList.toggle("hidden", !opening);
+    event.currentTarget.setAttribute("aria-expanded", String(opening));
+  });
+  $("[data-date-popover]").addEventListener("click", (event) => event.stopPropagation());
+  $("[data-clear-dates]").addEventListener("click", () => {
+    state.values.date_from = "";
+    state.values.date_to = "";
+    filters.date_from.value = "";
+    filters.date_to.value = "";
+    updateDateLabel();
+    closeDatePopover();
+    state.page = 1;
+    load();
+  });
+
+  $("[data-more-filters]").addEventListener("click", (event) => {
+    const panel = $("[data-extra-filters]");
+    const opening = panel.classList.contains("hidden");
+    panel.classList.toggle("hidden", !opening);
+    panel.classList.toggle("flex", opening);
+    event.currentTarget.setAttribute("aria-expanded", String(opening));
+  });
+  $("[data-clear-filters]").addEventListener("click", clearFilters);
+  results.addEventListener("click", (event) => {
+    if (event.target.closest("[data-empty-clear]")) clearFilters();
   });
   $("[data-pagination]").addEventListener("click", (event) => {
     const button = event.target.closest("[data-page]");
     if (!button || button.disabled) return;
-    const url = new URL(location.href);
-    url.searchParams.set("page", button.dataset.page);
-    location.assign(url.href);
+    state.page = Number(button.dataset.page);
+    load();
+  });
+  $("[data-export]").addEventListener("click", (event) => {
+    if (event.currentTarget.getAttribute("aria-disabled") === "true") event.preventDefault();
   });
 
   initializeShell();
-  initializeType();
+  renderType();
   authenticate().then(load).catch((error) => {
     if (error.message !== "Unauthorized") console.error(error);
   });

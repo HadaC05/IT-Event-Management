@@ -23,10 +23,42 @@ final class PostReviewRepository
 
     public function index(array $input): array
     {
+        $status = strtolower(trim((string) ($input['status'] ?? 'pending')));
+        $search = trim((string) ($input['search'] ?? ''));
+        $category = trim((string) ($input['category'] ?? ''));
+        $period = trim((string) ($input['period'] ?? ''));
+        $sort = trim((string) ($input['sort'] ?? 'oldest'));
+        $errors = [];
+        if (!in_array($status, ['pending', 'approved', 'rejected'], true)) $errors['status'][] = 'Choose a valid review status.';
+        if (mb_strlen($search) > 120) $errors['search'][] = 'Search may not exceed 120 characters.';
+        if (!in_array($period, ['', 'today', '7_days', '30_days'], true)) $errors['period'][] = 'Choose a valid submitted period.';
+        if (!in_array($sort, ['oldest', 'newest'], true)) $errors['sort'][] = 'Choose a valid sorting option.';
+        if ($category !== '' && !$this->scalar('SELECT 1 FROM tbl_posts WHERE is_official=0 AND deleted_at IS NULL AND category=? LIMIT 1', [$category])) {
+            $errors['category'][] = 'Choose a valid post category.';
+        }
+        if ($errors) throw new PostReviewValidationException($errors);
+
+        $where = ['p.is_official=0', 'p.deleted_at IS NULL', 'p.status=?'];
+        $params = [$status];
+        if ($search !== '') {
+            $where[] = "(p.content LIKE ? OR p.category LIKE ? OR e.title LIKE ? OR CONCAT_WS(' ',a.first_name,a.middle_name,a.last_name) LIKE ? OR a.username LIKE ?)";
+            $needle = '%'.$search.'%';
+            array_push($params, $needle, $needle, $needle, $needle, $needle);
+        }
+        if ($category !== '') {
+            $where[] = 'p.category=?';
+            $params[] = $category;
+        }
+        if ($period === 'today') $where[] = 'DATE(p.created_at)=CURRENT_DATE';
+        if ($period === '7_days') $where[] = 'p.created_at>=DATE_SUB(CURRENT_TIMESTAMP,INTERVAL 7 DAY)';
+        if ($period === '30_days') $where[] = 'p.created_at>=DATE_SUB(CURRENT_TIMESTAMP,INTERVAL 30 DAY)';
+
         $requestedPage = max(1, (int) ($input['page'] ?? 1));
-        $total = (int) $this->scalar('SELECT COUNT(*) FROM tbl_posts WHERE is_official=0 AND deleted_at IS NULL');
+        $from = " FROM tbl_posts p LEFT JOIN tbl_events e ON e.id=p.event_id LEFT JOIN tbl_users a ON a.id=p.user_id WHERE ".implode(' AND ', $where);
+        $total = (int) $this->scalar('SELECT COUNT(*)'.$from, $params);
         $lastPage = max(1, (int) ceil($total / self::PAGE_SIZE));
         $page = min($requestedPage, $lastPage);
+        $order = $sort === 'newest' ? 'DESC' : 'ASC';
         $statement = $this->db->prepare(
             "SELECT p.*,e.title event_title,
                 a.first_name author_first_name,a.middle_name author_middle_name,a.last_name author_last_name,a.username author_username,a.profile_photo_path author_photo,
@@ -35,19 +67,28 @@ final class PostReviewRepository
              LEFT JOIN tbl_events e ON e.id=p.event_id
              LEFT JOIN tbl_users a ON a.id=p.user_id
              LEFT JOIN tbl_users r ON r.id=p.reviewed_by
-             WHERE p.is_official=0 AND p.deleted_at IS NULL
-             ORDER BY p.created_at DESC,p.id DESC LIMIT ? OFFSET ?"
+             WHERE ".implode(' AND ', $where)."
+             ORDER BY p.created_at {$order},p.id {$order} LIMIT ? OFFSET ?"
         );
-        $statement->bindValue(1, self::PAGE_SIZE, PDO::PARAM_INT);
-        $statement->bindValue(2, ($page - 1) * self::PAGE_SIZE, PDO::PARAM_INT);
+        foreach ($params as $index => $value) $statement->bindValue($index + 1, $value);
+        $statement->bindValue(count($params) + 1, self::PAGE_SIZE, PDO::PARAM_INT);
+        $statement->bindValue(count($params) + 2, ($page - 1) * self::PAGE_SIZE, PDO::PARAM_INT);
         $statement->execute();
         $posts = $statement->fetchAll();
         foreach ($posts as &$post) $post = $this->normalize($post);
         unset($post);
 
+        $counts = ['pending' => 0, 'approved' => 0, 'rejected' => 0];
+        $countStatement = $this->db->query("SELECT status,COUNT(*) total FROM tbl_posts WHERE is_official=0 AND deleted_at IS NULL AND status IN ('pending','approved','rejected') GROUP BY status");
+        foreach ($countStatement->fetchAll() as $row) $counts[$row['status']] = (int) $row['total'];
+        $categories = $this->db->query("SELECT DISTINCT category FROM tbl_posts WHERE is_official=0 AND deleted_at IS NULL AND category<>'' ORDER BY category")->fetchAll(PDO::FETCH_COLUMN);
+
         return [
             'posts' => $posts,
-            'pending_count' => (int) $this->scalar("SELECT COUNT(*) FROM tbl_posts WHERE is_official=0 AND status='pending' AND deleted_at IS NULL"),
+            'counts' => $counts,
+            'pending_count' => $counts['pending'],
+            'categories' => $categories,
+            'filters' => ['status' => $status, 'search' => $search, 'category' => $category, 'period' => $period, 'sort' => $sort],
             'pagination' => ['page' => $page, 'last_page' => $lastPage, 'per_page' => self::PAGE_SIZE, 'total' => $total],
         ];
     }

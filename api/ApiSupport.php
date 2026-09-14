@@ -19,7 +19,6 @@ final class JsonResponse
 final class SessionManager
 {
     private const COOKIE_NAME = 'cite_event_session';
-    private const COOKIE_PATH = '/IT-Event-Management/';
 
     public static function start(): void
     {
@@ -31,7 +30,7 @@ final class SessionManager
         session_name(self::COOKIE_NAME);
         session_set_cookie_params([
             'lifetime' => 0,
-            'path' => self::COOKIE_PATH,
+            'path' => self::cookiePath(),
             'secure' => $secure,
             'httponly' => true,
             'samesite' => 'Lax',
@@ -58,11 +57,23 @@ final class SessionManager
     {
         setcookie(session_name(), session_id(), [
             'expires' => time() + 60 * 60 * 24 * 30,
-            'path' => self::COOKIE_PATH,
+            'path' => self::cookiePath(),
             'secure' => !empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off',
             'httponly' => true,
             'samesite' => 'Lax',
         ]);
+    }
+
+    private static function cookiePath(): string
+    {
+        $scriptName = str_replace('\\', '/', (string) ($_SERVER['SCRIPT_NAME'] ?? '/api/'));
+        $applicationPath = dirname(dirname($scriptName));
+
+        if ($applicationPath === '.' || $applicationPath === '/') {
+            return '/';
+        }
+
+        return '/'.trim($applicationPath, '/').'/';
     }
 }
 
