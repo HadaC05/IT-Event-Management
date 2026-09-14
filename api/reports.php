@@ -37,9 +37,9 @@ final class ReportRepository
         return $report + [
             'type' => $filters['type'],
             'filters' => $filters,
-            'events' => $this->typedRows('SELECT id,title,start_at FROM events WHERE deleted_at IS NULL ORDER BY start_at DESC,id DESC'),
-            'school_years' => $this->typedRows('SELECT id,label FROM school_years ORDER BY label DESC,id DESC'),
-            'categories' => $filters['event_id'] ? $this->typedRows('SELECT id,name,max_points FROM score_categories WHERE event_id=? ORDER BY sort_order,id', [$filters['event_id']]) : [],
+            'events' => $this->typedRows('SELECT id,title,start_at FROM tbl_events WHERE deleted_at IS NULL ORDER BY start_at DESC,id DESC'),
+            'school_years' => $this->typedRows('SELECT id,label FROM tbl_school_years ORDER BY label DESC,id DESC'),
+            'categories' => $filters['event_id'] ? $this->typedRows('SELECT id,name,max_points FROM tbl_score_categories WHERE event_id=? ORDER BY sort_order,id', [$filters['event_id']]) : [],
             'generated_at' => date('Y-m-d H:i:s'),
         ];
     }
@@ -85,7 +85,7 @@ final class ReportRepository
         $where = [];
         $params = [];
         if ($filters['event_id']) {$where[] = 'a.event_id=?'; $params[] = $filters['event_id'];}
-        if ($filters['school_year_id']) {$where[] = 'EXISTS(SELECT 1 FROM team_user tus JOIN teams ts ON ts.id=tus.team_id WHERE tus.user_id=a.user_id AND ts.school_year_id=?)'; $params[] = $filters['school_year_id'];}
+        if ($filters['school_year_id']) {$where[] = 'EXISTS(SELECT 1 FROM tbl_team_user tus JOIN tbl_teams ts ON ts.id=tus.team_id WHERE tus.user_id=a.user_id AND ts.school_year_id=?)'; $params[] = $filters['school_year_id'];}
         if ($filters['status']) {$where[] = 'a.status=?'; $params[] = $filters['status'];}
         if ($filters['date_from']) {$where[] = 'date(a.attendance_date)>=date(?)'; $params[] = $filters['date_from'];}
         if ($filters['date_to']) {$where[] = 'date(a.attendance_date)<=date(?)'; $params[] = $filters['date_to'];}
@@ -95,10 +95,10 @@ final class ReportRepository
             array_push($params, $like, $like, $like, $like, $like);
         }
         $whereSql = $where ? 'WHERE '.implode(' AND ', $where) : '';
-        $from = "FROM attendances a LEFT JOIN events e ON e.id=a.event_id LEFT JOIN users u ON u.id=a.user_id LEFT JOIN year_levels yl ON yl.id=u.year_level $whereSql";
+        $from = "FROM tbl_attendances a LEFT JOIN tbl_events e ON e.id=a.event_id LEFT JOIN tbl_users u ON u.id=a.user_id LEFT JOIN tbl_year_levels yl ON yl.id=u.year_level $whereSql";
         $summary = $this->row("SELECT COUNT(*) records,SUM(CASE WHEN a.status IN ('present','late') THEN 1 ELSE 0 END) attended,SUM(CASE WHEN a.status='absent' THEN 1 ELSE 0 END) absent,SUM(CASE WHEN a.status='excused' THEN 1 ELSE 0 END) excused $from", $params);
         $total = (int) $summary['records'];
-        $sql = "SELECT a.id,a.attendance_date,a.status,a.checked_in_at,e.title event_title,u.id_number,TRIM(CONCAT_WS(' ',u.first_name,NULLIF(u.middle_name,''),u.last_name)) student_name,yl.label year_level,(SELECT t.name FROM team_user tu JOIN teams t ON t.id=tu.team_id WHERE tu.user_id=u.id ORDER BY tu.id LIMIT 1) team_name $from ORDER BY DATE(a.attendance_date) DESC,a.id DESC";
+        $sql = "SELECT a.id,a.attendance_date,a.status,a.checked_in_at,e.title event_title,u.id_number,TRIM(CONCAT_WS(' ',u.first_name,NULLIF(u.middle_name,''),u.last_name)) student_name,yl.label year_level,(SELECT t.name FROM tbl_team_user tu JOIN tbl_teams t ON t.id=tu.team_id WHERE tu.user_id=u.id ORDER BY tu.id LIMIT 1) team_name $from ORDER BY DATE(a.attendance_date) DESC,a.id DESC";
         $rows = $this->pagedRows($sql, $params, $total, $filters['page'], $all);
         return ['rows' => $rows['rows'], 'pagination' => $rows['pagination'], 'summary' => [
             'records' => $total,
@@ -117,25 +117,25 @@ final class ReportRepository
         if ($filters['date_from']) {$where[] = 'date(e.start_at)>=date(?)'; $params[] = $filters['date_from'];}
         if ($filters['date_to']) {$where[] = 'date(e.start_at)<=date(?)'; $params[] = $filters['date_to'];}
         if ($filters['search'] !== '') {$like = '%'.$this->escapeLike($filters['search']).'%'; $where[] = "(e.title LIKE ? ESCAPE '\\\\' OR e.location LIKE ? ESCAPE '\\\\')"; array_push($params, $like, $like);}
-        $events = $this->rows('SELECT e.* FROM events e WHERE '.implode(' AND ', $where).' ORDER BY e.start_at DESC,e.id DESC', $params);
+        $events = $this->rows('SELECT e.* FROM tbl_events e WHERE '.implode(' AND ', $where).' ORDER BY e.start_at DESC,e.id DESC', $params);
         foreach ($events as &$event) {
             $eventId = (int) $event['id'];
             $event['id'] = $eventId;
             $studentWhere = ["r.name='Student'", "us.label='active'"];
             $studentParams = [];
-            if ($filters['school_year_id']) {$studentWhere[] = 'EXISTS(SELECT 1 FROM team_user tu JOIN teams t ON t.id=tu.team_id WHERE tu.user_id=u.id AND t.school_year_id=?)'; $studentParams[] = $filters['school_year_id'];}
+            if ($filters['school_year_id']) {$studentWhere[] = 'EXISTS(SELECT 1 FROM tbl_team_user tu JOIN tbl_teams t ON t.id=tu.team_id WHERE tu.user_id=u.id AND t.school_year_id=?)'; $studentParams[] = $filters['school_year_id'];}
             match ($event['audience_type']) {
-                'selected_tribes' => $studentWhere[] = 'EXISTS(SELECT 1 FROM team_user tu JOIN event_team et ON et.team_id=tu.team_id WHERE tu.user_id=u.id AND et.event_id='.$eventId.')',
-                'selected_year_levels' => $studentWhere[] = 'EXISTS(SELECT 1 FROM event_year_level eyl WHERE eyl.event_id='.$eventId.' AND eyl.year_level_id=u.year_level)',
-                'specific_students' => $studentWhere[] = 'EXISTS(SELECT 1 FROM event_participants ep WHERE ep.event_id='.$eventId.' AND ep.user_id=u.id)',
+                'selected_tribes' => $studentWhere[] = 'EXISTS(SELECT 1 FROM tbl_team_user tu JOIN tbl_event_team et ON et.team_id=tu.team_id WHERE tu.user_id=u.id AND et.event_id='.$eventId.')',
+                'selected_year_levels' => $studentWhere[] = 'EXISTS(SELECT 1 FROM tbl_event_year_level eyl WHERE eyl.event_id='.$eventId.' AND eyl.year_level_id=u.year_level)',
+                'specific_students' => $studentWhere[] = 'EXISTS(SELECT 1 FROM tbl_event_participants ep WHERE ep.event_id='.$eventId.' AND ep.user_id=u.id)',
                 default => null,
             };
-            $event['expected_count'] = (int) $this->scalar('SELECT COUNT(DISTINCT u.id) FROM users u JOIN roles r ON r.id=u.role_id JOIN user_statuses us ON us.id=u.status WHERE '.implode(' AND ', $studentWhere), $studentParams);
+            $event['expected_count'] = (int) $this->scalar('SELECT COUNT(DISTINCT u.id) FROM tbl_users u JOIN tbl_roles r ON r.id=u.role_id JOIN tbl_user_statuses us ON us.id=u.status WHERE '.implode(' AND ', $studentWhere), $studentParams);
             $attendanceWhere = ['a.event_id=?'];
             $attendanceParams = [$eventId];
-            if ($filters['school_year_id']) {$attendanceWhere[] = 'EXISTS(SELECT 1 FROM team_user tu JOIN teams t ON t.id=tu.team_id WHERE tu.user_id=a.user_id AND t.school_year_id=?)'; $attendanceParams[] = $filters['school_year_id'];}
-            $event['recorded_count'] = (int) $this->scalar('SELECT COUNT(DISTINCT a.user_id) FROM attendances a WHERE '.implode(' AND ', $attendanceWhere), $attendanceParams);
-            $event['attended_count'] = (int) $this->scalar("SELECT COUNT(DISTINCT a.user_id) FROM attendances a WHERE ".implode(' AND ', $attendanceWhere)." AND a.status IN ('present','late')", $attendanceParams);
+            if ($filters['school_year_id']) {$attendanceWhere[] = 'EXISTS(SELECT 1 FROM tbl_team_user tu JOIN tbl_teams t ON t.id=tu.team_id WHERE tu.user_id=a.user_id AND t.school_year_id=?)'; $attendanceParams[] = $filters['school_year_id'];}
+            $event['recorded_count'] = (int) $this->scalar('SELECT COUNT(DISTINCT a.user_id) FROM tbl_attendances a WHERE '.implode(' AND ', $attendanceWhere), $attendanceParams);
+            $event['attended_count'] = (int) $this->scalar("SELECT COUNT(DISTINCT a.user_id) FROM tbl_attendances a WHERE ".implode(' AND ', $attendanceWhere)." AND a.status IN ('present','late')", $attendanceParams);
             $event['participation_rate'] = $event['expected_count'] ? min(100, round(($event['attended_count'] / $event['expected_count']) * 100, 1)) : null;
             $event['schedule_state'] = $event['start_at'] > date('Y-m-d H:i:s') ? 'upcoming' : ($event['end_at'] < date('Y-m-d H:i:s') ? 'completed' : 'ongoing');
         }
@@ -162,7 +162,7 @@ final class ReportRepository
         if ($filters['date_from']) {$where[] = 'date(e.start_at)>=date(?)'; $params[] = $filters['date_from'];}
         if ($filters['date_to']) {$where[] = 'date(e.start_at)<=date(?)'; $params[] = $filters['date_to'];}
         if ($filters['search'] !== '') {$like = '%'.$this->escapeLike($filters['search']).'%'; $where[] = "(e.title LIKE ? ESCAPE '\\\\' OR t.name LIKE ? ESCAPE '\\\\' OR c.name LIKE ? ESCAPE '\\\\')"; array_push($params, $like, $like, $like);}
-        $from = 'FROM scores s LEFT JOIN events e ON e.id=s.event_id LEFT JOIN teams t ON t.id=s.team_id LEFT JOIN school_years sy ON sy.id=t.school_year_id LEFT JOIN score_categories c ON c.id=s.score_category_id LEFT JOIN users u ON u.id=s.recorded_by WHERE '.implode(' AND ', $where);
+        $from = 'FROM tbl_scores s LEFT JOIN tbl_events e ON e.id=s.event_id LEFT JOIN tbl_teams t ON t.id=s.team_id LEFT JOIN tbl_school_years sy ON sy.id=t.school_year_id LEFT JOIN tbl_score_categories c ON c.id=s.score_category_id LEFT JOIN tbl_users u ON u.id=s.recorded_by WHERE '.implode(' AND ', $where);
         $summary = $this->row("SELECT COUNT(*) entries,COUNT(DISTINCT s.team_id) teams,COALESCE(SUM(s.points),0) points,AVG(s.points) average $from", $params);
         $total = (int) $summary['entries'];
         $sql = "SELECT s.id,s.points,s.updated_at,e.title event_title,e.start_at event_start_at,t.name team_name,t.color,sy.label school_year,c.name category_name,c.max_points,TRIM(CONCAT_WS(' ',u.first_name,NULLIF(u.middle_name,''),u.last_name)) recorder_name $from ORDER BY s.updated_at DESC,s.id DESC";
@@ -196,14 +196,14 @@ final class ReportRepository
         $errors = [];
         $type = (string) ($input['type'] ?? 'attendance');
         if (!in_array($type, self::TYPES, true)) {$errors['type'][] = 'Choose a valid report type.'; $type = 'attendance';}
-        $eventId = $this->optionalExistingId($input['event_id'] ?? null, 'events', 'event_id', $errors, 'Choose a valid event.');
-        if ($eventId && !(bool) $this->scalar('SELECT id FROM events WHERE id=? AND deleted_at IS NULL', [$eventId])) {
+        $eventId = $this->optionalExistingId($input['event_id'] ?? null, 'tbl_events', 'event_id', $errors, 'Choose a valid event.');
+        if ($eventId && !(bool) $this->scalar('SELECT id FROM tbl_events WHERE id=? AND deleted_at IS NULL', [$eventId])) {
             $errors['event_id'][] = 'Choose a valid event.';
             $eventId = null;
         }
-        $schoolYearId = $this->optionalExistingId($input['school_year_id'] ?? null, 'school_years', 'school_year_id', $errors, 'Choose a valid school year.');
-        $categoryId = $this->optionalExistingId($input['category_id'] ?? null, 'score_categories', 'category_id', $errors, 'Choose a valid scoring criterion.');
-        if ($categoryId && (!$eventId || !(bool) $this->scalar('SELECT id FROM score_categories WHERE id=? AND event_id=?', [$categoryId, $eventId]))) $errors['category_id'][] = 'Choose a scoring criterion from the selected event.';
+        $schoolYearId = $this->optionalExistingId($input['school_year_id'] ?? null, 'tbl_school_years', 'school_year_id', $errors, 'Choose a valid school year.');
+        $categoryId = $this->optionalExistingId($input['category_id'] ?? null, 'tbl_score_categories', 'category_id', $errors, 'Choose a valid scoring criterion.');
+        if ($categoryId && (!$eventId || !(bool) $this->scalar('SELECT id FROM tbl_score_categories WHERE id=? AND event_id=?', [$categoryId, $eventId]))) $errors['category_id'][] = 'Choose a scoring criterion from the selected event.';
         $status = trim((string) ($input['status'] ?? ''));
         if ($status !== '' && !in_array($status, self::ATTENDANCE_STATUSES, true)) $errors['status'][] = 'Choose a valid attendance status.';
         $from = trim((string) ($input['date_from'] ?? ''));

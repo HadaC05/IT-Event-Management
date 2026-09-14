@@ -14,27 +14,54 @@ final class UserRepository
     public function findLoginCandidates(string $login): array
     {
         $isEmail = filter_var($login, FILTER_VALIDATE_EMAIL) !== false;
-        $column = $isEmail ? 'users.email' : 'users.username';
+        $column = $isEmail ? 'tbl_users.email' : 'tbl_users.username';
         $statement = $this->database->prepare(
             "SELECT
-                users.id,
-                users.username,
-                users.email,
-                users.password,
-                users.first_name,
-                users.middle_name,
-                users.last_name,
-                users.must_change_password,
-                roles.name AS role,
-                user_statuses.label AS status
-             FROM users
-             LEFT JOIN roles ON roles.id = users.role_id
-             LEFT JOIN user_statuses ON user_statuses.id = users.status
+                tbl_users.id,
+                tbl_users.username,
+                tbl_users.email,
+                tbl_users.password,
+                tbl_users.first_name,
+                tbl_users.middle_name,
+                tbl_users.last_name,
+                tbl_users.must_change_password,
+                tbl_roles.name AS role,
+                tbl_user_statuses.label AS status
+             FROM tbl_users
+             LEFT JOIN tbl_roles ON tbl_roles.id = tbl_users.role_id
+             LEFT JOIN tbl_user_statuses ON tbl_user_statuses.id = tbl_users.status
              WHERE {$column} = :login"
         );
         $statement->execute(['login' => $login]);
 
         return $statement->fetchAll();
+    }
+
+    public function replacePassword(int $userId, string $password): void
+    {
+        $statement = $this->database->prepare('SELECT password FROM tbl_users WHERE id = ? LIMIT 1');
+        $statement->execute([$userId]);
+        $currentHash = $statement->fetchColumn();
+        if (!is_string($currentHash)) {
+            throw new InvalidArgumentException('Your SBO Officer account was not found.');
+        }
+        if (password_verify($password, $currentHash)) {
+            throw new InvalidArgumentException('Choose a password different from your temporary password.');
+        }
+
+        $this->database->beginTransaction();
+        try {
+            $update = $this->database->prepare('UPDATE tbl_users SET password = ?, must_change_password = 0, updated_at = CURRENT_TIMESTAMP WHERE id = ?');
+            $update->execute([password_hash($password, PASSWORD_BCRYPT), $userId]);
+            $log = $this->database->prepare("INSERT INTO tbl_activity_logs
+                (actor_id, subject_user_id, action, acting_role, description, created_at, updated_at)
+                VALUES (?, ?, 'password_changed', 'SBO Officer', 'SBO Officer completed the required password change.', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)");
+            $log->execute([$userId, $userId]);
+            $this->database->commit();
+        } catch (Throwable $error) {
+            $this->database->rollBack();
+            throw $error;
+        }
     }
 }
 
@@ -96,6 +123,7 @@ final class AuthController
 
         $redirectUrl = match ($account['role']) {
             'SBO Adviser' => 'pages/adviser/dashboard.html',
+            'SBO Officer' => 'pages/sbo/attendance.html',
             'Student' => 'pages/student/home.html',
             default => 'pages/dashboard.html',
         };
@@ -123,6 +151,23 @@ final class AuthController
         }
 
         session_destroy();
+    }
+
+    public function completeRequiredPasswordChange(array $input, array $user): void
+    {
+        if (($user['role'] ?? null) !== 'SBO Officer' || empty($user['must_change_password'])) {
+            throw new InvalidArgumentException('A required SBO Officer password change is not pending.');
+        }
+
+        $password = (string) ($input['password'] ?? '');
+        if (strlen($password) < 8) {
+            throw new InvalidArgumentException('Your new password must contain at least 8 characters.');
+        }
+        if (($input['password_confirmation'] ?? '') !== $password) {
+            throw new InvalidArgumentException('The password confirmation does not match.');
+        }
+
+        $this->users->replacePassword((int) $user['id'], $password);
     }
 
     private function guardRateLimit(): void
@@ -161,7 +206,7 @@ if ($action === 'session') {
     ]);
 }
 
-if (!in_array($action, ['login', 'logout'], true)) {
+if (!in_array($action, ['login', 'logout', 'change_password'], true)) {
     JsonResponse::send(['success' => false, 'message' => 'Unknown authentication action.'], 404);
 }
 
@@ -185,6 +230,19 @@ try {
     $input = json_decode(file_get_contents('php://input'), true);
     if (!is_array($input)) {
         $input = $_POST;
+    }
+
+    if ($action === 'change_password') {
+        $user = $_SESSION['user'] ?? null;
+        if (!is_array($user)) {
+            JsonResponse::send(['success' => false, 'message' => 'Authentication required.'], 401);
+        }
+        $controller->completeRequiredPasswordChange($input, $user);
+        $_SESSION['user']['must_change_password'] = false;
+        JsonResponse::send([
+            'success' => true,
+            'message' => 'Your SBO Officer password was changed successfully.',
+        ]);
     }
 
     JsonResponse::send(['success' => true] + $controller->login($input));

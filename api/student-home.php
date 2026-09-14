@@ -29,7 +29,7 @@ final class StudentHomeRepository
 
     public function markNotificationsRead(int $userId, ?string $notificationId = null): int
     {
-        $sql = "UPDATE notifications
+        $sql = "UPDATE tbl_notifications
                 SET read_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
                 WHERE notifiable_id = ? AND read_at IS NULL";
         $parameters = [$userId];
@@ -67,7 +67,7 @@ final class StudentHomeRepository
         $this->db->beginTransaction();
         try {
             $statement = $this->db->prepare(
-                "INSERT INTO posts
+                "INSERT INTO tbl_posts
                     (user_id, event_id, category, content, image_path, video_path, status, is_official, created_at, updated_at)
                  VALUES (?, NULL, 'general', ?, ?, ?, 'pending', 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)"
             );
@@ -75,14 +75,14 @@ final class StudentHomeRepository
             $postId = (int) $this->db->lastInsertId();
 
             $audit = $this->db->prepare(
-                "INSERT INTO post_audits
+                "INSERT INTO tbl_post_audits
                     (post_id, actor_id, action, from_status, to_status, created_at, updated_at)
                  VALUES (?, ?, 'submitted', NULL, 'pending', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)"
             );
             $audit->execute([$postId, $userId]);
 
             $activity = $this->db->prepare(
-                "INSERT INTO activity_logs
+                "INSERT INTO tbl_activity_logs
                     (actor_id, action, acting_role, description, created_at, updated_at)
                  VALUES (?, 'post_submitted', 'Student', ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)"
             );
@@ -109,8 +109,8 @@ final class StudentHomeRepository
         $statement = $this->db->prepare(
             "SELECT u.id, u.first_name, u.middle_name, u.last_name, u.email,
                     u.profile_photo_path, yl.label AS year_level
-             FROM users u
-             LEFT JOIN year_levels yl ON yl.id = u.year_level
+             FROM tbl_users u
+             LEFT JOIN tbl_year_levels yl ON yl.id = u.year_level
              WHERE u.id = ?"
         );
         $statement->execute([$userId]);
@@ -134,27 +134,27 @@ final class StudentHomeRepository
                         WHEN e.end_at < CURRENT_TIMESTAMP THEN 'completed'
                         ELSE 'ongoing'
                     END AS schedule_state
-             FROM events e
+             FROM tbl_events e
              WHERE e.deleted_at IS NULL
                AND e.end_at >= CURRENT_TIMESTAMP
                AND (
                     e.audience_type = 'all_students'
                     OR EXISTS (
-                        SELECT 1 FROM event_user eu
+                        SELECT 1 FROM tbl_event_user eu
                         WHERE eu.event_id = e.id AND eu.user_id = ?
                     )
                     OR EXISTS (
-                        SELECT 1 FROM event_participants ep
+                        SELECT 1 FROM tbl_event_participants ep
                         WHERE ep.event_id = e.id AND ep.user_id = ?
                     )
                     OR EXISTS (
-                        SELECT 1 FROM event_year_level eyl
-                        JOIN users audience_user ON audience_user.year_level = eyl.year_level_id
+                        SELECT 1 FROM tbl_event_year_level eyl
+                        JOIN tbl_users audience_user ON audience_user.year_level = eyl.year_level_id
                         WHERE eyl.event_id = e.id AND audience_user.id = ?
                     )
                     OR EXISTS (
-                        SELECT 1 FROM event_team et
-                        JOIN team_user tu ON tu.team_id = et.team_id
+                        SELECT 1 FROM tbl_event_team et
+                        JOIN tbl_team_user tu ON tu.team_id = et.team_id
                         WHERE et.event_id = e.id AND tu.user_id = ?
                     )
                )
@@ -181,8 +181,8 @@ final class StudentHomeRepository
                         WHEN e.end_at < CURRENT_TIMESTAMP THEN 'completed'
                         ELSE 'ongoing'
                     END AS schedule_state
-             FROM events e
-             LEFT JOIN event_types et ON et.id = e.event_type_id
+             FROM tbl_events e
+             LEFT JOIN tbl_event_types et ON et.id = e.event_type_id
              WHERE e.deleted_at IS NULL
                AND e.is_featured = 1
                AND e.end_at >= CURRENT_TIMESTAMP
@@ -204,11 +204,11 @@ final class StudentHomeRepository
             "SELECT p.id, p.content, p.image_path, p.video_path, p.reviewed_at, p.created_at,
                     p.is_official, u.first_name, u.middle_name, u.last_name,
                     u.profile_photo_path, r.name AS author_role,
-                    (SELECT COUNT(*) FROM post_reactions pr WHERE pr.post_id = p.id) AS reactions_count,
-                    (SELECT COUNT(*) FROM post_comments pc WHERE pc.post_id = p.id) AS comments_count
-             FROM posts p
-             JOIN users u ON u.id = p.user_id
-             LEFT JOIN roles r ON r.id = u.role_id
+                    (SELECT COUNT(*) FROM tbl_post_reactions pr WHERE pr.post_id = p.id) AS reactions_count,
+                    (SELECT COUNT(*) FROM tbl_post_comments pc WHERE pc.post_id = p.id) AS comments_count
+             FROM tbl_posts p
+             JOIN tbl_users u ON u.id = p.user_id
+             LEFT JOIN tbl_roles r ON r.id = u.role_id
              WHERE p.status = 'approved' AND p.deleted_at IS NULL
              ORDER BY COALESCE(p.reviewed_at, p.created_at) DESC, p.id DESC
              LIMIT 20"
@@ -230,7 +230,7 @@ final class StudentHomeRepository
     {
         $statement = $this->db->prepare(
             "SELECT id, content, image_path, video_path, status, rejection_reason, created_at
-             FROM posts
+             FROM tbl_posts
              WHERE user_id = ? AND status IN ('pending', 'rejected') AND deleted_at IS NULL
              ORDER BY created_at DESC"
         );
@@ -246,7 +246,7 @@ final class StudentHomeRepository
     private function unreadNotifications(int $userId): int
     {
         $statement = $this->db->prepare(
-            'SELECT COUNT(*) FROM notifications WHERE notifiable_id = ? AND read_at IS NULL'
+            'SELECT COUNT(*) FROM tbl_notifications WHERE notifiable_id = ? AND read_at IS NULL'
         );
         $statement->execute([$userId]);
         return (int) $statement->fetchColumn();
@@ -256,7 +256,7 @@ final class StudentHomeRepository
     {
         $statement = $this->db->prepare(
             "SELECT id, type, data, read_at, created_at
-             FROM notifications
+             FROM tbl_notifications
              WHERE notifiable_id = ?
              ORDER BY created_at DESC
              LIMIT 20"
@@ -281,9 +281,9 @@ final class StudentHomeRepository
     {
         $advisers = $this->db->query(
             "SELECT u.id
-             FROM users u
-             JOIN roles r ON r.id = u.role_id
-             JOIN user_statuses s ON s.id = u.status
+             FROM tbl_users u
+             JOIN tbl_roles r ON r.id = u.role_id
+             JOIN tbl_user_statuses s ON s.id = u.status
              WHERE r.name = 'SBO Adviser' AND s.label = 'active'"
         )->fetchAll(PDO::FETCH_COLUMN);
         if (!$advisers) {
@@ -292,7 +292,7 @@ final class StudentHomeRepository
 
         $student = $this->student($studentId);
         $statement = $this->db->prepare(
-            "INSERT INTO notifications
+            "INSERT INTO tbl_notifications
                 (id, type, notifiable_type, notifiable_id, data, created_at, updated_at)
              VALUES (?, 'post_submitted', 'App\\Models\\User', ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)"
         );

@@ -30,7 +30,7 @@ final class UserManagementRepository
             $params['q'] = '%'.addcslashes($search, '%_\\').'%';
         }
         if ($role !== '') {
-            if (!$this->value('SELECT id FROM roles WHERE name = ?', [$role])) {
+            if (!$this->value('SELECT id FROM tbl_roles WHERE name = ?', [$role])) {
                 throw new InvalidArgumentException('The selected role is invalid.');
             }
             $where[] = 'r.name = :role';
@@ -44,10 +44,10 @@ final class UserManagementRepository
             $params['status'] = $status;
         }
 
-        $from = ' FROM users u
-                LEFT JOIN roles r ON r.id = u.role_id
-                LEFT JOIN user_statuses s ON s.id = u.status
-                LEFT JOIN year_levels yl ON yl.id = u.year_level'
+        $from = ' FROM tbl_users u
+                LEFT JOIN tbl_roles r ON r.id = u.role_id
+                LEFT JOIN tbl_user_statuses s ON s.id = u.status
+                LEFT JOIN tbl_year_levels yl ON yl.id = u.year_level'
             .($where ? ' WHERE '.implode(' AND ', $where) : '');
         $countStatement = $this->db->prepare('SELECT COUNT(*)'.$from);
         $countStatement->execute($params);
@@ -74,7 +74,7 @@ final class UserManagementRepository
                 $user['middle_name'],
                 $user['last_name'],
             ])));
-            $assigned = $this->db->prepare('SELECT e.id, e.title, e.start_at FROM events e JOIN event_user eu ON eu.event_id = e.id WHERE eu.user_id = ? ORDER BY e.start_at');
+            $assigned = $this->db->prepare('SELECT e.id, e.title, e.start_at FROM tbl_events e JOIN tbl_event_user eu ON eu.event_id = e.id WHERE eu.user_id = ? ORDER BY e.start_at');
             $assigned->execute([$user['id']]);
             $user['assigned_events'] = $assigned->fetchAll();
         }
@@ -83,12 +83,12 @@ final class UserManagementRepository
         return [
             'users' => $users,
             'summary' => $this->summary(),
-            'roles' => $this->db->query('SELECT id, name FROM roles ORDER BY name')->fetchAll(),
-            'filter_roles' => $this->db->query('SELECT r.id, r.name FROM roles r WHERE EXISTS (SELECT 1 FROM users u WHERE u.role_id = r.id) ORDER BY r.name')->fetchAll(),
-            'year_levels' => $this->db->query('SELECT id, label FROM year_levels ORDER BY id')->fetchAll(),
+            'roles' => $this->db->query('SELECT id, name FROM tbl_roles ORDER BY name')->fetchAll(),
+            'filter_roles' => $this->db->query('SELECT r.id, r.name FROM tbl_roles r WHERE EXISTS (SELECT 1 FROM tbl_users u WHERE u.role_id = r.id) ORDER BY r.name')->fetchAll(),
+            'year_levels' => $this->db->query('SELECT id, label FROM tbl_year_levels ORDER BY id')->fetchAll(),
             'events' => $this->db->query("SELECT e.id, e.title, e.start_at
-                FROM events e
-                LEFT JOIN event_statuses s ON s.id = e.event_status_id
+                FROM tbl_events e
+                LEFT JOIN tbl_event_statuses s ON s.id = e.event_status_id
                 WHERE s.label IS NULL OR s.label <> 'inactive'
                 ORDER BY e.start_at")->fetchAll(),
             'pagination' => [
@@ -130,7 +130,7 @@ final class UserManagementRepository
             throw new InvalidArgumentException('The password confirmation does not match.');
         }
 
-        $role = $this->value('SELECT name FROM roles WHERE id = ?', [(int) $data['role_id']]);
+        $role = $this->value('SELECT name FROM tbl_roles WHERE id = ?', [(int) $data['role_id']]);
         $allowedRoles = $id ? self::MANAGEABLE_ROLES : self::CREATABLE_ROLES;
         if (!in_array($role, $allowedRoles, true)) {
             throw new InvalidArgumentException('That role cannot be assigned here.');
@@ -141,11 +141,11 @@ final class UserManagementRepository
         if ($role === 'Student' && !preg_match('/^02-\d{4}-\d{6}$/', (string) ($data['id_number'] ?? ''))) {
             throw new InvalidArgumentException('Student ID numbers must use 02-xxxx-xxxxxx.');
         }
-        if (($data['year_level'] ?? '') !== '' && !$this->value('SELECT id FROM year_levels WHERE id = ?', [(int) $data['year_level']])) {
+        if (($data['year_level'] ?? '') !== '' && !$this->value('SELECT id FROM tbl_year_levels WHERE id = ?', [(int) $data['year_level']])) {
             throw new InvalidArgumentException('The selected year level is invalid.');
         }
 
-        $duplicateSql = 'SELECT id FROM users
+        $duplicateSql = 'SELECT id FROM tbl_users
                          WHERE (username = :username OR email = :email
                             OR (:id_number IS NOT NULL AND id_number = :id_number))'
             .($id ? ' AND id <> :id' : '');
@@ -182,16 +182,16 @@ final class UserManagementRepository
                     $set[] = 'password = :password';
                 }
                 $values['id'] = $id;
-                $statement = $this->db->prepare('UPDATE users SET '.implode(', ', $set).', updated_at = CURRENT_TIMESTAMP WHERE id = :id');
+                $statement = $this->db->prepare('UPDATE tbl_users SET '.implode(', ', $set).', updated_at = CURRENT_TIMESTAMP WHERE id = :id');
                 $statement->execute($values);
                 if ($role === 'Student') {
-                    $statement = $this->db->prepare('DELETE FROM event_user WHERE user_id = ?');
+                    $statement = $this->db->prepare('DELETE FROM tbl_event_user WHERE user_id = ?');
                     $statement->execute([$id]);
                 }
             } else {
                 $values['password'] = password_hash((string) $data['password'], PASSWORD_BCRYPT);
-                $values['status'] = $this->value("SELECT id FROM user_statuses WHERE label = 'active'");
-                $statement = $this->db->prepare("INSERT INTO users
+                $values['status'] = $this->value("SELECT id FROM tbl_user_statuses WHERE label = 'active'");
+                $statement = $this->db->prepare("INSERT INTO tbl_users
                     (first_name, middle_name, last_name, id_number, username, email, password, role_id, year_level, status, created_at, updated_at)
                     VALUES (:first_name, :middle_name, :last_name, :id_number, :username, :email, :password, :role_id, :year_level, :status, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)");
                 $statement->execute($values);
@@ -211,8 +211,8 @@ final class UserManagementRepository
     {
         $user = $this->requireManageableUser($id);
         $next = $user['status'] === 'active' ? 'inactive' : 'active';
-        $statement = $this->db->prepare("UPDATE users
-            SET status = (SELECT id FROM user_statuses WHERE label = :status), updated_at = CURRENT_TIMESTAMP
+        $statement = $this->db->prepare("UPDATE tbl_users
+            SET status = (SELECT id FROM tbl_user_statuses WHERE label = :status), updated_at = CURRENT_TIMESTAMP
             WHERE id = :id");
         $statement->execute(['status' => $next, 'id' => $id]);
         $verb = $next === 'active' ? 'activated' : 'deactivated';
@@ -223,17 +223,17 @@ final class UserManagementRepository
     {
         $user = $this->requireAssignableUser($userId);
         $statement = $this->db->prepare("SELECT e.id, e.title, s.label AS status
-            FROM events e LEFT JOIN event_statuses s ON s.id = e.event_status_id WHERE e.id = ?");
+            FROM tbl_events e LEFT JOIN tbl_event_statuses s ON s.id = e.event_status_id WHERE e.id = ?");
         $statement->execute([$eventId]);
         $event = $statement->fetch();
         if (!$event) throw new InvalidArgumentException('Event not found.');
         if ($event['status'] === 'inactive') throw new InvalidArgumentException('Inactive events cannot receive new assignments.');
-        if ($this->value('SELECT 1 FROM event_user WHERE user_id = ? AND event_id = ?', [$userId, $eventId])) {
+        if ($this->value('SELECT 1 FROM tbl_event_user WHERE user_id = ? AND event_id = ?', [$userId, $eventId])) {
             throw new InvalidArgumentException('That event is already assigned to this user.');
         }
         $this->db->beginTransaction();
         try {
-            $statement = $this->db->prepare('INSERT INTO event_user (user_id, event_id, created_at, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)');
+            $statement = $this->db->prepare('INSERT INTO tbl_event_user (user_id, event_id, created_at, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)');
             $statement->execute([$userId, $eventId]);
             $this->log($actorId, $userId, 'event_assigned', $user['full_name'].' was assigned to '.$event['title'].'.', $eventId);
             $this->db->commit();
@@ -246,13 +246,13 @@ final class UserManagementRepository
     public function unassignEvent(int $userId, int $eventId, int $actorId): void
     {
         $user = $this->requireAssignableUser($userId);
-        $title = $this->value('SELECT title FROM events WHERE id = ?', [$eventId]);
-        if (!$title || !$this->value('SELECT 1 FROM event_user WHERE user_id = ? AND event_id = ?', [$userId, $eventId])) {
+        $title = $this->value('SELECT title FROM tbl_events WHERE id = ?', [$eventId]);
+        if (!$title || !$this->value('SELECT 1 FROM tbl_event_user WHERE user_id = ? AND event_id = ?', [$userId, $eventId])) {
             throw new InvalidArgumentException('That event assignment was already removed.');
         }
         $this->db->beginTransaction();
         try {
-            $statement = $this->db->prepare('DELETE FROM event_user WHERE user_id = ? AND event_id = ?');
+            $statement = $this->db->prepare('DELETE FROM tbl_event_user WHERE user_id = ? AND event_id = ?');
             $statement->execute([$userId, $eventId]);
             $this->log($actorId, $userId, 'event_unassigned', $user['full_name']." was unassigned from $title.", $eventId);
             $this->db->commit();
@@ -266,9 +266,9 @@ final class UserManagementRepository
     {
         $statement = $this->db->prepare("SELECT u.id, r.name AS role, s.label AS status,
                 TRIM(CONCAT_WS(' ', u.first_name, NULLIF(u.middle_name, ''), u.last_name)) AS full_name
-            FROM users u
-            LEFT JOIN roles r ON r.id = u.role_id
-            LEFT JOIN user_statuses s ON s.id = u.status
+            FROM tbl_users u
+            LEFT JOIN tbl_roles r ON r.id = u.role_id
+            LEFT JOIN tbl_user_statuses s ON s.id = u.status
             WHERE u.id = ?");
         $statement->execute([$id]);
         $user = $statement->fetch();
@@ -296,15 +296,15 @@ final class UserManagementRepository
                 SUM(r.name IN ('SBO', 'SBO Officer')) AS sbo,
                 SUM(s.label = 'active') AS active,
                 SUM(s.label = 'inactive') AS inactive
-            FROM users u
-            LEFT JOIN roles r ON r.id = u.role_id
-            LEFT JOIN user_statuses s ON s.id = u.status")->fetch();
+            FROM tbl_users u
+            LEFT JOIN tbl_roles r ON r.id = u.role_id
+            LEFT JOIN tbl_user_statuses s ON s.id = u.status")->fetch();
         return array_map('intval', $row);
     }
 
     private function log(int $actorId, int $subjectId, string $action, string $description, ?int $eventId = null): void
     {
-        $statement = $this->db->prepare("INSERT INTO activity_logs
+        $statement = $this->db->prepare("INSERT INTO tbl_activity_logs
             (actor_id, subject_user_id, event_id, action, description, created_at, updated_at)
             VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)");
         $statement->execute([$actorId, $subjectId, $eventId, $action, $description]);

@@ -12,7 +12,7 @@
     const snackbarRegion = () => document.querySelector('[data-snackbar-region]');
     const toastTones = {
         success: { border: 'border-l-[#397565]', icon: 'bg-[#C6F24E] text-[#121017]', progress: 'bg-[#397565]', title: 'All set' },
-        error: { border: 'border-l-[#FF6B2C]', icon: 'bg-[#FF6B2C]/12 text-[#D64A12]', progress: 'bg-[#FF6B2C]', title: 'Sign-in failed' },
+        error: { border: 'border-l-[#FF6B2C]', icon: 'bg-[#FF6B2C]/12 text-[#D64A12]', progress: 'bg-[#FF6B2C]', title: 'Action failed' },
         warning: { border: 'border-l-[#FF6B2C]', icon: 'bg-[#FF6B2C]/12 text-[#D64A12]', progress: 'bg-[#FF6B2C]', title: 'Please check this' },
         info: { border: 'border-l-[#2F3AE0]', icon: 'bg-[#2F3AE0]/10 text-[#2F3AE0]', progress: 'bg-[#2F3AE0]', title: 'Good to know' },
     };
@@ -27,7 +27,7 @@
         const element = document.createElement('div');
         element.className = `pointer-events-auto relative grid min-h-[72px] grid-cols-[auto_1fr_auto] items-center gap-3 overflow-hidden rounded-2xl border border-l-[4px] border-[#121017]/10 ${tone.border} bg-white/95 p-3.5 shadow-[0_18px_50px_rgba(18,16,23,.18)] backdrop-blur-xl transition duration-200 hover:-translate-y-0.5 hover:shadow-[0_22px_58px_rgba(18,16,23,.22)]`;
         element.setAttribute('role', kind === 'error' ? 'alert' : 'status');
-        element.innerHTML = `<span class="grid h-9 w-9 place-items-center rounded-full ${tone.icon} [&_svg]:h-4 [&_svg]:w-4 [&_svg]:fill-none [&_svg]:stroke-current [&_svg]:stroke-[2.5]" aria-hidden="true">${icons[kind]}</span><span class="min-w-0"><strong class="block text-sm font-black tracking-[-.01em] text-[#121017]">${tone.title}</strong><span data-toast-message class="mt-0.5 block text-xs font-semibold leading-5 text-[#121017]/60"></span></span><button class="grid h-8 w-8 place-items-center rounded-lg border-0 bg-transparent text-lg text-[#121017]/35 transition hover:bg-[#121017]/6 hover:text-[#121017]" type="button" aria-label="Dismiss notification">&times;</button><span data-toast-progress class="absolute inset-x-0 bottom-0 h-1 origin-left ${tone.progress}"></span>`;
+        element.innerHTML = `<span class="grid h-9 w-9 place-items-center rounded-full ${tone.icon} [&_svg]:h-4 [&_svg]:w-4 [&_svg]:fill-none [&_svg]:stroke-current [&_svg]:stroke-[2.5]" aria-hidden="true">${icons[kind]}</span><span class="min-w-0"><strong class="block text-sm font-black tracking-[-.01em] text-[#121017]">${options.title || tone.title}</strong><span data-toast-message class="mt-0.5 block text-xs font-semibold leading-5 text-[#121017]/60"></span></span><button class="grid h-8 w-8 place-items-center rounded-lg border-0 bg-transparent text-lg text-[#121017]/35 transition hover:bg-[#121017]/6 hover:text-[#121017]" type="button" aria-label="Dismiss notification">&times;</button><span data-toast-progress class="absolute inset-x-0 bottom-0 h-1 origin-left ${tone.progress}"></span>`;
         element.querySelector('[data-toast-message]').textContent = message;
         host.appendChild(element);
 

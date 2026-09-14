@@ -12,6 +12,9 @@
     const pagination = document.querySelector('[data-officer-pagination]');
     const dialog = document.querySelector('#assign-officer-dialog');
     const assignForm = document.querySelector('[data-assign-officer-form]');
+    const detailsDialog = document.querySelector('#officer-details-dialog');
+    const passwordDialog = document.querySelector('#change-officer-password-dialog');
+    const passwordForm = document.querySelector('[data-change-officer-password-form]');
     const studentList = document.querySelector('[data-officer-student-list]');
     const studentSearch = document.querySelector('[data-officer-student-search]');
     const studentYear = document.querySelector('[data-officer-year-filter]');
@@ -68,6 +71,45 @@
         }
     };
 
+    const openPasswordDialog = assignment => {
+        passwordForm.reset();
+        passwordForm.elements.password_confirmation.setCustomValidity('');
+        passwordForm.querySelectorAll('[data-password-toggle]').forEach(toggle => {
+            toggle.parentElement.querySelector('input').type = 'password';
+            toggle.querySelector('[data-eye-slash]')?.remove();
+            toggle.setAttribute('aria-pressed', 'false');
+        });
+        passwordForm.elements.assignment_id.value = assignment.id;
+        passwordForm.querySelector('[data-password-officer-name]').textContent = assignment.full_name;
+        passwordForm.querySelector('[data-password-student-email]').textContent = `Student email: ${assignment.student_email || 'No email provided'}`;
+        passwordForm.querySelector('[data-password-officer-username]').textContent = `SBO username: ${assignment.username}`;
+        passwordDialog.showModal();
+        passwordForm.elements.password.focus();
+    };
+
+    const openDetailsDialog = assignment => {
+        detailsDialog.querySelector('[data-details-student-name]').textContent = assignment.full_name;
+        detailsDialog.querySelector('[data-details-student-id]').textContent = `Student ID: ${assignment.student_id}`;
+        detailsDialog.querySelector('[data-details-student-email]').textContent = `Student email: ${assignment.student_email || 'No email provided'}`;
+        detailsDialog.querySelector('[data-details-officer-username]').textContent = assignment.username;
+        const status = detailsDialog.querySelector('[data-details-status]');
+        status.textContent = assignment.status;
+        status.className = `rounded-full px-3 py-1.5 text-[10px] font-black uppercase ${assignment.status === 'Active' ? 'bg-[#C6F24E]/35 text-[#397565]' : 'bg-[#121017]/6 text-[#121017]/40'}`;
+        detailsDialog.querySelector('[data-details-password-state]').textContent = assignment.must_change_password
+            ? 'A temporary password is active. The officer must replace it after signing in.'
+            : 'The officer has completed their required password change.';
+        detailsDialog.querySelector('[data-details-position]').textContent = `Position: ${assignment.position}`;
+        detailsDialog.querySelector('[data-details-term]').textContent = `Term: ${assignment.term}`;
+        detailsDialog.querySelector('[data-details-team]').textContent = `Tribe: ${assignment.team_name || 'No tribe'}`;
+        const changePassword = detailsDialog.querySelector('[data-details-change-password]');
+        changePassword.hidden = assignment.status !== 'Active';
+        changePassword.onclick = () => {
+            detailsDialog.close();
+            openPasswordDialog(assignment);
+        };
+        detailsDialog.showModal();
+    };
+
     const renderAssignments = data => {
         list.replaceChildren();
         if (!data.assignments.length) {
@@ -94,25 +136,26 @@
             check.addEventListener('change', syncSelection);
 
             const identity = document.createElement('div');
-            identity.innerHTML = '<strong class="block text-sm font-black"></strong><span class="mt-1 block text-xs text-[#121017]/45"></span>';
+            identity.innerHTML = '<span class="text-[10px] font-black uppercase tracking-wider text-[#121017]/35">Assigned officer</span><strong class="mt-1 block text-sm font-black"></strong><span class="mt-1 block text-xs text-[#121017]/45">Student-linked SBO account</span>';
             identity.querySelector('strong').textContent = assignment.full_name;
-            identity.querySelector('span').textContent = `${assignment.student_id} · ${assignment.email}`;
             const term = document.createElement('div');
             term.innerHTML = '<span class="text-[10px] font-black uppercase tracking-wider text-[#397565]"></span><strong class="mt-1 block text-sm"></strong>';
             term.querySelector('span').textContent = assignment.position;
             term.querySelector('strong').textContent = assignment.term;
-            const tribe = document.createElement('div');
-            tribe.innerHTML = '<span class="text-xs font-bold text-[#121017]/55"></span><span class="mt-1 block text-[10px] text-[#121017]/35"></span>';
-            tribe.children[0].textContent = assignment.team_name || 'No tribe';
-            tribe.children[1].textContent = `Officer login: ${assignment.username}`;
+            const account = document.createElement('div');
+            account.innerHTML = '<span class="text-[10px] font-black uppercase tracking-wider text-[#397565]">Account</span><strong class="mt-1 block text-sm">SBO Officer login</strong><span class="mt-1 block text-[10px] text-[#121017]/45">Open details to view credentials</span>';
             const actions = document.createElement('div');
-            actions.className = 'flex items-center justify-end gap-2';
+            actions.className = 'flex flex-wrap items-center justify-end gap-2';
             const status = document.createElement('span');
             status.className = `rounded-full px-3 py-1.5 text-[10px] font-black uppercase ${active ? 'bg-[#C6F24E]/35 text-[#397565]' : 'bg-[#121017]/6 text-[#121017]/40'}`;
             status.textContent = assignment.status;
             actions.append(status);
+            actions.append(button('View Details', 'min-h-9 rounded-lg border border-[#397565]/25 bg-[#397565]/8 px-3 text-xs font-black text-[#397565]', () => openDetailsDialog(assignment)));
             if (active) actions.append(button('Unassign', 'min-h-9 rounded-lg border border-[#FF6B2C]/25 bg-[#FF6B2C]/9 px-3 text-xs font-black text-[#d9470a]', () => unassign(assignment)));
-            article.append(check, identity, term, tribe, actions);
+            term.append(document.createElement('small'));
+            term.lastElementChild.className = 'mt-1 block text-[10px] text-[#121017]/40';
+            term.lastElementChild.textContent = `Tribe: ${assignment.team_name || 'No tribe'}`;
+            article.append(check, identity, term, account, actions);
             list.append(article);
         });
         syncSelection();
@@ -261,6 +304,23 @@
         dialog.showModal();
     });
     dialog.querySelectorAll('[data-dialog-close]').forEach(close => close.addEventListener('click', () => dialog.close()));
+    detailsDialog.querySelectorAll('[data-dialog-close]').forEach(close => close.addEventListener('click', () => detailsDialog.close()));
+    passwordDialog.querySelectorAll('[data-dialog-close]').forEach(close => close.addEventListener('click', () => passwordDialog.close()));
+    passwordDialog.querySelectorAll('[data-password-toggle]').forEach(toggle => toggle.addEventListener('click', () => {
+        const input = toggle.parentElement.querySelector('input');
+        const showing = input.type === 'text';
+        input.type = showing ? 'password' : 'text';
+        const icon = toggle.querySelector('svg');
+        icon.querySelector('[data-eye-slash]')?.remove();
+        if (!showing) {
+            const slash = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+            slash.setAttribute('d', 'M4 4 20 20');
+            slash.dataset.eyeSlash = '';
+            icon.append(slash);
+        }
+        toggle.setAttribute('aria-pressed', String(!showing));
+        toggle.setAttribute('aria-label', `${showing ? 'Show' : 'Hide'} ${input.name === 'password_confirmation' ? 'password confirmation' : 'new password'}`);
+    }));
     studentSearch.addEventListener('input', filterStudents);
     studentYear.addEventListener('change', filterStudents);
     studentList.addEventListener('change', showSelectedStudent);
@@ -284,6 +344,30 @@
             dialog.close();
             notify('success', response.data.message);
             currentPage = 1;
+            await load();
+        } catch (error) {
+            notify('error', errorMessage(error));
+        } finally {
+            window.Notifications?.setLoading(submit, false);
+        }
+    });
+    const validatePasswordConfirmation = () => {
+        const matches = passwordForm.elements.password.value === passwordForm.elements.password_confirmation.value;
+        passwordForm.elements.password_confirmation.setCustomValidity(matches ? '' : 'Passwords do not match.');
+    };
+    passwordForm.elements.password.addEventListener('input', validatePasswordConfirmation);
+    passwordForm.elements.password_confirmation.addEventListener('input', validatePasswordConfirmation);
+    passwordForm.addEventListener('submit', async submitEvent => {
+        submitEvent.preventDefault();
+        if (!passwordForm.reportValidity()) return;
+        const submit = submitEvent.submitter;
+        window.Notifications?.setLoading(submit, true, 'Changing password…');
+        const data = Object.fromEntries(new FormData(passwordForm));
+        data.action = 'change_password';
+        try {
+            const response = await axios.post('api/officers.php', data, { headers: { 'X-CSRF-Token': csrfToken } });
+            passwordDialog.close();
+            notify('success', response.data.message);
             await load();
         } catch (error) {
             notify('error', errorMessage(error));

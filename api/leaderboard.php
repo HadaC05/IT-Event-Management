@@ -20,9 +20,9 @@ final class LeaderboardRepository
             throw new InvalidArgumentException('Search may not exceed 100 characters.');
         }
 
-        $selectedEvent = $eventId ? $this->find('SELECT id,title,start_at,audience_type FROM events WHERE id=? AND deleted_at IS NULL', [$eventId], 'Event not found.') : null;
-        $selectedYear = $schoolYearId ? $this->find('SELECT id,label FROM school_years WHERE id=?', [$schoolYearId], 'School year not found.') : null;
-        $selectedCategory = $categoryId ? $this->find('SELECT id,event_id,name,max_points FROM score_categories WHERE id=?', [$categoryId], 'Scoring criterion not found.') : null;
+        $selectedEvent = $eventId ? $this->find('SELECT id,title,start_at,audience_type FROM tbl_events WHERE id=? AND deleted_at IS NULL', [$eventId], 'Event not found.') : null;
+        $selectedYear = $schoolYearId ? $this->find('SELECT id,label FROM tbl_school_years WHERE id=?', [$schoolYearId], 'School year not found.') : null;
+        $selectedCategory = $categoryId ? $this->find('SELECT id,event_id,name,max_points FROM tbl_score_categories WHERE id=?', [$categoryId], 'Scoring criterion not found.') : null;
 
         if ($selectedCategory && (!$selectedEvent || (int) $selectedCategory['event_id'] !== (int) $selectedEvent['id'])) {
             throw new InvalidArgumentException('Choose a scoring category from the selected event.');
@@ -34,9 +34,9 @@ final class LeaderboardRepository
             $rankings,
             fn (array $team): bool => str_contains(mb_strtolower($team['name']), mb_strtolower($search)),
         ));
-        $events = $this->rows("SELECT e.id,e.title,e.start_at FROM events e WHERE e.deleted_at IS NULL AND EXISTS(SELECT 1 FROM score_categories c WHERE c.event_id=e.id) ORDER BY e.start_at DESC");
-        $years = $this->rows('SELECT id,label FROM school_years ORDER BY label DESC');
-        $categories = $eventId ? $this->rows('SELECT id,name,max_points FROM score_categories WHERE event_id=? ORDER BY sort_order,id', [$eventId]) : [];
+        $events = $this->rows("SELECT e.id,e.title,e.start_at FROM tbl_events e WHERE e.deleted_at IS NULL AND EXISTS(SELECT 1 FROM tbl_score_categories c WHERE c.event_id=e.id) ORDER BY e.start_at DESC");
+        $years = $this->rows('SELECT id,label FROM tbl_school_years ORDER BY label DESC');
+        $categories = $eventId ? $this->rows('SELECT id,name,max_points FROM tbl_score_categories WHERE event_id=? ORDER BY sort_order,id', [$eventId]) : [];
 
         foreach ($events as &$event) $event['id'] = (int) $event['id'];
         foreach ($years as &$year) $year['id'] = (int) $year['id'];
@@ -83,29 +83,29 @@ final class LeaderboardRepository
             $audience = '';
             $eventId = (int) $event['id'];
             if ($event['audience_type'] === 'selected_tribes') {
-                $audience = ' AND EXISTS(SELECT 1 FROM event_team et WHERE et.event_id=? AND et.team_id=t.id)';
+                $audience = ' AND EXISTS(SELECT 1 FROM tbl_event_team et WHERE et.event_id=? AND et.team_id=t.id)';
                 $whereParams[] = $eventId;
             } elseif ($event['audience_type'] === 'selected_year_levels') {
-                $audience = ' AND EXISTS(SELECT 1 FROM team_user tu JOIN users u ON u.id=tu.user_id JOIN event_year_level eyl ON eyl.year_level_id=u.year_level WHERE tu.team_id=t.id AND eyl.event_id=?)';
+                $audience = ' AND EXISTS(SELECT 1 FROM tbl_team_user tu JOIN tbl_users u ON u.id=tu.user_id JOIN tbl_event_year_level eyl ON eyl.year_level_id=u.year_level WHERE tu.team_id=t.id AND eyl.event_id=?)';
                 $whereParams[] = $eventId;
             } elseif ($event['audience_type'] === 'specific_students') {
-                $audience = ' AND EXISTS(SELECT 1 FROM team_user tu JOIN event_participants ep ON ep.user_id=tu.user_id WHERE tu.team_id=t.id AND ep.event_id=?)';
+                $audience = ' AND EXISTS(SELECT 1 FROM tbl_team_user tu JOIN tbl_event_participants ep ON ep.user_id=tu.user_id WHERE tu.team_id=t.id AND ep.event_id=?)';
                 $whereParams[] = $eventId;
             }
-            $where[] = "((t.is_active=1$audience) OR EXISTS(SELECT 1 FROM scores sx WHERE sx.team_id=t.id AND sx.event_id=?))";
+            $where[] = "((t.is_active=1$audience) OR EXISTS(SELECT 1 FROM tbl_scores sx WHERE sx.team_id=t.id AND sx.event_id=?))";
             $whereParams[] = $eventId;
         } else {
-            $where[] = '(t.is_active=1 OR EXISTS(SELECT 1 FROM scores sx WHERE sx.team_id=t.id))';
+            $where[] = '(t.is_active=1 OR EXISTS(SELECT 1 FROM tbl_scores sx WHERE sx.team_id=t.id))';
         }
 
         $whereSql = $where ? ' WHERE '.implode(' AND ', $where) : '';
         $sql = "SELECT t.id,t.name,t.color,t.is_active,sy.label school_year_label,
-            (SELECT COUNT(*) FROM team_user tu WHERE tu.team_id=t.id) members_count,
+            (SELECT COUNT(*) FROM tbl_team_user tu WHERE tu.team_id=t.id) members_count,
             COUNT(s.id) score_entries_count,COUNT(DISTINCT s.event_id) scored_events_count,
             COALESCE(SUM(s.points),0) total_score,MAX(s.updated_at) last_scored_at,
             GROUP_CONCAT(DISTINCT s.event_id) event_ids
-            FROM teams t LEFT JOIN school_years sy ON sy.id=t.school_year_id
-            LEFT JOIN scores s ON s.team_id=t.id$scoreJoin$whereSql
+            FROM tbl_teams t LEFT JOIN tbl_school_years sy ON sy.id=t.school_year_id
+            LEFT JOIN tbl_scores s ON s.team_id=t.id$scoreJoin$whereSql
             GROUP BY t.id ORDER BY CASE WHEN COUNT(s.id)>0 THEN 0 ELSE 1 END, total_score DESC, lower(t.name),t.name";
         $statement = $this->db->prepare($sql);
         $params = array_merge($scoreParams, $whereParams);

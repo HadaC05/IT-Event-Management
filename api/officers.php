@@ -14,20 +14,24 @@ final class OfficerManagementRepository
     public function index(int $page = 1): array
     {
         $page = max(1, $page);
-        $total = (int) $this->db->query('SELECT COUNT(*) FROM sbo_officer_assignments')->fetchColumn();
+        $total = (int) $this->db->query('SELECT COUNT(*) FROM tbl_sbo_officer_assignments')->fetchColumn();
         $lastPage = max(1, (int) ceil($total / self::PER_PAGE));
         $offset = ($page - 1) * self::PER_PAGE;
 
         $statement = $this->db->prepare("SELECT a.id, a.student_id, a.officer_user_id, a.team_id,
                 a.position, a.term, a.assigned_by, a.assigned_at, a.ended_by, a.ended_at, a.status,
-                u.first_name, u.middle_name, u.last_name, u.email, u.username,
+                u.username, u.must_change_password,
+                student.first_name AS student_first_name, student.middle_name AS student_middle_name,
+                student.last_name AS student_last_name, student.email AS student_email,
                 us.label AS account_status, t.name AS team_name,
                 TRIM(CONCAT_WS(' ', assigner.first_name, NULLIF(assigner.middle_name, ''), assigner.last_name)) AS assigned_by_name
-            FROM sbo_officer_assignments a
-            JOIN users u ON u.id = a.officer_user_id
-            LEFT JOIN user_statuses us ON us.id = u.status
-            LEFT JOIN teams t ON t.id = a.team_id
-            LEFT JOIN users assigner ON assigner.id = a.assigned_by
+            FROM tbl_sbo_officer_assignments a
+            JOIN tbl_users u ON u.id = a.officer_user_id
+            JOIN tbl_roles student_role ON student_role.name = 'Student'
+            JOIN tbl_users student ON student.id_number = a.student_id AND student.role_id = student_role.id
+            LEFT JOIN tbl_user_statuses us ON us.id = u.status
+            LEFT JOIN tbl_teams t ON t.id = a.team_id
+            LEFT JOIN tbl_users assigner ON assigner.id = a.assigned_by
             ORDER BY a.assigned_at DESC, a.id DESC
             LIMIT :limit OFFSET :offset");
         $statement->bindValue(':limit', self::PER_PAGE, PDO::PARAM_INT);
@@ -38,16 +42,26 @@ final class OfficerManagementRepository
             $assignment['id'] = (int) $assignment['id'];
             $assignment['officer_user_id'] = (int) $assignment['officer_user_id'];
             $assignment['team_id'] = $assignment['team_id'] === null ? null : (int) $assignment['team_id'];
-            $assignment['full_name'] = $this->fullName($assignment);
+            $assignment['must_change_password'] = (bool) $assignment['must_change_password'];
+            $assignment['full_name'] = $this->fullName([
+                'first_name' => $assignment['student_first_name'],
+                'middle_name' => $assignment['student_middle_name'],
+                'last_name' => $assignment['student_last_name'],
+            ]);
+            unset(
+                $assignment['student_first_name'],
+                $assignment['student_middle_name'],
+                $assignment['student_last_name']
+            );
         }
         unset($assignment);
 
         $students = $this->db->query("SELECT u.id, u.id_number, u.first_name, u.middle_name, u.last_name,
                 u.email, u.username, u.year_level, yl.label AS year_level_label
-            FROM users u
-            JOIN roles r ON r.id = u.role_id
-            JOIN user_statuses s ON s.id = u.status
-            LEFT JOIN year_levels yl ON yl.id = u.year_level
+            FROM tbl_users u
+            JOIN tbl_roles r ON r.id = u.role_id
+            JOIN tbl_user_statuses s ON s.id = u.status
+            LEFT JOIN tbl_year_levels yl ON yl.id = u.year_level
             WHERE r.name = 'Student' AND s.label = 'active' AND u.id_number IS NOT NULL
             ORDER BY u.first_name, u.middle_name, u.last_name")->fetchAll();
         foreach ($students as &$student) {
@@ -62,8 +76,8 @@ final class OfficerManagementRepository
         return [
             'students' => $students,
             'assignments' => $assignments,
-            'teams' => $this->db->query('SELECT id, name, color FROM teams WHERE is_active = 1 ORDER BY name')->fetchAll(),
-            'year_levels' => $this->db->query('SELECT id, label FROM year_levels ORDER BY id')->fetchAll(),
+            'teams' => $this->db->query('SELECT id, name, color FROM tbl_teams WHERE is_active = 1 ORDER BY name')->fetchAll(),
+            'year_levels' => $this->db->query('SELECT id, label FROM tbl_year_levels ORDER BY id')->fetchAll(),
             'pagination' => [
                 'current_page' => $page,
                 'last_page' => $lastPage,
@@ -99,24 +113,24 @@ final class OfficerManagementRepository
 
         $student = $this->student((int) $data['student_user_id']);
         $teamId = (int) $data['team_id'];
-        if (!$this->value('SELECT id FROM teams WHERE id = ? AND is_active = 1', [$teamId])) {
+        if (!$this->value('SELECT id FROM tbl_teams WHERE id = ? AND is_active = 1', [$teamId])) {
             throw new InvalidArgumentException('Select an active tribe.');
         }
 
-        $officerRoleId = (int) $this->value("SELECT id FROM roles WHERE name = 'SBO Officer'");
-        $existingOfficerId = $this->value('SELECT id FROM users WHERE id_number = ? AND role_id = ? LIMIT 1', [$student['id_number'], $officerRoleId]);
-        $duplicateUsername = $this->db->prepare('SELECT id FROM users WHERE username = ?'.($existingOfficerId ? ' AND id <> ?' : ''));
+        $officerRoleId = (int) $this->value("SELECT id FROM tbl_roles WHERE name = 'SBO Officer'");
+        $existingOfficerId = $this->value('SELECT id FROM tbl_users WHERE id_number = ? AND role_id = ? LIMIT 1', [$student['id_number'], $officerRoleId]);
+        $duplicateUsername = $this->db->prepare('SELECT id FROM tbl_users WHERE username = ?'.($existingOfficerId ? ' AND id <> ?' : ''));
         $duplicateUsername->execute($existingOfficerId
             ? [trim((string) $data['username']), (int) $existingOfficerId]
             : [trim((string) $data['username'])]);
         if ($duplicateUsername->fetchColumn()) {
             throw new InvalidArgumentException('That username is already in use.');
         }
-        if ($this->value("SELECT id FROM sbo_officer_assignments WHERE student_id = ? AND term = ? AND status = 'Active' LIMIT 1", [$student['id_number'], trim((string) $data['term'])])) {
+        if ($this->value("SELECT id FROM tbl_sbo_officer_assignments WHERE student_id = ? AND term = ? AND status = 'Active' LIMIT 1", [$student['id_number'], trim((string) $data['term'])])) {
             throw new InvalidArgumentException('This student already has an active SBO Officer assignment for this term.');
         }
 
-        $activeStatusId = (int) $this->value("SELECT id FROM user_statuses WHERE label = 'active'");
+        $activeStatusId = (int) $this->value("SELECT id FROM tbl_user_statuses WHERE label = 'active'");
         $account = [
             'id_number' => $student['id_number'],
             'first_name' => $student['first_name'],
@@ -135,14 +149,14 @@ final class OfficerManagementRepository
         try {
             if ($existingOfficerId) {
                 $account['id'] = (int) $existingOfficerId;
-                $statement = $this->db->prepare("UPDATE users SET id_number=:id_number, first_name=:first_name,
+                $statement = $this->db->prepare("UPDATE tbl_users SET id_number=:id_number, first_name=:first_name,
                     middle_name=:middle_name, last_name=:last_name, email=:email, year_level=:year_level,
                     role_id=:role_id, username=:username, password=:password, status=:status,
                     officer_team_id=:officer_team_id, must_change_password=1, updated_at=CURRENT_TIMESTAMP WHERE id=:id");
                 $statement->execute($account);
                 $officerId = (int) $existingOfficerId;
             } else {
-                $statement = $this->db->prepare("INSERT INTO users
+                $statement = $this->db->prepare("INSERT INTO tbl_users
                     (id_number, first_name, middle_name, last_name, email, year_level, role_id, username,
                      password, status, officer_team_id, must_change_password, created_at, updated_at)
                     VALUES (:id_number,:first_name,:middle_name,:last_name,:email,:year_level,:role_id,:username,
@@ -151,7 +165,7 @@ final class OfficerManagementRepository
                 $officerId = (int) $this->db->lastInsertId();
             }
 
-            $statement = $this->db->prepare("INSERT INTO sbo_officer_assignments
+            $statement = $this->db->prepare("INSERT INTO tbl_sbo_officer_assignments
                 (student_id, officer_user_id, team_id, position, term, assigned_by, assigned_at, status, created_at, updated_at)
                 VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, 'Active', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)");
             $statement->execute([
@@ -175,16 +189,16 @@ final class OfficerManagementRepository
         if (!$ids) throw new InvalidArgumentException('Select at least one active officer assignment.');
 
         $placeholders = implode(',', array_fill(0, count($ids), '?'));
-        $statement = $this->db->prepare("SELECT * FROM sbo_officer_assignments WHERE id IN ($placeholders) AND status = 'Active'");
+        $statement = $this->db->prepare("SELECT * FROM tbl_sbo_officer_assignments WHERE id IN ($placeholders) AND status = 'Active'");
         $statement->execute($ids);
         $assignments = $statement->fetchAll();
         if (!$assignments) throw new InvalidArgumentException('The selected assignments are already inactive.');
-        $inactiveStatusId = (int) $this->value("SELECT id FROM user_statuses WHERE label = 'inactive'");
+        $inactiveStatusId = (int) $this->value("SELECT id FROM tbl_user_statuses WHERE label = 'inactive'");
 
         $this->db->beginTransaction();
         try {
-            $updateAssignment = $this->db->prepare("UPDATE sbo_officer_assignments SET status='Inactive', ended_at=CURRENT_TIMESTAMP, ended_by=?, updated_at=CURRENT_TIMESTAMP WHERE id=?");
-            $updateOfficer = $this->db->prepare('UPDATE users SET status=?, officer_team_id=NULL, updated_at=CURRENT_TIMESTAMP WHERE id=?');
+            $updateAssignment = $this->db->prepare("UPDATE tbl_sbo_officer_assignments SET status='Inactive', ended_at=CURRENT_TIMESTAMP, ended_by=?, updated_at=CURRENT_TIMESTAMP WHERE id=?");
+            $updateOfficer = $this->db->prepare('UPDATE tbl_users SET status=?, officer_team_id=NULL, updated_at=CURRENT_TIMESTAMP WHERE id=?');
             foreach ($assignments as $assignment) {
                 $updateAssignment->execute([(int) $actor['id'], (int) $assignment['id']]);
                 $updateOfficer->execute([$inactiveStatusId, (int) $assignment['officer_user_id']]);
@@ -199,10 +213,63 @@ final class OfficerManagementRepository
         }
     }
 
+    public function changePassword(array $data, array $actor): void
+    {
+        $assignmentId = (int) ($data['assignment_id'] ?? 0);
+        $password = (string) ($data['password'] ?? '');
+
+        if ($assignmentId < 1) {
+            throw new InvalidArgumentException('Select an SBO Officer account.');
+        }
+        if (strlen($password) < 8) {
+            throw new InvalidArgumentException('Password must contain at least 8 characters.');
+        }
+        if (($data['password_confirmation'] ?? '') !== $password) {
+            throw new InvalidArgumentException('The password confirmation does not match.');
+        }
+
+        $statement = $this->db->prepare("SELECT a.id, a.student_id, a.officer_user_id, a.status,
+                u.username, r.name AS role
+            FROM tbl_sbo_officer_assignments a
+            JOIN tbl_users u ON u.id = a.officer_user_id
+            JOIN tbl_roles r ON r.id = u.role_id
+            WHERE a.id = ?
+            LIMIT 1");
+        $statement->execute([$assignmentId]);
+        $assignment = $statement->fetch();
+
+        if (!$assignment || $assignment['role'] !== 'SBO Officer') {
+            throw new InvalidArgumentException('The SBO Officer account was not found.');
+        }
+        if ($assignment['status'] !== 'Active') {
+            throw new InvalidArgumentException('Only active SBO Officer accounts can have their password changed.');
+        }
+
+        $this->db->beginTransaction();
+        try {
+            $update = $this->db->prepare('UPDATE tbl_users SET password = ?, must_change_password = 1, updated_at = CURRENT_TIMESTAMP WHERE id = ?');
+            $update->execute([password_hash($password, PASSWORD_BCRYPT), (int) $assignment['officer_user_id']]);
+            $description = 'The password for SBO Officer login '.$assignment['username'].' was changed by the adviser.';
+            $this->log(
+                (int) $actor['id'],
+                (int) $assignment['officer_user_id'],
+                (string) $assignment['student_id'],
+                $assignmentId,
+                'officer_password_changed',
+                (string) $actor['role'],
+                $description
+            );
+            $this->db->commit();
+        } catch (Throwable $error) {
+            $this->db->rollBack();
+            throw $error;
+        }
+    }
+
     private function student(int $id): array
     {
         $statement = $this->db->prepare("SELECT u.*, r.name AS role, s.label AS account_status
-            FROM users u JOIN roles r ON r.id=u.role_id JOIN user_statuses s ON s.id=u.status WHERE u.id=?");
+            FROM tbl_users u JOIN tbl_roles r ON r.id=u.role_id JOIN tbl_user_statuses s ON s.id=u.status WHERE u.id=?");
         $statement->execute([$id]);
         $student = $statement->fetch();
         if (!$student || $student['role'] !== 'Student' || $student['account_status'] !== 'active' || !$student['id_number']) {
@@ -214,7 +281,7 @@ final class OfficerManagementRepository
 
     private function log(int $actorId, int $subjectId, string $studentId, int $assignmentId, string $action, string $role, string $description): void
     {
-        $statement = $this->db->prepare("INSERT INTO activity_logs
+        $statement = $this->db->prepare("INSERT INTO tbl_activity_logs
             (actor_id, subject_user_id, student_id, officer_assignment_id, action, acting_role, description, created_at, updated_at)
             VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)");
         $statement->execute([$actorId, $subjectId, $studentId, $assignmentId, $action, $role, $description]);
@@ -258,6 +325,13 @@ try {
     if ($action === 'assign') {
         $id = $repository->assign($input, $actor);
         JsonResponse::send(['success' => true, 'id' => $id, 'message' => 'SBO Officer account created. Share the temporary credentials securely.']);
+    }
+    if ($action === 'change_password') {
+        $repository->changePassword($input, $actor);
+        JsonResponse::send([
+            'success' => true,
+            'message' => 'The SBO Officer password was changed. The student password was not affected.',
+        ]);
     }
     if (in_array($action, ['unassign', 'batch_unassign'], true)) {
         $ids = $action === 'unassign' ? [(int) ($input['id'] ?? 0)] : (array) ($input['assignment_ids'] ?? []);

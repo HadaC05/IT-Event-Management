@@ -36,14 +36,14 @@ final class EventManagementRepository
         if (mb_strlen($search) > 100) {
             throw new EventValidationException(['search' => ['Search may not exceed 100 characters.']]);
         }
-        if ($status && !$this->exists('event_statuses', $status)) {
+        if ($status && !$this->exists('tbl_event_statuses', $status)) {
             throw new EventValidationException(['status' => ['Select a valid event status.']]);
         }
-        if ($type && !$this->exists('event_types', $type)) {
+        if ($type && !$this->exists('tbl_event_types', $type)) {
             throw new EventValidationException(['event_type' => ['Select a valid event type.']]);
         }
 
-        $archivedId = (int) $this->scalar("SELECT id FROM event_statuses WHERE label='archived'");
+        $archivedId = (int) $this->scalar("SELECT id FROM tbl_event_statuses WHERE label='archived'");
         $where = [$status === $archivedId ? 'e.event_status_id=:status' : 'e.deleted_at IS NULL'];
         $params = [];
         if ($status && $status !== $archivedId) {
@@ -61,7 +61,7 @@ final class EventManagementRepository
             $params['search'] = '%'.addcslashes($search, '%_\\').'%';
         }
         $whereSql = 'WHERE '.implode(' AND ', $where);
-        $count = $this->db->prepare("SELECT COUNT(*) FROM events e $whereSql");
+        $count = $this->db->prepare("SELECT COUNT(*) FROM tbl_events e $whereSql");
         $count->execute($params);
         $total = (int) $count->fetchColumn();
         $lastPage = max(1, (int) ceil($total / self::PER_PAGE));
@@ -69,9 +69,9 @@ final class EventManagementRepository
         $offset = ($page - 1) * self::PER_PAGE;
         $query = $this->db->prepare(
             "SELECT e.*,et.label type_label,es.label status_label
-             FROM events e
-             LEFT JOIN event_types et ON et.id=e.event_type_id
-             LEFT JOIN event_statuses es ON es.id=e.event_status_id
+             FROM tbl_events e
+             LEFT JOIN tbl_event_types et ON et.id=e.event_type_id
+             LEFT JOIN tbl_event_statuses es ON es.id=e.event_status_id
              $whereSql
              ORDER BY CASE WHEN e.deleted_at IS NOT NULL THEN 1 ELSE 0 END,e.start_at,e.id
              LIMIT :limit OFFSET :offset"
@@ -108,10 +108,10 @@ final class EventManagementRepository
         $statement = $this->db->prepare(
             'SELECT e.*,et.label type_label,es.label status_label,
                     u.first_name creator_first_name,u.middle_name creator_middle_name,u.last_name creator_last_name
-             FROM events e
-             LEFT JOIN event_types et ON et.id=e.event_type_id
-             LEFT JOIN event_statuses es ON es.id=e.event_status_id
-             LEFT JOIN users u ON u.id=e.created_by WHERE e.id=?'
+             FROM tbl_events e
+             LEFT JOIN tbl_event_types et ON et.id=e.event_type_id
+             LEFT JOIN tbl_event_statuses es ON es.id=e.event_status_id
+             LEFT JOIN tbl_users u ON u.id=e.created_by WHERE e.id=?'
         );
         $statement->execute([$id]);
         $event = $statement->fetch();
@@ -122,9 +122,9 @@ final class EventManagementRepository
         $event['creator_name'] = $this->fullName($event, 'creator_') ?: 'System';
         $event['assigned_users'] = $this->assignedUsers($id);
         $event['attendance_schedules'] = $this->schedules($id);
-        $event['audience_year_level_ids'] = $this->pivotIds('event_year_level', 'year_level_id', $id);
-        $event['audience_team_ids'] = $this->pivotIds('event_team', 'team_id', $id);
-        $event['participant_ids'] = $this->pivotIds('event_participants', 'user_id', $id);
+        $event['audience_year_level_ids'] = $this->pivotIds('tbl_event_year_level', 'year_level_id', $id);
+        $event['audience_team_ids'] = $this->pivotIds('tbl_event_team', 'team_id', $id);
+        $event['participant_ids'] = $this->pivotIds('tbl_event_participants', 'user_id', $id);
         $event['expected_participants'] = $this->expectedParticipants($event);
         $metadata = $this->metadata();
         $assigned = array_column($event['assigned_users'], 'id');
@@ -137,11 +137,11 @@ final class EventManagementRepository
 
     public function metadata(): array
     {
-        $studentRole = (int) $this->scalar("SELECT id FROM roles WHERE name='Student'");
-        $activeStatus = (int) $this->scalar("SELECT id FROM user_statuses WHERE label='active'");
+        $studentRole = (int) $this->scalar("SELECT id FROM tbl_roles WHERE name='Student'");
+        $activeStatus = (int) $this->scalar("SELECT id FROM tbl_user_statuses WHERE label='active'");
         $students = $this->db->prepare(
             'SELECT u.id,u.id_number,u.first_name,u.middle_name,u.last_name,u.year_level,yl.label year_level_label
-             FROM users u LEFT JOIN year_levels yl ON yl.id=u.year_level
+             FROM tbl_users u LEFT JOIN tbl_year_levels yl ON yl.id=u.year_level
              WHERE u.role_id=? AND u.status=? ORDER BY u.last_name,u.first_name'
         );
         $students->execute([$studentRole, $activeStatus]);
@@ -152,7 +152,7 @@ final class EventManagementRepository
             $student['full_name'] = $this->fullName($student);
         }
         unset($student);
-        $levels = $this->db->query('SELECT id,label FROM year_levels ORDER BY id')->fetchAll();
+        $levels = $this->db->query('SELECT id,label FROM tbl_year_levels ORDER BY id')->fetchAll();
         foreach ($levels as &$level) {
             $level['id'] = (int) $level['id'];
             $level['member_ids'] = array_values(array_map(
@@ -162,7 +162,7 @@ final class EventManagementRepository
             $level['students_count'] = count($level['member_ids']);
         }
         unset($level);
-        $teams = $this->db->query('SELECT id,name,school_year_id FROM teams WHERE is_active=1 ORDER BY name')->fetchAll();
+        $teams = $this->db->query('SELECT id,name,school_year_id FROM tbl_teams WHERE is_active=1 ORDER BY name')->fetchAll();
         foreach ($teams as &$team) {
             $team['id'] = (int) $team['id'];
             $team['member_ids'] = $this->teamMemberIds($team['id']);
@@ -172,7 +172,7 @@ final class EventManagementRepository
 
         $assignable = $this->db->prepare(
             "SELECT u.id,u.first_name,u.middle_name,u.last_name,r.name role
-             FROM users u JOIN roles r ON r.id=u.role_id JOIN user_statuses s ON s.id=u.status
+             FROM tbl_users u JOIN tbl_roles r ON r.id=u.role_id JOIN tbl_user_statuses s ON s.id=u.status
              WHERE r.name IN ('SBO Adviser','Faculty') AND s.label='active'
              ORDER BY u.last_name,u.first_name"
         );
@@ -185,10 +185,10 @@ final class EventManagementRepository
         unset($user);
 
         return [
-            'statuses' => $this->db->query('SELECT id,label FROM event_statuses ORDER BY id')->fetchAll(),
-            'event_types' => $this->db->query('SELECT id,label FROM event_types ORDER BY label')->fetchAll(),
-            'attendance_modes' => $this->db->query('SELECT id,code,name FROM attendance_session_modes ORDER BY id')->fetchAll(),
-            'locations' => $this->db->query("SELECT id,name FROM locations WHERE type='general' ORDER BY name")->fetchAll(),
+            'statuses' => $this->db->query('SELECT id,label FROM tbl_event_statuses ORDER BY id')->fetchAll(),
+            'event_types' => $this->db->query('SELECT id,label FROM tbl_event_types ORDER BY label')->fetchAll(),
+            'attendance_modes' => $this->db->query('SELECT id,code,name FROM tbl_attendance_session_modes ORDER BY id')->fetchAll(),
+            'locations' => $this->db->query("SELECT id,name FROM tbl_locations WHERE type='general' ORDER BY name")->fetchAll(),
             'assignable_users' => $assignableRows,
             'audience_teams' => $teams,
             'audience_year_levels' => $levels,
@@ -210,15 +210,15 @@ final class EventManagementRepository
         try {
             if ($id) {
                 $statement = $this->db->prepare(
-                    "UPDATE events SET title=?,description=?,location=?,audience_type=?,poster_path=?,
+                    "UPDATE tbl_events SET title=?,description=?,location=?,audience_type=?,poster_path=?,
                      start_at=?,end_at=?,event_type_id=?,event_status_id=?,updated_at=CURRENT_TIMESTAMP WHERE id=?"
                 );
                 $statement->execute([$data['title'], $data['description'], $data['location'], $data['audience_type'], $posterPath,
                     $data['start_at'], $data['end_at'], $data['event_type_id'], $data['event_status_id'], $id]);
             } else {
-                $upcoming = (int) $this->scalar("SELECT id FROM event_statuses WHERE label='upcoming'");
+                $upcoming = (int) $this->scalar("SELECT id FROM tbl_event_statuses WHERE label='upcoming'");
                 $statement = $this->db->prepare(
-                    "INSERT INTO events(title,description,location,audience_type,poster_path,start_at,end_at,event_type_id,event_status_id,created_by,is_featured,created_at,updated_at)
+                    "INSERT INTO tbl_events(title,description,location,audience_type,poster_path,start_at,end_at,event_type_id,event_status_id,created_by,is_featured,created_at,updated_at)
                      VALUES(?,?,?,?,?,?,?,?,?,?,0,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)"
                 );
                 $statement->execute([$data['title'], $data['description'], $data['location'], $data['audience_type'], $posterPath,
@@ -226,10 +226,10 @@ final class EventManagementRepository
                 $id = (int) $this->db->lastInsertId();
             }
             $this->replaceSchedules($id, $data['schedules']);
-            $this->replacePivot('event_user', 'user_id', $id, $data['assigned_user_ids']);
-            $this->replacePivot('event_team', 'team_id', $id, $data['audience_type'] === 'selected_tribes' ? $data['tribe_ids'] : []);
-            $this->replacePivot('event_year_level', 'year_level_id', $id, $data['audience_type'] === 'selected_year_levels' ? $data['year_level_ids'] : []);
-            $this->replacePivot('event_participants', 'user_id', $id, $data['audience_type'] === 'specific_students' ? $data['participant_ids'] : []);
+            $this->replacePivot('tbl_event_user', 'user_id', $id, $data['assigned_user_ids']);
+            $this->replacePivot('tbl_event_team', 'team_id', $id, $data['audience_type'] === 'selected_tribes' ? $data['tribe_ids'] : []);
+            $this->replacePivot('tbl_event_year_level', 'year_level_id', $id, $data['audience_type'] === 'selected_year_levels' ? $data['year_level_ids'] : []);
+            $this->replacePivot('tbl_event_participants', 'user_id', $id, $data['audience_type'] === 'specific_students' ? $data['participant_ids'] : []);
             $this->log($actorId, $id, $existing ? 'event_updated' : 'event_created', $data['title'].($existing ? ' was updated.' : ' was created.'));
             $this->db->commit();
         } catch (Throwable $exception) {
@@ -256,7 +256,7 @@ final class EventManagementRepository
         $eventId = (int) ($input['event_id'] ?? 0);
         $users = $this->integerList($input['assigned_user_ids'] ?? []);
         $params = [$end->format('Y-m-d H:i:s'), $start->format('Y-m-d H:i:s')];
-        $sql = 'SELECT id,title,location,start_at,end_at FROM events WHERE deleted_at IS NULL AND start_at < ? AND end_at > ?';
+        $sql = 'SELECT id,title,location,start_at,end_at FROM tbl_events WHERE deleted_at IS NULL AND start_at < ? AND end_at > ?';
         if ($eventId) {
             $sql .= ' AND id<>?';
             $params[] = $eventId;
@@ -272,7 +272,7 @@ final class EventManagementRepository
             }
             if ($users) {
                 $marks = implode(',', array_fill(0, count($users), '?'));
-                $assigned = $this->db->prepare("SELECT u.first_name,u.middle_name,u.last_name FROM event_user eu JOIN users u ON u.id=eu.user_id WHERE eu.event_id=? AND eu.user_id IN ($marks)");
+                $assigned = $this->db->prepare("SELECT u.first_name,u.middle_name,u.last_name FROM tbl_event_user eu JOIN tbl_users u ON u.id=eu.user_id WHERE eu.event_id=? AND eu.user_id IN ($marks)");
                 $assigned->execute(array_merge([(int) $event['id']], $users));
                 $names = array_map(fn (array $user): string => $this->fullName($user), $assigned->fetchAll());
                 if ($names) {
@@ -286,27 +286,27 @@ final class EventManagementRepository
     public function setStatus(int $id, int $statusId, int $actorId): void
     {
         $event = $this->eventRow($id);
-        if (!$this->exists('event_statuses', $statusId)) {
+        if (!$this->exists('tbl_event_statuses', $statusId)) {
             throw new EventValidationException(['event_status_id' => ['Select a valid event status.']]);
         }
-        $label = (string) $this->scalar('SELECT label FROM event_statuses WHERE id=?', [$statusId]);
+        $label = (string) $this->scalar('SELECT label FROM tbl_event_statuses WHERE id=?', [$statusId]);
         $deletedAt = $label === 'archived' ? date('Y-m-d H:i:s') : null;
-        $statement = $this->db->prepare("UPDATE events SET event_status_id=?,deleted_at=?,is_featured=CASE WHEN ?='archived' THEN 0 ELSE is_featured END,updated_at=CURRENT_TIMESTAMP WHERE id=?");
+        $statement = $this->db->prepare("UPDATE tbl_events SET event_status_id=?,deleted_at=?,is_featured=CASE WHEN ?='archived' THEN 0 ELSE is_featured END,updated_at=CURRENT_TIMESTAMP WHERE id=?");
         $statement->execute([$statusId, $deletedAt, $label, $id]);
         $this->log($actorId, $id, $label === 'archived' ? 'event_archived' : 'event_status_updated', $event['title'].' status was updated to '.$label.'.');
     }
 
     public function archive(int $id, int $actorId): void
     {
-        $archived = (int) $this->scalar("SELECT id FROM event_statuses WHERE label='archived'");
+        $archived = (int) $this->scalar("SELECT id FROM tbl_event_statuses WHERE label='archived'");
         $this->setStatus($id, $archived, $actorId);
     }
 
     public function restore(int $id, int $actorId): void
     {
         $event = $this->eventRow($id);
-        $upcoming = (int) $this->scalar("SELECT id FROM event_statuses WHERE label='upcoming'");
-        $this->db->prepare('UPDATE events SET event_status_id=?,deleted_at=NULL,updated_at=CURRENT_TIMESTAMP WHERE id=?')->execute([$upcoming, $id]);
+        $upcoming = (int) $this->scalar("SELECT id FROM tbl_event_statuses WHERE label='upcoming'");
+        $this->db->prepare('UPDATE tbl_events SET event_status_id=?,deleted_at=NULL,updated_at=CURRENT_TIMESTAMP WHERE id=?')->execute([$upcoming, $id]);
         $this->log($actorId, $id, 'event_restored', $event['title'].' was restored.');
     }
 
@@ -318,11 +318,11 @@ final class EventManagementRepository
         }
         $this->db->beginTransaction();
         try {
-            foreach (['event_user', 'event_team', 'event_year_level', 'event_participants', 'event_attendance_schedules'] as $table) {
+            foreach (['tbl_event_user', 'tbl_event_team', 'tbl_event_year_level', 'tbl_event_participants', 'tbl_event_attendance_schedules'] as $table) {
                 $this->db->prepare("DELETE FROM $table WHERE event_id=?")->execute([$id]);
             }
-            $this->db->prepare('DELETE FROM activity_logs WHERE event_id=?')->execute([$id]);
-            $this->db->prepare('DELETE FROM events WHERE id=?')->execute([$id]);
+            $this->db->prepare('DELETE FROM tbl_activity_logs WHERE event_id=?')->execute([$id]);
+            $this->db->prepare('DELETE FROM tbl_events WHERE id=?')->execute([$id]);
             $this->db->commit();
         } catch (Throwable $exception) {
             $this->db->rollBack();
@@ -337,7 +337,7 @@ final class EventManagementRepository
     {
         $event = $this->eventRow($id);
         $featured = $this->boolean($input['is_featured'] ?? false);
-        $status = (string) $this->scalar('SELECT label FROM event_statuses WHERE id=?', [(int) $event['event_status_id']]);
+        $status = (string) $this->scalar('SELECT label FROM tbl_event_statuses WHERE id=?', [(int) $event['event_status_id']]);
         if ($featured && (!in_array($status, ['upcoming', 'ongoing'], true) || strtotime($event['end_at']) < time())) {
             throw new EventValidationException(['is_featured' => ['Only upcoming or ongoing events can be featured.']]);
         }
@@ -354,7 +354,7 @@ final class EventManagementRepository
             throw new EventValidationException(['featured_until' => ['Featured-until must be in the future and no later than the event end.']]);
         }
         $until = $untilDate?->format('Y-m-d H:i:s');
-        $this->db->prepare('UPDATE events SET is_featured=?,featured_order=?,featured_until=?,updated_at=CURRENT_TIMESTAMP WHERE id=?')
+        $this->db->prepare('UPDATE tbl_events SET is_featured=?,featured_order=?,featured_until=?,updated_at=CURRENT_TIMESTAMP WHERE id=?')
             ->execute([$featured ? 1 : 0, $featured ? $order : null, $featured ? $until : null, $id]);
         $this->log($actorId, $id, $featured ? 'event_featured' : 'event_unfeatured', $event['title'].($featured ? ' was added to the featured carousel.' : ' was removed from the featured carousel.'));
     }
@@ -362,16 +362,16 @@ final class EventManagementRepository
     public function assign(int $eventId, int $userId, int $actorId): void
     {
         $event = $this->eventRow($eventId);
-        $valid = $this->db->prepare("SELECT u.id,u.first_name,u.middle_name,u.last_name FROM users u JOIN roles r ON r.id=u.role_id JOIN user_statuses s ON s.id=u.status WHERE u.id=? AND r.name IN ('SBO Adviser','Faculty') AND s.label='active'");
+        $valid = $this->db->prepare("SELECT u.id,u.first_name,u.middle_name,u.last_name FROM tbl_users u JOIN tbl_roles r ON r.id=u.role_id JOIN tbl_user_statuses s ON s.id=u.status WHERE u.id=? AND r.name IN ('SBO Adviser','Faculty') AND s.label='active'");
         $valid->execute([$userId]);
         $user = $valid->fetch();
         if (!$user) {
             throw new EventValidationException(['user_id' => ['Select an active SBO Adviser or Faculty member.']]);
         }
-        if ((string) $this->scalar('SELECT label FROM event_statuses WHERE id=?', [(int) $event['event_status_id']]) === 'archived') {
+        if ((string) $this->scalar('SELECT label FROM tbl_event_statuses WHERE id=?', [(int) $event['event_status_id']]) === 'archived') {
             throw new EventValidationException(['user_id' => ['Users cannot be assigned while this event is archived.']]);
         }
-        $statement = $this->db->prepare('INSERT IGNORE INTO event_user(event_id,user_id,created_at,updated_at) VALUES(?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)');
+        $statement = $this->db->prepare('INSERT IGNORE INTO tbl_event_user(event_id,user_id,created_at,updated_at) VALUES(?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)');
         $statement->execute([$eventId, $userId]);
         if ($statement->rowCount()) {
             $this->log($actorId, $eventId, 'event_assigned', $this->fullName($user).' was assigned to '.$event['title'].'.', $userId);
@@ -381,10 +381,10 @@ final class EventManagementRepository
     public function unassign(int $eventId, int $userId, int $actorId): void
     {
         $event = $this->eventRow($eventId);
-        $nameStatement = $this->db->prepare('SELECT first_name,middle_name,last_name FROM users WHERE id=?');
+        $nameStatement = $this->db->prepare('SELECT first_name,middle_name,last_name FROM tbl_users WHERE id=?');
         $nameStatement->execute([$userId]);
         $user = $nameStatement->fetch();
-        $this->db->prepare('DELETE FROM event_user WHERE event_id=? AND user_id=?')->execute([$eventId, $userId]);
+        $this->db->prepare('DELETE FROM tbl_event_user WHERE event_id=? AND user_id=?')->execute([$eventId, $userId]);
         if ($user) {
             $this->log($actorId, $eventId, 'event_unassigned', $this->fullName($user).' was unassigned from '.$event['title'].'.', $userId);
         }
@@ -402,7 +402,7 @@ final class EventManagementRepository
         if ($title === '' || mb_strlen($title) > 255) $errors['title'][] = 'Event name is required and may not exceed 255 characters.';
         if ($description !== null && mb_strlen($description) > 5000) $errors['description'][] = 'Description may not exceed 5,000 characters.';
         if ($location === '' || mb_strlen($location) > 255) $errors['location'][] = 'Select a valid event location.';
-        if (!$typeId || !$this->exists('event_types', $typeId)) $errors['event_type_id'][] = 'Select a valid event type.';
+        if (!$typeId || !$this->exists('tbl_event_types', $typeId)) $errors['event_type_id'][] = 'Select a valid event type.';
         if (!in_array($audienceType, ['all_students', 'selected_tribes', 'selected_year_levels', 'specific_students'], true)) $errors['audience_type'][] = 'Select a valid participant group.';
         $schedules = $this->validateSchedules($input['attendance_days'] ?? [], $errors);
         $startAt = $schedules ? $schedules[0]['start_at'] : '';
@@ -412,8 +412,8 @@ final class EventManagementRepository
         $tribes = $this->integerList($input['tribe_ids'] ?? []);
         $yearLevels = $this->integerList($input['year_level_ids'] ?? []);
         $participants = $this->integerList($input['participant_ids'] ?? []);
-        if ($audienceType === 'selected_tribes') $this->validateAudienceIds('teams', $tribes, 'tribe_ids', $errors, 'is_active=1');
-        if ($audienceType === 'selected_year_levels') $this->validateAudienceIds('year_levels', $yearLevels, 'year_level_ids', $errors);
+        if ($audienceType === 'selected_tribes') $this->validateAudienceIds('tbl_teams', $tribes, 'tribe_ids', $errors, 'is_active=1');
+        if ($audienceType === 'selected_year_levels') $this->validateAudienceIds('tbl_year_levels', $yearLevels, 'year_level_ids', $errors);
         if ($audienceType === 'specific_students') $this->validateStudents($participants, $errors);
         if ($startAt && $endAt && !$this->boolean($input['acknowledge_conflicts'] ?? false)) {
             $conflicts = $this->conflicts([
@@ -426,7 +426,7 @@ final class EventManagementRepository
         }
         if ($id) {
             $this->eventRow($id);
-            if (!$statusId || !$this->exists('event_statuses', $statusId)) $errors['event_status_id'][] = 'Select a valid event status.';
+            if (!$statusId || !$this->exists('tbl_event_statuses', $statusId)) $errors['event_status_id'][] = 'Select a valid event status.';
         }
         if ($errors) throw new EventValidationException($errors);
         return [
@@ -445,7 +445,7 @@ final class EventManagementRepository
         }
         if (count($input) > 31) $errors['attendance_days'][] = 'An event schedule cannot exceed 31 days.';
         $modes = [];
-        foreach ($this->db->query('SELECT id,code FROM attendance_session_modes') as $mode) $modes[(int) $mode['id']] = $mode['code'];
+        foreach ($this->db->query('SELECT id,code FROM tbl_attendance_session_modes') as $mode) $modes[(int) $mode['id']] = $mode['code'];
         $rows = [];
         $dates = [];
         foreach (array_values($input) as $index => $day) {
@@ -491,7 +491,7 @@ final class EventManagementRepository
     {
         if (!$ids) return;
         $marks = implode(',', array_fill(0, count($ids), '?'));
-        $statement = $this->db->prepare("SELECT COUNT(*) FROM users u JOIN roles r ON r.id=u.role_id JOIN user_statuses s ON s.id=u.status WHERE u.id IN ($marks) AND r.name IN ('SBO Adviser','Faculty') AND s.label='active'");
+        $statement = $this->db->prepare("SELECT COUNT(*) FROM tbl_users u JOIN tbl_roles r ON r.id=u.role_id JOIN tbl_user_statuses s ON s.id=u.status WHERE u.id IN ($marks) AND r.name IN ('SBO Adviser','Faculty') AND s.label='active'");
         $statement->execute($ids);
         if ((int) $statement->fetchColumn() !== count($ids)) $errors['assigned_user_ids'][] = 'Only active SBO Adviser and Faculty users can be Event-in-Charge.';
     }
@@ -515,16 +515,16 @@ final class EventManagementRepository
             return;
         }
         $marks = implode(',', array_fill(0, count($ids), '?'));
-        $statement = $this->db->prepare("SELECT COUNT(*) FROM users u JOIN roles r ON r.id=u.role_id JOIN user_statuses s ON s.id=u.status WHERE u.id IN ($marks) AND r.name='Student' AND s.label='active'");
+        $statement = $this->db->prepare("SELECT COUNT(*) FROM tbl_users u JOIN tbl_roles r ON r.id=u.role_id JOIN tbl_user_statuses s ON s.id=u.status WHERE u.id IN ($marks) AND r.name='Student' AND s.label='active'");
         $statement->execute($ids);
         if ((int) $statement->fetchColumn() !== count($ids)) $errors['participant_ids'][] = 'Only active students can be selected as participants.';
     }
 
     private function replaceSchedules(int $eventId, array $schedules): void
     {
-        $this->db->prepare('DELETE FROM event_attendance_schedules WHERE event_id=?')->execute([$eventId]);
+        $this->db->prepare('DELETE FROM tbl_event_attendance_schedules WHERE event_id=?')->execute([$eventId]);
         $statement = $this->db->prepare(
-            "INSERT INTO event_attendance_schedules(event_id,schedule_date,attendance_session_mode_id,whole_day_in_time,whole_day_out_time,morning_in_time,morning_out_time,afternoon_in_time,afternoon_out_time,created_at,updated_at)
+            "INSERT INTO tbl_event_attendance_schedules(event_id,schedule_date,attendance_session_mode_id,whole_day_in_time,whole_day_out_time,morning_in_time,morning_out_time,afternoon_in_time,afternoon_out_time,created_at,updated_at)
              VALUES(?,?,?,?,?,?,?,?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)"
         );
         foreach ($schedules as $schedule) {
@@ -542,7 +542,7 @@ final class EventManagementRepository
 
     private function assignedUsers(int $eventId): array
     {
-        $statement = $this->db->prepare('SELECT u.id,u.first_name,u.middle_name,u.last_name,r.name role FROM event_user eu JOIN users u ON u.id=eu.user_id LEFT JOIN roles r ON r.id=u.role_id WHERE eu.event_id=? ORDER BY u.last_name,u.first_name');
+        $statement = $this->db->prepare('SELECT u.id,u.first_name,u.middle_name,u.last_name,r.name role FROM tbl_event_user eu JOIN tbl_users u ON u.id=eu.user_id LEFT JOIN tbl_roles r ON r.id=u.role_id WHERE eu.event_id=? ORDER BY u.last_name,u.first_name');
         $statement->execute([$eventId]);
         $users = $statement->fetchAll();
         foreach ($users as &$user) {
@@ -555,29 +555,29 @@ final class EventManagementRepository
 
     private function schedules(int $eventId): array
     {
-        $statement = $this->db->prepare('SELECT eas.*,asm.code mode_code,asm.name mode_name FROM event_attendance_schedules eas LEFT JOIN attendance_session_modes asm ON asm.id=eas.attendance_session_mode_id WHERE eas.event_id=? ORDER BY eas.schedule_date');
+        $statement = $this->db->prepare('SELECT eas.*,asm.code mode_code,asm.name mode_name FROM tbl_event_attendance_schedules eas LEFT JOIN tbl_attendance_session_modes asm ON asm.id=eas.attendance_session_mode_id WHERE eas.event_id=? ORDER BY eas.schedule_date');
         $statement->execute([$eventId]);
         return $statement->fetchAll();
     }
 
     private function expectedParticipants(array $event): int
     {
-        $base = "SELECT COUNT(DISTINCT u.id) FROM users u JOIN roles r ON r.id=u.role_id JOIN user_statuses s ON s.id=u.status WHERE r.name='Student' AND s.label='active'";
+        $base = "SELECT COUNT(DISTINCT u.id) FROM tbl_users u JOIN tbl_roles r ON r.id=u.role_id JOIN tbl_user_statuses s ON s.id=u.status WHERE r.name='Student' AND s.label='active'";
         return match ($event['audience_type']) {
-            'selected_tribes' => (int) $this->scalar($base.' AND u.id IN (SELECT tu.user_id FROM team_user tu JOIN event_team et ON et.team_id=tu.team_id WHERE et.event_id=?)', [(int) $event['id']]),
-            'selected_year_levels' => (int) $this->scalar($base.' AND u.year_level IN (SELECT year_level_id FROM event_year_level WHERE event_id=?)', [(int) $event['id']]),
-            'specific_students' => (int) $this->scalar($base.' AND u.id IN (SELECT user_id FROM event_participants WHERE event_id=?)', [(int) $event['id']]),
+            'selected_tribes' => (int) $this->scalar($base.' AND u.id IN (SELECT tu.user_id FROM tbl_team_user tu JOIN tbl_event_team et ON et.team_id=tu.team_id WHERE et.event_id=?)', [(int) $event['id']]),
+            'selected_year_levels' => (int) $this->scalar($base.' AND u.year_level IN (SELECT year_level_id FROM tbl_event_year_level WHERE event_id=?)', [(int) $event['id']]),
+            'specific_students' => (int) $this->scalar($base.' AND u.id IN (SELECT user_id FROM tbl_event_participants WHERE event_id=?)', [(int) $event['id']]),
             default => (int) $this->scalar($base),
         };
     }
 
     private function synchronizeStatuses(): void
     {
-        $upcoming = (int) $this->scalar("SELECT id FROM event_statuses WHERE label='upcoming'");
-        $ongoing = (int) $this->scalar("SELECT id FROM event_statuses WHERE label='ongoing'");
-        $completed = (int) $this->scalar("SELECT id FROM event_statuses WHERE label='completed'");
+        $upcoming = (int) $this->scalar("SELECT id FROM tbl_event_statuses WHERE label='upcoming'");
+        $ongoing = (int) $this->scalar("SELECT id FROM tbl_event_statuses WHERE label='ongoing'");
+        $completed = (int) $this->scalar("SELECT id FROM tbl_event_statuses WHERE label='completed'");
         $now = date('Y-m-d H:i:s');
-        $statement = $this->db->prepare('UPDATE events SET event_status_id=CASE WHEN start_at > ? THEN ? WHEN end_at <= ? THEN ? ELSE ? END,is_featured=CASE WHEN end_at <= ? THEN 0 ELSE is_featured END,featured_order=CASE WHEN end_at <= ? THEN NULL ELSE featured_order END,featured_until=CASE WHEN end_at <= ? THEN NULL ELSE featured_until END WHERE deleted_at IS NULL');
+        $statement = $this->db->prepare('UPDATE tbl_events SET event_status_id=CASE WHEN start_at > ? THEN ? WHEN end_at <= ? THEN ? ELSE ? END,is_featured=CASE WHEN end_at <= ? THEN 0 ELSE is_featured END,featured_order=CASE WHEN end_at <= ? THEN NULL ELSE featured_order END,featured_until=CASE WHEN end_at <= ? THEN NULL ELSE featured_until END WHERE deleted_at IS NULL');
         $statement->execute([$now, $upcoming, $now, $completed, $ongoing, $now, $now, $now]);
     }
 
@@ -593,7 +593,7 @@ final class EventManagementRepository
 
     private function eventRow(int $id): array
     {
-        $statement = $this->db->prepare('SELECT * FROM events WHERE id=?');
+        $statement = $this->db->prepare('SELECT * FROM tbl_events WHERE id=?');
         $statement->execute([$id]);
         $event = $statement->fetch();
         if (!$event) throw new EventValidationException(['event' => ['Event not found.']]);
@@ -620,7 +620,7 @@ final class EventManagementRepository
 
     private function teamMemberIds(int $teamId): array
     {
-        $statement = $this->db->prepare('SELECT user_id FROM team_user WHERE team_id=?');
+        $statement = $this->db->prepare('SELECT user_id FROM tbl_team_user WHERE team_id=?');
         $statement->execute([$teamId]);
         return array_map('intval', $statement->fetchAll(PDO::FETCH_COLUMN));
     }
@@ -689,8 +689,8 @@ final class EventManagementRepository
 
     private function log(int $actorId, int $eventId, string $action, string $description, ?int $subjectId = null): void
     {
-        $role = $this->scalar('SELECT r.name FROM users u LEFT JOIN roles r ON r.id=u.role_id WHERE u.id=?', [$actorId]);
-        $statement = $this->db->prepare('INSERT INTO activity_logs(actor_id,subject_user_id,event_id,action,description,acting_role,created_at,updated_at) VALUES(?,?,?,?,?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)');
+        $role = $this->scalar('SELECT r.name FROM tbl_users u LEFT JOIN tbl_roles r ON r.id=u.role_id WHERE u.id=?', [$actorId]);
+        $statement = $this->db->prepare('INSERT INTO tbl_activity_logs(actor_id,subject_user_id,event_id,action,description,acting_role,created_at,updated_at) VALUES(?,?,?,?,?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)');
         $statement->execute([$actorId, $subjectId, $eventId, $action, $description, $role ?: null]);
     }
 }

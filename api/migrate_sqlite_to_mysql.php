@@ -32,7 +32,7 @@ final class SqliteToMysqlMigration
         $port = (int) (getenv('DB_PORT') ?: 3306);
         $user = getenv('DB_USER') ?: 'root';
         $password = getenv('DB_PASS') !== false ? (string) getenv('DB_PASS') : '';
-        $this->database = getenv('DB_NAME') ?: 'it_event_management';
+        $this->database = getenv('DB_NAME') ?: 'event_db';
         if (!preg_match('/^[A-Za-z0-9_]+$/', $this->database)) {
             throw new InvalidArgumentException('DB_NAME may contain only letters, numbers, and underscores.');
         }
@@ -123,7 +123,7 @@ final class SqliteToMysqlMigration
             )).')';
         }
 
-        $sql = 'CREATE TABLE '.$this->identifier($table).' ('.implode(', ', $definitions).')'
+        $sql = 'CREATE TABLE '.$this->identifier($this->targetTable($table)).' ('.implode(', ', $definitions).')'
             .' ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci';
         $this->target->exec($sql);
     }
@@ -145,7 +145,7 @@ final class SqliteToMysqlMigration
             ));
             $unique = (int) $index['unique'] === 1 ? 'UNIQUE ' : '';
             $this->target->exec('CREATE '.$unique.'INDEX '.$this->identifier((string) $index['name'])
-                .' ON '.$this->identifier($table).' ('.$columnSql.')');
+                .' ON '.$this->identifier($this->targetTable($table)).' ('.$columnSql.')');
         }
     }
 
@@ -154,7 +154,7 @@ final class SqliteToMysqlMigration
         $rows = $this->source->query('SELECT * FROM '.$this->sqliteIdentifier($table));
         $columns = $this->source->query('PRAGMA table_info('.$this->sqliteIdentifier($table).')')->fetchAll();
         $names = array_column($columns, 'name');
-        $sql = 'INSERT INTO '.$this->identifier($table).' ('
+        $sql = 'INSERT INTO '.$this->identifier($this->targetTable($table)).' ('
             .implode(', ', array_map([$this, 'identifier'], $names)).') VALUES ('
             .implode(', ', array_fill(0, count($names), '?')).')';
         $insert = $this->target->prepare($sql);
@@ -181,10 +181,10 @@ final class SqliteToMysqlMigration
         foreach ($foreignKeys as $foreignKey) {
             $name = 'fk_'.$table.'_'.$foreignKey['from'].'_'.$foreignKey['table'];
             if (strlen($name) > 60) $name = substr($name, 0, 51).'_'.substr(md5($name), 0, 8);
-            $sql = 'ALTER TABLE '.$this->identifier($table)
+            $sql = 'ALTER TABLE '.$this->identifier($this->targetTable($table))
                 .' ADD CONSTRAINT '.$this->identifier($name)
                 .' FOREIGN KEY ('.$this->identifier($foreignKey['from']).')'
-                .' REFERENCES '.$this->identifier($foreignKey['table'])
+                .' REFERENCES '.$this->identifier($this->targetTable((string) $foreignKey['table']))
                 .' ('.$this->identifier($foreignKey['to']).')'
                 .' ON DELETE '.$this->foreignKeyAction((string) $foreignKey['on_delete'])
                 .' ON UPDATE '.$this->foreignKeyAction((string) $foreignKey['on_update']);
@@ -225,6 +225,11 @@ final class SqliteToMysqlMigration
     private function identifier(string $name): string
     {
         return '`'.str_replace('`', '``', $name).'`';
+    }
+
+    private function targetTable(string $name): string
+    {
+        return str_starts_with($name, 'tbl_') ? $name : 'tbl_'.$name;
     }
 
     private function sqliteIdentifier(string $name): string

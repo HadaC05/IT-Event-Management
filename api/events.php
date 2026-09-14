@@ -15,25 +15,25 @@ final class EventRepository
         $statement = $this->database->prepare(
             <<<'SQL'
                 SELECT
-                    events.id,
-                    events.title,
-                    events.description,
-                    events.location,
-                    events.poster_path,
-                    events.is_featured,
-                    events.featured_order,
-                    events.featured_until,
-                    events.start_at,
-                    events.end_at,
-                    COALESCE(event_types.label, 'Community Event') AS type,
-                    event_statuses.label AS status
-                FROM events
-                LEFT JOIN event_types ON event_types.id = events.event_type_id
-                LEFT JOIN event_statuses ON event_statuses.id = events.event_status_id
-                WHERE events.deleted_at IS NULL
-                  AND events.end_at >= CURRENT_TIMESTAMP
-                  AND event_statuses.label IN ('upcoming', 'ongoing')
-                ORDER BY events.start_at, events.id
+                    tbl_events.id,
+                    tbl_events.title,
+                    tbl_events.description,
+                    tbl_events.location,
+                    tbl_events.poster_path,
+                    tbl_events.is_featured,
+                    tbl_events.featured_order,
+                    tbl_events.featured_until,
+                    tbl_events.start_at,
+                    tbl_events.end_at,
+                    COALESCE(tbl_event_types.label, 'Community Event') AS type,
+                    tbl_event_statuses.label AS status
+                FROM tbl_events
+                LEFT JOIN tbl_event_types ON tbl_event_types.id = tbl_events.event_type_id
+                LEFT JOIN tbl_event_statuses ON tbl_event_statuses.id = tbl_events.event_status_id
+                WHERE tbl_events.deleted_at IS NULL
+                  AND tbl_events.end_at >= CURRENT_TIMESTAMP
+                  AND tbl_event_statuses.label IN ('upcoming', 'ongoing')
+                ORDER BY tbl_events.start_at, tbl_events.id
                 LIMIT 8
             SQL
         );

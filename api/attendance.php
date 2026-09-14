@@ -32,7 +32,7 @@ final class AttendanceManagementRepository
         if ($timing === 'completed') {$where[]='e.end_at < :now';$params['now']=$now;}
         $whereSql = ' WHERE '.implode(' AND ', $where);
 
-        $count = $this->db->prepare('SELECT COUNT(*) FROM events e'.$whereSql); $count->execute($params);
+        $count = $this->db->prepare('SELECT COUNT(*) FROM tbl_events e'.$whereSql); $count->execute($params);
         $total = (int)$count->fetchColumn(); $lastPage=max(1,(int)ceil($total/self::EVENT_PAGE_SIZE)); $page=min($page,$lastPage);
         $sql = "SELECT e.id,e.title,e.location,e.start_at,e.end_at,e.audience_type,
             COUNT(a.id) attendances_count,
@@ -41,7 +41,7 @@ final class AttendanceManagementRepository
             SUM(CASE WHEN a.status='late' THEN 1 ELSE 0 END) late_count,
             SUM(CASE WHEN a.status='absent' THEN 1 ELSE 0 END) absent_count,
             SUM(CASE WHEN a.status='excused' THEN 1 ELSE 0 END) excused_count
-          FROM events e LEFT JOIN attendances a ON a.event_id=e.id $whereSql
+          FROM tbl_events e LEFT JOIN tbl_attendances a ON a.event_id=e.id $whereSql
           GROUP BY e.id ORDER BY e.start_at DESC LIMIT :limit OFFSET :offset";
         $statement=$this->db->prepare($sql); foreach($params as $key=>$value)$statement->bindValue(':'.$key,$value);
         $statement->bindValue(':limit',self::EVENT_PAGE_SIZE,PDO::PARAM_INT);$statement->bindValue(':offset',($page-1)*self::EVENT_PAGE_SIZE,PDO::PARAM_INT);$statement->execute();
@@ -55,10 +55,10 @@ final class AttendanceManagementRepository
         } unset($event);
 
         $summary=$this->db->query("SELECT
-          (SELECT COUNT(*) FROM events WHERE deleted_at IS NULL) events,
-          (SELECT COUNT(DISTINCT a.event_id) FROM attendances a JOIN events e ON e.id=a.event_id WHERE e.deleted_at IS NULL) tracked,
-          (SELECT COUNT(*) FROM attendances a JOIN events e ON e.id=a.event_id WHERE e.deleted_at IS NULL) records,
-          (SELECT COUNT(*) FROM attendances a JOIN events e ON e.id=a.event_id WHERE e.deleted_at IS NULL AND a.status IN ('present','late')) attended")->fetch();
+          (SELECT COUNT(*) FROM tbl_events WHERE deleted_at IS NULL) events,
+          (SELECT COUNT(DISTINCT a.event_id) FROM tbl_attendances a JOIN tbl_events e ON e.id=a.event_id WHERE e.deleted_at IS NULL) tracked,
+          (SELECT COUNT(*) FROM tbl_attendances a JOIN tbl_events e ON e.id=a.event_id WHERE e.deleted_at IS NULL) records,
+          (SELECT COUNT(*) FROM tbl_attendances a JOIN tbl_events e ON e.id=a.event_id WHERE e.deleted_at IS NULL AND a.status IN ('present','late')) attended")->fetch();
         foreach($summary as $key=>$value)$summary[$key]=(int)$value;
         $summary['untracked']=max(0,$summary['events']-$summary['tracked']);
         $summary['attendance_rate']=$summary['records']?round($summary['attended']/$summary['records']*100,1):null;
@@ -72,26 +72,26 @@ final class AttendanceManagementRepository
         if($status!==''&&!in_array($status,array_merge(self::STATUSES,['unrecorded']),true))throw new InvalidArgumentException('Invalid attendance status filter.');
         if($requestedDate!==''&&!preg_match('/^\d{4}-\d{2}-\d{2}$/',$requestedDate))throw new InvalidArgumentException('Choose a valid attendance date.');
         $dates=$this->scheduleDates($event);$date=in_array($requestedDate,$dates,true)?$requestedDate:$dates[0];
-        $expectedIds=$this->expectedIds($event);$recorded=$this->column('SELECT user_id FROM attendances WHERE event_id=? AND attendance_date=?',[$eventId,$date]);
+        $expectedIds=$this->expectedIds($event);$recorded=$this->column('SELECT user_id FROM tbl_attendances WHERE event_id=? AND attendance_date=?',[$eventId,$date]);
         $participantIds=array_values(array_unique(array_merge($expectedIds,array_map('intval',$recorded))));
         $where=[];$params=[];
         if($participantIds){$where[]='u.id IN ('.implode(',',array_fill(0,count($participantIds),'?')).')';$params=$participantIds;}else{$where[]='0=1';}
         if($search!==''){$where[]="(u.first_name LIKE ? ESCAPE '\\\\' OR u.middle_name LIKE ? ESCAPE '\\\\' OR u.last_name LIKE ? ESCAPE '\\\\' OR u.id_number LIKE ? ESCAPE '\\\\')";$term='%'.addcslashes($search,'%_\\').'%';array_push($params,$term,$term,$term,$term);}
-        if($status==='unrecorded'){$where[]='NOT EXISTS(SELECT 1 FROM attendances ax WHERE ax.user_id=u.id AND ax.event_id=? AND ax.attendance_date=?)';array_push($params,$eventId,$date);}
-        elseif(in_array($status,self::STATUSES,true)){$where[]='EXISTS(SELECT 1 FROM attendances ax WHERE ax.user_id=u.id AND ax.event_id=? AND ax.attendance_date=? AND ax.status=?)';array_push($params,$eventId,$date,$status);}
-        $whereSql=' WHERE '.implode(' AND ',$where);$count=$this->db->prepare('SELECT COUNT(*) FROM users u'.$whereSql);$count->execute($params);$total=(int)$count->fetchColumn();$lastPage=max(1,(int)ceil($total/self::ROSTER_PAGE_SIZE));$page=min($page,$lastPage);
+        if($status==='unrecorded'){$where[]='NOT EXISTS(SELECT 1 FROM tbl_attendances ax WHERE ax.user_id=u.id AND ax.event_id=? AND ax.attendance_date=?)';array_push($params,$eventId,$date);}
+        elseif(in_array($status,self::STATUSES,true)){$where[]='EXISTS(SELECT 1 FROM tbl_attendances ax WHERE ax.user_id=u.id AND ax.event_id=? AND ax.attendance_date=? AND ax.status=?)';array_push($params,$eventId,$date,$status);}
+        $whereSql=' WHERE '.implode(' AND ',$where);$count=$this->db->prepare('SELECT COUNT(*) FROM tbl_users u'.$whereSql);$count->execute($params);$total=(int)$count->fetchColumn();$lastPage=max(1,(int)ceil($total/self::ROSTER_PAGE_SIZE));$page=min($page,$lastPage);
         $sql="SELECT u.id,u.id_number,u.first_name,u.middle_name,u.last_name,yl.label year_level_label,
              a.status attendance_status,a.checked_in_at,
-             (SELECT GROUP_CONCAT(t.name SEPARATOR ', ') FROM team_user tu JOIN teams t ON t.id=tu.team_id WHERE tu.user_id=u.id) team_names
-             FROM users u LEFT JOIN year_levels yl ON yl.id=u.year_level
-             LEFT JOIN attendances a ON a.user_id=u.id AND a.event_id=? AND a.attendance_date=?
+             (SELECT GROUP_CONCAT(t.name SEPARATOR ', ') FROM tbl_team_user tu JOIN tbl_teams t ON t.id=tu.team_id WHERE tu.user_id=u.id) team_names
+             FROM tbl_users u LEFT JOIN tbl_year_levels yl ON yl.id=u.year_level
+             LEFT JOIN tbl_attendances a ON a.user_id=u.id AND a.event_id=? AND a.attendance_date=?
              $whereSql ORDER BY u.last_name,u.first_name LIMIT ? OFFSET ?";
         $statement=$this->db->prepare($sql);$allParams=array_merge([$eventId,$date],$params,[self::ROSTER_PAGE_SIZE,($page-1)*self::ROSTER_PAGE_SIZE]);
         foreach($allParams as $index=>$value)$statement->bindValue($index+1,$value,is_int($value)?PDO::PARAM_INT:PDO::PARAM_STR);$statement->execute();$participants=$statement->fetchAll();
         foreach($participants as &$participant){$participant['id']=(int)$participant['id'];$participant['full_name']=$this->fullName($participant);$participant['is_expected']=in_array($participant['id'],$expectedIds,true);}unset($participant);
-        $counts=array_fill_keys(self::STATUSES,0);$countsStatement=$this->db->prepare('SELECT status,COUNT(*) total FROM attendances WHERE event_id=? AND attendance_date=? GROUP BY status');$countsStatement->execute([$eventId,$date]);foreach($countsStatement as $row)if(isset($counts[$row['status']]))$counts[$row['status']]=(int)$row['total'];
+        $counts=array_fill_keys(self::STATUSES,0);$countsStatement=$this->db->prepare('SELECT status,COUNT(*) total FROM tbl_attendances WHERE event_id=? AND attendance_date=? GROUP BY status');$countsStatement->execute([$eventId,$date]);foreach($countsStatement as $row)if(isset($counts[$row['status']]))$counts[$row['status']]=(int)$row['total'];
         $recordedCount=array_sum($counts);$attended=$counts['present']+$counts['late'];$expected=count($expectedIds);
-        $options=$this->db->query('SELECT id,title,start_at FROM events WHERE deleted_at IS NULL ORDER BY start_at DESC')->fetchAll();foreach($options as &$option)$option['id']=(int)$option['id'];unset($option);
+        $options=$this->db->query('SELECT id,title,start_at FROM tbl_events WHERE deleted_at IS NULL ORDER BY start_at DESC')->fetchAll();foreach($options as &$option)$option['id']=(int)$option['id'];unset($option);
         return ['event'=>$event,'event_options'=>$options,'attendance_dates'=>$dates,'attendance_date'=>$date,'participants'=>$participants,'participant_total'=>count($participantIds),'counts'=>$counts,'summary'=>['expected'=>$expected,'recorded'=>$recordedCount,'unrecorded'=>max(0,$expected-$recordedCount),'completion'=>$expected?min(100,round($recordedCount/$expected*100,1)):null,'attended'=>$attended,'rate'=>$recordedCount?round($attended/$recordedCount*100,1):null],'pagination'=>['current_page'=>$page,'last_page'=>$lastPage,'total'=>$total,'from'=>$total?($page-1)*self::ROSTER_PAGE_SIZE+1:null,'to'=>$total?min($page*self::ROSTER_PAGE_SIZE,$total):null]];
     }
 
@@ -100,27 +100,27 @@ final class AttendanceManagementRepository
         $event=$this->event($eventId);$date=trim((string)($input['attendance_date']??''));$records=$input['records']??null;
         if(!in_array($date,$this->scheduleDates($event),true))throw new InvalidArgumentException('Choose a valid date from this event schedule.');
         if(!is_array($records))throw new InvalidArgumentException('Attendance records are required.');
-        $recordedIds=array_map('intval',$this->column('SELECT user_id FROM attendances WHERE event_id=?',[$eventId]));
+        $recordedIds=array_map('intval',$this->column('SELECT user_id FROM tbl_attendances WHERE event_id=?',[$eventId]));
         $allowed=array_values(array_unique(array_merge($this->expectedIds($event),$recordedIds)));
         foreach($records as $userId=>$record){if(!ctype_digit((string)$userId)||!in_array((int)$userId,$allowed,true))throw new InvalidArgumentException("Attendance can only be recorded for this event's expected participants.");if(!is_array($record))throw new InvalidArgumentException('Each attendance record must contain a status.');$value=$record['status']??null;if($value!==null&&$value!==''&&!in_array($value,self::STATUSES,true))throw new InvalidArgumentException('Choose a valid attendance status.');}
         $changed=0;$this->db->beginTransaction();try{
-            $find=$this->db->prepare('SELECT id,status,checked_in_at FROM attendances WHERE event_id=? AND user_id=? AND attendance_date=?');
-            $delete=$this->db->prepare('DELETE FROM attendances WHERE id=?');
-            $insert=$this->db->prepare('INSERT INTO attendances(event_id,user_id,attendance_date,status,checked_in_at,recorded_by,created_at,updated_at) VALUES(?,?,?,?,?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)');
-            $update=$this->db->prepare('UPDATE attendances SET status=?,checked_in_at=?,recorded_by=?,updated_at=CURRENT_TIMESTAMP WHERE id=?');
+            $find=$this->db->prepare('SELECT id,status,checked_in_at FROM tbl_attendances WHERE event_id=? AND user_id=? AND attendance_date=?');
+            $delete=$this->db->prepare('DELETE FROM tbl_attendances WHERE id=?');
+            $insert=$this->db->prepare('INSERT INTO tbl_attendances(event_id,user_id,attendance_date,status,checked_in_at,recorded_by,created_at,updated_at) VALUES(?,?,?,?,?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)');
+            $update=$this->db->prepare('UPDATE tbl_attendances SET status=?,checked_in_at=?,recorded_by=?,updated_at=CURRENT_TIMESTAMP WHERE id=?');
             foreach($records as $userId=>$record){$new=$record['status']??'';$find->execute([$eventId,(int)$userId,$date]);$current=$find->fetch();if($new===''){if($current){$delete->execute([$current['id']]);$changed++;}continue;}$checked=in_array($new,['present','late'],true)?($current['checked_in_at']??(new DateTimeImmutable('now',new DateTimeZone('Asia/Manila')))->format('Y-m-d H:i:s')):null;if(!$current){$insert->execute([$eventId,(int)$userId,$date,$new,$checked,$actorId]);$changed++;}else{$update->execute([$new,$checked,$actorId,$current['id']]);if($current['status']!==$new)$changed++;}}
-            if($changed){$log=$this->db->prepare('INSERT INTO activity_logs(actor_id,event_id,action,description,created_at,updated_at) VALUES(?,?,?, ?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)');$log->execute([$actorId,$eventId,'attendance_updated',"Attendance for {$event['title']} was updated ($changed records changed)."]);}$this->db->commit();return $changed;
+            if($changed){$log=$this->db->prepare('INSERT INTO tbl_activity_logs(actor_id,event_id,action,description,created_at,updated_at) VALUES(?,?,?, ?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)');$log->execute([$actorId,$eventId,'attendance_updated',"Attendance for {$event['title']} was updated ($changed records changed)."]);}$this->db->commit();return $changed;
         }catch(Throwable $exception){$this->db->rollBack();throw $exception;}
     }
 
-    private function event(int $id): array{$statement=$this->db->prepare('SELECT id,title,location,start_at,end_at,audience_type FROM events WHERE id=? AND deleted_at IS NULL');$statement->execute([$id]);$event=$statement->fetch();if(!$event)throw new InvalidArgumentException('Event not found.');$event['id']=(int)$event['id'];return $event;}
-    private function scheduleDates(array $event): array{$dates=array_map('strval',$this->column('SELECT schedule_date FROM event_attendance_schedules WHERE event_id=? ORDER BY schedule_date',[$event['id']]));return $dates?:[substr((string)$event['start_at'],0,10)];}
+    private function event(int $id): array{$statement=$this->db->prepare('SELECT id,title,location,start_at,end_at,audience_type FROM tbl_events WHERE id=? AND deleted_at IS NULL');$statement->execute([$id]);$event=$statement->fetch();if(!$event)throw new InvalidArgumentException('Event not found.');$event['id']=(int)$event['id'];return $event;}
+    private function scheduleDates(array $event): array{$dates=array_map('strval',$this->column('SELECT schedule_date FROM tbl_event_attendance_schedules WHERE event_id=? ORDER BY schedule_date',[$event['id']]));return $dates?:[substr((string)$event['start_at'],0,10)];}
     private function expectedIds(array $event): array
     {
-        $base="SELECT DISTINCT u.id FROM users u JOIN roles r ON r.id=u.role_id JOIN user_statuses us ON us.id=u.status WHERE r.name='Student' AND us.label='active'";$params=[];
-        if($event['audience_type']==='selected_tribes'){$base.=' AND EXISTS(SELECT 1 FROM team_user tu JOIN event_team et ON et.team_id=tu.team_id WHERE tu.user_id=u.id AND et.event_id=?)';$params[]=$event['id'];}
-        elseif($event['audience_type']==='selected_year_levels'){$base.=' AND EXISTS(SELECT 1 FROM event_year_level eyl WHERE eyl.year_level_id=u.year_level AND eyl.event_id=?)';$params[]=$event['id'];}
-        elseif($event['audience_type']==='specific_students'){$base.=' AND EXISTS(SELECT 1 FROM event_participants ep WHERE ep.user_id=u.id AND ep.event_id=?)';$params[]=$event['id'];}
+        $base="SELECT DISTINCT u.id FROM tbl_users u JOIN tbl_roles r ON r.id=u.role_id JOIN tbl_user_statuses us ON us.id=u.status WHERE r.name='Student' AND us.label='active'";$params=[];
+        if($event['audience_type']==='selected_tribes'){$base.=' AND EXISTS(SELECT 1 FROM tbl_team_user tu JOIN tbl_event_team et ON et.team_id=tu.team_id WHERE tu.user_id=u.id AND et.event_id=?)';$params[]=$event['id'];}
+        elseif($event['audience_type']==='selected_year_levels'){$base.=' AND EXISTS(SELECT 1 FROM tbl_event_year_level eyl WHERE eyl.year_level_id=u.year_level AND eyl.event_id=?)';$params[]=$event['id'];}
+        elseif($event['audience_type']==='specific_students'){$base.=' AND EXISTS(SELECT 1 FROM tbl_event_participants ep WHERE ep.user_id=u.id AND ep.event_id=?)';$params[]=$event['id'];}
         return array_map('intval',$this->column($base,$params));
     }
     private function scheduleState(array $event,string $now):string{return $event['start_at']>$now?'upcoming':($event['end_at']<$now?'completed':'ongoing');}

@@ -24,17 +24,17 @@ final class PostReviewRepository
     public function index(array $input): array
     {
         $requestedPage = max(1, (int) ($input['page'] ?? 1));
-        $total = (int) $this->scalar('SELECT COUNT(*) FROM posts WHERE is_official=0 AND deleted_at IS NULL');
+        $total = (int) $this->scalar('SELECT COUNT(*) FROM tbl_posts WHERE is_official=0 AND deleted_at IS NULL');
         $lastPage = max(1, (int) ceil($total / self::PAGE_SIZE));
         $page = min($requestedPage, $lastPage);
         $statement = $this->db->prepare(
             "SELECT p.*,e.title event_title,
                 a.first_name author_first_name,a.middle_name author_middle_name,a.last_name author_last_name,a.username author_username,a.profile_photo_path author_photo,
                 r.first_name reviewer_first_name,r.middle_name reviewer_middle_name,r.last_name reviewer_last_name,r.username reviewer_username
-             FROM posts p
-             LEFT JOIN events e ON e.id=p.event_id
-             LEFT JOIN users a ON a.id=p.user_id
-             LEFT JOIN users r ON r.id=p.reviewed_by
+             FROM tbl_posts p
+             LEFT JOIN tbl_events e ON e.id=p.event_id
+             LEFT JOIN tbl_users a ON a.id=p.user_id
+             LEFT JOIN tbl_users r ON r.id=p.reviewed_by
              WHERE p.is_official=0 AND p.deleted_at IS NULL
              ORDER BY p.created_at DESC,p.id DESC LIMIT ? OFFSET ?"
         );
@@ -47,7 +47,7 @@ final class PostReviewRepository
 
         return [
             'posts' => $posts,
-            'pending_count' => (int) $this->scalar("SELECT COUNT(*) FROM posts WHERE is_official=0 AND status='pending' AND deleted_at IS NULL"),
+            'pending_count' => (int) $this->scalar("SELECT COUNT(*) FROM tbl_posts WHERE is_official=0 AND status='pending' AND deleted_at IS NULL"),
             'pagination' => ['page' => $page, 'last_page' => $lastPage, 'per_page' => self::PAGE_SIZE, 'total' => $total],
         ];
     }
@@ -62,7 +62,7 @@ final class PostReviewRepository
         if (mb_strlen($reason) > 1000) $errors['rejection_reason'][] = 'The rejection reason may not exceed 1,000 characters.';
         if ($errors) throw new PostReviewValidationException($errors);
 
-        $statement = $this->db->prepare('SELECT * FROM posts WHERE id=? AND is_official=0 AND deleted_at IS NULL');
+        $statement = $this->db->prepare('SELECT * FROM tbl_posts WHERE id=? AND is_official=0 AND deleted_at IS NULL');
         $statement->execute([$id]);
         $post = $statement->fetch();
         if (!$post) throw new PostReviewValidationException(['post' => ['Student post not found.']]);
@@ -72,15 +72,15 @@ final class PostReviewRepository
         $this->db->beginTransaction();
         try {
             $reviewedAt = date('Y-m-d H:i:s');
-            $update = $this->db->prepare('UPDATE posts SET status=?,rejection_reason=?,reviewed_by=?,reviewed_at=?,updated_at=CURRENT_TIMESTAMP WHERE id=? AND status=\'pending\'');
+            $update = $this->db->prepare('UPDATE tbl_posts SET status=?,rejection_reason=?,reviewed_by=?,reviewed_at=?,updated_at=CURRENT_TIMESTAMP WHERE id=? AND status=\'pending\'');
             $update->execute([$status, $status === 'rejected' ? $reason : null, $actorId, $reviewedAt, $id]);
             if ($update->rowCount() !== 1) throw new PostReviewValidationException(['post' => ['This post has already been reviewed.']]);
 
-            $audit = $this->db->prepare("INSERT INTO post_audits(post_id,actor_id,action,from_status,to_status,notes,created_at,updated_at) VALUES(?,?,?,'pending',?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)");
+            $audit = $this->db->prepare("INSERT INTO tbl_post_audits(post_id,actor_id,action,from_status,to_status,notes,created_at,updated_at) VALUES(?,?,?,'pending',?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)");
             $audit->execute([$id, $actorId, $status, $status, $status === 'rejected' ? $reason : null]);
-            $activity = $this->db->prepare("INSERT INTO activity_logs(actor_id,event_id,action,acting_role,description,created_at,updated_at) VALUES(?,?,?,'SBO Adviser',?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)");
+            $activity = $this->db->prepare("INSERT INTO tbl_activity_logs(actor_id,event_id,action,acting_role,description,created_at,updated_at) VALUES(?,?,?,'SBO Adviser',?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)");
             $activity->execute([$actorId, $post['event_id'], 'post_'.$status, "Post #$id was $status."]);
-            $notification = $this->db->prepare('INSERT INTO notifications(id,type,notifiable_type,notifiable_id,data,created_at,updated_at) VALUES(?,?,?,?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)');
+            $notification = $this->db->prepare('INSERT INTO tbl_notifications(id,type,notifiable_type,notifiable_id,data,created_at,updated_at) VALUES(?,?,?,?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)');
             $notification->execute([
                 $this->uuid(), 'App\\Notifications\\PostReviewed', 'App\\Models\\User', (int) $post['user_id'],
                 json_encode(['post_id' => $id, 'status' => $status, 'reason' => $status === 'rejected' ? $reason : null, 'message' => 'Your post was '.$status.'.'], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR),
