@@ -216,61 +216,61 @@
               Team Management
             </h1>
             <p class="mt-2 text-sm text-slate-500">
-              Organize students into tribes for events, attendance, and scoring.
+              Organize students into tribes for events and competitions.
             </p>
           </div>
+          <button
+            class="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-[#397565] px-5 text-sm font-extrabold text-white shadow-lg shadow-[#397565]/15 transition hover:bg-[#2e6355]"
+            data-dialog-open="team-dialog"
+          >
+            <span class="text-xl font-normal">+</span>Create Tribe
+          </button>
         </header>
         <section
-          class="mb-6 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"
+          class="mb-7 border-y border-[#121017]/10 py-4"
           aria-label="Tribe overview"
         >
-          <header
-            class="flex flex-col gap-3 border-b border-slate-100 px-5 py-4 xl:flex-row xl:items-center xl:justify-between"
+          <div
+            class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between"
           >
             <div>
               <p
-                class="text-xs font-extrabold uppercase tracking-[.14em] text-slate-500"
-              >
-                Tribe Overview
-              </p>
-              <span class="mt-1 block text-[11px] font-semibold text-slate-400"
-                >Current student roster</span
-              >
+                class="text-[10px] font-black uppercase tracking-[.16em] text-[#397565]"
+                data-summary-year
+              ></p>
+              <p class="mt-1 text-sm font-bold text-[#121017]" data-team-context></p>
+              <a
+                class="mt-2 hidden text-xs font-extrabold text-[#c94b18]"
+                href="pages/adviser/users.html?role=Student&amp;status=active"
+                data-unassigned-summary
+              ></a>
             </div>
-            <div class="flex flex-col gap-2 sm:flex-row" data-overview-actions>
-              <form
-                class="hidden flex-col gap-2 sm:flex-row"
-                data-randomize-form
-                data-axios-form
+            <form
+              class="hidden flex-col gap-2 sm:flex-row sm:items-center"
+              data-randomize-form
+              data-axios-form
+            >
+              <select
+                class="h-10 rounded-xl border border-[#121017]/10 bg-white px-3 text-xs font-bold text-[#121017]/65"
+                name="school_year_id"
+                data-randomize-year
+              ></select
+              ><button
+                class="inline-flex min-h-10 items-center justify-center rounded-xl border border-[#397565]/25 bg-white px-4 text-xs font-extrabold text-[#397565] transition hover:bg-[#397565]/5"
+                data-randomize-button
               >
-                <select
-                  class="h-11 rounded-xl border border-slate-200 bg-white px-3 text-xs font-bold text-slate-600"
-                  name="school_year_id"
-                  data-randomize-year
-                ></select
-                ><button
-                  class="inline-flex min-h-11 items-center justify-center rounded-xl border border-[#2F3AE0]/25 bg-[#2F3AE0]/8 px-5 text-sm font-extrabold text-[#2F3AE0]"
-                  data-randomize-button
-                >
-                  Randomize Students
-                </button>
-              </form>
-              <button
-                class="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-[#397565] px-5 text-sm font-extrabold text-white shadow-lg shadow-[#397565]/15 transition hover:bg-[#2e6355]"
-                data-dialog-open="team-dialog"
-              >
-                <span class="text-xl font-normal">+</span>Create Tribe
+                Randomize students
               </button>
-            </div>
-          </header>
-          <div
-            class="grid divide-y divide-slate-100 sm:grid-cols-2 sm:divide-x sm:divide-y-0 xl:grid-cols-4"
-            data-team-summary
-          ></div>
-          <div
-            class="flex flex-col gap-3 border-t px-5 py-4 sm:flex-row sm:items-center sm:justify-between"
-            data-unassigned-summary
-          ></div>
+              <span
+                class="hidden items-center gap-2 text-xs font-extrabold text-[#397565]"
+                data-randomize-status
+                ><span
+                  class="grid h-5 w-5 place-items-center rounded-full bg-[#C6F24E]/40"
+                  >✓</span
+                >Students randomized</span
+              >
+            </form>
+          </div>
         </section>
         <section
           class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"
@@ -281,9 +281,7 @@
               class="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between"
             >
               <div>
-                <h2 class="text-lg font-extrabold tracking-tight">
-                  Tribe Directory
-                </h2>
+                <h2 class="text-lg font-extrabold tracking-tight">Tribes</h2>
                 <p class="mt-1 text-xs text-slate-500" data-result-count></p>
               </div>
               <a
@@ -309,7 +307,7 @@
                 ><input
                   class="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 pl-10 pr-3 text-sm outline-none transition placeholder:text-slate-400 focus:border-emerald-500 focus:bg-white focus:ring-4 focus:ring-emerald-500/10"
                   name="search"
-                  placeholder="Search tribe or member…" /></label
+                  placeholder="Search tribe or student…" /></label
               ><label
                 ><span class="sr-only">Filter by school year</span
                 ><select
@@ -332,7 +330,7 @@
             </form>
           </header>
           <div
-            class="grid gap-4 p-4 sm:p-6 lg:grid-cols-2 2xl:grid-cols-3"
+            class="grid gap-4 p-4 sm:p-6 lg:grid-cols-2"
             data-team-list
           ></div>
           <nav

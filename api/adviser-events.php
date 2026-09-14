@@ -20,7 +20,7 @@ final class EventValidationException extends InvalidArgumentException
 
 final class EventManagementRepository
 {
-    private const PER_PAGE = 9;
+    private const PER_PAGE = 20;
 
     public function __construct(private readonly PDO $db)
     {
@@ -57,8 +57,11 @@ final class EventManagementRepository
             $params['type'] = $type;
         }
         if ($search !== '') {
-            $where[] = "(e.title LIKE :search ESCAPE '\\\\' OR e.description LIKE :search ESCAPE '\\\\' OR e.location LIKE :search ESCAPE '\\\\')";
-            $params['search'] = '%'.addcslashes($search, '%_\\').'%';
+            $where[] = "(e.title LIKE :search_title ESCAPE '\\\\' OR e.description LIKE :search_description ESCAPE '\\\\' OR e.location LIKE :search_location ESCAPE '\\\\')";
+            $term = '%'.addcslashes($search, '%_\\').'%';
+            $params['search_title'] = $term;
+            $params['search_description'] = $term;
+            $params['search_location'] = $term;
         }
         $whereSql = 'WHERE '.implode(' AND ', $where);
         $count = $this->db->prepare("SELECT COUNT(*) FROM tbl_events e $whereSql");
@@ -300,6 +303,65 @@ final class EventManagementRepository
     {
         $archived = (int) $this->scalar("SELECT id FROM tbl_event_statuses WHERE label='archived'");
         $this->setStatus($id, $archived, $actorId);
+    }
+
+    public function duplicate(int $id, int $actorId): int
+    {
+        $source = $this->eventRow($id);
+        if ($source['deleted_at'] !== null) {
+            throw new EventValidationException(['event' => ['Restore the event before duplicating it.']]);
+        }
+
+        $title = mb_substr((string) $source['title'], 0, 248).' (Copy)';
+        $upcoming = (int) $this->scalar("SELECT id FROM tbl_event_statuses WHERE label='upcoming'");
+        $this->db->beginTransaction();
+        try {
+            $insert = $this->db->prepare(
+                'INSERT INTO tbl_events
+                 (title,description,location,audience_type,poster_path,is_featured,featured_order,featured_until,start_at,end_at,event_type_id,event_status_id,created_by,created_at,updated_at,deleted_at)
+                 VALUES (?,?,?,?,NULL,0,NULL,NULL,?,?,?,?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP,NULL)'
+            );
+            $insert->execute([
+                $title,
+                $source['description'],
+                $source['location'],
+                $source['audience_type'],
+                $source['start_at'],
+                $source['end_at'],
+                $source['event_type_id'],
+                $upcoming,
+                $actorId,
+            ]);
+            $copyId = (int) $this->db->lastInsertId();
+
+            $copySchedule = $this->db->prepare(
+                'INSERT INTO tbl_event_attendance_schedules
+                 (event_id,schedule_date,attendance_session_mode_id,whole_day_in_time,whole_day_out_time,morning_in_time,morning_out_time,afternoon_in_time,afternoon_out_time,created_at,updated_at)
+                 SELECT ?,schedule_date,attendance_session_mode_id,whole_day_in_time,whole_day_out_time,morning_in_time,morning_out_time,afternoon_in_time,afternoon_out_time,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP
+                 FROM tbl_event_attendance_schedules WHERE event_id=?'
+            );
+            $copySchedule->execute([$copyId, $id]);
+
+            foreach ([
+                ['tbl_event_user', 'user_id'],
+                ['tbl_event_team', 'team_id'],
+                ['tbl_event_year_level', 'year_level_id'],
+                ['tbl_event_participants', 'user_id'],
+            ] as [$table, $column]) {
+                $copyPivot = $this->db->prepare(
+                    "INSERT INTO $table (event_id,$column,created_at,updated_at)
+                     SELECT ?,$column,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP FROM $table WHERE event_id=?"
+                );
+                $copyPivot->execute([$copyId, $id]);
+            }
+
+            $this->log($actorId, $copyId, 'event_duplicated', $source['title'].' was duplicated as '.$title.'.');
+            $this->db->commit();
+            return $copyId;
+        } catch (Throwable $exception) {
+            $this->db->rollBack();
+            throw $exception;
+        }
     }
 
     public function restore(int $id, int $actorId): void
@@ -695,6 +757,8 @@ final class EventManagementRepository
     }
 }
 
+if (realpath((string) ($_SERVER['SCRIPT_FILENAME'] ?? '')) !== __FILE__) return;
+
 $actor = AuthGuard::requireRole('SBO Adviser');
 $repository = new EventManagementRepository((new Database())->connection());
 
@@ -731,6 +795,9 @@ try {
         case 'archive':
             $repository->archive((int) ($input['id'] ?? 0), $actorId);
             JsonResponse::send(['success' => true, 'message' => 'Event archived successfully.']);
+        case 'duplicate':
+            $id = $repository->duplicate((int) ($input['id'] ?? 0), $actorId);
+            JsonResponse::send(['success' => true, 'id' => $id, 'message' => 'Event duplicated successfully.']);
         case 'restore':
             $repository->restore((int) ($input['id'] ?? 0), $actorId);
             JsonResponse::send(['success' => true, 'message' => 'Event restored successfully.']);

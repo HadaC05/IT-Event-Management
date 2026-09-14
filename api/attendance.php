@@ -23,8 +23,10 @@ final class AttendanceManagementRepository
 
         $where = ['e.deleted_at IS NULL']; $params = [];
         if ($search !== '') {
-            $where[] = "(e.title LIKE :search ESCAPE '\\\\' OR e.location LIKE :search ESCAPE '\\\\')";
-            $params['search'] = '%'.addcslashes($search, '%_\\').'%';
+            $where[] = "(e.title LIKE :search_title ESCAPE '\\\\' OR e.location LIKE :search_location ESCAPE '\\\\')";
+            $term = '%'.addcslashes($search, '%_\\').'%';
+            $params['search_title'] = $term;
+            $params['search_location'] = $term;
         }
         $now = (new DateTimeImmutable('now', new DateTimeZone('Asia/Manila')))->format('Y-m-d H:i:s');
         if ($timing === 'upcoming') {$where[]='e.start_at > :now';$params['now']=$now;}
@@ -56,6 +58,7 @@ final class AttendanceManagementRepository
 
         $summary=$this->db->query("SELECT
           (SELECT COUNT(*) FROM tbl_events WHERE deleted_at IS NULL) events,
+          (SELECT COUNT(*) FROM tbl_users u JOIN tbl_roles r ON r.id=u.role_id JOIN tbl_user_statuses us ON us.id=u.status WHERE r.name='Student' AND us.label='active') students,
           (SELECT COUNT(DISTINCT a.event_id) FROM tbl_attendances a JOIN tbl_events e ON e.id=a.event_id WHERE e.deleted_at IS NULL) tracked,
           (SELECT COUNT(*) FROM tbl_attendances a JOIN tbl_events e ON e.id=a.event_id WHERE e.deleted_at IS NULL) records,
           (SELECT COUNT(*) FROM tbl_attendances a JOIN tbl_events e ON e.id=a.event_id WHERE e.deleted_at IS NULL AND a.status IN ('present','late')) attended")->fetch();

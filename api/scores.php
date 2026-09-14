@@ -33,18 +33,51 @@ final class ScoreManagementRepository
             (SELECT COUNT(*) FROM tbl_score_categories c WHERE c.event_id=e.id) score_categories_count,
             (SELECT COUNT(*) FROM tbl_scores s WHERE s.event_id=e.id AND s.score_category_id IS NOT NULL) scores_count,
             (SELECT COUNT(DISTINCT s.team_id) FROM tbl_scores s WHERE s.event_id=e.id AND s.score_category_id IS NOT NULL) scored_teams_count,
+            (SELECT COUNT(*) FROM tbl_teams t WHERE t.is_active=1 OR EXISTS(SELECT 1 FROM tbl_scores sx WHERE sx.team_id=t.id AND sx.event_id=e.id)) eligible_teams_count,
+            (SELECT COUNT(*) FROM tbl_teams t WHERE (t.is_active=1 OR EXISTS(SELECT 1 FROM tbl_scores sx WHERE sx.team_id=t.id AND sx.event_id=e.id)) AND (SELECT COUNT(DISTINCT st.score_category_id) FROM tbl_scores st WHERE st.event_id=e.id AND st.team_id=t.id)=(SELECT COUNT(*) FROM tbl_score_categories c2 WHERE c2.event_id=e.id) AND EXISTS(SELECT 1 FROM tbl_score_categories c3 WHERE c3.event_id=e.id)) completed_teams_count,
+            (SELECT COUNT(*) FROM tbl_score_sheets sh WHERE sh.event_id=e.id) score_sheets_count,
+            (SELECT COUNT(*) FROM tbl_score_sheets sh WHERE sh.event_id=e.id AND sh.status='finalized') finalized_score_sheets_count,
             COALESCE((SELECT SUM(s.points) FROM tbl_scores s WHERE s.event_id=e.id),0) scores_sum_points
             FROM tbl_events e $whereSql ORDER BY e.start_at DESC LIMIT :limit OFFSET :offset";
         $statement = $this->db->prepare($sql); foreach ($params as $key => $value) $statement->bindValue(':'.$key, $value);
         $statement->bindValue(':limit', self::PAGE_SIZE, PDO::PARAM_INT); $statement->bindValue(':offset', ($page - 1) * self::PAGE_SIZE, PDO::PARAM_INT); $statement->execute();
         $events = $statement->fetchAll();
-        foreach ($events as &$event) {foreach (['id','score_categories_count','scores_count','scored_teams_count'] as $key) $event[$key] = (int)$event[$key]; $event['scores_sum_points'] = (float)$event['scores_sum_points']; $event['schedule_state'] = $this->scheduleState($event, $now);} unset($event);
+        foreach ($events as &$event) {
+            foreach (['id','score_categories_count','scores_count','scored_teams_count','eligible_teams_count','completed_teams_count','score_sheets_count','finalized_score_sheets_count'] as $key) $event[$key] = (int)$event[$key];
+            $event['scores_sum_points'] = (float)$event['scores_sum_points'];
+            $event['schedule_state'] = $this->scheduleState($event, $now);
+            $criteria = $this->rows('SELECT name,max_points FROM tbl_score_categories WHERE event_id=? ORDER BY sort_order,id LIMIT 4', [(int)$event['id']]);
+            foreach ($criteria as &$criterion) $criterion['max_points'] = (float)$criterion['max_points'];
+            unset($criterion);
+            $event['criteria'] = $criteria;
+            $teamProgress = $this->rows("SELECT t.id,t.name,t.color,COUNT(DISTINCT s.score_category_id) scored_categories
+                FROM tbl_teams t LEFT JOIN tbl_scores s ON s.team_id=t.id AND s.event_id=? AND s.score_category_id IS NOT NULL
+                WHERE t.is_active=1 OR EXISTS(SELECT 1 FROM tbl_scores sx WHERE sx.team_id=t.id AND sx.event_id=?)
+                GROUP BY t.id ORDER BY lower(t.name),t.name", [(int)$event['id'], (int)$event['id']]);
+            foreach ($teamProgress as &$team) {
+                $team['id'] = (int)$team['id'];
+                $team['scored_categories'] = (int)$team['scored_categories'];
+                $team['complete'] = $event['score_categories_count'] > 0 && $team['scored_categories'] >= $event['score_categories_count'];
+            }
+            unset($team);
+            $event['team_progress'] = $teamProgress;
+            $event['scoring_state'] = $event['score_categories_count'] === 0
+                ? 'not_setup'
+                : ($event['score_sheets_count'] > 0 && $event['score_sheets_count'] === $event['finalized_score_sheets_count']
+                    ? 'finalized'
+                    : ($event['scores_count'] > 0
+                        ? ($event['eligible_teams_count'] > 0 && $event['completed_teams_count'] === $event['eligible_teams_count'] ? 'complete' : 'scoring')
+                        : 'ready'));
+        }
+        unset($event);
         $summary = $this->db->query("SELECT
             (SELECT COUNT(*) FROM tbl_events WHERE deleted_at IS NULL) events,
             (SELECT COUNT(DISTINCT event_id) FROM tbl_score_categories) configured,
+            (SELECT COUNT(*) FROM tbl_events e WHERE e.deleted_at IS NULL AND EXISTS(SELECT 1 FROM tbl_score_categories c WHERE c.event_id=e.id) AND NOT EXISTS(SELECT 1 FROM tbl_scores s WHERE s.event_id=e.id AND s.score_category_id IS NOT NULL)) ready,
+            (SELECT COUNT(*) FROM tbl_events e WHERE e.deleted_at IS NULL AND EXISTS(SELECT 1 FROM tbl_score_sheets sh WHERE sh.event_id=e.id) AND NOT EXISTS(SELECT 1 FROM tbl_score_sheets sh WHERE sh.event_id=e.id AND sh.status<>'finalized')) finalized,
             (SELECT COUNT(*) FROM (SELECT DISTINCT event_id,team_id FROM tbl_scores WHERE score_category_id IS NOT NULL) AS scored_pairs) AS results,
             COALESCE((SELECT SUM(points) FROM tbl_scores),0) points")->fetch();
-        foreach (['events','configured','results'] as $key) $summary[$key] = (int)$summary[$key]; $summary['points'] = (float)$summary['points'];
+        foreach (['events','configured','ready','finalized','results'] as $key) $summary[$key] = (int)$summary[$key]; $summary['points'] = (float)$summary['points'];
         return ['events'=>$events,'summary'=>$summary,'pagination'=>['current_page'=>$page,'last_page'=>$lastPage,'total'=>$total,'from'=>$total?($page-1)*self::PAGE_SIZE+1:null,'to'=>$total?min($page*self::PAGE_SIZE,$total):null]];
     }
 
@@ -69,9 +102,9 @@ final class ScoreManagementRepository
     {
         $event=$this->event($eventId);[$name,$maximum]=$this->validateCategory($eventId,$input);
         $order=(int)$this->scalar('SELECT COALESCE(MAX(sort_order),0)+1 FROM tbl_score_categories WHERE event_id=?',[$eventId]);
-        $statement=$this->db->prepare('INSERT INTO tbl_score_categories(event_id,name,max_points,sort_order,created_at,updated_at) VALUES(?,?,?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)');$statement->execute([$eventId,$name,$maximum,$order]);
+        $statement=$this->db->prepare('INSERT INTO tbl_score_categories(event_id,name,max_points,sort_order,created_at,updated_at) VALUES(?,?,?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)');$statement->execute([$eventId,$name,$maximum,$order]);$categoryId=(int)$this->db->lastInsertId();
         $this->log($actorId,$eventId,'score_category_created',"A scoring category was added to {$event['title']}.");
-        return ['id'=>(int)$this->db->lastInsertId(),'message'=>'Scoring category added.'];
+        return ['id'=>$categoryId,'message'=>'Scoring category added.'];
     }
 
     public function updateCategory(int $eventId, int $categoryId, array $input, int $actorId): string

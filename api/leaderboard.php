@@ -30,8 +30,8 @@ final class LeaderboardRepository
 
         $rankings = $this->rankings($selectedEvent, $schoolYearId, $categoryId);
         $ranked = array_values(array_filter($rankings, fn (array $team): bool => $team['has_score']));
-        $visible = $search === '' ? $rankings : array_values(array_filter(
-            $rankings,
+        $visible = $search === '' ? $ranked : array_values(array_filter(
+            $ranked,
             fn (array $team): bool => str_contains(mb_strtolower($team['name']), mb_strtolower($search)),
         ));
         $events = $this->rows("SELECT e.id,e.title,e.start_at FROM tbl_events e WHERE e.deleted_at IS NULL AND EXISTS(SELECT 1 FROM tbl_score_categories c WHERE c.event_id=e.id) ORDER BY e.start_at DESC");

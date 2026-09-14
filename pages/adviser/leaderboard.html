@@ -229,7 +229,7 @@
         data-page-content
       >
         <header
-          class="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between"
+          class="flex flex-col gap-5 border-b border-[#121017]/10 pb-7 lg:flex-row lg:items-end lg:justify-between"
         >
           <div>
             <p
@@ -243,94 +243,25 @@
             <h1 class="mt-3 text-4xl font-black tracking-[-.055em] sm:text-5xl">
               Leaderboard
             </h1>
-            <p class="mt-3 max-w-2xl text-sm leading-6 text-[#121017]/52">
-              Compare tribe performance across every scored event or focus on
-              one competition and criterion.
+            <p class="mt-2 max-w-2xl text-sm leading-6 text-[#121017]/52">
+              Compare tribe performance across scored events.
             </p>
           </div>
           <a
-            class="inline-flex min-h-12 w-fit items-center justify-center gap-2 rounded-xl bg-[#2F3AE0] px-5 text-sm font-black text-white shadow-[0_10px_25px_rgba(47,58,224,.18)]"
+            class="inline-flex min-h-11 w-fit items-center justify-center gap-2 rounded-xl bg-[#397565] px-5 text-xs font-black text-white shadow-[0_10px_25px_rgba(57,117,101,.18)] transition hover:-translate-y-0.5 hover:bg-[#2f6255]"
             href="pages/adviser/scores.html"
             >Manage scores →</a
           >
         </header>
 
         <section
-          class="mt-8 overflow-hidden rounded-2xl border border-[#121017]/9 bg-white shadow-[0_18px_50px_rgba(18,16,23,.05)]"
-          aria-label="Leaderboard summary"
+          class="mt-6"
+          aria-label="Leaderboard filters"
         >
-          <div class="grid sm:grid-cols-2 xl:grid-cols-4">
-            <div
-              class="border-b border-[#121017]/7 px-5 py-5 sm:border-r xl:border-b-0"
-            >
-              <span
-                class="text-[9px] font-black uppercase tracking-[.15em] text-[#121017]/35"
-                >Ranked tribes</span
-              ><strong class="mt-2 block text-2xl font-black" data-ranked
-                >0</strong
-              ><small class="mt-1 block text-xs text-[#121017]/42"
-                >of <span data-eligible>0</span> shown in this view</small
-              >
-            </div>
-            <div
-              class="border-b border-[#121017]/7 px-5 py-5 xl:border-b-0 xl:border-r"
-            >
-              <span
-                class="text-[9px] font-black uppercase tracking-[.15em] text-[#121017]/35"
-                >Points awarded</span
-              ><strong class="mt-2 block text-2xl font-black" data-points
-                >0</strong
-              ><small class="mt-1 block text-xs text-[#121017]/42"
-                >Across <span data-event-count>0 events</span></small
-              >
-            </div>
-            <div
-              class="border-b border-[#121017]/7 px-5 py-5 sm:border-r xl:border-b-0"
-            >
-              <span
-                class="text-[9px] font-black uppercase tracking-[.15em] text-[#121017]/35"
-                >Current leader</span
-              ><strong
-                class="mt-2 block truncate text-lg font-black"
-                data-leader
-                >Not available</strong
-              ><small
-                class="mt-1 block text-xs text-[#121017]/42"
-                data-leader-detail
-                >Record scores to establish a leader</small
-              >
-            </div>
-            <div class="px-5 py-5">
-              <span
-                class="text-[9px] font-black uppercase tracking-[.15em] text-[#121017]/35"
-                >Lead margin</span
-              ><strong
-                class="mt-2 block text-2xl font-black text-[#397565]"
-                data-lead
-                >—</strong
-              ><small
-                class="mt-1 block text-xs text-[#121017]/42"
-                data-lead-detail
-                >A second ranked tribe is needed</small
-              >
-            </div>
-          </div>
-        </section>
-
-        <section
-          class="mt-5 rounded-2xl border border-[#121017]/9 bg-[#F3F0E9]/65 p-4 sm:p-5"
-        >
-          <div class="mb-4 flex items-center justify-between gap-4">
-            <div>
-              <p
-                class="text-[9px] font-black uppercase tracking-[.15em] text-[#397565]"
-              >
-                Ranking scope
-              </p>
-              <h2 class="mt-1 text-lg font-black">Choose what to compare</h2>
-            </div>
+          <div class="mb-3 flex min-h-6 items-center justify-between gap-4">
+            <p class="text-xs font-bold text-[#121017]/42" data-compact-summary>Loading competition totals…</p>
             <button
-              class="hidden text-xs font-black text-[#2F3AE0] hover:underline"
+              class="hidden text-xs font-black text-[#397565] hover:underline"
               type="button"
               data-clear-filters
             >
@@ -338,45 +269,45 @@
             </button>
           </div>
           <form
-            class="grid gap-3 md:grid-cols-2 xl:grid-cols-[1.2fr_1fr_1fr_1.2fr_auto]"
+            class="grid gap-3 md:grid-cols-2 xl:grid-cols-[1.15fr_1fr_1fr_1.2fr]"
             data-leaderboard-filters
           >
-            <label class="grid gap-1.5"
+            <label
               ><span
-                class="text-[9px] font-black uppercase tracking-wider text-[#121017]/42"
+                class="sr-only"
                 >Event</span
               ><select
-                class="h-12 rounded-xl border border-[#121017]/10 bg-white px-3 text-xs font-bold outline-none focus:border-[#397565] focus:ring-4 focus:ring-[#397565]/10"
+                class="h-11 w-full rounded-xl border border-[#121017]/10 bg-white px-3 text-xs font-bold outline-none focus:border-[#397565] focus:ring-4 focus:ring-[#397565]/10"
                 name="event_id"
                 data-event-filter
               >
                 <option value="">All scored events</option>
               </select></label
-            ><label class="grid gap-1.5"
+            ><label
               ><span
-                class="text-[9px] font-black uppercase tracking-wider text-[#121017]/42"
+                class="sr-only"
                 >School year</span
               ><select
-                class="h-12 rounded-xl border border-[#121017]/10 bg-white px-3 text-xs font-bold outline-none focus:border-[#397565] focus:ring-4 focus:ring-[#397565]/10"
+                class="h-11 w-full rounded-xl border border-[#121017]/10 bg-white px-3 text-xs font-bold outline-none focus:border-[#397565] focus:ring-4 focus:ring-[#397565]/10"
                 name="school_year_id"
               >
                 <option value="">All school years</option>
               </select></label
-            ><label class="grid gap-1.5"
+            ><label
               ><span
-                class="text-[9px] font-black uppercase tracking-wider text-[#121017]/42"
+                class="sr-only"
                 >Criterion</span
               ><select
-                class="h-12 rounded-xl border border-[#121017]/10 bg-white px-3 text-xs font-bold outline-none disabled:cursor-not-allowed disabled:bg-[#121017]/5 disabled:text-[#121017]/30 focus:border-[#397565] focus:ring-4 focus:ring-[#397565]/10"
+                class="h-11 w-full rounded-xl border border-[#121017]/10 bg-white px-3 text-xs font-bold outline-none disabled:cursor-not-allowed disabled:bg-[#121017]/5 disabled:text-[#121017]/30 focus:border-[#397565] focus:ring-4 focus:ring-[#397565]/10"
                 name="category_id"
                 data-category-filter
                 disabled
               >
                 <option value="">Overall event score</option>
               </select></label
-            ><label class="grid gap-1.5"
+            ><label
               ><span
-                class="text-[9px] font-black uppercase tracking-wider text-[#121017]/42"
+                class="sr-only"
                 >Find tribe</span
               ><span class="relative">
                 <svg
@@ -388,17 +319,12 @@
                   <path d="m20 20-4-4" />
                 </svg>
                 <input
-                  class="h-12 w-full rounded-xl border border-[#121017]/10 bg-white pl-10 pr-3 text-xs font-bold outline-none placeholder:font-normal placeholder:text-[#121017]/30 focus:border-[#397565] focus:ring-4 focus:ring-[#397565]/10"
+                  class="h-11 w-full rounded-xl border border-[#121017]/10 bg-white pl-10 pr-3 text-xs font-bold outline-none placeholder:font-normal placeholder:text-[#121017]/30 focus:border-[#397565] focus:ring-4 focus:ring-[#397565]/10"
                   name="search"
                   maxlength="100"
                   placeholder="Search tribe name…"
                 /> </span></label
-            ><button
-              class="mt-auto min-h-12 rounded-xl bg-[#397565] px-5 text-xs font-black text-white"
-              type="submit"
-            >
-              Apply
-            </button>
+            ><button class="sr-only" type="submit">Search</button>
           </form>
           <p
             class="mt-3 hidden text-xs font-bold text-[#FF6B2C]"
@@ -406,47 +332,20 @@
           ></p>
         </section>
 
-        <section
-          class="mt-5 hidden gap-5 lg:grid-cols-[minmax(0,1.25fr)_minmax(310px,.75fr)]"
-          data-top-performers
-        >
-          <article
-            class="relative overflow-hidden rounded-2xl bg-[#121017] p-6 text-white shadow-[0_18px_45px_rgba(18,16,23,.14)] sm:p-8"
-            data-leader-card
-          ></article>
-          <article
-            class="overflow-hidden rounded-2xl border border-[#121017]/9 bg-white"
-          >
-            <header class="border-b px-5 py-4">
-              <p
-                class="text-[9px] font-black uppercase tracking-[.15em] text-[#397565]"
-              >
-                Podium
-              </p>
-              <h2 class="mt-1 text-lg font-black">Top performers</h2>
-            </header>
-            <div class="divide-y divide-[#121017]/7" data-podium></div>
-          </article>
+        <section class="mt-10 hidden" data-top-performers aria-label="Top three tribes">
+          <div class="mx-auto max-w-5xl" data-podium></div>
         </section>
 
         <section
-          class="mt-5 overflow-hidden rounded-2xl border border-[#121017]/9 bg-white shadow-[0_18px_50px_rgba(18,16,23,.05)]"
+          class="mt-10 overflow-hidden rounded-3xl border border-[#121017]/9 bg-white shadow-[0_18px_50px_rgba(18,16,23,.05)]"
         >
           <header
             class="flex flex-col gap-3 border-b border-[#121017]/7 px-5 py-5 sm:flex-row sm:items-end sm:justify-between sm:px-6"
           >
             <div>
-              <p
-                class="text-[9px] font-black uppercase tracking-[.15em] text-[#397565]"
-              >
-                Full standings
-              </p>
-              <h2 class="mt-1 text-xl font-black" data-context-title>
-                All events
-              </h2>
-              <p class="mt-1 text-xs text-[#121017]/42" data-context-subtitle>
-                Cumulative results
-              </p>
+              <p class="text-[9px] font-black uppercase tracking-[.15em] text-[#397565]">Full standings</p>
+              <h2 class="mt-1 text-xl font-black" data-context-title>All events</h2>
+              <p class="mt-1 text-xs text-[#121017]/42" data-context-subtitle>Cumulative results</p>
             </div>
             <span class="text-xs font-bold text-[#121017]/38" data-visible-count
               >0 tribes</span

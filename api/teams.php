@@ -23,8 +23,11 @@ final class TeamManagementRepository
 
         $where=[]; $params=[];
         if ($search !== '') {
-            $where[]="(t.name LIKE :q ESCAPE '\\\\' OR EXISTS(SELECT 1 FROM tbl_team_user tu2 JOIN tbl_users u2 ON u2.id=tu2.user_id WHERE tu2.team_id=t.id AND (u2.first_name LIKE :q ESCAPE '\\\\' OR u2.last_name LIKE :q ESCAPE '\\\\')))";
-            $params['q']='%'.addcslashes($search, '%_\\').'%';
+            $where[]="(t.name LIKE :q_team ESCAPE '\\\\' OR EXISTS(SELECT 1 FROM tbl_team_user tu2 JOIN tbl_users u2 ON u2.id=tu2.user_id WHERE tu2.team_id=t.id AND (u2.first_name LIKE :q_first ESCAPE '\\\\' OR u2.last_name LIKE :q_last ESCAPE '\\\\')))";
+            $term='%'.addcslashes($search, '%_\\').'%';
+            $params['q_team']=$term;
+            $params['q_first']=$term;
+            $params['q_last']=$term;
         }
         if ($status !== '') {$where[]='t.is_active=:active';$params['active']=$status==='active'?1:0;}
         if ($schoolYear) {$where[]='t.school_year_id=:school_year';$params['school_year']=$schoolYear;}
@@ -33,17 +36,30 @@ final class TeamManagementRepository
         $lastPage=max(1,(int)ceil($total/self::PER_PAGE));
         if($page>$lastPage)$page=$lastPage;
         $sql="SELECT t.id,t.school_year_id,t.name,t.color,t.is_active,sy.label school_year_label,
-                (SELECT COUNT(*) FROM tbl_team_user tum WHERE tum.team_id=t.id) members_count,
-                (SELECT COALESCE(SUM(sc.points),0) FROM tbl_scores sc WHERE sc.team_id=t.id) scores_sum_points
+                (SELECT COUNT(*) FROM tbl_team_user tum WHERE tum.team_id=t.id) members_count
               FROM tbl_teams t JOIN tbl_school_years sy ON sy.id=t.school_year_id
               $whereSql ORDER BY t.is_active DESC,t.name LIMIT :limit OFFSET :offset";
         $st=$this->db->prepare($sql);foreach($params as $k=>$v)$st->bindValue(':'.$k,$v);$st->bindValue(':limit',self::PER_PAGE,PDO::PARAM_INT);$st->bindValue(':offset',($page-1)*self::PER_PAGE,PDO::PARAM_INT);$st->execute();$teams=$st->fetchAll();
-        foreach($teams as &$team){$team['id']=(int)$team['id'];$team['school_year_id']=(int)$team['school_year_id'];$team['is_active']=(bool)$team['is_active'];$team['members_count']=(int)$team['members_count'];$team['scores_sum_points']=(float)$team['scores_sum_points'];$m=$this->db->prepare("SELECT u.id,u.first_name,u.middle_name,u.last_name,u.id_number,yl.label year_level_label FROM tbl_team_user tu JOIN tbl_users u ON u.id=tu.user_id LEFT JOIN tbl_year_levels yl ON yl.id=u.year_level WHERE tu.team_id=? ORDER BY u.last_name,u.first_name");$m->execute([$team['id']]);$team['members']=$m->fetchAll();foreach($team['members'] as &$member)$member['full_name']=$this->fullName($member);unset($member);}unset($team);
+        foreach($teams as &$team){$team['id']=(int)$team['id'];$team['school_year_id']=(int)$team['school_year_id'];$team['is_active']=(bool)$team['is_active'];$team['members_count']=(int)$team['members_count'];$m=$this->db->prepare("SELECT u.id,u.first_name,u.middle_name,u.last_name,u.id_number,yl.label year_level_label FROM tbl_team_user tu JOIN tbl_users u ON u.id=tu.user_id LEFT JOIN tbl_year_levels yl ON yl.id=u.year_level WHERE tu.team_id=? ORDER BY u.last_name,u.first_name");$m->execute([$team['id']]);$team['members']=$m->fetchAll();foreach($team['members'] as &$member)$member['full_name']=$this->fullName($member);unset($member);}unset($team);
         $studentRole=(int)$this->value("SELECT id FROM tbl_roles WHERE name='Student'");$active=(int)$this->value("SELECT id FROM tbl_user_statuses WHERE label='active'");
         $studentsSt=$this->db->prepare("SELECT u.id,u.id_number,u.first_name,u.middle_name,u.last_name,u.year_level,yl.label year_level_label FROM tbl_users u LEFT JOIN tbl_year_levels yl ON yl.id=u.year_level WHERE u.role_id=? AND u.status=? ORDER BY u.last_name,u.first_name");$studentsSt->execute([$studentRole,$active]);$students=$studentsSt->fetchAll();
         foreach($students as &$student){$student['id']=(int)$student['id'];$student['full_name']=$this->fullName($student);$other=$this->db->prepare('SELECT t.id,t.name,t.school_year_id,sy.label school_year_label FROM tbl_team_user tu JOIN tbl_teams t ON t.id=tu.team_id JOIN tbl_school_years sy ON sy.id=t.school_year_id WHERE tu.user_id=?');$other->execute([$student['id']]);$student['teams']=$other->fetchAll();}unset($student);
-        $summary=$this->db->query("SELECT (SELECT COUNT(*) FROM tbl_teams) total,(SELECT COUNT(*) FROM tbl_teams WHERE is_active=1) active,(SELECT COUNT(*) FROM tbl_users WHERE role_id=$studentRole AND status=$active) students,(SELECT COUNT(DISTINCT u.id) FROM tbl_users u JOIN tbl_team_user tu ON tu.user_id=u.id WHERE u.role_id=$studentRole AND u.status=$active) assigned")->fetch();
+        $yearClause=$schoolYear?' WHERE school_year_id=?':'';
+        $activeYearClause=$schoolYear?' AND school_year_id=?':'';
+        $assignedYearClause=$schoolYear?' AND t.school_year_id=?':'';
+        $summarySql="SELECT
+          (SELECT COUNT(*) FROM tbl_teams{$yearClause}) total,
+          (SELECT COUNT(*) FROM tbl_teams WHERE is_active=1{$activeYearClause}) active,
+          (SELECT COUNT(*) FROM tbl_users WHERE role_id=? AND status=?) students,
+          (SELECT COUNT(DISTINCT u.id) FROM tbl_users u JOIN tbl_team_user tu ON tu.user_id=u.id JOIN tbl_teams t ON t.id=tu.team_id WHERE u.role_id=? AND u.status=?{$assignedYearClause}) assigned";
+        $summaryParams=[];
+        if($schoolYear)$summaryParams[]=$schoolYear;
+        if($schoolYear)$summaryParams[]=$schoolYear;
+        array_push($summaryParams,$studentRole,$active,$studentRole,$active);
+        if($schoolYear)$summaryParams[]=$schoolYear;
+        $summarySt=$this->db->prepare($summarySql);$summarySt->execute($summaryParams);$summary=$summarySt->fetch();
         $summary=array_map('intval',$summary);$summary['unassigned']=$summary['students']-$summary['assigned'];
+        $summary['school_year_label']=$schoolYear?(string)$this->value('SELECT label FROM tbl_school_years WHERE id=?',[$schoolYear]):null;
         return ['teams'=>$teams,'students'=>$students,'school_years'=>$this->db->query('SELECT id,label,teams_randomized_at FROM tbl_school_years ORDER BY label DESC')->fetchAll(),'summary'=>$summary,'pagination'=>['current_page'=>$page,'last_page'=>$lastPage,'total'=>$total,'from'=>$total?($page-1)*self::PER_PAGE+1:null,'to'=>$total?min($page*self::PER_PAGE,$total):null]];
     }
 
@@ -81,6 +97,8 @@ final class TeamManagementRepository
     private function value(string $sql,array $p=[]):mixed{$st=$this->db->prepare($sql);$st->execute($p);return $st->fetchColumn();}
     private function fullName(array $p):string{return trim(implode(' ',array_filter([$p['first_name'],$p['middle_name'],$p['last_name']])));}
 }
+
+if (realpath($_SERVER['SCRIPT_FILENAME'] ?? '') !== __FILE__) return;
 
 $actor=AuthGuard::requireRole('SBO Adviser');$repo=new TeamManagementRepository((new Database())->connection());
 function validationErrors(InvalidArgumentException $exception): array

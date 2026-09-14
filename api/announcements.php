@@ -34,6 +34,8 @@ final class AnnouncementRepository
 
         $search = trim((string) ($filters['search'] ?? ''));
         if (mb_strlen($search) > 100) throw new InvalidArgumentException('Search may not exceed 100 characters.');
+        $scope = (string) ($filters['scope'] ?? '');
+        if (!in_array($scope, ['', 'event'], true)) throw new InvalidArgumentException('Choose a valid announcement scope.');
         $eventId = $this->optionalEventId($filters['event_id'] ?? null);
         $page = max(1, (int) ($filters['page'] ?? 1));
 
@@ -42,6 +44,7 @@ final class AnnouncementRepository
         $where[] = $status === 'archived' ? 'p.deleted_at IS NOT NULL' : 'p.deleted_at IS NULL';
         if ($status === 'draft') $where[] = "p.status='draft'";
         if ($status === 'published') $where[] = "p.status='approved'";
+        if ($scope === 'event') $where[] = 'p.event_id IS NOT NULL';
         if ($eventId) {$where[] = 'p.event_id=?'; $params[] = $eventId;}
         if ($search !== '') {$where[] = "p.content LIKE ? ESCAPE '\\\\'"; $params[] = '%'.$this->escapeLike($search).'%';}
         $whereSql = implode(' AND ', $where);
@@ -71,11 +74,11 @@ final class AnnouncementRepository
             'summary' => [
                 'published' => (int) $this->scalar("SELECT COUNT(*) FROM tbl_posts WHERE is_official=1 AND status='approved' AND deleted_at IS NULL"),
                 'drafts' => (int) $this->scalar("SELECT COUNT(*) FROM tbl_posts WHERE is_official=1 AND status='draft' AND deleted_at IS NULL"),
-                'events' => (int) $this->scalar("SELECT COUNT(DISTINCT event_id) FROM tbl_posts WHERE is_official=1 AND status='approved' AND event_id IS NOT NULL AND deleted_at IS NULL"),
+                'events' => (int) $this->scalar("SELECT COUNT(*) FROM tbl_posts WHERE is_official=1 AND event_id IS NOT NULL AND deleted_at IS NULL"),
                 'archived' => (int) $this->scalar('SELECT COUNT(*) FROM tbl_posts WHERE is_official=1 AND deleted_at IS NOT NULL'),
             ],
             'pagination' => ['page' => $page, 'last_page' => $lastPage, 'per_page' => self::PAGE_SIZE, 'total' => $total],
-            'filters' => ['search' => $search, 'status' => $status, 'event_id' => $eventId],
+            'filters' => ['search' => $search, 'status' => $status, 'event_id' => $eventId, 'scope' => $scope],
         ];
     }
 

@@ -307,76 +307,17 @@
               </p>
             </div>
             <a
-              class="hidden min-h-11 items-center justify-center gap-2 rounded-xl border border-[#2F3AE0]/25 bg-white/45 px-5 text-xs font-black text-[#2F3AE0]"
+              class="hidden min-h-11 items-center justify-center gap-2 rounded-xl border border-[#397565]/25 bg-white/45 px-5 text-xs font-black text-[#397565] transition hover:bg-[#397565]/7"
               data-manage-events
               href="pages/adviser/events.html"
               >Manage Events →</a
             >
           </div>
-          <dl
-            class="mt-7 grid gap-x-8 gap-y-5 border-t border-[#121017]/10 pt-5 sm:grid-cols-2 lg:grid-cols-[repeat(3,auto)_minmax(220px,1fr)]"
-          >
-            <div>
-              <dt
-                class="text-[9px] font-black uppercase tracking-[.15em] text-[#121017]/35"
-              >
-                Events
-              </dt>
-              <dd class="mt-1 text-xl font-black" data-summary-events>0</dd>
-            </div>
-            <div>
-              <dt
-                class="text-[9px] font-black uppercase tracking-[.15em] text-[#121017]/35"
-              >
-                Configured
-              </dt>
-              <dd class="mt-1 text-xl font-black" data-summary-configured>0</dd>
-            </div>
-            <div>
-              <dt
-                class="text-[9px] font-black uppercase tracking-[.15em] text-[#121017]/35"
-              >
-                Tribe results
-              </dt>
-              <dd class="mt-1 text-xl font-black" data-summary-results>0</dd>
-            </div>
-            <div class="lg:ml-auto lg:text-right">
-              <dt
-                class="text-[9px] font-black uppercase tracking-[.15em] text-[#121017]/35"
-              >
-                Points awarded
-              </dt>
-              <dd
-                class="mt-1 text-xl font-black text-[#121017]/30"
-                data-summary-points
-              >
-                —
-              </dd>
-            </div>
-          </dl>
+          <p class="mt-5 text-xs font-bold text-[#121017]/42" data-score-summary>Loading scoring totals…</p>
         </header>
         <section class="py-8">
-          <div
-            class="overflow-hidden rounded-2xl border border-[#121017]/10 bg-white/75 shadow-[0_18px_55px_rgba(18,16,23,.05)]"
-          >
-            <header class="border-b border-[#121017]/8 px-5 py-5 sm:px-6">
-              <div
-                class="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between"
-              >
-                <div>
-                  <p
-                    class="text-[10px] font-black uppercase tracking-[.16em] text-[#397565]"
-                  >
-                    Scoring workspace
-                  </p>
-                  <h2 class="mt-1 text-xl font-black">Select an event</h2>
-                  <p
-                    class="mt-1 text-[10px] font-semibold text-[#121017]/40"
-                    data-result-count
-                  >
-                    Loading events…
-                  </p>
-                </div>
+          <header class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+            <div><p class="text-[10px] font-black uppercase tracking-[.16em] text-[#397565]">Scoring workspace</p><h2 class="mt-1 text-xl font-black">Competition events</h2><p class="mt-1 text-[10px] font-semibold text-[#121017]/40" data-result-count>Loading events…</p></div>
                 <button
                   class="hidden text-[10px] font-black text-[#FF6B2C]"
                   type="button"
@@ -384,37 +325,31 @@
                 >
                   Clear all filters
                 </button>
-              </div>
+          </header>
               <form
-                class="mt-5 hidden gap-2 md:grid-cols-[minmax(260px,1fr)_190px_auto]"
+                class="mt-5 hidden gap-3 md:grid-cols-2"
                 data-score-filters
               >
                 <label class="relative"
                   ><span class="sr-only">Search events</span
-                  ><input
-                    class="h-11 w-full rounded-xl border border-[#121017]/10 bg-[#F3F0E9]/55 px-4 text-sm outline-none focus:border-[#397565]"
+                  ><svg class="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 fill-none stroke-[#121017]/30 stroke-2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg><input
+                    class="h-11 w-full rounded-xl border border-[#121017]/10 bg-white pl-10 pr-4 text-sm outline-none focus:border-[#397565] focus:ring-4 focus:ring-[#397565]/8"
                     name="search"
                     placeholder="Search event or venue…" /></label
                 ><label
                   ><span class="sr-only">Filter by schedule</span
                   ><select
-                    class="h-11 w-full rounded-xl border border-[#121017]/10 bg-[#F3F0E9]/55 px-3 text-xs font-bold"
+                    class="h-11 w-full rounded-xl border border-[#121017]/10 bg-white px-3 text-xs font-bold"
                     name="timing"
                   >
                     <option value="">Any schedule</option>
                     <option value="upcoming">Upcoming</option>
                     <option value="ongoing">Ongoing</option>
-                    <option value="completed">Completed</option>
+                    <option value="completed">Ended events</option>
                   </select></label
-                ><button
-                  class="h-11 rounded-xl bg-[#397565] px-5 text-xs font-black text-white"
-                  type="submit"
-                >
-                  Apply Filters
-                </button>
+                ><button class="sr-only" type="submit">Search</button>
               </form>
-            </header>
-            <div class="divide-y divide-[#121017]/8" data-event-list>
+            <div class="mt-6 grid gap-5" data-event-list>
               <p class="p-10 text-center text-sm text-[#121017]/45">
                 Loading scoreboards…
               </p>
@@ -423,7 +358,6 @@
               class="hidden items-center justify-between border-t border-[#121017]/8 px-5 py-4 text-[10px] sm:px-6"
               data-pagination
             ></nav>
-          </div>
         </section>
       </main>
     </div>

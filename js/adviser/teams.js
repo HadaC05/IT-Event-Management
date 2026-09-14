@@ -48,24 +48,26 @@
   };
 
   function renderSummary() {
-    const s = data.summary,
-      host = $("[data-team-summary]");
-    host.replaceChildren();
-    [
-      ["total", "Total Tribes"],
-      ["active", "Active Tribes"],
-      ["students", "Active Students"],
-      ["assigned", "Assigned to Tribes"],
-    ].forEach(([k, label]) => {
-      const d = document.createElement("div");
-      d.className =
-        "flex items-center justify-between gap-4 px-5 py-4 xl:block xl:p-5";
-      d.innerHTML = `<span class="inline-flex items-center gap-2 text-xs font-semibold text-slate-500">${k === "active" ? '<i class="h-2 w-2 rounded-full bg-[#C6F24E] ring-2 ring-[#397565]/15" aria-hidden="true"></i>' : ""}${label}</span><strong class="text-2xl font-extrabold xl:mt-2 xl:block">${s[k].toLocaleString()}</strong>`;
-      host.append(d);
-    });
+    const s = data.summary;
+    const summaryYear =
+      s.school_year_label ||
+      (data.school_years.length === 1 ? data.school_years[0].label : null);
+    $("[data-summary-year]").textContent = summaryYear
+      ? `SY ${summaryYear}`
+      : "All school years";
+    const assignment = s.students
+      ? s.unassigned
+        ? `${s.assigned.toLocaleString()} assigned`
+        : "All students assigned"
+      : "No active students";
+    $("[data-team-context]").textContent =
+      `${s.total.toLocaleString()} ${s.total === 1 ? "tribe" : "tribes"} · ${s.students.toLocaleString()} active ${s.students === 1 ? "student" : "students"} · ${assignment}`;
     const un = $("[data-unassigned-summary]");
-    un.className = `flex flex-col gap-3 border-t px-5 py-4 sm:flex-row sm:items-center sm:justify-between ${s.unassigned ? "border-amber-200 bg-amber-50/70" : "border-slate-100 bg-slate-50/60"}`;
-    un.innerHTML = `<div class="flex items-center gap-3"><span class="grid h-9 w-9 place-items-center rounded-full ${s.unassigned ? "bg-amber-100 text-amber-700" : "bg-emerald-100 text-emerald-700"}"><svg class="h-4 w-4 fill-none stroke-current" viewBox="0 0 24 24"><path d="M12 8v4m0 4h.01M10.3 3.7 2.6 17a2 2 0 0 0 1.7 3h15.4a2 2 0 0 0 1.7-3L13.7 3.7a2 2 0 0 0-3.4 0Z"/></svg></span><div><strong class="text-sm">${s.unassigned} ${s.unassigned === 1 ? "student" : "students"} not yet assigned</strong><p class="mt-0.5 text-[11px] text-slate-500">${s.unassigned ? "Review active students and add them to a tribe." : "Every active student currently belongs to a tribe."}</p></div></div>${s.students ? '<a class="text-xs font-extrabold text-amber-800" href="pages/adviser/users.html?role=Student&status=active">View students →</a>' : ""}`;
+    un.textContent = s.unassigned
+      ? `⚠ ${s.unassigned.toLocaleString()} ${s.unassigned === 1 ? "student is" : "students are"} unassigned — review students →`
+      : "";
+    un.classList.toggle("hidden", !s.unassigned);
+    un.classList.toggle("inline-flex", !!s.unassigned);
     const rf = $("[data-randomize-form]");
     rf.classList.toggle("hidden", !(s.total && s.students));
     rf.classList.toggle("flex", !!(s.total && s.students));
@@ -80,7 +82,7 @@
       ),
     );
     const ry = $("[data-randomize-year]");
-    const selected = ry.value;
+    const selected = filters.school_year.value || ry.value;
     ry.replaceChildren();
     data.school_years.forEach((y) => {
       const o = new Option(
@@ -97,19 +99,17 @@
   function updateRandomize() {
     const select = $("[data-randomize-year]"),
       b = $("[data-randomize-button]"),
+      status = $("[data-randomize-status]"),
       locked = !!select.selectedOptions[0]?.dataset.randomizedAt;
-    b.disabled = locked;
-    b.textContent = locked ? "Already Randomized" : "Randomize Students";
-    b.title = locked
-      ? "Students for this school year have already been randomized."
-      : "";
+    b.style.display = locked ? "none" : "";
+    status.style.display = locked ? "inline-flex" : "none";
   }
   function renderTeams() {
     list.replaceChildren();
     $("[data-result-count]").textContent =
       `${data.pagination.total} ${data.pagination.total === 1 ? "tribe" : "tribes"} found`;
-    filters.classList.toggle("hidden", data.summary.total === 0);
-    filters.classList.toggle("grid", data.summary.total > 0);
+    filters.classList.remove("hidden");
+    filters.classList.add("grid");
     $("[data-clear-filters]").classList.toggle(
       "hidden",
       ![...new FormData(filters).values()].some(Boolean),
@@ -128,44 +128,38 @@
       const card = document.createElement("article");
       card.className =
         "group overflow-hidden rounded-2xl border border-slate-200 bg-white transition hover:-translate-y-0.5 hover:shadow-lg";
-      card.innerHTML = `<div class="h-1.5" style="background:${t.color}"></div><div class="p-5"><header class="flex items-start justify-between gap-4"><div class="flex min-w-0 items-center gap-3"><span class="grid h-11 w-11 place-items-center rounded-xl text-sm font-black text-white" style="background:${t.color}">${t.name.slice(0, 2).toUpperCase()}</span><div><h3 class="truncate text-base font-extrabold">${escapeHtml(t.name)}</h3><p class="text-xs text-slate-400">School Year ${escapeHtml(t.school_year_label)}</p></div></div><span class="rounded-full px-2.5 py-1 text-[10px] font-extrabold ${t.is_active ? "bg-[#C6F24E]/35 text-[#397565]" : "bg-[#FF6B2C]/10 text-[#FF6B2C]"}">${t.is_active ? "Active" : "Inactive"}</span></header><div class="mt-5 grid grid-cols-2 divide-x rounded-xl bg-slate-50 py-3"><div class="px-3"><small class="uppercase text-slate-400">Members</small><strong class="block text-xl">${t.members_count}</strong></div><div class="px-4"><small class="uppercase text-slate-400">Total Score</small><strong class="block text-xl">${Number(t.scores_sum_points).toLocaleString()} <small>pts</small></strong></div></div><div class="mt-5 min-h-12" data-members></div><footer class="mt-5 flex justify-between border-t pt-4" data-actions></footer></div>`;
+      card.innerHTML = `<div class="h-1.5" style="background:${t.color}"></div><div class="p-5"><header class="flex items-start justify-between gap-4"><div class="flex min-w-0 items-center gap-3"><span class="grid h-11 w-11 place-items-center rounded-xl text-sm font-black text-white" style="background:${t.color}">${initials(t.name)}</span><div class="min-w-0"><h3 class="truncate text-base font-extrabold">${escapeHtml(t.name)}</h3><p class="mt-0.5 text-xs text-slate-400">SY ${escapeHtml(t.school_year_label)} · ${t.members_count} ${t.members_count === 1 ? "student" : "students"}</p></div></div><span class="rounded-full px-2.5 py-1 text-[10px] font-extrabold ${t.is_active ? "bg-[#C6F24E]/35 text-[#397565]" : "bg-[#FF6B2C]/10 text-[#FF6B2C]"}">${t.is_active ? "Active" : "Inactive"}</span></header><div class="mt-5 min-h-12" data-members></div><footer class="mt-5 flex items-center justify-between border-t border-slate-100 pt-4" data-actions></footer></div>`;
       const mh = card.querySelector("[data-members]");
       if (t.members.length) {
-        const row = document.createElement("div");
-        row.className = "flex items-center justify-between";
-        const avatars = document.createElement("div");
-        avatars.className = "flex pl-1";
-        t.members.slice(0, 5).forEach((m) => {
-          const a = document.createElement("span");
-          a.className =
-            "-ml-1 grid h-9 w-9 place-items-center rounded-full border-2 border-white bg-[#121017] text-[9px] font-extrabold text-white";
-          a.textContent = initials(m.full_name);
-          a.title = m.full_name;
-          avatars.append(a);
+        const members = document.createElement("div");
+        members.className = "grid gap-3";
+        t.members.slice(0, 3).forEach((m) => {
+          const row = document.createElement("div");
+          row.className = "flex min-w-0 items-center gap-3";
+          row.innerHTML = `<span class="grid h-8 w-8 shrink-0 place-items-center rounded-full text-[9px] font-black text-white" style="background:${t.color}">${initials(m.full_name)}</span><span class="min-w-0"><strong class="block truncate text-xs text-[#121017]">${escapeHtml(m.full_name)}</strong><small class="block truncate text-[10px] text-slate-400">${escapeHtml(m.id_number || m.year_level_label || "Student")}</small></span>`;
+          members.append(row);
         });
-        row.append(
-          avatars,
-          document.createTextNode(
-            t.members_count > 5
-              ? `+${t.members_count - 5} more`
-              : `${t.members_count === 1 ? "student" : "students"}`,
-          ),
-        );
-        mh.append(row);
+        if (t.members_count > 3) {
+          const more = document.createElement("span");
+          more.className = "pl-11 text-[11px] font-extrabold text-[#397565]";
+          more.textContent = `+${t.members_count - 3} more`;
+          members.append(more);
+        }
+        mh.append(members);
       } else
         mh.innerHTML =
           '<div class="rounded-xl border border-dashed px-3 py-2.5 text-center text-xs text-slate-400">No students assigned yet</div>';
       const acts = card.querySelector("[data-actions]");
       acts.append(
         button(
-          "Edit tribe",
-          "min-h-10 rounded-xl border border-[#397565]/25 bg-[#397565]/8 px-3.5 text-xs font-extrabold text-[#397565]",
-          () => openTeam(t),
+          "View members →",
+          "min-h-10 text-xs font-extrabold text-[#397565]",
+          () => openTeam(t, true),
         ),
         button(
-          t.is_active ? "Deactivate" : "Activate",
-          `min-h-10 rounded-xl border px-3.5 text-xs font-extrabold ${t.is_active ? "border-[#FF6B2C]/25 bg-[#FF6B2C]/9 text-[#d9470a]" : "border-[#397565]/25 bg-[#C6F24E]/30 text-[#397565]"}`,
-          () => toggle(t),
+          "⋯",
+          "grid h-10 w-10 place-items-center rounded-xl border border-slate-200 text-lg font-black text-slate-500 transition hover:border-[#397565]/30 hover:bg-slate-50",
+          (event) => openTeamMenu(event.currentTarget, t),
         ),
       );
       list.append(card);
@@ -176,6 +170,39 @@
     const d = document.createElement("div");
     d.textContent = v ?? "";
     return d.innerHTML;
+  }
+  function closeTeamMenu() {
+    document.querySelector("[data-team-actions-menu]")?.remove();
+  }
+  function openTeamMenu(anchor, team) {
+    closeTeamMenu();
+    const menu = document.createElement("div");
+    menu.dataset.teamActionsMenu = "";
+    menu.className =
+      "fixed z-[80] w-52 rounded-xl border border-slate-200 bg-white p-1.5 shadow-2xl";
+    const item = (label, action, danger = false) => {
+      const control = button(
+        label,
+        `block w-full rounded-lg px-3 py-2.5 text-left text-xs font-bold transition hover:bg-slate-50 ${danger ? "text-[#d9470a]" : "text-[#121017]"}`,
+        () => {
+          closeTeamMenu();
+          action();
+        },
+      );
+      menu.append(control);
+    };
+    item("View members", () => openTeam(team, true));
+    item("Edit tribe", () => openTeam(team));
+    item("Change members", () => openTeam(team, true));
+    const rule = document.createElement("div");
+    rule.className = "my-1 border-t border-slate-100";
+    menu.append(rule);
+    item(team.is_active ? "Deactivate tribe" : "Activate tribe", () => toggle(team), team.is_active);
+    document.body.append(menu);
+    const rect = anchor.getBoundingClientRect();
+    const menuRect = menu.getBoundingClientRect();
+    menu.style.left = `${Math.max(12, Math.min(innerWidth - menuRect.width - 12, rect.right - menuRect.width))}px`;
+    menu.style.top = `${Math.min(innerHeight - menuRect.height - 12, rect.bottom + 6)}px`;
   }
   function renderPagination() {
     const p = data.pagination,
@@ -245,7 +272,7 @@
       count === 1 ? "member" : "members";
     clearFieldError("member_ids");
   }
-  function openTeam(team = null) {
+  function openTeam(team = null, focusMembers = false) {
     editing = team;
     form.reset();
     clearFormErrors();
@@ -276,6 +303,10 @@
     renderMembers(team?.members.map((m) => Number(m.id)) || []);
     updatePreview();
     dialog.showModal();
+    if (focusMembers)
+      requestAnimationFrame(() =>
+        $("[data-members-section]")?.scrollIntoView({ block: "start" }),
+      );
   }
   function applyColor(color) {
     const normalized = color.toUpperCase();
@@ -498,7 +529,7 @@
       page = 1;
       await load();
       syncUrl();
-    }, 450);
+    }, 320);
   };
   $("[data-clear-filters]").onclick = async (e) => {
     e.preventDefault();
@@ -533,6 +564,15 @@
       );
     }
   };
+  document.addEventListener("click", (event) => {
+    if (
+      !event.target.closest("[data-team-actions-menu]") &&
+      !event.target.closest("[data-actions]")
+    )
+      closeTeamMenu();
+  });
+  addEventListener("resize", closeTeamMenu);
+  addEventListener("scroll", closeTeamMenu, true);
   $('form[action="api/auth.php?action=logout"]').onsubmit = async (e) => {
     e.preventDefault();
     try {
