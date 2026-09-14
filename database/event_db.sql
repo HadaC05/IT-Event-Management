@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Generation Time: Sep 14, 2026 at 02:53 PM
+-- Generation Time: Sep 14, 2026 at 07:48 PM
 -- Server version: 10.4.32-MariaDB
 -- PHP Version: 8.2.12
 
@@ -196,6 +196,7 @@ CREATE TABLE `tbl_events` (
   `title` varchar(255) NOT NULL,
   `description` text DEFAULT NULL,
   `location` varchar(255) DEFAULT NULL,
+  `location_id` bigint(20) UNSIGNED DEFAULT NULL,
   `audience_type` varchar(30) NOT NULL DEFAULT 'all_students',
   `poster_path` varchar(255) DEFAULT NULL,
   `is_featured` tinyint(1) NOT NULL DEFAULT 0,
@@ -215,8 +216,8 @@ CREATE TABLE `tbl_events` (
 -- Dumping data for table `tbl_events`
 --
 
-INSERT INTO `tbl_events` (`id`, `title`, `description`, `location`, `audience_type`, `poster_path`, `is_featured`, `featured_order`, `featured_until`, `start_at`, `end_at`, `event_type_id`, `event_status_id`, `created_by`, `created_at`, `updated_at`, `deleted_at`) VALUES
-(1, 'IT Days 2026', 'test', 'PHINMA COC Carmen Campus', 'selected_year_levels', 'assets/uploads/event-posters/W70sh2mMP9zsCz9YO3UPVGVwrOIHFGGbNVLF268j.png', 0, NULL, NULL, '2026-09-12 08:00:00', '2026-09-12 18:00:00', 1, 3, 14, '2026-09-11 15:48:49', '2026-09-13 05:43:00', NULL);
+INSERT INTO `tbl_events` (`id`, `title`, `description`, `location`, `location_id`, `audience_type`, `poster_path`, `is_featured`, `featured_order`, `featured_until`, `start_at`, `end_at`, `event_type_id`, `event_status_id`, `created_by`, `created_at`, `updated_at`, `deleted_at`) VALUES
+(1, 'IT Days 2026', 'test', 'PHINMA COC Carmen Campus', 1, 'selected_year_levels', 'assets/uploads/event-posters/W70sh2mMP9zsCz9YO3UPVGVwrOIHFGGbNVLF268j.png', 0, NULL, NULL, '2026-09-12 08:00:00', '2026-09-12 18:00:00', 1, 3, 14, '2026-09-11 15:48:49', '2026-09-13 05:43:00', NULL);
 
 -- --------------------------------------------------------
 
@@ -441,6 +442,10 @@ CREATE TABLE `tbl_locations` (
   `id` bigint(20) UNSIGNED NOT NULL,
   `name` varchar(255) NOT NULL,
   `type` enum('general','specific') NOT NULL,
+  `parent_location_id` bigint(20) UNSIGNED DEFAULT NULL,
+  `latitude` decimal(10,7) DEFAULT NULL,
+  `longitude` decimal(10,7) DEFAULT NULL,
+  `radius` decimal(10,2) DEFAULT NULL COMMENT 'Square geofence center-to-edge distance in meters',
   `created_at` timestamp NULL DEFAULT NULL,
   `updated_at` timestamp NULL DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -449,10 +454,12 @@ CREATE TABLE `tbl_locations` (
 -- Dumping data for table `tbl_locations`
 --
 
-INSERT INTO `tbl_locations` (`id`, `name`, `type`, `created_at`, `updated_at`) VALUES
-(1, 'PHINMA COC Carmen Campus', 'general', '2026-09-11 15:45:47', '2026-09-11 15:45:47'),
-(2, 'MS Computer Lab 1', 'specific', '2026-09-11 15:45:47', '2026-09-11 15:45:47'),
-(3, 'PH 310', 'specific', '2026-09-11 15:45:47', '2026-09-11 15:45:47');
+INSERT INTO `tbl_locations` (`id`, `name`, `type`, `parent_location_id`, `latitude`, `longitude`, `radius`, `created_at`, `updated_at`) VALUES
+(1, 'PHINMA COC Carmen Campus', 'general', NULL, NULL, NULL, NULL, '2026-09-11 15:45:47', '2026-09-11 15:45:47'),
+(2, 'MS Computer Lab 1', 'specific', 1, NULL, NULL, NULL, '2026-09-11 15:45:47', '2026-09-11 15:45:47'),
+(3, 'PH 310', 'specific', 1, NULL, NULL, NULL, '2026-09-11 15:45:47', '2026-09-11 15:45:47'),
+(4, 'jessss', 'general', NULL, 8.4702571, 124.6341782, 1.00, '2026-09-14 16:00:32', '2026-09-14 16:00:32'),
+(5, 'Kk', 'general', NULL, 8.4699237, 124.6342058, 20.00, '2026-09-14 16:55:10', '2026-09-14 16:55:10');
 
 -- --------------------------------------------------------
 
@@ -1060,7 +1067,8 @@ ALTER TABLE `tbl_events`
   ADD KEY `events_event_type_id_foreign` (`event_type_id`),
   ADD KEY `events_event_status_id_foreign` (`event_status_id`),
   ADD KEY `events_created_by_foreign` (`created_by`),
-  ADD KEY `events_is_featured_featured_order_index` (`is_featured`,`featured_order`);
+  ADD KEY `events_is_featured_featured_order_index` (`is_featured`,`featured_order`),
+  ADD KEY `events_location_id_index` (`location_id`);
 
 --
 -- Indexes for table `tbl_event_activities`
@@ -1149,7 +1157,8 @@ ALTER TABLE `tbl_job_batches`
 --
 ALTER TABLE `tbl_locations`
   ADD PRIMARY KEY (`id`),
-  ADD UNIQUE KEY `locations_name_unique` (`name`);
+  ADD UNIQUE KEY `locations_name_unique` (`name`),
+  ADD KEY `locations_parent_location_id_index` (`parent_location_id`);
 
 --
 -- Indexes for table `tbl_migrations`
@@ -1433,7 +1442,7 @@ ALTER TABLE `tbl_jobs`
 -- AUTO_INCREMENT for table `tbl_locations`
 --
 ALTER TABLE `tbl_locations`
-  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
+  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=6;
 
 --
 -- AUTO_INCREMENT for table `tbl_migrations`
@@ -1588,7 +1597,8 @@ ALTER TABLE `tbl_attendance_qr_tokens`
 ALTER TABLE `tbl_events`
   ADD CONSTRAINT `events_created_by_foreign` FOREIGN KEY (`created_by`) REFERENCES `tbl_users` (`id`) ON DELETE SET NULL,
   ADD CONSTRAINT `events_event_status_id_foreign` FOREIGN KEY (`event_status_id`) REFERENCES `tbl_event_statuses` (`id`) ON DELETE SET NULL,
-  ADD CONSTRAINT `events_event_type_id_foreign` FOREIGN KEY (`event_type_id`) REFERENCES `tbl_event_types` (`id`) ON DELETE SET NULL;
+  ADD CONSTRAINT `events_event_type_id_foreign` FOREIGN KEY (`event_type_id`) REFERENCES `tbl_event_types` (`id`) ON DELETE SET NULL,
+  ADD CONSTRAINT `events_location_id_foreign` FOREIGN KEY (`location_id`) REFERENCES `tbl_locations` (`id`) ON DELETE SET NULL;
 
 --
 -- Constraints for table `tbl_event_activities`
@@ -1631,6 +1641,12 @@ ALTER TABLE `tbl_event_user`
 ALTER TABLE `tbl_event_year_level`
   ADD CONSTRAINT `event_year_level_event_id_foreign` FOREIGN KEY (`event_id`) REFERENCES `tbl_events` (`id`) ON DELETE CASCADE,
   ADD CONSTRAINT `event_year_level_year_level_id_foreign` FOREIGN KEY (`year_level_id`) REFERENCES `tbl_year_levels` (`id`) ON DELETE CASCADE;
+
+--
+-- Constraints for table `tbl_locations`
+--
+ALTER TABLE `tbl_locations`
+  ADD CONSTRAINT `locations_parent_location_id_foreign` FOREIGN KEY (`parent_location_id`) REFERENCES `tbl_locations` (`id`);
 
 --
 -- Constraints for table `tbl_posts`

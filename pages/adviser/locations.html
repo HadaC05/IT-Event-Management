@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <base href="/IT-Event-Management/">
+    <meta name="csrf-token" content="">
+    <title>Location Management | CITE Events</title>
+    <link rel="icon" href="assets/images/cite_favicon.png">
+    <link rel="stylesheet" href="css/tailwind.css">
+    <script src="js/shared/notifications.js" defer></script>
+    <script src="js/shared/interactions.js" defer></script>
+</head>
+<body class="app-shell min-h-screen bg-white font-sans text-[#121017] antialiased" data-admin-shell>
+    <span class="route-progress" data-route-progress data-active="false" aria-hidden="true"></span>
+    <aside class="fixed inset-y-0 left-0 z-40 flex w-64 -translate-x-full flex-col overflow-y-auto bg-[#121017] px-5 pb-5 pt-5 text-[#F3F0E9] shadow-2xl transition-transform duration-200 lg:translate-x-0 lg:shadow-none" id="sidebar">
+        <a class="mb-10 flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[.07] p-3 text-xl font-extrabold tracking-tight" href="pages/adviser/dashboard.html"><img class="h-10 w-10 rounded-full object-contain" src="assets/images/cite-logo.png" alt="CITE logo"><span class="grid leading-tight">CITE<span class="text-[9px] font-bold uppercase tracking-[.15em] text-[#F3F0E9]/45">Events Admin</span></span></a>
+        <nav class="grid gap-2" aria-label="Main navigation">
+            <a href="pages/adviser/dashboard.html" class="flex min-h-12 items-center gap-3 rounded-xl px-4 text-sm font-bold text-[#F3F0E9]/65 hover:bg-white/5"><svg class="h-5 w-5 fill-none stroke-current" viewBox="0 0 24 24"><path d="M4 13h6V4H4v9Zm0 7h6v-4H4v4Zm10 0h6v-9h-6v9Zm0-16v4h6V4h-6Z"/></svg>Dashboard</a>
+            <a href="pages/adviser/users.html" class="flex min-h-12 items-center gap-3 rounded-xl px-4 text-sm font-bold text-[#F3F0E9]/65 hover:bg-white/5"><svg class="h-5 w-5 fill-none stroke-current" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm13 10v-2a4 4 0 0 0-3-3.87"/></svg>User Management</a>
+            <a href="pages/adviser/officers.html" class="flex min-h-12 items-center gap-3 rounded-xl px-4 text-sm font-bold text-[#F3F0E9]/65 hover:bg-white/5"><svg class="h-5 w-5 fill-none stroke-current" viewBox="0 0 24 24"><path d="M12 3 4 7v5c0 4.6 3.2 7.8 8 9 4.8-1.2 8-4.4 8-9V7l-8-4Z"/></svg>Officer Management</a>
+            <a href="pages/adviser/teams.html" class="flex min-h-12 items-center gap-3 rounded-xl px-4 text-sm font-bold text-[#F3F0E9]/65 hover:bg-white/5"><svg class="h-5 w-5 fill-none stroke-current" viewBox="0 0 24 24"><path d="M8 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6Zm8 0a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM2 20v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2"/></svg>Team Management</a>
+            <a href="pages/adviser/events.html" class="flex min-h-12 items-center gap-3 rounded-xl px-4 text-sm font-bold text-[#F3F0E9]/65 hover:bg-white/5"><svg class="h-5 w-5 fill-none stroke-current" viewBox="0 0 24 24"><path d="M6 2v4m12-4v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14H3V6a2 2 0 0 1 2-2Z"/></svg>Event Management</a>
+            <a href="pages/adviser/locations.html" class="flex min-h-12 items-center gap-3 rounded-xl bg-[#397565] px-4 text-sm font-bold text-white shadow-lg shadow-black/10"><svg class="h-5 w-5 fill-none stroke-current" viewBox="0 0 24 24"><path d="M20 10c0 5-8 11-8 11S4 15 4 10a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="2.5"/></svg>Locations</a>
+            <a href="pages/adviser/attendance.html" class="flex min-h-12 items-center gap-3 rounded-xl px-4 text-sm font-bold text-[#F3F0E9]/65 hover:bg-white/5"><svg class="h-5 w-5 fill-none stroke-current" viewBox="0 0 24 24"><path d="M9 11l2 2 4-4m6 3a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/></svg>Attendance</a>
+            <a href="pages/adviser/scores.html" class="flex min-h-12 items-center gap-3 rounded-xl px-4 text-sm font-bold text-[#F3F0E9]/65 hover:bg-white/5"><svg class="h-5 w-5 fill-none stroke-current" viewBox="0 0 24 24"><path d="M8 21h8M12 17v4M7 4h10v4a5 5 0 0 1-10 0V4Z"/></svg>Scores</a>
+            <a href="pages/adviser/leaderboard.html" class="flex min-h-12 items-center gap-3 rounded-xl px-4 text-sm font-bold text-[#F3F0E9]/65 hover:bg-white/5"><svg class="h-5 w-5 fill-none stroke-current" viewBox="0 0 24 24"><path d="M4 20V10h4v10H4Zm6 0V4h4v16h-4Zm6 0v-7h4v7h-4Z"/></svg>Leaderboard</a>
+            <a href="pages/adviser/announcements.html" class="flex min-h-12 items-center gap-3 rounded-xl px-4 text-sm font-bold text-[#F3F0E9]/65 hover:bg-white/5"><svg class="h-5 w-5 fill-none stroke-current" viewBox="0 0 24 24"><path d="M4 13V9l11-5v14L4 13Z"/></svg>Announcements</a>
+            <a href="pages/adviser/reports.html" class="flex min-h-12 items-center gap-3 rounded-xl px-4 text-sm font-bold text-[#F3F0E9]/65 hover:bg-white/5"><svg class="h-5 w-5 fill-none stroke-current" viewBox="0 0 24 24"><path d="M5 3h10l4 4v14H5V3Zm10 0v5h4M8 12h8"/></svg>Reports</a>
+            <a href="pages/adviser/posts.html" class="flex min-h-12 items-center gap-3 rounded-xl px-4 text-sm font-bold text-[#F3F0E9]/65 hover:bg-white/5"><svg class="h-5 w-5 fill-none stroke-current" viewBox="0 0 24 24"><path d="M4 5h16v12H8l-4 4V5Z"/></svg>Post Review</a>
+        </nav>
+        <p class="mt-auto px-3 text-[9px] font-bold uppercase tracking-[.15em] text-[#F3F0E9]/30">Campus Event Management</p>
+    </aside>
+
+    <div class="min-h-screen lg:ml-64">
+        <header class="sticky top-0 z-30 border-b border-[#397565]/25 bg-[#DDEBE6]/90">
+            <div class="mx-auto flex h-[72px] w-full max-w-[1500px] items-center gap-3 px-4 sm:px-6 lg:px-10 xl:px-16">
+                <button class="grid h-10 w-10 place-items-center rounded-xl border border-[#121017]/10 lg:hidden" type="button" data-sidebar-toggle aria-controls="sidebar" aria-label="Open navigation"><svg class="h-5 w-5 fill-none stroke-current stroke-2" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button>
+                <details class="group relative ml-auto" data-account-menu><summary class="flex min-h-11 cursor-pointer list-none items-center gap-2 rounded-xl px-2"><span class="grid h-9 w-9 place-items-center rounded-full bg-[#C6F24E] text-xs font-black">SA</span><span class="hidden text-left sm:grid"><strong class="text-xs font-black">SBO Adviser</strong><small class="text-[9px] font-bold uppercase text-[#397565]">SBO Adviser</small></span></summary><div class="absolute right-0 top-[calc(100%+.65rem)] w-64 rounded-2xl border border-[#121017]/10 bg-white p-2 shadow-2xl"><div class="border-b border-[#121017]/7 px-3 py-3"><strong class="block truncate text-sm">SBO Adviser</strong><span class="block truncate text-xs text-[#121017]/45">Account</span></div><form data-logout-form><button class="mt-2 min-h-10 w-full rounded-xl px-3 text-left text-xs font-bold text-[#FF6B2C]" type="submit">Sign out</button></form></div></details>
+            </div>
+        </header>
+
+        <main class="admin-main mx-auto w-full max-w-[1500px] px-4 py-7 sm:px-6 lg:px-10 lg:py-9 xl:px-16" data-page-content>
+            <header class="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between"><div><p class="text-xs font-black uppercase tracking-[.14em] text-[#397565]">GPS geofences</p><h1 class="mt-2 text-4xl font-black tracking-[-.05em] sm:text-5xl">Locations</h1><p class="mt-3 max-w-2xl text-base leading-7 text-[#121017]/55">Manage the square GPS boundaries available when creating events.</p></div><button class="min-h-12 rounded-xl bg-[#397565] px-5 text-sm font-black text-white shadow-lg" type="button" data-open-location>+ Create Location</button></header>
+
+            <section class="mt-7 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+                <header class="border-b border-slate-100 p-4 sm:p-5">
+                    <div class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between"><div><p class="text-xs font-black uppercase tracking-wider text-[#397565]">Saved boundaries</p><h2 class="mt-1 text-xl font-black">Location records</h2><p class="mt-1 text-xs text-slate-400" data-location-count>Loading locations...</p></div><button class="hidden text-xs font-black text-[#FF6B2C]" type="button" data-clear-location-filters>Clear filters</button></div>
+                    <form class="mt-5 grid gap-3 md:grid-cols-[1fr_220px_220px_auto]" data-location-filters>
+                        <label class="relative"><span class="sr-only">Search locations</span><svg class="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 fill-none stroke-slate-400 stroke-2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg><input class="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 pl-10 pr-3 text-sm outline-none placeholder:text-slate-400 focus:border-[#397565] focus:bg-white" name="search" maxlength="100" placeholder="Search location name..."></label>
+                        <label><span class="sr-only">Filter by type</span><select class="h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-xs font-bold outline-none focus:border-[#397565]" name="type"><option value="">All location types</option><option value="general">General</option><option value="specific">Specific</option></select></label>
+                        <label><span class="sr-only">Filter by GPS status</span><select class="h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-xs font-bold outline-none focus:border-[#397565]" name="status"><option value="">Any GPS status</option><option value="configured">GPS ready</option><option value="pending">Needs setup</option></select></label>
+                        <button class="h-11 rounded-xl bg-[#397565] px-5 text-xs font-black text-white hover:bg-[#2f6658]" type="submit">Apply Filters</button>
+                    </form>
+                </header>
+                <div class="overflow-x-auto">
+                    <table class="w-full min-w-[850px] border-collapse text-left">
+                        <thead class="bg-slate-50 text-[10px] font-extrabold uppercase tracking-wider text-slate-400"><tr><th class="px-5 py-3.5">Location</th><th class="px-4 py-3.5">Latitude</th><th class="px-4 py-3.5">Longitude</th><th class="px-4 py-3.5">Box radius</th><th class="px-4 py-3.5">Status</th><th class="px-4 py-3.5">Updated</th><th class="px-5 py-3.5 text-right">Actions</th></tr></thead>
+                        <tbody class="divide-y divide-[#121017]/8" data-location-rows><tr><td class="px-5 py-12 text-center text-sm text-[#121017]/45" colspan="7">Loading locations...</td></tr></tbody>
+                    </table>
+                </div>
+                <nav class="hidden items-center justify-between border-t border-slate-100 px-5 py-4 text-xs" data-location-pagination></nav>
+            </section>
+        </main>
+    </div>
+    <dialog class="m-auto max-h-[calc(100vh_-_2rem)] w-[min(720px,calc(100%_-_2rem))] overflow-y-auto rounded-2xl border-0 bg-white p-0 shadow-2xl backdrop:bg-[#121017]/60" data-location-dialog>
+        <form data-location-form>
+            <input type="hidden" name="action" value="create">
+            <input type="hidden" name="id">
+            <header class="sticky top-0 z-10 flex items-start justify-between gap-4 border-b border-[#121017]/8 border-t-4 border-t-[#397565] bg-white px-5 py-4 sm:px-6"><div><p class="text-xs font-black uppercase tracking-wider text-[#397565]" data-dialog-kicker>New GPS boundary</p><h2 class="mt-1 text-2xl font-black" data-dialog-title>Create Location</h2><p class="mt-1 text-sm text-[#121017]/50">Capture a live coordinate and set its square range.</p></div><button class="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#F3F0E9] text-xl" type="button" data-close-location aria-label="Close">×</button></header>
+            <div class="grid gap-5 p-5 sm:p-6">
+                <div class="grid gap-4 sm:grid-cols-2">
+                    <label class="grid gap-2"><span class="text-sm font-bold">Location name <i class="text-[#FF6B2C]">*</i></span><input class="h-12 rounded-xl border border-[#121017]/12 px-3 text-sm outline-none focus:border-[#397565]" name="name" maxlength="255" placeholder="Example: CITE Activity Hall" required></label>
+                    <label class="grid gap-2"><span class="text-sm font-bold">Location type <i class="text-[#FF6B2C]">*</i></span><select class="h-12 rounded-xl border border-[#121017]/12 bg-white px-3 text-sm outline-none focus:border-[#397565]" name="type" required><option value="">Select location type</option><option value="general">General</option><option value="specific">Specific</option></select></label>
+                    <label class="hidden grid gap-2 sm:col-span-2" data-parent-location-wrap><span class="text-sm font-bold">General location <i class="text-[#FF6B2C]">*</i></span><select class="h-12 rounded-xl border border-[#121017]/12 bg-white px-3 text-sm outline-none focus:border-[#397565]" name="parent_location_id" disabled><option value="">Select the containing general location</option></select><small class="text-xs leading-5 text-[#121017]/45">Choose the campus, building, or main area that contains this specific room or venue.</small></label>
+                </div>
+                <section class="rounded-2xl border border-[#397565]/20 bg-[#397565]/5 p-4" aria-live="polite"><div class="flex flex-wrap items-center justify-between gap-3"><div><span class="text-[10px] font-black uppercase tracking-wider text-[#397565]">Live device GPS</span><p class="mt-1 text-xs text-[#121017]/50" data-gps-message>GPS is turned off.</p></div><div class="flex gap-2"><button class="min-h-11 rounded-xl border border-[#397565]/20 bg-white px-4 text-xs font-black text-[#397565] disabled:cursor-not-allowed disabled:opacity-40" type="button" data-gps-refresh disabled>Update</button><button class="min-h-11 rounded-xl bg-[#397565] px-4 text-xs font-black text-white" type="button" data-gps-toggle>Turn On GPS</button></div></div><dl class="mt-4 grid grid-cols-2 gap-3"><div class="rounded-xl bg-white p-3"><dt class="text-[9px] font-black uppercase text-[#121017]/40">Latitude</dt><dd class="mt-1 text-sm font-black" data-live-latitude>-</dd></div><div class="rounded-xl bg-white p-3"><dt class="text-[9px] font-black uppercase text-[#121017]/40">Longitude</dt><dd class="mt-1 text-sm font-black" data-live-longitude>-</dd></div><div class="rounded-xl bg-white p-3"><dt class="text-[9px] font-black uppercase text-[#121017]/40">Accuracy</dt><dd class="mt-1 text-sm font-black" data-live-accuracy>-</dd></div><div class="rounded-xl bg-white p-3"><dt class="text-[9px] font-black uppercase text-[#121017]/40">Updated</dt><dd class="mt-1 text-sm font-black" data-live-time>-</dd></div></dl><div class="mt-3 hidden items-start gap-2 rounded-xl border px-3 py-2.5" data-accuracy-warning role="alert"><svg class="mt-0.5 h-4 w-4 shrink-0 fill-none stroke-current stroke-2" viewBox="0 0 24 24"><path d="M12 9v4m0 4h.01M10.3 3.6 2.4 17.2A2 2 0 0 0 4.1 20h15.8a2 2 0 0 0 1.7-2.8L13.7 3.6a2 2 0 0 0-3.4 0Z"/></svg><p class="text-xs font-bold leading-5" data-accuracy-warning-text></p></div><button class="mt-4 min-h-11 w-full rounded-xl bg-[#2F3AE0] px-4 text-sm font-black text-white disabled:opacity-40" type="button" data-apply-coordinates disabled>Apply Current Coordinates</button></section>
+                <div class="grid gap-4 sm:grid-cols-2"><label class="grid gap-2"><span class="text-sm font-bold">Applied latitude <i class="text-[#FF6B2C]">*</i></span><input class="h-12 min-w-0 rounded-xl border border-[#121017]/12 bg-[#F3F0E9]/45 px-3 text-sm" name="latitude" required readonly></label><label class="grid gap-2"><span class="text-sm font-bold">Applied longitude <i class="text-[#FF6B2C]">*</i></span><input class="h-12 min-w-0 rounded-xl border border-[#121017]/12 bg-[#F3F0E9]/45 px-3 text-sm" name="longitude" required readonly></label></div>
+                <label class="grid gap-2"><span class="text-sm font-bold">Box radius in meters <i class="text-[#FF6B2C]">*</i></span><input class="h-12 rounded-xl border border-[#121017]/12 px-3 text-sm outline-none focus:border-[#397565]" name="radius" type="number" min="0.01" max="100000" step="0.01" placeholder="Example: 50" required><small class="text-xs leading-5 text-[#121017]/45">The box extends this distance north, south, east, and west from the applied coordinate.</small></label>
+                <section class="hidden rounded-xl border p-4" data-range-preview aria-live="polite"><strong class="block text-sm" data-range-state></strong><p class="mt-1 text-xs leading-5 text-[#121017]/55" data-range-details></p></section>
+            </div>
+            <footer class="sticky bottom-0 flex justify-end gap-3 border-t border-[#121017]/8 bg-white px-5 py-4 sm:px-6"><button class="min-h-11 rounded-xl border border-[#121017]/12 px-5 text-sm font-bold" type="button" data-close-location>Cancel</button><button class="min-h-11 rounded-xl bg-[#397565] px-5 text-sm font-black text-white disabled:opacity-50" type="submit" data-save-location>Create Location</button></footer>
+        </form>
+    </dialog>
+    <button class="fixed inset-0 z-30 hidden bg-[#121017]/60 lg:hidden" data-sidebar-scrim data-sidebar-toggle aria-label="Close navigation"></button>
+    <div class="pointer-events-none fixed right-4 top-4 z-[80] grid w-[min(380px,calc(100%_-_2rem))] gap-3" data-notification-region aria-live="polite"></div>
+    <script src="js/vendor/axios.min.js"></script>
+    <script src="js/adviser/locations.js?v=20260915-2"></script>
+</body>
+</html>

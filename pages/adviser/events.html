@@ -79,6 +79,7 @@
             /></svg
           >Event Management</a
         >
+            <a href="pages/adviser/locations.html" class="flex min-h-12 items-center gap-3 rounded-xl px-4 text-sm font-bold text-[#F3F0E9]/65 transition hover:bg-white/5 hover:text-[#F3F0E9]"><svg class="h-5 w-5 fill-none stroke-current" viewBox="0 0 24 24"><path d="M20 10c0 5-8 11-8 11S4 15 4 10a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="2.5"/></svg>Locations</a>
         <a
           href="pages/adviser/attendance.html"
           class="flex min-h-12 items-center gap-3 rounded-xl px-4 text-sm font-bold text-[#F3F0E9]/65"
@@ -470,21 +471,27 @@
                 04 · Additional details
               </p>
             </header>
-            <label class="mb-5 grid gap-2"
-              ><span class="text-xs font-bold text-slate-700"
-                >Location <i class="text-rose-500">*</i></span
-              ><select
-                class="h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm"
-                name="location"
-                required
-              >
-                <option value="">Select location</option>
-              </select>
-              <p
-                class="hidden text-xs font-semibold text-red-600"
-                data-error-for="location"
-              ></p
-            ></label>
+            <div class="mb-5 grid gap-4 sm:grid-cols-2">
+              <label class="grid gap-2"
+                ><span class="text-xs font-bold text-slate-700"
+                  >General location <i class="text-rose-500">*</i></span
+                ><select
+                  class="h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm"
+                  name="general_location_id"
+                  required
+                >
+                  <option value="">Select general location</option>
+                </select>
+                <p class="hidden text-xs font-semibold text-red-600" data-error-for="general_location_id"></p>
+              </label>
+              <label class="grid gap-2"
+                ><span class="text-xs font-bold text-slate-700">Specific location <small class="font-normal text-slate-400">Optional</small></span
+                ><select class="h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm disabled:bg-slate-100 disabled:text-slate-400" name="specific_location_id" disabled>
+                  <option value="">Use the general location</option>
+                </select>
+                <p class="hidden text-xs font-semibold text-red-600" data-error-for="specific_location_id"></p>
+              </label>
+            </div>
             <div
               class="hidden rounded-xl border border-amber-200 bg-amber-50 px-4 py-3"
               data-conflict-warning
@@ -615,7 +622,7 @@
       data-sidebar-toggle
     ></button>
     <script src="js/vendor/axios.min.js"></script>
-    <script src="js/adviser/event-form.js"></script>
-    <script src="js/adviser/events.js"></script>
+    <script src="js/adviser/event-form.js?v=20260915-2"></script>
+    <script src="js/adviser/events.js?v=20260915-2"></script>
   </body>
 </html>

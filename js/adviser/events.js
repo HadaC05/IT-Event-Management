@@ -422,5 +422,16 @@
       account.querySelector("div>div span").textContent = user.email;
       return load();
     })
-    .catch(() => location.replace("./"));
+    .catch((error) => {
+      if ([401, 403].includes(Number(error.response?.status))) {
+        location.replace("./");
+        return;
+      }
+      console.error("Event Management failed to initialize.", error);
+      toast(
+        "error",
+        error.response?.data?.message ||
+          "Event Management could not finish loading. Please refresh the page.",
+      );
+    });
 })();

@@ -34,3 +34,11 @@ dump contains the converted schema, indexes, foreign keys, and existing data.
 For an existing prefixed MySQL database, import
 `database/2026_09_14_add_sbo_module.sql` once to add the SBO event-assignment,
 attendance-entry, scoring, activity, and media relationships.
+
+Import `database/2026_09_14_add_location_geofence.sql` once to add latitude,
+longitude, and square-geofence radius fields to existing locations without
+removing current records.
+
+Then import `database/2026_09_15_link_event_locations.sql` once to relate
+specific locations to a general location and link events to `tbl_locations`
+without removing the existing event location text.

@@ -25,16 +25,45 @@
   ) {
     form.dataset.axiosForm = "";
     const type = form.elements.event_type_id,
-      location = form.elements.location,
+      generalLocation = form.elements.general_location_id,
+      specificLocation = form.elements.specific_location_id,
       audience = form.elements.audience_type,
       save = form.querySelector("[data-save-event]");
     let conflictTimer;
     metadata.event_types.forEach((item) =>
       type.add(option(item.label, item.id)),
     );
-    metadata.locations.forEach((item) =>
-      location.add(option(item.name, item.name)),
-    );
+    const locations = metadata.locations || [];
+    locations
+      .filter((item) => item.type === "general")
+      .forEach((item) => generalLocation.add(option(item.name, item.id)));
+    const fillSpecificLocations = (selected = "") => {
+      const matching = locations.filter(
+        (item) =>
+          item.type === "specific" &&
+          Number(item.parent_location_id) === Number(generalLocation.value),
+      );
+      specificLocation.replaceChildren(
+        option(
+          matching.length
+            ? "Use the general location"
+            : generalLocation.value
+              ? "No specific locations available"
+              : "Select a general location first",
+          "",
+        ),
+      );
+      matching.forEach((item) =>
+        specificLocation.add(option(item.name, item.id)),
+      );
+      specificLocation.disabled = !generalLocation.value || !matching.length;
+      specificLocation.value = matching.some(
+        (item) => Number(item.id) === Number(selected),
+      )
+        ? String(selected)
+        : "";
+    };
+    fillSpecificLocations();
     const fillChecks = (host, items, name, label, selected = []) => {
       host.replaceChildren();
       items.forEach((item) => {
@@ -307,7 +336,17 @@
     if (event) {
       type.value = event.event_type_id || "";
       form.elements.title.value = event.title || "";
-      location.value = event.location || "";
+      const savedLocation =
+        locations.find(
+          (item) => Number(item.id) === Number(event.location_id),
+        ) || locations.find((item) => item.name === event.location);
+      if (savedLocation?.type === "specific") {
+        generalLocation.value = savedLocation.parent_location_id || "";
+        fillSpecificLocations(savedLocation.id);
+      } else {
+        generalLocation.value = savedLocation?.id || "";
+        fillSpecificLocations();
+      }
       audience.value = event.audience_type || "all_students";
       form.elements.description.value = event.description || "";
       if (form.elements.event_status_id)
@@ -369,7 +408,7 @@
       save.disabled =
         !type.value ||
         !form.elements.title.value.trim() ||
-        !location.value ||
+        !generalLocation.value ||
         !audienceReady ||
         !scheduleReady;
     }
@@ -456,7 +495,8 @@
           "start_time",
           "end_date",
           "end_time",
-          "location",
+          "general_location_id",
+          "specific_location_id",
         ].forEach((name) =>
           payload.append(name, form.elements[name].value || ""),
         );
@@ -495,16 +535,24 @@
         } catch {}
       }, 450);
     }
-    ["title", "location"].forEach((name) =>
-      form.elements[name].addEventListener("input", () => {
-        clearError(name);
-        readiness();
-      }),
-    );
+    form.elements.title.addEventListener("input", () => {
+      clearError("title");
+      readiness();
+    });
+    generalLocation.addEventListener("change", () => {
+      fillSpecificLocations();
+      clearError("general_location_id");
+      clearError("specific_location_id");
+      readiness();
+      checkConflicts();
+    });
+    specificLocation.addEventListener("change", () => {
+      clearError("specific_location_id");
+      checkConflicts();
+    });
     form
       .querySelector("[data-assignable-users]")
       .addEventListener("change", checkConflicts);
-    location.addEventListener("change", checkConflicts);
     updateAudience();
     syncSchedules();
     readiness();

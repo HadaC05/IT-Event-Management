@@ -187,11 +187,18 @@ final class EventManagementRepository
         }
         unset($user);
 
+        $locations = $this->db->query("SELECT id,name,type,parent_location_id FROM tbl_locations ORDER BY type,name")->fetchAll();
+        foreach ($locations as &$location) {
+            $location['id'] = (int) $location['id'];
+            $location['parent_location_id'] = $location['parent_location_id'] === null ? null : (int) $location['parent_location_id'];
+        }
+        unset($location);
+
         return [
             'statuses' => $this->db->query('SELECT id,label FROM tbl_event_statuses ORDER BY id')->fetchAll(),
             'event_types' => $this->db->query('SELECT id,label FROM tbl_event_types ORDER BY label')->fetchAll(),
             'attendance_modes' => $this->db->query('SELECT id,code,name FROM tbl_attendance_session_modes ORDER BY id')->fetchAll(),
-            'locations' => $this->db->query("SELECT id,name FROM tbl_locations WHERE type='general' ORDER BY name")->fetchAll(),
+            'locations' => $locations,
             'assignable_users' => $assignableRows,
             'audience_teams' => $teams,
             'audience_year_levels' => $levels,
@@ -213,18 +220,18 @@ final class EventManagementRepository
         try {
             if ($id) {
                 $statement = $this->db->prepare(
-                    "UPDATE tbl_events SET title=?,description=?,location=?,audience_type=?,poster_path=?,
+                    "UPDATE tbl_events SET title=?,description=?,location=?,location_id=?,audience_type=?,poster_path=?,
                      start_at=?,end_at=?,event_type_id=?,event_status_id=?,updated_at=CURRENT_TIMESTAMP WHERE id=?"
                 );
-                $statement->execute([$data['title'], $data['description'], $data['location'], $data['audience_type'], $posterPath,
+                $statement->execute([$data['title'], $data['description'], $data['location'], $data['location_id'], $data['audience_type'], $posterPath,
                     $data['start_at'], $data['end_at'], $data['event_type_id'], $data['event_status_id'], $id]);
             } else {
                 $upcoming = (int) $this->scalar("SELECT id FROM tbl_event_statuses WHERE label='upcoming'");
                 $statement = $this->db->prepare(
-                    "INSERT INTO tbl_events(title,description,location,audience_type,poster_path,start_at,end_at,event_type_id,event_status_id,created_by,is_featured,created_at,updated_at)
-                     VALUES(?,?,?,?,?,?,?,?,?,?,0,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)"
+                    "INSERT INTO tbl_events(title,description,location,location_id,audience_type,poster_path,start_at,end_at,event_type_id,event_status_id,created_by,is_featured,created_at,updated_at)
+                     VALUES(?,?,?,?,?,?,?,?,?,?,?,0,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)"
                 );
-                $statement->execute([$data['title'], $data['description'], $data['location'], $data['audience_type'], $posterPath,
+                $statement->execute([$data['title'], $data['description'], $data['location'], $data['location_id'], $data['audience_type'], $posterPath,
                     $data['start_at'], $data['end_at'], $data['event_type_id'], $upcoming, $actorId]);
                 $id = (int) $this->db->lastInsertId();
             }
@@ -255,11 +262,17 @@ final class EventManagementRepository
         if (!$start || !$end || $end <= $start) {
             return ['has_conflicts' => false, 'conflicts' => ['location' => [], 'people' => []]];
         }
-        $location = trim((string) ($input['location'] ?? ''));
+        $generalLocationId = (int) ($input['general_location_id'] ?? 0);
+        $specificLocationId = (int) ($input['specific_location_id'] ?? 0);
+        $locationId = $specificLocationId ?: $generalLocationId;
+        $locationName = '';
+        if ($locationId) {
+            $locationName = (string) ($this->scalar('SELECT name FROM tbl_locations WHERE id=?', [$locationId]) ?: '');
+        }
         $eventId = (int) ($input['event_id'] ?? 0);
         $users = $this->integerList($input['assigned_user_ids'] ?? []);
         $params = [$end->format('Y-m-d H:i:s'), $start->format('Y-m-d H:i:s')];
-        $sql = 'SELECT id,title,location,start_at,end_at FROM tbl_events WHERE deleted_at IS NULL AND start_at < ? AND end_at > ?';
+        $sql = 'SELECT id,title,location,location_id,start_at,end_at FROM tbl_events WHERE deleted_at IS NULL AND start_at < ? AND end_at > ?';
         if ($eventId) {
             $sql .= ' AND id<>?';
             $params[] = $eventId;
@@ -270,8 +283,10 @@ final class EventManagementRepository
         $peopleConflicts = [];
         foreach ($statement->fetchAll() as $event) {
             $schedule = $this->scheduleLabel($event['start_at'], $event['end_at']);
-            if ($location !== '' && mb_strtolower(trim((string) $event['location'])) === mb_strtolower($location)) {
-                $locationConflicts[] = ['id' => (int) $event['id'], 'title' => $event['title'], 'location' => $location, 'schedule' => $schedule];
+            $sameLocation = $locationId > 0 && (int) ($event['location_id'] ?? 0) === $locationId;
+            $sameLegacyLocation = !$event['location_id'] && $locationName !== '' && mb_strtolower(trim((string) $event['location'])) === mb_strtolower($locationName);
+            if ($sameLocation || $sameLegacyLocation) {
+                $locationConflicts[] = ['id' => (int) $event['id'], 'title' => $event['title'], 'location' => $locationName, 'schedule' => $schedule];
             }
             if ($users) {
                 $marks = implode(',', array_fill(0, count($users), '?'));
@@ -457,13 +472,34 @@ final class EventManagementRepository
         $errors = [];
         $title = trim((string) ($input['title'] ?? ''));
         $description = trim((string) ($input['description'] ?? '')) ?: null;
-        $location = trim((string) ($input['location'] ?? ''));
+        $generalLocationId = (int) ($input['general_location_id'] ?? 0);
+        $specificLocationId = (int) ($input['specific_location_id'] ?? 0);
+        $locationRow = null;
+        if ($generalLocationId > 0) {
+            $statement = $this->db->prepare("SELECT id,name,type,parent_location_id FROM tbl_locations WHERE id=? AND type='general'");
+            $statement->execute([$generalLocationId]);
+            $locationRow = $statement->fetch() ?: null;
+        }
+        if (!$locationRow) {
+            $errors['general_location_id'][] = 'Select a valid general location.';
+        }
+        if ($specificLocationId > 0) {
+            $statement = $this->db->prepare("SELECT id,name,type,parent_location_id FROM tbl_locations WHERE id=? AND type='specific' AND parent_location_id=?");
+            $statement->execute([$specificLocationId, $generalLocationId]);
+            $specificLocation = $statement->fetch() ?: null;
+            if (!$specificLocation) {
+                $errors['specific_location_id'][] = 'Select a specific location inside the chosen general location.';
+            } else {
+                $locationRow = $specificLocation;
+            }
+        }
+        $location = (string) ($locationRow['name'] ?? '');
+        $locationId = isset($locationRow['id']) ? (int) $locationRow['id'] : 0;
         $typeId = (int) ($input['event_type_id'] ?? 0);
         $statusId = (int) ($input['event_status_id'] ?? 0);
         $audienceType = (string) ($input['audience_type'] ?? 'all_students');
         if ($title === '' || mb_strlen($title) > 255) $errors['title'][] = 'Event name is required and may not exceed 255 characters.';
         if ($description !== null && mb_strlen($description) > 5000) $errors['description'][] = 'Description may not exceed 5,000 characters.';
-        if ($location === '' || mb_strlen($location) > 255) $errors['location'][] = 'Select a valid event location.';
         if (!$typeId || !$this->exists('tbl_event_types', $typeId)) $errors['event_type_id'][] = 'Select a valid event type.';
         if (!in_array($audienceType, ['all_students', 'selected_tribes', 'selected_year_levels', 'specific_students'], true)) $errors['audience_type'][] = 'Select a valid participant group.';
         $schedules = $this->validateSchedules($input['attendance_days'] ?? [], $errors);
@@ -481,9 +517,10 @@ final class EventManagementRepository
             $conflicts = $this->conflicts([
                 'start_date' => substr($startAt, 0, 10), 'start_time' => substr($startAt, 11, 5),
                 'end_date' => substr($endAt, 0, 10), 'end_time' => substr($endAt, 11, 5),
-                'location' => $location, 'assigned_user_ids' => $assigned, 'event_id' => $id,
+                'general_location_id' => $generalLocationId, 'specific_location_id' => $specificLocationId,
+                'assigned_user_ids' => $assigned, 'event_id' => $id,
             ]);
-            if ($conflicts['conflicts']['location']) $errors['location'][] = 'Possible scheduling conflict at this location. Review and confirm the warning to continue.';
+            if ($conflicts['conflicts']['location']) $errors['general_location_id'][] = 'Possible scheduling conflict at this location. Review and confirm the warning to continue.';
             if ($conflicts['conflicts']['people']) $errors['assigned_user_ids'][] = 'An Event-in-Charge has a scheduling conflict. Review and confirm the warning to continue.';
         }
         if ($id) {
@@ -492,7 +529,7 @@ final class EventManagementRepository
         }
         if ($errors) throw new EventValidationException($errors);
         return [
-            'title' => $title, 'description' => $description, 'location' => $location, 'event_type_id' => $typeId,
+            'title' => $title, 'description' => $description, 'location' => $location, 'location_id' => $locationId, 'event_type_id' => $typeId,
             'event_status_id' => $statusId, 'audience_type' => $audienceType, 'start_at' => $startAt, 'end_at' => $endAt,
             'schedules' => $schedules, 'assigned_user_ids' => $assigned, 'tribe_ids' => $tribes,
             'year_level_ids' => $yearLevels, 'participant_ids' => $participants,
@@ -645,7 +682,7 @@ final class EventManagementRepository
 
     private function normalizeEvent(array $event): array
     {
-        foreach (['id', 'event_type_id', 'event_status_id', 'created_by', 'featured_order'] as $field) {
+        foreach (['id', 'location_id', 'event_type_id', 'event_status_id', 'created_by', 'featured_order'] as $field) {
             $event[$field] = $event[$field] === null ? null : (int) $event[$field];
         }
         $event['is_featured'] = (bool) $event['is_featured'];
