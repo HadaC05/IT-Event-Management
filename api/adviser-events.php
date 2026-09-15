@@ -355,8 +355,8 @@ final class EventManagementRepository
 
             $copySchedule = $this->db->prepare(
                 'INSERT INTO tbl_event_attendance_schedules
-                 (event_id,schedule_date,attendance_session_mode_id,whole_day_in_time,whole_day_out_time,morning_in_time,morning_out_time,afternoon_in_time,afternoon_out_time,created_at,updated_at)
-                 SELECT ?,schedule_date,attendance_session_mode_id,whole_day_in_time,whole_day_out_time,morning_in_time,morning_out_time,afternoon_in_time,afternoon_out_time,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP
+                 (event_id,schedule_date,attendance_session_mode_id,whole_day_in_time,whole_day_in_close_time,whole_day_out_open_time,whole_day_out_time,morning_in_time,morning_in_close_time,morning_out_open_time,morning_out_time,afternoon_in_time,afternoon_in_close_time,afternoon_out_open_time,afternoon_out_time,created_at,updated_at)
+                 SELECT ?,schedule_date,attendance_session_mode_id,whole_day_in_time,whole_day_in_close_time,whole_day_out_open_time,whole_day_out_time,morning_in_time,morning_in_close_time,morning_out_open_time,morning_out_time,afternoon_in_time,afternoon_in_close_time,afternoon_out_open_time,afternoon_out_time,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP
                  FROM tbl_event_attendance_schedules WHERE event_id=?'
             );
             $copySchedule->execute([$copyId, $id]);
@@ -594,25 +594,38 @@ final class EventManagementRepository
             $code = $modes[$modeId] ?? 'none';
             $times = [
                 'morning_in' => trim((string) ($day['morning_in'] ?? '')),
+                'morning_in_close' => trim((string) ($day['morning_in_close'] ?? '')),
+                'morning_out_open' => trim((string) ($day['morning_out_open'] ?? '')),
                 'morning_out' => trim((string) ($day['morning_out'] ?? '')),
                 'afternoon_in' => trim((string) ($day['afternoon_in'] ?? '')),
+                'afternoon_in_close' => trim((string) ($day['afternoon_in_close'] ?? '')),
+                'afternoon_out_open' => trim((string) ($day['afternoon_out_open'] ?? '')),
                 'afternoon_out' => trim((string) ($day['afternoon_out'] ?? '')),
             ];
-            $activeKeys = $code === 'two_sessions' ? array_keys($times) : ($code === 'whole_day' ? ['morning_in', 'morning_out'] : []);
+            $activeKeys = $code === 'two_sessions' ? array_keys($times) : ($code === 'whole_day' ? ['morning_in', 'morning_in_close', 'morning_out_open', 'morning_out'] : []);
             foreach ($activeKeys as $key) if (!$this->validTime($times[$key])) $errors[$field.'.'.$key][] = 'Enter a valid checkpoint time.';
             if (!$activeKeys && implode('', $times) !== '') $errors[$field.'.morning_in'][] = 'Remove checkpoint times when attendance scanning is off.';
             $activeTimes = array_map(static fn (string $key): string => $times[$key], $activeKeys);
-            if ($activeTimes && $activeTimes !== array_values(array_unique($activeTimes))) $errors[$field.'.morning_in'][] = 'Time checkpoints must be in chronological order.';
-            for ($i = 1; $i < count($activeTimes); $i++) if ($activeTimes[$i] <= $activeTimes[$i - 1]) $errors[$field.'.morning_in'][] = 'Time checkpoints must be in chronological order.';
+            for ($i = 1; $i < count($activeTimes); $i++) {
+                $allowBoundary = in_array($activeKeys[$i], ['morning_out_open', 'afternoon_in', 'afternoon_out_open'], true);
+                if ($activeTimes[$i] < $activeTimes[$i - 1] || (!$allowBoundary && $activeTimes[$i] === $activeTimes[$i - 1]))
+                    $errors[$field.'.'.$activeKeys[$i]][] = 'Scan windows must be chronological and may not overlap.';
+            }
             $startTime = $code === 'none' ? '00:00' : ($times['morning_in'] ?: '00:00');
             $endTime = $code === 'two_sessions' ? ($times['afternoon_out'] ?: '00:00') : ($code === 'whole_day' ? ($times['morning_out'] ?: '00:00') : '23:59');
             $rows[] = [
                 'id' => $scheduleId ?: null, 'schedule_date' => $date, 'attendance_session_mode_id' => $modeId,
                 'whole_day_in_time' => $code === 'whole_day' ? $times['morning_in'] : null,
+                'whole_day_in_close_time' => $code === 'whole_day' ? $times['morning_in_close'] : null,
+                'whole_day_out_open_time' => $code === 'whole_day' ? $times['morning_out_open'] : null,
                 'whole_day_out_time' => $code === 'whole_day' ? $times['morning_out'] : null,
                 'morning_in_time' => $code === 'two_sessions' ? $times['morning_in'] : null,
+                'morning_in_close_time' => $code === 'two_sessions' ? $times['morning_in_close'] : null,
+                'morning_out_open_time' => $code === 'two_sessions' ? $times['morning_out_open'] : null,
                 'morning_out_time' => $code === 'two_sessions' ? $times['morning_out'] : null,
                 'afternoon_in_time' => $code === 'two_sessions' ? $times['afternoon_in'] : null,
+                'afternoon_in_close_time' => $code === 'two_sessions' ? $times['afternoon_in_close'] : null,
+                'afternoon_out_open_time' => $code === 'two_sessions' ? $times['afternoon_out_open'] : null,
                 'afternoon_out_time' => $code === 'two_sessions' ? $times['afternoon_out'] : null,
                 'start_at' => $date.' '.$startTime.':00', 'end_at' => $date.' '.$endTime.':00',
             ];
@@ -667,17 +680,17 @@ final class EventManagementRepository
         }
         $used = [];
         $update = $this->db->prepare(
-            'UPDATE tbl_event_attendance_schedules SET schedule_date=?,attendance_session_mode_id=?,whole_day_in_time=?,whole_day_out_time=?,morning_in_time=?,morning_out_time=?,afternoon_in_time=?,afternoon_out_time=?,updated_at=CURRENT_TIMESTAMP WHERE id=? AND event_id=?'
+            'UPDATE tbl_event_attendance_schedules SET schedule_date=?,attendance_session_mode_id=?,whole_day_in_time=?,whole_day_in_close_time=?,whole_day_out_open_time=?,whole_day_out_time=?,morning_in_time=?,morning_in_close_time=?,morning_out_open_time=?,morning_out_time=?,afternoon_in_time=?,afternoon_in_close_time=?,afternoon_out_open_time=?,afternoon_out_time=?,updated_at=CURRENT_TIMESTAMP WHERE id=? AND event_id=?'
         );
         $insert = $this->db->prepare(
-            "INSERT INTO tbl_event_attendance_schedules(event_id,schedule_date,attendance_session_mode_id,whole_day_in_time,whole_day_out_time,morning_in_time,morning_out_time,afternoon_in_time,afternoon_out_time,created_at,updated_at)
-             VALUES(?,?,?,?,?,?,?,?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)"
+            "INSERT INTO tbl_event_attendance_schedules(event_id,schedule_date,attendance_session_mode_id,whole_day_in_time,whole_day_in_close_time,whole_day_out_open_time,whole_day_out_time,morning_in_time,morning_in_close_time,morning_out_open_time,morning_out_time,afternoon_in_time,afternoon_in_close_time,afternoon_out_open_time,afternoon_out_time,created_at,updated_at)
+             VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)"
         );
         foreach ($schedules as $schedule) {
             $scheduleId = (int) ($schedule['id'] ?? 0);
             if (!$scheduleId && isset($existingByDate[$schedule['schedule_date']]) && !isset($used[$existingByDate[$schedule['schedule_date']]]))
                 $scheduleId = $existingByDate[$schedule['schedule_date']];
-            $values = [$schedule['schedule_date'], $schedule['attendance_session_mode_id'], $schedule['whole_day_in_time'], $schedule['whole_day_out_time'], $schedule['morning_in_time'], $schedule['morning_out_time'], $schedule['afternoon_in_time'], $schedule['afternoon_out_time']];
+            $values = [$schedule['schedule_date'], $schedule['attendance_session_mode_id'], $schedule['whole_day_in_time'], $schedule['whole_day_in_close_time'], $schedule['whole_day_out_open_time'], $schedule['whole_day_out_time'], $schedule['morning_in_time'], $schedule['morning_in_close_time'], $schedule['morning_out_open_time'], $schedule['morning_out_time'], $schedule['afternoon_in_time'], $schedule['afternoon_in_close_time'], $schedule['afternoon_out_open_time'], $schedule['afternoon_out_time']];
             if ($scheduleId && isset($existingById[$scheduleId])) {
                 $update->execute([...$values, $scheduleId, $eventId]);
                 $used[$scheduleId] = true;

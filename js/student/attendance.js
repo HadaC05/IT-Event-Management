@@ -75,26 +75,55 @@
             : '<div class="px-6 py-16 text-center"><h3 class="font-black">No attendance records yet</h3><p class="mt-2 text-sm text-[#121017]/45">Recorded attendance will appear here.</p></div>';
     };
 
+    let qrBusy = false, lastQrFingerprint = '', lastRecordedFingerprint = '', qrReady = null;
+    const displayTime = value => value ? new Intl.DateTimeFormat('en-PH', {hour: 'numeric', minute: '2-digit', timeZone: 'Asia/Manila'})
+        .format(new Date(value.replace(' ', 'T') + '+08:00')) : '—';
+    const qrStatus = card => {
+        if (card.state === 'already_out') return `Already timed out at ${displayTime(card.out_at)}.`;
+        if (card.state === 'waiting_out') return `Already timed in at ${displayTime(card.in_at)}. Waiting for Time Out—available at ${displayTime(card.out_opens_at)}.`;
+        if (card.state === 'out_open') return `Already timed in at ${displayTime(card.in_at)}. Time Out is open now.`;
+        if (card.state === 'in_open') return 'Time In is open now. Show this QR to your assigned officer.';
+        if (card.state === 'waiting_in') return `Waiting for Time In—available at ${displayTime(card.in_opens_at)}.`;
+        if (card.state === 'time_in_required') return 'Time Out is open, but you must have a recorded Time In first.';
+        if (card.state === 'time_in_closed') return `Time In is closed. No QR is scannable in the gap; Time Out opens at ${displayTime(card.out_opens_at)} and requires a prior Time In.`;
+        if (card.state === 'already_in') return `Already timed in at ${displayTime(card.in_at)}.`;
+        return 'No attendance QR is scannable now.';
+    };
     const loadQr = async () => {
+        if (qrBusy || document.hidden) return;
+        qrBusy = true;
         const host = document.querySelector('[data-student-qr]');
         try {
             const response = await axios.post('api/student-attendance-qr.php', {}, {headers: {'X-CSRF-Token': StudentPortal.csrfToken}});
-            const data = response.data.data;
-            if (!data.token) {
-                host.textContent = 'No active attendance session is available for your account.';
-                return;
-            }
-            const module = await import(new URL('js/vendor/qrcode-generator/qrcode.mjs', document.baseURI));
-            const qr = module.default(0, 'M');
-            qr.addData(data.token);
-            qr.make();
-            host.innerHTML = `<p class="text-sm font-bold">${escapeHtml(data.event_name)} · ${escapeHtml(data.session.replace('_', ' '))}</p>${qr.createSvgTag({cellSize:5,margin:20,scalable:true})}`;
-            const svg = host.querySelector('svg');
-            svg?.setAttribute('aria-label', 'Attendance QR token');
-            if (svg) svg.style.maxWidth = '240px';
+            const cards = response.data.data.sessions || [];
+            const fingerprint = JSON.stringify(cards.map(card => [card.event_name,card.session,card.state,card.phase,card.token,card.in_at,card.out_at,card.in_opens_at,card.out_opens_at]));
+            if (fingerprint === lastQrFingerprint) return;
+            const recordedFingerprint = JSON.stringify(cards.map(card => [card.in_at,card.out_at]));
+            const recordChanged = lastRecordedFingerprint && lastRecordedFingerprint !== recordedFingerprint;
+            lastRecordedFingerprint = recordedFingerprint;
+            lastQrFingerprint = fingerprint;
+            if (!cards.length) { host.textContent = 'No event attendance session is scheduled for you today.'; return; }
+            if (cards.some(card => card.token)) qrReady ||= import(new URL('js/vendor/qrcode-generator/qrcode.mjs', document.baseURI));
+            const factory = qrReady ? (await qrReady).default : null;
+            host.innerHTML = cards.map(card => {
+                let svg = '';
+                if (card.token && factory) {
+                    const qr = factory(0, 'M'); qr.addData(card.token); qr.make();
+                    svg = `<div class="mt-3 grid place-items-center rounded-xl bg-white p-3">${qr.createSvgTag({cellSize:5,margin:20,scalable:true})}</div>`;
+                }
+                const label = card.phase === 'out' ? 'Time Out QR' : card.phase === 'in' ? 'Time In QR' : 'Attendance status';
+                return `<article class="rounded-2xl border border-[#397565]/15 bg-[#F7F4ED]/55 p-4" data-qr-phase="${card.phase || 'none'}">
+                    <p class="text-[10px] font-black uppercase tracking-wider text-[#397565]">${escapeHtml(card.event_name)} · ${escapeHtml(card.session.replace('_', ' '))}</p>
+                    <h3 class="mt-1 text-base font-black">${label}</h3>
+                    <p class="mt-2 text-sm leading-6" aria-live="polite">${escapeHtml(qrStatus(card))}</p>${svg}
+                    ${card.token ? '<p class="mt-2 text-xs text-[#121017]/45">QR refreshes automatically and can be used only once.</p>' : ''}
+                </article>`;
+            }).join('');
+            host.querySelectorAll('svg').forEach(svg => { svg.style.maxWidth = '240px'; svg.style.width = '100%'; svg.setAttribute('aria-label', 'Short-lived attendance QR'); });
+            if (recordChanged) refreshHistory().catch(() => {});
         } catch (error) {
             host.textContent = error.response?.data?.message || 'Attendance QR is unavailable.';
-        }
+        } finally { qrBusy = false; }
     };
     document.querySelector('[data-refresh-qr]').addEventListener('click', loadQr);
 
@@ -102,6 +131,8 @@
         await initialize('attendance');
         loadQr();
         await refreshHistory();
+        setInterval(loadQr, 5000);
+        document.addEventListener('visibilitychange', () => { if (!document.hidden) loadQr(); });
     };
 
     load().catch(() => {

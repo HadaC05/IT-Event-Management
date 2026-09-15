@@ -9,7 +9,7 @@
     <link rel="stylesheet" href="css/tailwind.css">
     <script src="js/vendor/axios.min.js" defer></script>
     <script src="js/student/portal.js?v=20260915-2" defer></script>
-    <script src="js/student/attendance.js?v=20260915-4" defer></script>
+    <script src="js/student/attendance.js?v=20260915-5" defer></script>
 </head>
 <body class="min-h-screen bg-[#F7F4ED] font-sans text-[#121017] antialiased">
     <div data-student-sidebar-host></div>
@@ -32,7 +32,7 @@
             <section class="mt-6 grid gap-3 sm:grid-cols-4" data-attendance-summary></section>
             <section class="mt-6 rounded-3xl border border-[#397565]/20 bg-white p-5 sm:p-6" aria-labelledby="student-qr-heading">
                 <h2 class="text-lg font-black" id="student-qr-heading">Your attendance QR</h2>
-                <p class="mt-1 text-xs text-[#121017]/50">Show this same code to your assigned SBO officer for both time in and time out. It contains only a random token, not your personal details.</p>
+                <p class="mt-1 text-xs text-[#121017]/50">Time In and Time Out use different short-lived QRs. Show only the code currently displayed to your assigned SBO officer.</p>
                 <div class="mt-4 grid gap-3" data-student-qr>Checking for an active session…</div>
                 <button class="mt-4 min-h-11 rounded-xl border border-[#397565]/25 bg-white px-4 text-xs font-black text-[#397565]" type="button" data-refresh-qr>Refresh attendance QR</button>
             </section>

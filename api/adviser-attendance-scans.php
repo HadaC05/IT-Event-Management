@@ -19,7 +19,7 @@ final class AdviserAttendanceScanRepository {
             $conditions[]=$column.'=?';$values[]=$value;
         }
         $where=$conditions?' WHERE '.implode(' AND ',$conditions):'';
-        $q=$this->db->prepare("SELECT ae.id,ae.scanned_at,ae.status,ae.session_code,ae.scan_latitude,ae.scan_longitude,
+        $q=$this->db->prepare("SELECT ae.id,ae.scanned_at,ae.status,ae.session_code,ae.phase,ae.scan_latitude,ae.scan_longitude,
             ae.location_accuracy_m,ae.distance_from_venue_m,ae.location_status,ae.location_captured_at,ae.location_unavailable_reason,
             ae.venue_name_snapshot,e.title event_name,s.schedule_date,s.id schedule_id,
             1+(SELECT COUNT(*) FROM tbl_event_attendance_schedules older WHERE older.event_id=s.event_id AND older.schedule_date<s.schedule_date) day_number,

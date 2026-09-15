@@ -26,7 +26,7 @@
           <p class="mt-1 text-xs text-[#121017]/50">${esc(row.id_number)} · ${esc(row.team_name)} · ${esc(row.event_name)} · Day ${row.day_number} · ${esc(row.session_code)}</p></div>
           <strong class="text-xs ${statusClass}">${esc(row.location_status)}</strong></div>
         <div class="mt-3 grid gap-2 text-xs sm:grid-cols-2 xl:grid-cols-3">
-          <p><b>Status:</b> ${esc(row.status)}</p><p><b>Scanned:</b> ${when(row.scanned_at)}</p>
+          <p><b>Phase:</b> ${row.phase==='out'?'Time Out':'Time In'}</p><p><b>Scanned:</b> ${when(row.scanned_at)}</p>
           <p><b>SBO officer:</b> ${esc(row.officer_name)}</p><p><b>Venue:</b> ${esc(row.venue_name_snapshot||'Not configured')}</p>
           <p><b>Coordinates:</b> ${esc(location)}</p><p><b>Accuracy:</b> ${accuracy}</p>
           <p><b>Distance from venue:</b> ${distance}</p><p><b>Location captured:</b> ${row.location_captured_at?when(row.location_captured_at):'—'}</p>

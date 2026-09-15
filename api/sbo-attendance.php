@@ -21,7 +21,10 @@ final class SboAttendanceRepository {
             $start=new DateTimeImmutable($a['schedule_date'].' '.$a['session_start'],new DateTimeZone(self::ZONE));
             if($start>$now&&(!$next||$start<$next['date']))$next=['date'=>$start,'name'=>$a['session_name'],'event'=>$a['event_name']];
         }unset($a);
-        if(!$selected&&count($all)===1)$selected=$all[0];
+        if(!$selected&&$requested===0) {
+            foreach($all as $candidate) if($candidate['is_session_active']) {$selected=$candidate;break;}
+            if(!$selected&&count($all)===1)$selected=$all[0];
+        }
         return ['assignments'=>$all,'selected_assignment'=>$selected,'server_now'=>$now->format('Y-m-d H:i:s'),
             'next_session'=>$next?['name'=>$next['name'],'event'=>$next['event'],'starts_at'=>$next['date']->format('Y-m-d H:i:s')]:null,
             'recent_scans'=>$selected?$this->recent($selected):[],'counts'=>$selected?$this->counts($selected):['total'=>0,'remaining'=>0]];
@@ -34,14 +37,10 @@ final class SboAttendanceRepository {
         $a=$this->auth->assignment($officer,$id,'attendance');
         $checkpoint=(string)($input['checkpoint']??'in');
         if(!in_array($checkpoint,['in','out'],true))throw new InvalidArgumentException('Choose time in or time out.');
-        $zone=new DateTimeZone(self::ZONE);
-        $sessionStart=new DateTimeImmutable($a['schedule_date'].' '.$a['session_start'],$zone);
-        $sessionEnd=new DateTimeImmutable($a['schedule_date'].' '.$a['session_end'],$zone);
         $nowDate=$this->now();
-        $opens=$checkpoint==='in'?$sessionStart->modify('-30 minutes'):$sessionEnd->modify('-30 minutes');
-        $closes=$checkpoint==='in'?$sessionEnd:$sessionEnd->modify('+30 minutes');
-        if(!$a['is_session_active']||$nowDate<$opens||$nowDate>$closes)
-            throw new InvalidArgumentException('Attendance scanning is currently closed.');
+        $windows=AttendanceScanWindows::forSession($a,$a['session_code']);
+        if(!AttendanceScanWindows::isOpen($windows[$checkpoint],$nowDate))
+            throw new InvalidArgumentException('The Time '.($checkpoint==='in'?'In':'Out').' scan window is closed.');
         $a+=$this->venue((int)$a['event_id']);
         $mode=(string)($input['mode']??'qr');
         if(!in_array($mode,['qr','manual'],true))throw new InvalidArgumentException('Invalid scan mode.');
@@ -49,9 +48,11 @@ final class SboAttendanceRepository {
         if($value===''||strlen($value)>80)throw new InvalidArgumentException($mode==='qr'?'Invalid QR code or student not found.':'Enter a valid Student ID.');
         if($mode==='qr'){
             if(!preg_match('/^[A-Za-z0-9_-]{32,48}$/',$value))throw new InvalidArgumentException('Invalid QR code or student not found.');
-            $student=$this->row('SELECT u.* FROM tbl_attendance_qr_tokens q JOIN tbl_users u ON u.id=q.user_id WHERE q.token=? AND q.event_id=? AND q.session=? LIMIT 1',[$value,$a['event_id'],$a['session_code']]);
+            $student=$this->row('SELECT q.id qr_id,q.phase qr_phase,q.schedule_date qr_date,u.* FROM tbl_attendance_qr_tokens q JOIN tbl_users u ON u.id=q.user_id WHERE q.token=? AND q.event_id=? AND q.session=? LIMIT 1',[$value,$a['event_id'],$a['session_code']]);
         }else $student=$this->row("SELECT u.* FROM tbl_users u JOIN tbl_roles r ON r.id=u.role_id AND r.name='Student' WHERE u.id_number=? LIMIT 1",[$value]);
         if(!$student)throw new InvalidArgumentException($mode==='qr'?'Invalid QR code or student not found.':'Student ID was not found.');
+        if($mode==='qr'&&$student['qr_phase']!==$checkpoint)
+            throw new InvalidArgumentException('This student QR is for Time '.($student['qr_phase']==='in'?'In':'Out').', not Time '.($checkpoint==='in'?'In':'Out').'.');
         $membership=$this->row('SELECT t.name FROM tbl_team_user tu JOIN tbl_teams t ON t.id=tu.team_id WHERE tu.user_id=? AND tu.team_id=? LIMIT 1',[(int)$student['id'],$a['team_id']]);
         if(!$membership){
             $actual=$this->row('SELECT t.name FROM tbl_team_user tu JOIN tbl_teams t ON t.id=tu.team_id WHERE tu.user_id=? ORDER BY t.name LIMIT 1',[(int)$student['id']]);
@@ -64,34 +65,52 @@ final class SboAttendanceRepository {
         $outColumn=$a['session_code']==='afternoon'?'afternoon_out_at':'morning_out_at';
         $this->db->beginTransaction();
         try {
+            $recordedNow=AttendanceScanWindows::now();
+            if(!AttendanceScanWindows::isOpen($windows[$checkpoint],$recordedNow))
+                throw new InvalidArgumentException('The Time '.($checkpoint==='in'?'In':'Out').' scan window is closed.');
+            $now=$recordedNow->format('Y-m-d H:i:s');
+            if($mode==='qr'){
+                $locked=$this->row('SELECT id,token,phase,schedule_date,expires_at,used_at FROM tbl_attendance_qr_tokens WHERE id=? FOR UPDATE',[$student['qr_id']]);
+                if(!$locked||$locked['token']!==$value||$locked['phase']!==$checkpoint||$locked['schedule_date']!==$a['schedule_date']||
+                    $locked['used_at']!==null||$locked['expires_at']===null||$locked['expires_at']<=$now)
+                    throw new InvalidArgumentException('This QR has been used or expired. Ask the student to refresh their QR.');
+            }
             $parent=$this->row('SELECT id,checked_in_at,morning_in_at,morning_out_at,afternoon_in_at,afternoon_out_at FROM tbl_attendances WHERE event_id=? AND user_id=? AND attendance_date=? FOR UPDATE',[$a['event_id'],$student['id'],$a['schedule_date']]);
             if($parent){
                 $attendanceId=(int)$parent['id'];
-                $entry=$this->row('SELECT id FROM tbl_attendance_entries WHERE attendance_id=? AND event_schedule_id=? AND session_code=? LIMIT 1 FOR UPDATE',[$attendanceId,$a['event_schedule_id'],$a['session_code']]);
+                $entry=$this->row('SELECT id FROM tbl_attendance_entries WHERE attendance_id=? AND event_schedule_id=? AND session_code=? AND phase=? LIMIT 1 FOR UPDATE',[$attendanceId,$a['event_schedule_id'],$a['session_code'],$checkpoint]);
+                $inEntry=$checkpoint==='out'?$this->row("SELECT id FROM tbl_attendance_entries WHERE attendance_id=? AND event_schedule_id=? AND session_code=? AND phase='in' LIMIT 1 FOR UPDATE",[$attendanceId,$a['event_schedule_id'],$a['session_code']]):false;
             }else{
                 if($checkpoint==='out')throw new LogicException('Record time in before scanning time out.');
                 $this->db->prepare("INSERT INTO tbl_attendances(event_id,user_id,attendance_date,status,checked_in_at,recorded_by,created_at,updated_at) VALUES(?,?,?,'present',?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)")
                     ->execute([$a['event_id'],$student['id'],$a['schedule_date'],$now,$officer]);
                 $attendanceId=(int)$this->db->lastInsertId();
                 $entry=false;
+                $inEntry=false;
                 $parent=[$inColumn=>null,$outColumn=>null,'checked_in_at'=>$now];
             }
+            if($entry)throw new LogicException('Time '.$checkpoint.' already recorded for this session.');
             if($checkpoint==='in'){
-                if($parent[$inColumn]!==null||$entry)throw new LogicException('Time in already recorded for this session.');
+                if($parent[$inColumn]!==null)throw new LogicException('Time in already recorded for this session.');
                 $this->db->prepare("UPDATE tbl_attendances SET {$inColumn}=?,checked_in_at=COALESCE(checked_in_at,?),status='present',updated_at=CURRENT_TIMESTAMP WHERE id=?")
                     ->execute([$now,$now,$attendanceId]);
-                $this->db->prepare("INSERT INTO tbl_attendance_entries
-                    (attendance_id,event_schedule_id,sbo_event_assignment_id,session_code,activity_id,team_id,recorded_by,scanned_at,status,
-                    scan_latitude,scan_longitude,location_accuracy_m,distance_from_venue_m,location_status,location_captured_at,location_unavailable_reason,venue_name_snapshot,created_at,updated_at)
-                    VALUES(?,?,?,?,?,?,?,?,'present',?,?,?,?,?,?,?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)")
-                    ->execute([$attendanceId,$a['event_schedule_id'],$id,$a['session_code'],$a['activity_id'],$a['team_id'],$officer,$now,
-                        $location['latitude'],$location['longitude'],$location['accuracy_m'],$location['distance_m'],$location['status'],$location['captured_at'],$location['reason'],$a['venue_name']]);
             }else{
                 if($parent[$outColumn]!==null)throw new LogicException('Time out already recorded for this session.');
-                if($a['session_code']==='afternoon'?($parent[$inColumn]===null&&!$entry):($parent[$inColumn]===null&&$parent['checked_in_at']===null&&!$entry))
+                if($a['session_code']==='afternoon'?($parent[$inColumn]===null&&!$inEntry):($parent[$inColumn]===null&&$parent['checked_in_at']===null&&!$inEntry))
                     throw new LogicException('Record time in before scanning time out.');
                 $this->db->prepare("UPDATE tbl_attendances SET {$outColumn}=?,updated_at=CURRENT_TIMESTAMP WHERE id=?")
                     ->execute([$now,$attendanceId]);
+            }
+            $this->db->prepare("INSERT INTO tbl_attendance_entries
+                (attendance_id,event_schedule_id,sbo_event_assignment_id,session_code,phase,activity_id,team_id,recorded_by,scanned_at,status,
+                scan_latitude,scan_longitude,location_accuracy_m,distance_from_venue_m,location_status,location_captured_at,location_unavailable_reason,venue_name_snapshot,created_at,updated_at)
+                VALUES(?,?,?,?,?,?,?,?,?,'present',?,?,?,?,?,?,?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)")
+                ->execute([$attendanceId,$a['event_schedule_id'],$id,$a['session_code'],$checkpoint,$a['activity_id'],$a['team_id'],$officer,$now,
+                    $location['latitude'],$location['longitude'],$location['accuracy_m'],$location['distance_m'],$location['status'],$location['captured_at'],$location['reason'],$a['venue_name']]);
+            if($mode==='qr'){
+                $used=$this->db->prepare('UPDATE tbl_attendance_qr_tokens SET used_at=?,updated_at=CURRENT_TIMESTAMP WHERE id=? AND used_at IS NULL');
+                $used->execute([$now,$student['qr_id']]);
+                if($used->rowCount()!==1)throw new LogicException('This QR has already been used.');
             }
             $action=$checkpoint==='in'?'sbo_attendance_scanned':'sbo_attendance_time_out';
             $this->db->prepare("INSERT INTO tbl_activity_logs(actor_id,event_id,officer_assignment_id,action,acting_role,description,created_at,updated_at) VALUES(?,?,?,?,'SBO Officer',?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)")
@@ -157,19 +176,16 @@ final class SboAttendanceRepository {
         return 6371000*2*asin(min(1,sqrt($h)));
     }
     private function recent(array $a):array {
-        $q=$this->db->prepare('SELECT ae.id,ae.scanned_at,ae.status,ae.location_status,u.id_number,u.first_name,u.middle_name,u.last_name,t.name team_name,
-            CASE ae.session_code WHEN \'afternoon\' THEN atd.afternoon_out_at ELSE atd.morning_out_at END out_at
+        $q=$this->db->prepare('SELECT ae.id,ae.phase,ae.scanned_at,ae.status,ae.location_status,u.id_number,u.first_name,u.middle_name,u.last_name,t.name team_name
             FROM tbl_attendance_entries ae JOIN tbl_attendances atd ON atd.id=ae.attendance_id JOIN tbl_users u ON u.id=atd.user_id JOIN tbl_teams t ON t.id=ae.team_id
-            WHERE ae.sbo_event_assignment_id=? AND ae.event_schedule_id=? AND ae.session_code=? ORDER BY COALESCE(out_at,ae.scanned_at) DESC,ae.id DESC LIMIT 12');
+            WHERE ae.sbo_event_assignment_id=? AND ae.event_schedule_id=? AND ae.session_code=? ORDER BY ae.scanned_at DESC,ae.id DESC LIMIT 12');
         $q->execute([$a['id'],$a['event_schedule_id'],$a['session_code']]);$rows=$q->fetchAll();
         foreach($rows as &$r){$r['id']=(int)$r['id'];$r['full_name']=$this->name($r);}unset($r);return $rows;
     }
     private function counts(array $a):array {
         $q=$this->db->prepare("SELECT
-          (SELECT COUNT(*) FROM tbl_attendance_entries ae WHERE ae.sbo_event_assignment_id=? AND ae.event_schedule_id=? AND ae.session_code=?) total,
-          (SELECT COUNT(*) FROM tbl_attendance_entries ae JOIN tbl_attendances atd ON atd.id=ae.attendance_id
-            WHERE ae.sbo_event_assignment_id=? AND ae.event_schedule_id=? AND ae.session_code=?
-              AND CASE ae.session_code WHEN 'afternoon' THEN atd.afternoon_out_at ELSE atd.morning_out_at END IS NOT NULL) checked_out,
+          (SELECT COUNT(*) FROM tbl_attendance_entries ae WHERE ae.sbo_event_assignment_id=? AND ae.event_schedule_id=? AND ae.session_code=? AND ae.phase='in') total,
+          (SELECT COUNT(*) FROM tbl_attendance_entries ae WHERE ae.sbo_event_assignment_id=? AND ae.event_schedule_id=? AND ae.session_code=? AND ae.phase='out') checked_out,
           (SELECT COUNT(DISTINCT u.id) FROM tbl_users u JOIN tbl_roles r ON r.id=u.role_id AND r.name='Student'
              JOIN tbl_user_statuses us ON us.id=u.status AND us.label='active'
              JOIN tbl_team_user tu ON tu.user_id=u.id AND tu.team_id=?
@@ -178,7 +194,7 @@ final class SboAttendanceRepository {
                OR (?='selected_year_levels' AND EXISTS(SELECT 1 FROM tbl_event_year_level yl WHERE yl.event_id=? AND yl.year_level_id=u.year_level))
                OR (?='specific_students' AND EXISTS(SELECT 1 FROM tbl_event_participants ep WHERE ep.event_id=? AND ep.user_id=u.id)))
              AND NOT EXISTS(SELECT 1 FROM tbl_attendances atd JOIN tbl_attendance_entries ae ON ae.attendance_id=atd.id
-               WHERE atd.user_id=u.id AND atd.event_id=? AND ae.event_schedule_id=? AND ae.session_code=?)) remaining");
+               WHERE atd.user_id=u.id AND atd.event_id=? AND ae.event_schedule_id=? AND ae.session_code=? AND ae.phase='in')) remaining");
         $audience=$a['audience_type'];
         $q->execute([$a['id'],$a['event_schedule_id'],$a['session_code'],$a['id'],$a['event_schedule_id'],$a['session_code'],$a['team_id'],
             $audience,$audience,$a['event_id'],$a['team_id'],$audience,$a['event_id'],$audience,$a['event_id'],

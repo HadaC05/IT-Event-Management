@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+require_once __DIR__.'/AttendanceScanWindows.php';
+
 final class SboAuthorization
 {
     private const RESPONSIBILITIES = ['attendance', 'scoring', 'media'];
@@ -17,6 +19,9 @@ final class SboAuthorization
         $dateClause = $todayOnly ? ' AND s.schedule_date = CURDATE()' : '';
         $statement = $this->db->prepare("SELECT sea.id,sea.session_code,sea.responsibility,
             s.id event_schedule_id,s.schedule_date,s.attendance_session_mode_id,
+            s.whole_day_in_time,s.whole_day_in_close_time,s.whole_day_out_open_time,s.whole_day_out_time,
+            s.morning_in_time,s.morning_in_close_time,s.morning_out_open_time,s.morning_out_time,
+            s.afternoon_in_time,s.afternoon_in_close_time,s.afternoon_out_open_time,s.afternoon_out_time,
             CASE sea.session_code WHEN 'morning' THEN s.morning_in_time WHEN 'afternoon' THEN s.afternoon_in_time ELSE s.whole_day_in_time END session_start,
             CASE sea.session_code WHEN 'morning' THEN s.morning_out_time WHEN 'afternoon' THEN s.afternoon_out_time ELSE s.whole_day_out_time END session_end,
             e.id event_id,e.title event_name,e.location,e.start_at,e.end_at,e.audience_type,
@@ -41,9 +46,21 @@ final class SboAuthorization
             $end = new DateTimeImmutable($row['schedule_date'].' '.$row['session_end'], new DateTimeZone('Asia/Manila'));
             $eventStart = new DateTimeImmutable($row['start_at'], new DateTimeZone('Asia/Manila'));
             $eventEnd = new DateTimeImmutable($row['end_at'], new DateTimeZone('Asia/Manila'));
-            $row['is_session_active'] = $responsibility === 'attendance'
-                ? $now >= $start->modify('-30 minutes') && $now <= $end->modify('+30 minutes')
-                : $now >= $start && $now <= $end && $now >= $eventStart && $now <= $eventEnd;
+            if ($responsibility === 'attendance') {
+                try {
+                    $windows = AttendanceScanWindows::forSession($row, $row['session_code']);
+                    $row['in_window_open'] = AttendanceScanWindows::isOpen($windows['in'], $now);
+                    $row['out_window_open'] = AttendanceScanWindows::isOpen($windows['out'], $now);
+                    foreach (['in','out'] as $phase) {
+                        $row[$phase.'_opens_at'] = $windows[$phase]['opens']->format('Y-m-d H:i:s');
+                        $row[$phase.'_closes_at'] = $windows[$phase]['closes']->format('Y-m-d H:i:s');
+                    }
+                } catch (DomainException $exception) {
+                    $row['in_window_open'] = $row['out_window_open'] = false;
+                    $row['window_error'] = $exception->getMessage();
+                }
+                $row['is_session_active'] = $row['in_window_open'] || $row['out_window_open'];
+            } else $row['is_session_active'] = $now >= $start && $now <= $end && $now >= $eventStart && $now <= $eventEnd;
         }
         unset($row);
         return $rows;

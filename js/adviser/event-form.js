@@ -186,8 +186,12 @@
       attendance_session_mode_id: row.querySelector("[data-session-mode]")
         .value,
       morning_in: row.querySelector('[data-checkpoint="morning_in"]').value,
+      morning_in_close: row.querySelector('[data-checkpoint="morning_in_close"]').value,
+      morning_out_open: row.querySelector('[data-checkpoint="morning_out_open"]').value,
       morning_out: row.querySelector('[data-checkpoint="morning_out"]').value,
       afternoon_in: row.querySelector('[data-checkpoint="afternoon_in"]').value,
+      afternoon_in_close: row.querySelector('[data-checkpoint="afternoon_in_close"]').value,
+      afternoon_out_open: row.querySelector('[data-checkpoint="afternoon_out_open"]').value,
       afternoon_out: row.querySelector('[data-checkpoint="afternoon_out"]')
         .value,
     });
@@ -258,11 +262,15 @@
       });
       if (defaults && enabled) {
         row.querySelector('[data-checkpoint="morning_in"]').value = "08:00";
+        row.querySelector('[data-checkpoint="morning_in_close"]').value = "10:00";
+        row.querySelector('[data-checkpoint="morning_out_open"]').value = split ? "10:30" : "17:00";
         row.querySelector('[data-checkpoint="morning_out"]').value = split
           ? "11:00"
           : "18:00";
         if (split) {
           row.querySelector('[data-checkpoint="afternoon_in"]').value = "13:00";
+          row.querySelector('[data-checkpoint="afternoon_in_close"]').value = "14:00";
+          row.querySelector('[data-checkpoint="afternoon_out_open"]').value = "17:00";
           row.querySelector('[data-checkpoint="afternoon_out"]').value =
             "18:00";
         }
@@ -276,10 +284,14 @@
       row.dataset.scheduleRow = "";
       row.className = "rounded-xl border border-slate-200 bg-white p-4";
       row.innerHTML = `<input type="hidden" name="attendance_days[${index}][id]" value="${day.id || ""}"><div class="mb-3 flex items-center justify-between"><strong class="text-xs font-extrabold text-slate-600" data-schedule-number>Schedule ${index + 1}</strong><button class="text-xs font-bold text-rose-600" type="button" data-remove-schedule>Remove</button></div><div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4"><label class="grid gap-2"><span class="text-xs font-bold">Date *</span><input class="h-11 min-w-0 rounded-xl border border-slate-200 px-3 text-sm" type="date" min="${day.date && day.date < today ? day.date : today}" name="attendance_days[${index}][date]" value="${day.date || day.schedule_date || ""}" required data-schedule-date></label><label class="grid gap-2"><span class="text-xs font-bold">Session *</span><select class="h-11 min-w-0 rounded-xl border border-slate-200 bg-white px-3 text-sm" name="attendance_days[${index}][attendance_session_mode_id]" data-session-mode>${modes.map((mode) => `<option value="${mode.id}">${escapeHtml(mode.name)}</option>`).join("")}</select></label>${[
-        ["morning_in", "Time in", "data-primary"],
-        ["morning_out", "Time out", "data-primary"],
-        ["afternoon_in", "Afternoon time in", "data-secondary"],
-        ["afternoon_out", "Afternoon time out", "data-secondary"],
+        ["morning_in", "Time In opens", "data-primary"],
+        ["morning_in_close", "Time In closes", "data-primary"],
+        ["morning_out_open", "Time Out opens", "data-primary"],
+        ["morning_out", "Time Out closes", "data-primary"],
+        ["afternoon_in", "Afternoon Time In opens", "data-secondary"],
+        ["afternoon_in_close", "Afternoon Time In closes", "data-secondary"],
+        ["afternoon_out_open", "Afternoon Time Out opens", "data-secondary"],
+        ["afternoon_out", "Afternoon Time Out closes", "data-secondary"],
       ]
         .map(
           ([key, label, kind]) =>
@@ -324,11 +336,15 @@
         0,
         5,
       ),
+      morning_in_close: (day.whole_day_in_close_time || day.morning_in_close_time || "").slice(0, 5),
+      morning_out_open: (day.whole_day_out_open_time || day.morning_out_open_time || "").slice(0, 5),
       morning_out: (day.whole_day_out_time || day.morning_out_time || "").slice(
         0,
         5,
       ),
       afternoon_in: (day.afternoon_in_time || "").slice(0, 5),
+      afternoon_in_close: (day.afternoon_in_close_time || "").slice(0, 5),
+      afternoon_out_open: (day.afternoon_out_open_time || "").slice(0, 5),
       afternoon_out: (day.afternoon_out_time || "").slice(0, 5),
     }));
     (saved.length ? saved : [{}]).forEach((day) =>

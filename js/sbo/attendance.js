@@ -51,7 +51,7 @@
     updateControls();
   }
   function updateControls(){
-    const active=Boolean(selected?.is_session_active);
+    const active=Boolean(selected?.[`${checkpoint}_window_open`]);
     const strictBlocked=selected?.location_policy==='strict'&&!freshPosition();
     openButton.disabled=!active||strictBlocked||!window.isSecureContext||!navigator.mediaDevices;
     cameraButton.disabled=openButton.disabled;
@@ -88,11 +88,16 @@
       <span class="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#C6F24E]/35 text-xs font-black text-[#397565]">✓</span>
       <div class="min-w-0 flex-1"><strong class="block truncate text-sm">${esc(row.full_name)}</strong>
         <span class="block text-xs text-[#121017]/45">${esc(row.id_number)} · ${esc(row.team_name)} · ${esc(row.status)}</span></div>
-      <div class="text-right"><time class="block text-xs font-bold text-[#397565]">In ${clock(row.scanned_at)}</time>
-        ${row.out_at?`<time class="block text-xs font-bold text-[#397565]">Out ${clock(row.out_at)}</time>`:''}
+      <div class="text-right"><time class="block text-xs font-bold text-[#397565]">${row.phase==='out'?'Out':'In'} ${clock(row.scanned_at)}</time>
         <small class="text-xs text-[#121017]/50">${esc(row.location_status)}</small></div></article>`).join(''):'<p class="p-8 text-center text-sm text-[#121017]/45">No attendance scans yet.</p>';
   }
   function renderCounts(counts){$('[data-scan-counts]').textContent=`${counts.total} timed in · ${counts.checked_out||0} timed out · ${counts.remaining} remaining from your assigned team`;}
+  function renderPhaseStatus(){
+    $('[data-session-state]').textContent=selected?.[`${checkpoint}_window_open`]
+      ?`Time ${checkpoint==='in'?'In':'Out'} scanning is open.`
+      :selected?.is_session_active?'The other checkpoint is open. Select it above.'
+        :'No QR is scannable now. Wait for the next window or ask the adviser to extend it.';
+  }
   function setCheckpoint(next){
     checkpoint=next;lastToken='';lastTokenAt=0;
     document.querySelectorAll('[data-checkpoint-option]').forEach(button=>{
@@ -102,9 +107,13 @@
       button.classList.toggle('bg-white',!active);button.classList.toggle('text-[#397565]',!active);
     });
     $('[data-checkpoint-hint]').textContent=checkpoint==='in'
-      ?'Use the student’s QR for time in. The same QR is used again for time out.'
-      :'Use the same student QR for time out. A previous time in is required.';
+      ?'Scan the student’s Time In QR while the Time In window is open.'
+      :'Scan the student’s separate Time Out QR. A previous Time In is required.';
     $('[data-scanner-checkpoint]').textContent=checkpoint==='in'?'time in':'time out';
+    openButton.textContent=`Open Time ${checkpoint==='in'?'In':'Out'} scanner`;
+    if(dialog.open&&!selected?.[`${checkpoint}_window_open`])dialog.close();
+    updateControls();
+    renderPhaseStatus();
   }
   document.querySelectorAll('[data-checkpoint-option]').forEach(button=>button.addEventListener('click',()=>setCheckpoint(button.dataset.checkpointOption)));
   function renderAssignment(next){
@@ -115,7 +124,7 @@
       ['Session',`${selected.session_name} · ${time(selected.session_start)}–${time(selected.session_end)}`],
     ].map(([label,value])=>`<article><span class="text-[10px] font-black uppercase tracking-wider text-[#397565]">${label}</span><strong class="mt-1 block text-sm">${esc(value)}</strong></article>`).join('')+
       `<details class="sbo-assignment-details"><summary>Venue and location policy</summary><p class="mt-2 text-sm">${esc(selected.venue_name||'Venue not configured')} · ${esc(selected.location_policy)} location policy</p></details>`;
-    $('[data-session-state]').textContent=selected.is_session_active?'Attendance checkpoint scanning is open.':'No attendance checkpoint is currently open.';
+    renderPhaseStatus();
     $('[data-next-session]').textContent=next?`Next scheduled session: ${next.event} · ${next.name} · ${date(next.starts_at)} ${clock(next.starts_at)}`:'No later attendance session is scheduled for today.';
     renderLocation();updateControls();
   }
@@ -138,7 +147,7 @@
       tone.start();tone.stop(audio.currentTime+0.16);tone.onended=()=>audio.close();}catch{}
   }
   async function submit(payload){
-    if(isProcessing||Date.now()<cooldownUntil||!selected?.is_session_active)return;
+    if(isProcessing||Date.now()<cooldownUntil||!selected?.[`${checkpoint}_window_open`])return;
     isProcessing=true;
     try{
       if(selected.location_policy==='strict'){
@@ -166,7 +175,7 @@
     await submit({mode:'qr',token});
   }
   async function start(){
-    if(!dialog.open||scanner||!selected?.is_session_active)return;
+    if(!dialog.open||scanner||!selected?.[`${checkpoint}_window_open`])return;
     const generation=++startGeneration;
     cameraButton.hidden=true;cameraButton.disabled=true;
     preview.classList.remove('is-active');preview.classList.add('is-loading');
