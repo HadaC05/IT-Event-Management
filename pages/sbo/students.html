@@ -7,13 +7,14 @@
     <title>Assigned Students | CITE Events</title>
     <link rel="icon" href="assets/images/cite_favicon.png">
     <link rel="stylesheet" href="css/tailwind.css">
+    <link rel="stylesheet" href="css/sbo.css?v=20260915-4">
     <script src="js/shared/notifications.js" defer></script>
 </head>
 <body class="min-h-screen overflow-x-hidden bg-white font-sans text-[#121017] antialiased">
     <div data-sbo-sidebar-host></div>
     <div data-sbo-header-host></div>
 
-    <main class="mx-auto w-auto max-w-[1500px] px-4 pb-28 pt-6 transition-[margin] duration-200 sm:px-6 sm:pt-8 lg:ml-64 lg:px-10">
+    <main class="mx-auto w-auto max-w-[1180px] px-4 pb-28 pt-5 transition-[margin] duration-200 sm:px-6 lg:ml-20 lg:px-8">
         <header>
             <p class="text-[10px] font-black uppercase tracking-[.14em] text-[#397565] sm:text-xs">Assigned roster</p>
             <h1 class="mt-2 text-3xl font-black tracking-tight sm:text-4xl">Students</h1>
@@ -22,14 +23,14 @@
 
         <section class="mt-6 overflow-hidden rounded-2xl border border-[#121017]/10 bg-white shadow-sm sm:mt-7">
             <form class="grid gap-3 border-b border-[#121017]/8 bg-[#F3F0E9]/35 p-4 sm:grid-cols-3 sm:p-5" data-filters>
-                <label class="grid gap-1.5"><span class="text-[10px] font-black uppercase tracking-wider text-[#397565] sm:hidden">Assignment</span><select class="h-12 min-w-0 rounded-xl border border-[#121017]/12 bg-white px-3 text-sm outline-none focus:border-[#397565]" name="assignment_id" data-assignment></select></label>
-                <label class="grid gap-1.5"><span class="text-[10px] font-black uppercase tracking-wider text-[#397565] sm:hidden">Search</span><input class="h-12 min-w-0 rounded-xl border border-[#121017]/12 bg-white px-3 text-sm outline-none focus:border-[#397565]" name="search" placeholder="Search name or Student ID"></label>
-                <label class="grid gap-1.5"><span class="text-[10px] font-black uppercase tracking-wider text-[#397565] sm:hidden">Attendance</span><select class="h-12 min-w-0 rounded-xl border border-[#121017]/12 bg-white px-3 text-sm outline-none focus:border-[#397565]" name="status"><option value="">All attendance</option><option value="present">Recorded</option><option value="not_recorded">Not recorded</option></select></label>
+                <label class="grid gap-1.5"><span class="text-[10px] font-black uppercase tracking-wider text-[#397565]">Assignment</span><select class="h-12 min-w-0 rounded-xl border border-[#121017]/12 bg-white px-3 text-sm outline-none focus:border-[#397565]" name="assignment_id" data-assignment></select></label>
+                <label class="grid gap-1.5"><span class="text-[10px] font-black uppercase tracking-wider text-[#397565]">Search</span><input class="h-12 min-w-0 rounded-xl border border-[#121017]/12 bg-white px-3 text-sm outline-none focus:border-[#397565]" name="search" placeholder="Name or Student ID"></label>
+                <label class="grid gap-1.5"><span class="text-[10px] font-black uppercase tracking-wider text-[#397565]">Attendance</span><select class="h-12 min-w-0 rounded-xl border border-[#121017]/12 bg-white px-3 text-sm outline-none focus:border-[#397565]" name="status"><option value="">All attendance</option><option value="present">Recorded</option><option value="not_recorded">Not recorded</option></select></label>
             </form>
 
             <div class="grid gap-3 p-4 sm:hidden" data-student-cards></div>
 
-            <div class="hidden overflow-x-auto sm:block">
+            <div class="hidden overflow-x-auto sm:block" data-student-table-wrap>
                 <table class="w-full min-w-[760px] text-left">
                     <thead class="bg-[#397565] text-xs uppercase tracking-wider text-white"><tr><th class="p-4">Student ID</th><th class="p-4">Name</th><th class="p-4">Course & year</th><th class="p-4">Team</th><th class="p-4">Attendance</th></tr></thead>
                     <tbody class="divide-y divide-[#121017]/8" data-students></tbody>

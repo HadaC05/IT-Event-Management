@@ -1,0 +1,54 @@
+/* Match the active adviser sidebar item without a translucent or glowing finish. */
+[data-admin-shell] > div > header {
+  background: #397565;
+  border-bottom-color: #2d5e51;
+  color: #fff;
+  box-shadow: none;
+}
+
+[data-admin-shell] > div > header [data-sidebar-toggle] {
+  border-color: rgb(255 255 255 / 30%);
+  color: #fff;
+}
+
+[data-admin-shell] > div > header [data-account-menu] > summary {
+  color: #fff;
+}
+
+[data-admin-shell] > div > header [data-account-menu] > summary:hover {
+  background: rgb(255 255 255 / 12%);
+  border-color: rgb(255 255 255 / 20%);
+}
+
+[data-admin-shell] > div > header [data-account-menu] > summary strong {
+  color: #fff;
+}
+
+[data-admin-shell] > div > header [data-account-menu] > summary > span:first-child {
+  color: #121017;
+}
+
+[data-admin-shell] > div > header [data-account-menu] > summary small {
+  color: #e1eee9;
+}
+
+[data-admin-shell] > div > header [data-account-menu] > summary svg {
+  stroke: #e1eee9;
+}
+
+[data-admin-shell] > div > header [data-account-menu] > div {
+  color: #121017;
+}
+
+/* Keep adviser toasts fully visible below the 72px sticky top bar. */
+[data-admin-shell] > [data-notification-region] {
+  top: calc(72px + 1rem);
+  margin-top: 0;
+  z-index: 100;
+}
+
+@media (min-width: 1280px) {
+  [data-admin-shell] > div > header > div:first-child {
+    padding-right: 1.5rem;
+  }
+}

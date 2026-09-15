@@ -7,6 +7,7 @@
     <title>Event Management | CITE Events</title>
     <link rel="icon" href="assets/images/cite_favicon.png" />
     <link rel="stylesheet" href="css/tailwind.css" />
+    <link rel="stylesheet" href="css/adviser.css" />
     <script src="js/shared/notifications.js" defer></script>
     <script src="js/shared/interactions.js" defer></script>
   </head>
@@ -492,6 +493,16 @@
                   <option value="">Use the general location</option>
                 </select>
                 <p class="hidden text-xs font-semibold text-red-600" data-error-for="specific_location_id"></p>
+              </label>
+              <label class="grid gap-2 sm:col-span-2">
+                <span class="text-xs font-bold text-slate-700">Attendance scan location policy</span>
+                <select class="h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm" name="attendance_location_policy">
+                  <option value="off">Off — record GPS when available</option>
+                  <option value="warning">Warning — flag outside or unavailable GPS</option>
+                  <option value="strict">Strict — require a scan inside the venue radius</option>
+                </select>
+                <small class="text-xs text-slate-500">Configure venue coordinates and radius in Locations before enabling Strict. Attendance checks use the radius as a Haversine circle; the existing GPS geofence preview remains square.</small>
+                <p class="hidden text-xs font-semibold text-red-600" data-error-for="attendance_location_policy"></p>
               </label>
             </div>
             <div

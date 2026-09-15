@@ -1,1 +1,94 @@
-(()=>{'use strict';const API='api/sbo-scores.php',select=document.querySelector('[data-assignment]'),grid=document.querySelector('[data-score-grid]'),form=document.querySelector('[data-score-form]');let csrf='',state=null,finalize=false;const esc=v=>SboPortal.escapeHtml(v);const total=team=>state.categories.reduce((sum,c)=>sum+Number(form.elements[`score_${team.id}_${c.id}`]?.value||0),0);const syncTotals=()=>state?.teams.forEach(t=>{const cell=document.querySelector(`[data-total="${t.id}"]`);if(cell)cell.textContent=total(t).toFixed(2)});const render=()=>{select.innerHTML=state.assignments.length?state.assignments.map(a=>`<option value="${a.id}">${esc(a.event_name)} · ${esc(a.activity_name)}</option>`).join(''):'<option value="">No scoring assignment</option>';if(state.selected)select.value=state.selected.id;const locked=state.sheet?.status==='finalized';form.querySelector('footer').classList.toggle('hidden',!state.selected||locked);if(!state.selected){grid.innerHTML='<p class="p-12 text-center text-sm text-[#121017]/45">You currently have no active scoring assignment.</p>';return;}if(!state.categories.length){grid.innerHTML='<p class="p-12 text-center text-sm text-[#121017]/45">The adviser has not created criteria for this activity.</p>';return;}grid.innerHTML=`${locked?'<p class="bg-[#C6F24E]/25 p-3 text-center text-xs font-black text-[#397565]">Finalized — only the adviser can reopen this score sheet.</p>':''}<table class="w-full min-w-[760px] text-left"><thead class="bg-[#397565] text-xs text-white"><tr><th class="p-4">Team</th>${state.categories.map(c=>`<th class="p-4">${esc(c.name)}<small class="block font-normal opacity-70">${c.min_points}–${c.max_points}</small></th>`).join('')}<th class="p-4">Total</th></tr></thead><tbody>${state.teams.map(t=>`<tr class="border-b border-[#121017]/8"><th class="p-4">${esc(t.name)}</th>${state.categories.map(c=>`<td class="p-3"><input class="h-11 w-28 rounded-xl border border-[#121017]/12 px-3" type="number" step="0.01" min="${c.min_points}" max="${c.max_points}" name="score_${t.id}_${c.id}" data-team="${t.id}" value="${state.scores[t.id]?.[c.id]??''}" ${locked?'disabled':'required'}></td>`).join('')}<td class="p-4 font-black text-[#397565]" data-total="${t.id}">0.00</td></tr>`).join('')}</tbody></table>`;syncTotals();};const load=async id=>{state=(await axios.get(API,{params:id?{assignment_id:id}:{}})).data.data;render();};select.addEventListener('change',()=>load(Number(select.value)));grid.addEventListener('input',syncTotals);form.querySelectorAll('[data-finalize]').forEach(b=>b.addEventListener('click',()=>finalize=b.dataset.finalize==='true'));form.addEventListener('submit',async e=>{e.preventDefault();if(finalize&&!(await Notifications.confirm({title:'Finalize scores?',message:'You cannot edit these scores again unless the adviser reopens the sheet.',action:'Finalize'})))return;const scores={};state.teams.forEach(t=>{scores[t.id]={};state.categories.forEach(c=>scores[t.id][c.id]=form.elements[`score_${t.id}_${c.id}`].value)});try{const response=await axios.post(API,{assignment_id:state.selected.id,scores,finalize},{headers:{'X-CSRF-Token':csrf}});Notifications.success(response.data.message);await load(state.selected.id);}catch(error){Notifications.error(error.response?.data?.message||'Unable to save scores.');}});SboPortal.initialize('scores').then(c=>{csrf=c.csrfToken;return load();});})();
+(() => {
+  'use strict';
+
+  const API = 'api/sbo-scores.php';
+  const select = document.querySelector('[data-assignment]');
+  const grid = document.querySelector('[data-score-grid]');
+  const form = document.querySelector('[data-score-form]');
+  let csrf = '', state = null, finalize = false;
+  const esc = value => SboPortal.escapeHtml(value);
+
+  const total = team => state.categories.reduce((sum, category) =>
+    sum + Number(form.elements[`score_${team.id}_${category.id}`]?.value || 0), 0);
+
+  const syncTotals = () => state?.teams.forEach(team => {
+    const cell = grid.querySelector(`[data-total="${team.id}"]`);
+    if (cell) cell.textContent = total(team).toFixed(2);
+  });
+
+  function render() {
+    select.innerHTML = state.assignments.length
+      ? state.assignments.map(assignment => `<option value="${assignment.id}">${esc(assignment.event_name)} · ${esc(assignment.activity_name)}</option>`).join('')
+      : '<option value="">No scoring assignment</option>';
+    if (state.selected) select.value = state.selected.id;
+
+    const locked = state.sheet?.status === 'finalized';
+    form.querySelector('footer').classList.toggle('hidden', !state.selected || locked);
+    if (!state.selected) {
+      grid.innerHTML = '<p class="p-12 text-center text-sm text-[#121017]/45">You currently have no active scoring assignment.</p>';
+      return;
+    }
+    if (!state.categories.length) {
+      grid.innerHTML = '<p class="p-12 text-center text-sm text-[#121017]/45">The adviser has not created criteria for this activity.</p>';
+      return;
+    }
+
+    const heading = state.categories.map(category => `<th class="p-4">${esc(category.name)}<small class="block font-normal opacity-70">${category.min_points}–${category.max_points}</small></th>`).join('');
+    const rows = state.teams.map(team => `<tr class="border-b border-[#121017]/8">
+      <th class="p-4" scope="row">${esc(team.name)}</th>
+      ${state.categories.map(category => `<td class="p-3" data-label="${esc(category.name)}">
+        <input class="h-11 w-28 rounded-xl border border-[#121017]/12 px-3" type="number" step="0.01"
+          min="${category.min_points}" max="${category.max_points}"
+          name="score_${team.id}_${category.id}" data-team="${team.id}"
+          aria-label="${esc(category.name)} score for ${esc(team.name)}"
+          value="${esc(state.scores[team.id]?.[category.id] ?? '')}" ${locked ? 'disabled' : 'required'}>
+      </td>`).join('')}
+      <td class="p-4 font-black text-[#397565]" data-label="Total" data-total="${team.id}">0.00</td>
+    </tr>`).join('');
+
+    grid.innerHTML = `${locked ? '<p class="bg-[#C6F24E]/25 p-3 text-center text-xs font-black text-[#397565]">Finalized — only the adviser can reopen this score sheet.</p>' : ''}
+      <table class="w-full min-w-[760px] text-left"><thead class="bg-[#397565] text-xs text-white"><tr><th class="p-4">Team</th>${heading}<th class="p-4">Total</th></tr></thead><tbody>${rows}</tbody></table>`;
+    syncTotals();
+  }
+
+  async function load(assignmentId) {
+    state = (await axios.get(API, {params: assignmentId ? {assignment_id: assignmentId} : {}})).data.data;
+    render();
+  }
+
+  select.addEventListener('change', () => load(Number(select.value)));
+  grid.addEventListener('input', syncTotals);
+  form.querySelectorAll('[data-finalize]').forEach(button => button.addEventListener('click', () => {
+    finalize = button.dataset.finalize === 'true';
+  }));
+  form.addEventListener('submit', async event => {
+    event.preventDefault();
+    if (finalize && !(await Notifications.confirm({
+      title: 'Finalize scores?',
+      message: 'You cannot edit these scores again unless the adviser reopens the sheet.',
+      action: 'Finalize',
+    }))) return;
+
+    const scores = {};
+    state.teams.forEach(team => {
+      scores[team.id] = {};
+      state.categories.forEach(category => {
+        scores[team.id][category.id] = form.elements[`score_${team.id}_${category.id}`].value;
+      });
+    });
+    try {
+      const response = await axios.post(API, {assignment_id: state.selected.id, scores, finalize}, {
+        headers: {'X-CSRF-Token': csrf},
+      });
+      Notifications.success(response.data.message);
+      await load(state.selected.id);
+    } catch (error) {
+      Notifications.error(error.response?.data?.message || 'Unable to save scores.');
+    }
+  });
+
+  SboPortal.initialize('scores').then(context => {
+    csrf = context.csrfToken;
+    return load();
+  });
+})();

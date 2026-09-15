@@ -39,7 +39,9 @@ final class SboAuthorization
             $row['session_name'] = match ($row['session_code']) {'morning' => 'Morning Session', 'afternoon' => 'Afternoon Session', default => 'Whole Day Session'};
             $start = new DateTimeImmutable($row['schedule_date'].' '.$row['session_start'], new DateTimeZone('Asia/Manila'));
             $end = new DateTimeImmutable($row['schedule_date'].' '.$row['session_end'], new DateTimeZone('Asia/Manila'));
-            $row['is_session_active'] = $now >= $start && $now <= $end;
+            $eventStart = new DateTimeImmutable($row['start_at'], new DateTimeZone('Asia/Manila'));
+            $eventEnd = new DateTimeImmutable($row['end_at'], new DateTimeZone('Asia/Manila'));
+            $row['is_session_active'] = $now >= $start && $now <= $end && $now >= $eventStart && $now <= $eventEnd;
         }
         unset($row);
         return $rows;

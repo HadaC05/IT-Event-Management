@@ -1,1 +1,48 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><base href="../../"><title>SBO Scores | CITE Events</title><link rel="stylesheet" href="css/tailwind.css"><script src="js/shared/notifications.js" defer></script></head><body class="min-h-screen bg-white font-sans text-[#121017] antialiased"><div data-sbo-sidebar-host></div><div data-sbo-header-host></div><main class="mx-auto max-w-[1500px] px-4 pb-28 pt-7 sm:px-6 lg:ml-64 lg:px-10"><header><p class="text-xs font-black uppercase tracking-wider text-[#397565]">Assigned activities only</p><h1 class="mt-2 text-3xl font-black">Scores</h1><p class="mt-2 text-sm text-[#121017]/55">Enter validated team scores and finalize when complete.</p></header><label class="mt-7 grid max-w-xl gap-2"><span class="text-sm font-bold">Scoring assignment</span><select class="h-12 rounded-xl border border-[#121017]/12 px-3" data-assignment></select></label><form class="mt-5 overflow-hidden rounded-2xl border border-[#121017]/10 bg-white shadow-sm" data-score-form><div class="overflow-x-auto" data-score-grid></div><footer class="flex flex-wrap justify-end gap-2 border-t border-[#121017]/8 p-4"><button class="min-h-11 rounded-xl border border-[#397565]/25 px-5 text-sm font-black text-[#397565]" type="submit" data-finalize="false">Save draft</button><button class="min-h-11 rounded-xl bg-[#397565] px-5 text-sm font-black text-white" type="submit" data-finalize="true">Finalize scores</button></footer></form></main><dialog class="m-auto w-[min(460px,calc(100%_-_2rem))] rounded-2xl border-0 bg-white p-0 shadow-2xl backdrop:bg-[#121017]/60" data-confirm-dialog><div class="p-6"><h2 class="text-xl font-black" data-confirm-title></h2><p class="mt-2 text-sm text-[#121017]/55" data-confirm-message></p><div class="mt-6 flex justify-end gap-2"><button class="rounded-xl border px-4 py-2" data-confirm-cancel>Cancel</button><button class="rounded-xl bg-[#397565] px-4 py-2 font-black text-white" data-confirm-accept>Confirm</button></div></div></dialog><div class="pointer-events-none fixed right-4 top-4 z-[100] grid w-[min(380px,calc(100%_-_2rem))] gap-3" data-notification-region></div><script src="js/vendor/axios.min.js"></script><script src="js/sbo/portal.js"></script><script src="js/sbo/scores.js"></script></body></html>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <base href="../../">
+  <title>SBO Scores | CITE Events</title>
+  <link rel="icon" href="assets/images/cite_favicon.png">
+  <link rel="stylesheet" href="css/tailwind.css">
+  <link rel="stylesheet" href="css/sbo.css?v=20260915-4">
+  <script src="js/shared/notifications.js" defer></script>
+</head>
+<body class="min-h-screen bg-white font-sans text-[#121017] antialiased">
+  <div data-sbo-sidebar-host></div><div data-sbo-header-host></div>
+  <main class="mx-auto max-w-[1180px] px-4 pb-28 pt-5 sm:px-6 lg:ml-20 lg:px-8">
+    <header>
+      <p class="text-xs font-black uppercase tracking-wider text-[#397565]">Assigned activities</p>
+      <h1 class="mt-2 text-3xl font-black">Scores</h1>
+      <p class="mt-2 text-sm text-[#121017]/55">Enter scores for your assigned activity, then save or finalize.</p>
+    </header>
+    <label class="mt-5 grid max-w-xl gap-2">
+      <span class="text-sm font-bold">Scoring assignment</span>
+      <select class="h-12 rounded-xl border border-[#121017]/12 bg-white px-3" data-assignment></select>
+    </label>
+    <form class="mt-4 overflow-hidden rounded-2xl border border-[#121017]/10 bg-white shadow-sm" data-score-form>
+      <div class="overflow-x-auto" data-score-grid></div>
+      <footer class="flex flex-wrap justify-end gap-2 border-t border-[#121017]/8 p-4">
+        <button class="min-h-11 rounded-xl border border-[#397565]/25 px-5 text-sm font-black text-[#397565]" type="submit" data-finalize="false">Save draft</button>
+        <button class="min-h-11 rounded-xl bg-[#397565] px-5 text-sm font-black text-white" type="submit" data-finalize="true">Finalize scores</button>
+      </footer>
+    </form>
+  </main>
+  <dialog class="m-auto w-[min(460px,calc(100%_-_2rem))] rounded-2xl border-0 bg-white p-0 shadow-2xl backdrop:bg-[#121017]/60" data-confirm-dialog>
+    <div class="p-6">
+      <h2 class="text-xl font-black" data-confirm-title></h2>
+      <p class="mt-2 text-sm text-[#121017]/55" data-confirm-message></p>
+      <div class="mt-6 flex justify-end gap-2">
+        <button class="min-h-11 rounded-xl border px-4" type="button" data-confirm-cancel>Cancel</button>
+        <button class="min-h-11 rounded-xl bg-[#397565] px-4 font-black text-white" type="button" data-confirm-accept>Confirm</button>
+      </div>
+    </div>
+  </dialog>
+  <div class="pointer-events-none fixed right-4 top-4 grid w-[min(380px,calc(100%_-_2rem))] gap-3" style="z-index:100" data-notification-region></div>
+  <script src="js/vendor/axios.min.js"></script>
+  <script src="js/sbo/portal.js"></script>
+  <script src="js/sbo/scores.js"></script>
+</body>
+</html>

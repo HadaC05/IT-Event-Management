@@ -2,6 +2,11 @@ DirectoryIndex pages/home.html
 Options -Indexes
 
 RewriteEngine On
+# Mobile camera and geolocation require a trusted HTTPS origin. Keep ordinary
+# localhost development working while redirecting non-localhost SBO scanning.
+RewriteCond %{HTTPS} !=on
+RewriteCond %{HTTP_HOST} !^(localhost|127\.0\.0\.1)(:[0-9]+)?$ [NC]
+RewriteRule ^pages/sbo/attendance\.html$ https://%{HTTP_HOST}%{REQUEST_URI} [R=302,L]
 RewriteRule ^api/login\.php$ api/auth.php?action=login [L,QSA]
 RewriteRule ^api/logout\.php$ api/auth.php?action=logout [L,QSA]
 RewriteRule ^api/session\.php$ api/auth.php?action=session [L,QSA]

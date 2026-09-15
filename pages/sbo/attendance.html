@@ -1,18 +1,96 @@
 <!DOCTYPE html>
 <html lang="en">
-<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><base href="../../"><title>SBO Attendance | CITE Events</title><link rel="icon" href="assets/images/cite_favicon.png"><link rel="stylesheet" href="css/tailwind.css"><script src="js/shared/notifications.js" defer></script></head>
-<body class="min-h-screen bg-white font-sans text-[#121017] antialiased"><div data-sbo-sidebar-host></div><div data-sbo-header-host></div>
-<main class="w-auto max-w-[1500px] px-4 pb-28 pt-7 transition-[margin] duration-200 sm:px-6 lg:ml-20 lg:px-10 lg:pb-12">
-  <header class="mb-7"><p class="text-xs font-black uppercase tracking-[.14em] text-[#397565]">Assigned responsibility</p><h1 class="mt-2 text-3xl font-black tracking-tight sm:text-4xl">Attendance Scanner</h1><p class="mt-2 text-sm text-[#121017]/55">Scan only during your assigned event session.</p></header>
-  <section class="hidden rounded-2xl border border-[#FF6B2C]/20 bg-[#FF6B2C]/7 p-6 text-center" data-no-assignment><strong class="text-lg font-black">You currently have no active event assignment.</strong><p class="mt-2 text-sm text-[#121017]/55">Ask the SBO Adviser to assign an event day, session, activity, team, and attendance responsibility.</p></section>
-  <div class="hidden space-y-6" data-attendance-workspace>
-    <label class="hidden max-w-xl gap-2" data-assignment-selector-wrap><span class="text-sm font-bold">Active assignment</span><select class="h-12 rounded-xl border border-[#121017]/12 bg-white px-3 outline-none focus:border-[#397565]" data-assignment-selector></select></label>
-    <section class="grid gap-4 rounded-2xl border border-[#397565]/15 bg-[#F3F0E9]/35 p-5 shadow-sm sm:grid-cols-2 xl:grid-cols-4" data-assignment-summary></section>
-    <div class="grid gap-6 xl:grid-cols-[minmax(0,1.15fr)_minmax(340px,.85fr)]">
-      <section class="overflow-hidden rounded-2xl border border-[#121017]/10 bg-white shadow-sm"><header class="flex flex-wrap items-center justify-between gap-3 border-b border-[#121017]/8 p-5"><div><h2 class="text-xl font-black">QR scanner</h2><p class="mt-1 text-xs text-[#121017]/50" data-session-state></p></div><button class="min-h-11 rounded-xl bg-[#397565] px-4 text-sm font-black text-white disabled:opacity-40" type="button" data-camera-toggle>Start camera</button></header><div class="p-5"><div class="relative aspect-video overflow-hidden rounded-2xl bg-[#121017]"><video class="h-full w-full object-cover" data-scanner-video playsinline muted></video><div class="pointer-events-none absolute inset-[16%] rounded-2xl border-2 border-[#C6F24E] shadow-[0_0_0_999px_rgba(18,16,23,.38)]"></div><p class="absolute inset-x-4 bottom-4 text-center text-xs font-bold text-white/80" data-camera-message>Start the camera or use Student ID below.</p></div><form class="mt-5 flex flex-col gap-3 sm:flex-row" data-manual-form><input class="h-12 min-w-0 flex-1 rounded-xl border border-[#121017]/12 px-4 outline-none focus:border-[#397565]" name="student_id" placeholder="Enter Student ID" required><button class="min-h-12 rounded-xl bg-[#2F3AE0] px-5 text-sm font-black text-white" type="submit">Record attendance</button></form></div></section>
-      <section class="overflow-hidden rounded-2xl border border-[#121017]/10 bg-white shadow-sm"><header class="border-b border-[#121017]/8 p-5"><h2 class="text-xl font-black">Recent scans</h2><p class="mt-1 text-xs text-[#121017]/50">Latest records for the selected assignment.</p></header><div class="divide-y divide-[#121017]/8" data-recent-scans></div></section>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <base href="../../">
+  <title>SBO Attendance | CITE Events</title>
+  <link rel="icon" href="assets/images/cite_favicon.png">
+  <link rel="stylesheet" href="css/tailwind.css">
+  <link rel="stylesheet" href="css/sbo.css?v=20260915-4">
+  <script src="js/shared/notifications.js" defer></script>
+</head>
+<body class="min-h-screen bg-white font-sans text-[#121017] antialiased">
+  <div data-sbo-sidebar-host></div><div data-sbo-header-host></div>
+  <main class="w-auto max-w-[1200px] px-4 pb-28 pt-5 transition-[margin] duration-200 sm:px-6 lg:ml-20 lg:px-8 lg:pb-12" data-sbo-main>
+    <header class="mb-5">
+      <p class="text-xs font-black uppercase tracking-[.14em] text-[#397565]">Assigned responsibility</p>
+      <h1 class="mt-1 text-2xl font-black tracking-tight sm:text-3xl">Attendance scanning</h1>
+      <p class="mt-2 text-sm text-[#121017]/55">Scan students from your assigned team during the active event session.</p>
+    </header>
+    <section class="hidden rounded-2xl border border-[#FF6B2C]/20 bg-[#FF6B2C]/7 p-6 text-center" data-no-assignment>
+      <strong class="text-lg font-black">You have no attendance assignment for the current event.</strong>
+      <p class="mt-2 text-sm text-[#121017]/55">Ask the SBO Adviser to assign your team, event day and attendance session.</p>
+    </section>
+    <div class="hidden space-y-4" data-attendance-workspace>
+      <label class="hidden max-w-xl gap-2" data-assignment-selector-wrap>
+        <span class="text-sm font-bold">Active assignment</span>
+        <select class="h-12 rounded-xl border border-[#121017]/12 bg-white px-3 outline-none focus:border-[#397565]" data-assignment-selector></select>
+      </label>
+      <section class="sbo-assignment-summary grid gap-3 rounded-2xl border border-[#397565]/15 bg-[#F3F0E9]/35 p-4 shadow-sm sm:grid-cols-2 lg:grid-cols-3" data-assignment-summary></section>
+      <div class="sbo-attendance-layout grid gap-4 lg:grid-cols-[minmax(0,1.3fr)_minmax(290px,.7fr)]">
+        <div class="space-y-4">
+          <section class="rounded-2xl border border-[#397565]/15 bg-white p-4 shadow-sm">
+            <div class="flex flex-wrap items-center justify-between gap-3">
+              <div><h2 class="text-lg font-black">Record attendance</h2><p class="mt-1 text-xs text-[#121017]/50" data-session-state></p></div>
+              <button class="sbo-primary-action min-h-11 rounded-xl bg-[#397565] px-5 text-sm font-black text-white disabled:opacity-40" type="button" data-scanner-open disabled>Open QR scanner</button>
+            </div>
+            <form class="mt-4 flex flex-col gap-2 sm:flex-row" data-manual-form>
+              <label class="sr-only" for="manual-student-id">Manual Student ID</label>
+              <input class="h-11 min-w-0 flex-1 rounded-xl border border-[#121017]/12 px-4 outline-none focus:border-[#397565]" id="manual-student-id" name="student_id" placeholder="Or enter Student ID" required>
+              <button class="min-h-11 rounded-xl border border-[#397565]/25 bg-white px-4 text-sm font-black text-[#397565] disabled:opacity-40" type="submit" data-manual-submit disabled>Record by ID</button>
+            </form>
+          </section>
+          <section class="rounded-2xl border border-[#121017]/10 bg-white p-4 shadow-sm">
+            <h2 class="text-base font-black">Last result</h2>
+            <p class="mt-2 text-sm text-[#121017]/55" data-scan-result>Ready when an attendance session opens.</p>
+          </section>
+        </div>
+        <div class="space-y-4">
+          <section class="rounded-2xl border border-[#397565]/15 bg-[#F3F0E9]/35 p-4">
+            <h2 class="text-base font-black">Session progress</h2>
+            <p class="mt-2 text-sm" data-scan-counts>0 scanned · 0 remaining</p>
+            <p class="mt-2 text-xs text-[#121017]/55" data-next-session></p>
+          </section>
+          <section class="rounded-2xl border border-[#121017]/10 bg-white p-4 shadow-sm">
+            <div class="flex items-center justify-between gap-2"><h2 class="text-base font-black">Scan location</h2><button class="text-xs font-black text-[#397565]" type="button" data-location-refresh>Refresh</button></div>
+            <div class="mt-3 grid gap-1 text-xs" data-location-card>Waiting for location permission…</div>
+          </section>
+        </div>
+      </div>
+      <section class="overflow-hidden rounded-2xl border border-[#121017]/10 bg-white shadow-sm">
+        <header class="border-b border-[#121017]/8 p-4"><h2 class="text-lg font-black">Recent scans</h2><p class="mt-1 text-xs text-[#121017]/50">Latest students recorded for this session.</p></header>
+        <div class="divide-y divide-[#121017]/8" data-recent-scans></div>
+      </section>
     </div>
-  </div>
-</main>
-<div class="pointer-events-none fixed right-4 top-4 z-[100] grid w-[min(380px,calc(100%_-_2rem))] gap-3" data-notification-region aria-live="polite"></div>
-<script src="js/vendor/axios.min.js"></script><script src="js/sbo/portal.js"></script><script src="js/sbo/attendance.js"></script></body></html>
+  </main>
+  <dialog class="sbo-scanner-dialog border-0 bg-white p-0 shadow-2xl" data-scanner-dialog aria-labelledby="scanner-dialog-title">
+    <div class="sbo-scanner-shell">
+      <header class="flex items-center justify-between gap-3 border-b border-[#121017]/10 p-4">
+        <div><h2 class="text-lg font-black" id="scanner-dialog-title">Scan student QR</h2><p class="text-xs text-[#121017]/55">Hold the student's code inside the frame.</p></div>
+        <button class="grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-[#121017]/10 text-xl" type="button" data-scanner-close aria-label="Close scanner">×</button>
+      </header>
+      <div class="sbo-scanner-body p-4">
+        <div class="sbo-scanner-preview relative overflow-hidden rounded-2xl bg-[#121017]" data-scanner-preview>
+          <video class="h-full w-full object-cover" data-scanner-video playsinline muted></video>
+          <div class="pointer-events-none absolute inset-[16%] rounded-2xl border-2 border-[#C6F24E] shadow-[0_0_0_999px_rgba(18,16,23,.38)]"></div>
+          <p class="sbo-camera-message absolute inset-x-4 bottom-4 text-center text-xs font-bold text-white/80" data-camera-message>Starting camera…</p>
+        </div>
+        <div class="mt-3 flex flex-wrap items-center justify-between gap-2">
+          <p class="text-xs font-semibold text-[#121017]/55" data-camera-status>Camera: off</p>
+          <button class="min-h-11 rounded-xl border border-[#397565]/25 px-4 text-xs font-black text-[#397565] disabled:opacity-40" type="button" data-camera-toggle hidden>Retry camera</button>
+        </div>
+        <div class="mt-3 flex flex-wrap gap-2">
+          <button class="min-h-11 rounded-xl border border-[#397565]/25 bg-white px-3 text-xs font-black text-[#397565]" type="button" data-camera-switch hidden>Switch camera</button>
+          <button class="min-h-11 rounded-xl border border-[#397565]/25 bg-white px-3 text-xs font-black text-[#397565]" type="button" data-flash-toggle hidden>Flashlight</button>
+        </div>
+        <p class="sbo-modal-result mt-3 text-sm" data-modal-scan-result aria-live="polite">Ready to scan.</p>
+      </div>
+    </div>
+  </dialog>
+  <div class="pointer-events-none fixed right-4 top-4 z-[100] grid w-[min(380px,calc(100%_-_2rem))] gap-3" data-notification-region aria-live="polite"></div>
+  <script src="js/vendor/axios.min.js"></script>
+  <script src="js/sbo/portal.js"></script>
+  <script src="js/sbo/attendance.js"></script>
+</body>
+</html>

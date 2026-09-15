@@ -53,6 +53,7 @@
 
     const load = async () => {
         await initialize('attendance');
+        await loadQr();
         const response = await axios.get('api/student-portal.php', {params: {page: 'attendance'}});
         const {summary, current_event: event, records} = response.data.data;
 
@@ -72,6 +73,30 @@
             ? records.map(record).join('')
             : '<div class="px-6 py-16 text-center"><h3 class="font-black">No attendance records yet</h3><p class="mt-2 text-sm text-[#121017]/45">Recorded attendance will appear here.</p></div>';
     };
+
+    const loadQr = async () => {
+        const host = document.querySelector('[data-student-qr]');
+        try {
+            const session = await axios.get('api/auth.php?action=session');
+            const response = await axios.post('api/student-attendance-qr.php', {}, {headers: {'X-CSRF-Token': session.data.csrf_token}});
+            const data = response.data.data;
+            if (!data.token) {
+                host.textContent = 'No active attendance session is available for your account.';
+                return;
+            }
+            const module = await import(new URL('js/vendor/qrcode-generator/qrcode.mjs', document.baseURI));
+            const qr = module.default(0, 'M');
+            qr.addData(data.token);
+            qr.make();
+            host.innerHTML = `<p class="text-sm font-bold">${escapeHtml(data.event_name)} · ${escapeHtml(data.session.replace('_', ' '))}</p>${qr.createSvgTag({cellSize:5,margin:20,scalable:true})}`;
+            const svg = host.querySelector('svg');
+            svg?.setAttribute('aria-label', 'Attendance QR token');
+            if (svg) svg.style.maxWidth = '240px';
+        } catch (error) {
+            host.textContent = error.response?.data?.message || 'Attendance QR is unavailable.';
+        }
+    };
+    document.querySelector('[data-refresh-qr]').addEventListener('click', loadQr);
 
     load().catch(() => {
         document.querySelector('[data-attendance-records]').innerHTML = '<div class="p-8 text-center font-bold text-[#FF6B2C]">Attendance could not be loaded.</div>';

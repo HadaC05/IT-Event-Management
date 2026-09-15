@@ -349,6 +349,7 @@
       }
       audience.value = event.audience_type || "all_students";
       form.elements.description.value = event.description || "";
+      form.elements.attendance_location_policy.value = event.attendance_location_policy || "off";
       if (form.elements.event_status_id)
         form.elements.event_status_id.value = event.event_status_id || "";
       const current = form.querySelector("[data-current-poster]");

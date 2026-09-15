@@ -1,6 +1,13 @@
 (() => {
     'use strict';
 
+    if (!document.querySelector('link[href^="css/sbo.css"]')) {
+        const stylesheet = document.createElement('link');
+        stylesheet.rel = 'stylesheet';
+        stylesheet.href = 'css/sbo.css?v=20260915-4';
+        document.head.appendChild(stylesheet);
+    }
+
     const pages = [
         ['attendance','Attendance','pages/sbo/attendance.html','<path d="M9 11l2 2 4-4m6 3a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/>'],
         ['students','Students','pages/sbo/students.html','<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm13 10v-2a4 4 0 0 0-3-3.87"/>'],

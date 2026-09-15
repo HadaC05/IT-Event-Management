@@ -220,18 +220,18 @@ final class EventManagementRepository
         try {
             if ($id) {
                 $statement = $this->db->prepare(
-                    "UPDATE tbl_events SET title=?,description=?,location=?,location_id=?,audience_type=?,poster_path=?,
+                    "UPDATE tbl_events SET title=?,description=?,location=?,location_id=?,attendance_location_policy=?,audience_type=?,poster_path=?,
                      start_at=?,end_at=?,event_type_id=?,event_status_id=?,updated_at=CURRENT_TIMESTAMP WHERE id=?"
                 );
-                $statement->execute([$data['title'], $data['description'], $data['location'], $data['location_id'], $data['audience_type'], $posterPath,
+                $statement->execute([$data['title'], $data['description'], $data['location'], $data['location_id'], $data['attendance_location_policy'], $data['audience_type'], $posterPath,
                     $data['start_at'], $data['end_at'], $data['event_type_id'], $data['event_status_id'], $id]);
             } else {
                 $upcoming = (int) $this->scalar("SELECT id FROM tbl_event_statuses WHERE label='upcoming'");
                 $statement = $this->db->prepare(
-                    "INSERT INTO tbl_events(title,description,location,location_id,audience_type,poster_path,start_at,end_at,event_type_id,event_status_id,created_by,is_featured,created_at,updated_at)
-                     VALUES(?,?,?,?,?,?,?,?,?,?,?,0,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)"
+                    "INSERT INTO tbl_events(title,description,location,location_id,attendance_location_policy,audience_type,poster_path,start_at,end_at,event_type_id,event_status_id,created_by,is_featured,created_at,updated_at)
+                     VALUES(?,?,?,?,?,?,?,?,?,?,?,?,0,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)"
                 );
-                $statement->execute([$data['title'], $data['description'], $data['location'], $data['location_id'], $data['audience_type'], $posterPath,
+                $statement->execute([$data['title'], $data['description'], $data['location'], $data['location_id'], $data['attendance_location_policy'], $data['audience_type'], $posterPath,
                     $data['start_at'], $data['end_at'], $data['event_type_id'], $upcoming, $actorId]);
                 $id = (int) $this->db->lastInsertId();
             }
@@ -495,6 +495,15 @@ final class EventManagementRepository
         }
         $location = (string) ($locationRow['name'] ?? '');
         $locationId = isset($locationRow['id']) ? (int) $locationRow['id'] : 0;
+        $locationPolicy = (string) ($input['attendance_location_policy'] ?? 'off');
+        if (!in_array($locationPolicy, ['off','warning','strict'], true)) $errors['attendance_location_policy'][] = 'Choose a valid scan location policy.';
+        if ($locationPolicy === 'strict' && $locationId > 0) {
+            $venue = $this->db->prepare('SELECT latitude,longitude,radius FROM tbl_locations WHERE id=?');
+            $venue->execute([$locationId]);
+            $coordinates = $venue->fetch();
+            if (!$coordinates || $coordinates['latitude'] === null || $coordinates['longitude'] === null || $coordinates['radius'] === null)
+                $errors['attendance_location_policy'][] = 'Strict mode requires coordinates and a radius for the selected venue.';
+        }
         $typeId = (int) ($input['event_type_id'] ?? 0);
         $statusId = (int) ($input['event_status_id'] ?? 0);
         $audienceType = (string) ($input['audience_type'] ?? 'all_students');
@@ -529,7 +538,7 @@ final class EventManagementRepository
         }
         if ($errors) throw new EventValidationException($errors);
         return [
-            'title' => $title, 'description' => $description, 'location' => $location, 'location_id' => $locationId, 'event_type_id' => $typeId,
+            'title' => $title, 'description' => $description, 'location' => $location, 'location_id' => $locationId, 'attendance_location_policy' => $locationPolicy, 'event_type_id' => $typeId,
             'event_status_id' => $statusId, 'audience_type' => $audienceType, 'start_at' => $startAt, 'end_at' => $endAt,
             'schedules' => $schedules, 'assigned_user_ids' => $assigned, 'tribe_ids' => $tribes,
             'year_level_ids' => $yearLevels, 'participant_ids' => $participants,
