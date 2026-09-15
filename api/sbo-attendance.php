@@ -159,7 +159,8 @@ final class SboAttendanceRepository {
                     $r['reason']=null;
                     if($a['venue_latitude']!==null&&$a['venue_longitude']!==null&&$a['venue_radius_m']!==null){
                         $distance=$this->distance($lat,$lon,$a['venue_latitude'],$a['venue_longitude']);
-                        $r['distance_m']=round($distance,2);$r['status']=$distance<=$a['venue_radius_m']?'inside':'outside';
+                        $r['distance_m']=round($distance,2);
+                        $r['status']=$this->insideBox($lat,$lon,$a['venue_latitude'],$a['venue_longitude'],$a['venue_radius_m'])?'inside':'outside';
                     }else $r['reason']='venue_not_configured';
                 }else $r['reason']='stale_location';
             }else $r['reason']='invalid_location';
@@ -170,6 +171,14 @@ final class SboAttendanceRepository {
             if($r['status']==='outside')throw new InvalidArgumentException('Scan location is outside the allowed event venue.');
         }
         return $r;
+    }
+    private function insideBox(float $latitude,float $longitude,float $centerLatitude,float $centerLongitude,float $radius):bool {
+        $latitudeDelta=$radius/111320;
+        $longitudeScale=max(cos(deg2rad($centerLatitude)),0.000001);
+        $longitudeDelta=$radius/(111320*$longitudeScale);
+        $longitudeDifference=fmod(abs($longitude-$centerLongitude),360.0);
+        if($longitudeDifference>180)$longitudeDifference=360-$longitudeDifference;
+        return abs($latitude-$centerLatitude)<=$latitudeDelta&&$longitudeDifference<=$longitudeDelta;
     }
     private function distance(float $a,float $b,float $c,float $d):float {
         $h=sin(deg2rad($c-$a)/2)**2+cos(deg2rad($a))*cos(deg2rad($c))*sin(deg2rad($d-$b)/2)**2;

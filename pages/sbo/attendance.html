@@ -12,6 +12,7 @@
 </head>
 <body class="min-h-screen bg-white font-sans text-[#121017] antialiased">
   <div data-sbo-sidebar-host></div><div data-sbo-header-host></div>
+  <button class="mr-2 min-h-10 shrink-0 rounded-xl bg-[#397565] px-3 text-xs font-black text-white" type="button" data-gps-toggle hidden>Turn On GPS</button>
   <main class="w-auto max-w-[1200px] px-4 pb-28 pt-5 transition-[margin] duration-200 sm:px-6 lg:ml-20 lg:px-8 lg:pb-12" data-sbo-main>
     <header class="mb-5">
       <p class="text-xs font-black uppercase tracking-[.14em] text-[#397565]">Assigned responsibility</p>
@@ -58,7 +59,12 @@
             <p class="mt-2 text-xs text-[#121017]/55" data-next-session></p>
           </section>
           <section class="rounded-2xl border border-[#121017]/10 bg-white p-4 shadow-sm">
-            <div class="flex items-center justify-between gap-2"><h2 class="text-base font-black">Scan location</h2><button class="text-xs font-black text-[#397565]" type="button" data-location-refresh>Refresh</button></div>
+            <div class="flex flex-wrap items-center justify-between gap-2">
+              <h2 class="text-base font-black">Scan location</h2>
+              <div class="flex flex-wrap items-center gap-2">
+                <button class="min-h-9 rounded-xl border border-[#397565]/25 px-3 text-xs font-black text-[#397565] disabled:opacity-40" type="button" data-location-refresh hidden>Refresh</button>
+              </div>
+            </div>
             <div class="mt-3 grid gap-1 text-xs" data-location-card>Waiting for location permission…</div>
           </section>
         </div>
@@ -97,9 +103,17 @@
       </div>
     </div>
   </dialog>
+  <dialog class="m-auto w-full max-w-md rounded-3xl border-0 bg-white p-0 shadow-2xl backdrop:bg-[#121017]/70" data-gps-policy-dialog aria-labelledby="gps-policy-title">
+    <div class="p-6 text-center">
+      <span class="mx-auto grid h-14 w-14 place-items-center rounded-full bg-[#397565]/10 text-2xl" aria-hidden="true">⌖</span>
+      <h2 class="mt-4 text-xl font-black" id="gps-policy-title" data-gps-policy-title>Location policy</h2>
+      <p class="mt-2 text-sm leading-6 text-[#121017]/65" data-gps-policy-message></p>
+      <button class="mt-6 min-h-11 w-full rounded-xl bg-[#397565] px-5 text-sm font-black text-white" type="button" data-gps-policy-confirm>Understood</button>
+    </div>
+  </dialog>
   <div class="pointer-events-none fixed right-4 top-4 z-[100] grid w-[min(380px,calc(100%_-_2rem))] gap-3" data-notification-region aria-live="polite"></div>
   <script src="js/vendor/axios.min.js"></script>
   <script src="js/sbo/portal.js"></script>
-  <script src="js/sbo/attendance.js?v=20260916-1"></script>
+  <script src="js/sbo/attendance.js?v=20260916-14"></script>
 </body>
 </html>

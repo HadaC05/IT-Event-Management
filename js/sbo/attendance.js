@@ -5,21 +5,44 @@
   const selector=$('[data-assignment-selector]'),video=$('[data-scanner-video]'),cameraButton=$('[data-camera-toggle]');
   const dialog=$('[data-scanner-dialog]'),openButton=$('[data-scanner-open]'),preview=$('[data-scanner-preview]');
   const switchButton=$('[data-camera-switch]'),flashButton=$('[data-flash-toggle]'),manualButton=$('[data-manual-submit]');
+  const locationRefresh=$('[data-location-refresh]'),gpsToggle=$('[data-gps-toggle]'),gpsPolicyDialog=$('[data-gps-policy-dialog]');
   const esc=value=>window.SboPortal.escapeHtml(value);
   const notify=(type,message)=>window.Notifications?.[type]?.(message);
   let csrf='',assignments=[],selected=null,scanner=null,QrScanner=null,cameras=[],cameraIndex=0,position=null;
-  let locationReason='not_provided',locationRequest=null,isProcessing=false,cooldownUntil=0,lastToken='',lastTokenAt=0,contextTimer=0,startGeneration=0,cameraHintTimer=0;
+  let locationReason='not_provided',locationRequest=null,locationWatchId=null,gpsEnabled=false,gpsGeneration=0,gpsManuallyDisabled=false,isProcessing=false,cooldownUntil=0,lastToken='',lastTokenAt=0,contextTimer=0,startGeneration=0,cameraHintTimer=0;
   let qrModulePromise=null,checkpoint='in';
+  const shownGpsNotices=new Map();
   const time=value=>value?new Intl.DateTimeFormat('en-PH',{hour:'numeric',minute:'2-digit'}).format(new Date('2000-01-01T'+value)):'—';
   const date=value=>value?new Intl.DateTimeFormat('en-PH',{dateStyle:'medium'}).format(new Date(value.replace(' ','T'))):'—';
   const clock=value=>value?new Intl.DateTimeFormat('en-PH',{timeStyle:'short'}).format(new Date(value.replace(' ','T'))):'—';
   const coords=value=>Number(value).toFixed(6);
-  const approximateDistance=(lat1,lon1,lat2,lon2)=>{
-    const rad=Math.PI/180,dLat=(lat2-lat1)*rad,dLon=(lon2-lon1)*rad;
-    const h=Math.sin(dLat/2)**2+Math.cos(lat1*rad)*Math.cos(lat2*rad)*Math.sin(dLon/2)**2;
-    return 6371000*2*Math.asin(Math.min(1,Math.sqrt(h)));
+  const insideBox=(latitude,longitude,centerLatitude,centerLongitude,radius)=>{
+    const latitudeDelta=radius/111320;
+    const longitudeScale=Math.max(Math.cos(centerLatitude*Math.PI/180),0.000001);
+    const longitudeDelta=radius/(111320*longitudeScale);
+    const rawDifference=Math.abs(longitude-centerLongitude)%360;
+    const longitudeDifference=rawDifference>180?360-rawDifference:rawDifference;
+    return Math.abs(latitude-centerLatitude)<=latitudeDelta&&longitudeDifference<=longitudeDelta;
   };
-  const freshPosition=()=>Boolean(position&&Date.now()-position.timestamp<=30000);
+  const boxProximity=(latitude,longitude,centerLatitude,centerLongitude,radius)=>{
+    const latitudeMeters=Math.abs(latitude-centerLatitude)*111320;
+    const rawLongitudeDifference=Math.abs(longitude-centerLongitude)%360;
+    const longitudeDegrees=rawLongitudeDifference>180?360-rawLongitudeDifference:rawLongitudeDifference;
+    const longitudeMeters=longitudeDegrees*111320*Math.max(Math.cos(centerLatitude*Math.PI/180),0.000001);
+    const latitudeOutside=Math.max(0,latitudeMeters-radius);
+    const longitudeOutside=Math.max(0,longitudeMeters-radius);
+    return {
+      inside:latitudeOutside===0&&longitudeOutside===0,
+      outsideMeters:Math.hypot(latitudeOutside,longitudeOutside),
+    };
+  };
+  const freshPosition=()=>{
+    if(!position)return false;
+    const age=Date.now()-position.timestamp;
+    return age>=-10000&&age<=30000;
+  };
+  const insideSelectedVenue=()=>freshPosition()&&selected?.venue_latitude!==null&&selected?.venue_latitude!==undefined&&selected?.venue_longitude!==null&&selected?.venue_longitude!==undefined&&selected?.venue_radius_m!==null&&selected?.venue_radius_m!==undefined&&
+    insideBox(position.latitude,position.longitude,Number(selected.venue_latitude),Number(selected.venue_longitude),Number(selected.venue_radius_m));
   const loadQrModule=()=>{
     if(!qrModulePromise)qrModulePromise=import(new URL('js/vendor/qr-scanner/qr-scanner.min.js',document.baseURI))
       .then(module=>module.default).catch(error=>{qrModulePromise=null;throw error;});
@@ -27,56 +50,137 @@
   };
 
   function renderLocation(){
+    const locationCard=$('[data-location-card]');
+    const detailsOpen=Boolean(locationCard.querySelector('details')?.open);
     const venue=selected?.venue_name||selected?.location||'Not configured';
+    const hasVenueBoundary=freshPosition()&&selected?.venue_latitude!==null&&selected?.venue_latitude!==undefined&&selected?.venue_longitude!==null&&selected?.venue_longitude!==undefined&&selected?.venue_radius_m!==null&&selected?.venue_radius_m!==undefined;
+    const proximity=hasVenueBoundary?boxProximity(position.latitude,position.longitude,Number(selected.venue_latitude),Number(selected.venue_longitude),Number(selected.venue_radius_m)):null;
+    const venueDistance=proximity?(proximity.inside?' (At venue)':` (${Math.max(1,Math.round(proximity.outsideMeters)).toLocaleString('en-US')} m outside venue)`):'';
     let status=locationReason==='checking'?'Checking GPS…':selected?.location_policy==='off'?'Not required':selected?.location_policy==='strict'?'GPS required':'GPS unavailable';
     if(freshPosition()){
       if(selected?.venue_latitude===null||selected?.venue_longitude===null||selected?.venue_radius_m===null)
         status='Venue boundary not configured';
-      else status=approximateDistance(position.latitude,position.longitude,selected.venue_latitude,selected.venue_longitude)<=selected.venue_radius_m?
-        'Approximately inside event venue':'Approximately outside event venue';
+      else status=insideBox(position.latitude,position.longitude,selected.venue_latitude,selected.venue_longitude,selected.venue_radius_m)?
+        'Inside event location boundary':'Outside event location boundary';
     }
-    const reason=locationReason==='location_timeout'?'Location timed out.':locationReason==='permission_denied'?'Location permission was denied.':locationReason==='not_provided'?'Location has not been checked.':'Location is unavailable.';
+    const isInside=status==='Inside event location boundary';
+    const isOutside=status==='Outside event location boundary';
+    const statusStyle=isInside?'border-[#397565]/30 bg-[#397565]/10 text-[#397565]':isOutside?'border-[#FF6B2C]/30 bg-[#FF6B2C]/10 text-[#D64A12]':'border-[#121017]/10 bg-[#F3F0E9] text-[#121017]/70';
+    const statusGuidance=isInside?'Your current GPS position is within the permitted location box.':isOutside
+      ?selected?.location_policy==='strict'?'You are outside the permitted location box. Move inside before scanning attendance.':'You are outside the location box. Warning mode allows scanning, but the location will be recorded as outside.'
+      :'';
+    const reason=locationReason==='location_timeout'?'No fresh GPS reading arrived before the request timed out.':locationReason==='permission_denied'?'Location permission was denied.':locationReason==='stale_location'?'The device returned only an outdated GPS reading.':locationReason==='not_provided'?'Location has not been checked.':'Location is unavailable.';
     const note=selected?.location_policy==='off'?'GPS is off for this event; scanning does not need location.':
       locationReason==='checking'?'Checking location in the background.':
-      freshPosition()?'Browser GPS is approximate.':selected?.location_policy==='strict'?`${reason} Refresh to enable attendance scanning.`:`${reason} Scanning can continue without GPS.`;
-    $('[data-location-card]').innerHTML=`<p><strong>Status:</strong> ${esc(status)}</p>
+      freshPosition()?'Live GPS is active. Accuracy depends on your device.':selected?.location_policy==='strict'?`${reason} Refresh to enable attendance scanning.`:`${reason} Scanning can continue without GPS.`;
+    locationCard.innerHTML=`<div class="rounded-xl border p-3 ${statusStyle}"><p><strong>Status:</strong> ${esc(status)}</p>${statusGuidance?`<p class="mt-1 leading-5">${esc(statusGuidance)}</p>`:''}</div>
       <p class="text-[#121017]/60">${esc(note)}</p>
-      <details class="mt-2 rounded-xl border border-[#121017]/10 p-3"><summary class="cursor-pointer font-bold text-[#397565]">View location details</summary>
-        <div class="mt-2 grid gap-1 text-[#121017]/70"><p><strong>Venue:</strong> ${esc(venue)}</p>
+      <details class="mt-2 rounded-xl border border-[#121017]/10 p-3" ${detailsOpen?'open':''}><summary class="cursor-pointer font-bold text-[#397565]">View location details</summary>
+        <div class="mt-2 grid gap-1 text-[#121017]/70"><p><strong>Venue:</strong> ${esc(venue+venueDistance)}</p>
         <p><strong>Latitude:</strong> ${position?coords(position.latitude):'—'}</p>
         <p><strong>Longitude:</strong> ${position?coords(position.longitude):'—'}</p>
         <p><strong>Accuracy:</strong> ${position?'±'+Number(position.accuracy).toFixed(0)+' meters':'—'}</p>
-        <p><strong>Captured:</strong> ${position?new Intl.DateTimeFormat('en-PH',{timeStyle:'short'}).format(new Date(position.timestamp)):'—'}</p></div>
+        <p><strong>Last GPS update:</strong> ${position?new Intl.DateTimeFormat('en-PH',{timeStyle:'medium'}).format(new Date(position.timestamp)):'—'}</p></div>
       </details>`;
     updateControls();
   }
   function updateControls(){
     const active=Boolean(selected?.[`${checkpoint}_window_open`]);
-    const strictBlocked=selected?.location_policy==='strict'&&!freshPosition();
+    const strictBlocked=selected?.location_policy==='strict'&&!insideSelectedVenue();
     openButton.disabled=!active||strictBlocked||!window.isSecureContext||!navigator.mediaDevices;
     cameraButton.disabled=openButton.disabled;
     manualButton.disabled=!active||strictBlocked;
-    $('[data-location-refresh]').hidden=selected?.location_policy==='off';
+    const policyOff=selected?.location_policy==='off';
+    gpsToggle.hidden=policyOff;
+    gpsToggle.textContent=gpsEnabled?'Turn Off GPS':'Turn On GPS';
+    gpsToggle.classList.toggle('bg-[#397565]',!gpsEnabled);
+    gpsToggle.classList.toggle('bg-[#FF6B2C]',gpsEnabled);
+    locationRefresh.hidden=policyOff||!gpsEnabled;
     if(!window.isSecureContext)$('[data-camera-status]').textContent='Camera: HTTPS is required on mobile devices.';
-    if(strictBlocked)$('[data-camera-message]').textContent='Location permission is required before strict attendance scanning.';
+    if(strictBlocked)$('[data-camera-message]').textContent=!freshPosition()
+      ?'Turn on GPS and wait for a current location before strict attendance scanning.'
+      :selected?.venue_latitude===null||selected?.venue_longitude===null||selected?.venue_radius_m===null
+        ?'The event location boundary is not configured.'
+        :'Move inside the event location box before strict attendance scanning.';
   }
   function getLocation(force=false){
     if(!force&&selected?.location_policy==='off')return Promise.resolve(null);
+    if(!gpsEnabled)return Promise.resolve(null);
     if(!force&&freshPosition())return Promise.resolve(position);
     if(locationRequest)return locationRequest;
     if(!navigator.geolocation){position=null;locationReason='geolocation_unavailable';renderLocation();return Promise.resolve(null);}
-    const strict=selected?.location_policy==='strict';
+    const generation=gpsGeneration;
+    if(locationWatchId===null){
+      locationWatchId=navigator.geolocation.watchPosition(result=>{
+        if(!gpsEnabled||generation!==gpsGeneration)return;
+        position={latitude:result.coords.latitude,longitude:result.coords.longitude,accuracy:result.coords.accuracy,timestamp:result.timestamp};
+        locationReason='';renderLocation();
+      },error=>{
+        if(!gpsEnabled||generation!==gpsGeneration)return;
+        locationReason=error.code===1?'permission_denied':error.code===3?'location_timeout':'location_unavailable';
+        renderLocation();
+      },{enableHighAccuracy:true,maximumAge:5000,timeout:20000});
+    }
     locationReason='checking';renderLocation();
-    locationRequest=new Promise((resolve,reject)=>navigator.geolocation.getCurrentPosition(resolve,reject,{
-      enableHighAccuracy:strict,maximumAge:strict?0:30000,timeout:strict?8000:4000,
-    })).then(result=>{
+    locationRefresh.disabled=true;locationRefresh.textContent='Updating...';
+    locationRequest=new Promise((resolve,reject)=>{
+      let settled=false;
+      const finish=(result,error=null)=>{
+        if(settled)return;
+        settled=true;window.clearTimeout(timer);
+        error?reject(error):resolve(result);
+      };
+      const timer=window.setTimeout(()=>finish(null,{code:3}),8000);
+      try{
+        navigator.geolocation.getCurrentPosition(result=>finish(result),error=>finish(null,error),{
+          enableHighAccuracy:true,maximumAge:5000,timeout:7000,
+        });
+      }catch(error){finish(null,error);}
+    }).then(result=>{
+      if(!gpsEnabled||generation!==gpsGeneration)return null;
       position={latitude:result.coords.latitude,longitude:result.coords.longitude,accuracy:result.coords.accuracy,timestamp:result.timestamp};
       locationReason='';renderLocation();return position;
     }).catch(error=>{
-      position=null;locationReason=error.code===1?'permission_denied':error.code===3?'location_timeout':'location_unavailable';
+      if(!gpsEnabled||generation!==gpsGeneration)return null;
+      locationReason=error.code===1?'permission_denied':error.code===3?'location_timeout':'location_unavailable';
       renderLocation();return null;
-    }).finally(()=>locationRequest=null);
+    }).finally(()=>{if(generation===gpsGeneration){locationRequest=null;locationRefresh.disabled=false;locationRefresh.textContent='Refresh';}});
     return locationRequest;
+  }
+  function stopLocationWatch(){
+    if(locationWatchId!==null)navigator.geolocation.clearWatch(locationWatchId);
+    locationWatchId=null;
+  }
+  function turnOffGps(manual=false){
+    if(manual)gpsManuallyDisabled=true;
+    gpsGeneration++;stopLocationWatch();locationRequest=null;gpsEnabled=false;position=null;locationReason='not_provided';
+    locationRefresh.disabled=false;locationRefresh.textContent='Refresh';renderLocation();
+  }
+  function toggleGps(){
+    if(gpsEnabled){turnOffGps(true);return;}
+    if(selected?.location_policy==='off')return;
+    gpsManuallyDisabled=false;gpsGeneration++;gpsEnabled=true;locationReason='checking';renderLocation();getLocation(true).catch(()=>{});
+  }
+  async function autoStartGps(){
+    if(gpsEnabled||gpsManuallyDisabled||!selected||selected.location_policy==='off'||!navigator.geolocation||!navigator.permissions?.query)return freshPosition()?position:null;
+    try{
+      const permission=await navigator.permissions.query({name:'geolocation'});
+      if(permission.state!=='granted'||gpsEnabled||gpsManuallyDisabled||selected.location_policy==='off')return freshPosition()?position:null;
+      gpsGeneration++;gpsEnabled=true;locationReason='checking';renderLocation();return await getLocation(true);
+    }catch{return null;}
+  }
+  function showGpsPolicyNotice(force=false){
+    const policy=selected?.location_policy;
+    if(!selected||gpsPolicyDialog.open)return;
+    const eventId=String(selected.event_id);
+    if(!force&&shownGpsNotices.get(eventId)===policy)return;
+    shownGpsNotices.set(eventId,policy);
+    if(!['strict','warning'].includes(policy))return;
+    $('[data-gps-policy-title]').textContent=policy==='strict'?'GPS is required for this event':'GPS is recommended for this event';
+    $('[data-gps-policy-message]').textContent=policy==='strict'
+      ?'Turn on GPS and remain inside the event location box. Attendance scanning stays disabled when GPS is off, unavailable, or outside the boundary.'
+      :'Turn on GPS to record where attendance was scanned. You may continue without GPS, but the scan location will be recorded as unavailable.';
+    gpsPolicyDialog.showModal();
   }
   function locationPayload(){
     if(selected?.location_policy==='off')return {unavailable_reason:'not_provided'};
@@ -118,17 +222,22 @@
   document.querySelectorAll('[data-checkpoint-option]').forEach(button=>button.addEventListener('click',()=>setCheckpoint(button.dataset.checkpointOption)));
   function renderAssignment(next){
     if(!selected)return;
-    $('[data-assignment-summary]').innerHTML=[
+    if(selected.location_policy==='off'&&gpsEnabled){gpsGeneration++;stopLocationWatch();locationRequest=null;gpsEnabled=false;position=null;locationReason='not_provided';}
+    const assignmentSummary=$('[data-assignment-summary]');
+    const detailsOpen=Boolean(assignmentSummary.querySelector('details')?.open);
+    assignmentSummary.innerHTML=[
       ['Event',selected.event_name],['Your team',selected.team_name],
       ['Event day',`Day ${selected.day_number} · ${date(selected.schedule_date)}`],
       ['Session',`${selected.session_name} · ${time(selected.session_start)}–${time(selected.session_end)}`],
     ].map(([label,value])=>`<article><span class="text-[10px] font-black uppercase tracking-wider text-[#397565]">${label}</span><strong class="mt-1 block text-sm">${esc(value)}</strong></article>`).join('')+
-      `<details class="sbo-assignment-details"><summary>Venue and location policy</summary><p class="mt-2 text-sm">${esc(selected.venue_name||'Venue not configured')} · ${esc(selected.location_policy)} location policy</p></details>`;
+      `<details class="sbo-assignment-details" ${detailsOpen?'open':''}><summary>Venue and location policy</summary><p class="mt-2 text-sm">${esc(selected.venue_name||'Venue not configured')} · ${esc(selected.location_policy)} location policy</p></details>`;
     renderPhaseStatus();
     $('[data-next-session]').textContent=next?`Next scheduled session: ${next.event} · ${next.name} · ${date(next.starts_at)} ${clock(next.starts_at)}`:'No later attendance session is scheduled for today.';
     renderLocation();updateControls();
   }
   async function load(requested=0){
+    const previousEventId=selected?.event_id??null;
+    const previousPolicy=selected?.location_policy??null;
     const response=await axios.get(API,{params:requested?{assignment_id:requested}:{}});
     const data=response.data.data;assignments=data.assignments;
     $('[data-no-assignment]').classList.toggle('hidden',assignments.length>0);
@@ -137,8 +246,12 @@
     $('[data-assignment-selector-wrap]').classList.toggle('hidden',assignments.length<2);
     $('[data-assignment-selector-wrap]').classList.toggle('grid',assignments.length>1);
     selected=data.selected_assignment||(requested?assignments.find(a=>a.id===Number(requested)):assignments[0])||null;
-    if(selected){selector.value=selected.id;renderAssignment(data.next_session);renderRecent(data.recent_scans);renderCounts(data.counts);}
-    else{await stop();updateControls();}
+    if(selected){
+      selector.value=selected.id;renderAssignment(data.next_session);renderRecent(data.recent_scans);renderCounts(data.counts);
+      const policyChanged=previousEventId!==null&&Number(previousEventId)===Number(selected.event_id)&&previousPolicy!==selected.location_policy;
+      autoStartGps().then(()=>{if(policyChanged||!freshPosition())showGpsPolicyNotice(policyChanged);}).catch(()=>showGpsPolicyNotice(policyChanged));
+    }
+    else{await stop();turnOffGps();updateControls();}
   }
   function successSound(){
     try{const audio=new (window.AudioContext||window.webkitAudioContext)();const tone=audio.createOscillator();const gain=audio.createGain();
@@ -228,11 +341,14 @@
   cameraButton.addEventListener('click',()=>scanner?stop():start());
   switchButton.addEventListener('click',async()=>{if(!scanner||cameras.length<2)return;cameraIndex=(cameraIndex+1)%cameras.length;await scanner.setCamera(cameras[cameraIndex].id);flashButton.hidden=!(await scanner.hasFlash());});
   flashButton.addEventListener('click',async()=>{if(!scanner)return;await scanner.toggleFlash();flashButton.textContent=scanner.isFlashOn()?'Flashlight on':'Flashlight';});
-  $('[data-location-refresh]').addEventListener('click',()=>getLocation(true));
-  selector.addEventListener('change',async()=>{if(dialog.open)dialog.close();await stop();position=null;locationReason='not_provided';await load(Number(selector.value));if(selected?.is_session_active&&selected.location_policy==='strict')getLocation().catch(()=>{});});
+  locationRefresh.addEventListener('click',()=>getLocation(true));
+  gpsToggle.addEventListener('click',toggleGps);
+  $('[data-gps-policy-confirm]').addEventListener('click',()=>gpsPolicyDialog.close());
+  gpsPolicyDialog.addEventListener('click',event=>{if(event.target===gpsPolicyDialog)gpsPolicyDialog.close();});
+  selector.addEventListener('change',async()=>{if(dialog.open)dialog.close();await stop();turnOffGps();await load(Number(selector.value));});
   $('[data-manual-form]').addEventListener('submit',async event=>{event.preventDefault();const field=event.currentTarget.elements.student_id;const value=field.value.trim();if(!value)return;await submit({mode:'manual',student_id:value});field.value='';});
-  window.addEventListener('pagehide',()=>{clearInterval(contextTimer);if(dialog.open)dialog.close();stop();});
+  window.addEventListener('pagehide',()=>{clearInterval(contextTimer);stopLocationWatch();if(dialog.open)dialog.close();stop();});
   document.addEventListener('visibilitychange',()=>{if(document.hidden){if(dialog.open)dialog.close();stop();}});
-  SboPortal.initialize('attendance').then(async context=>{csrf=context.csrfToken;await load();if(selected?.is_session_active){loadQrModule().catch(()=>{});if(selected.location_policy==='strict')getLocation().catch(()=>{});}contextTimer=setInterval(async()=>{if(isProcessing)return;const old=selected?.id,wasActive=selected?.is_session_active;await load(old||0);if(!wasActive&&selected?.is_session_active){loadQrModule().catch(()=>{});if(selected.location_policy==='strict')getLocation().catch(()=>{});}if(!selected?.is_session_active){if(dialog.open)dialog.close();await stop();}},30000);})
+  SboPortal.initialize('attendance').then(async context=>{csrf=context.csrfToken;const accountMenu=document.querySelector('[data-sbo-account-menu]');if(accountMenu){accountMenu.classList.remove('ml-auto');gpsToggle.classList.add('ml-auto');accountMenu.before(gpsToggle);}await load();if(selected?.is_session_active)loadQrModule().catch(()=>{});contextTimer=setInterval(async()=>{if(isProcessing)return;const old=selected?.id,wasActive=selected?.is_session_active;await load(old||0);if(!wasActive&&selected?.is_session_active)loadQrModule().catch(()=>{});if(!selected?.is_session_active){if(dialog.open)dialog.close();await stop();}},30000);})
     .catch(error=>notify('error',error.response?.data?.message||error.message));
 })();
