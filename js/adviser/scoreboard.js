@@ -256,12 +256,14 @@
 
   async function removeCategory(categoryId) {
     const category = state.categories.find((item) => item.id === categoryId);
-    if (
-      !confirm(
-        `Remove ${category.name}? Its ${category.scores_count} score entries will be permanently removed.`,
-      )
-    )
-      return;
+    const accepted = window.Notifications?.confirm
+      ? await window.Notifications.confirm({
+          title: "Remove criterion?",
+          message: `${category.name} and its ${category.scores_count} score entries will be permanently removed.`,
+          action: "Remove criterion",
+        })
+      : confirm(`Remove ${category.name}? Its ${category.scores_count} score entries will be permanently removed.`);
+    if (!accepted) return;
     try {
       const response = await post("category-delete", {
         category_id: categoryId,

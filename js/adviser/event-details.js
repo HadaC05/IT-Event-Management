@@ -351,12 +351,14 @@
   const archiveButton = $("[data-archive-event]");
   if (archiveButton)
     archiveButton.onclick = async () => {
-      if (
-        !confirm(
-          "Archive this event? Its details and assignments will be preserved.",
-        )
-      )
-        return;
+      const accepted = window.Notifications?.confirm
+        ? await window.Notifications.confirm({
+            title: "Archive event?",
+            message: "Its details and assignments will be preserved, but it will leave the active event list.",
+            action: "Archive",
+          })
+        : confirm("Archive this event? Its details and assignments will be preserved.");
+      if (!accepted) return;
       try {
         await post({ action: "archive", id });
         toast("success", "Event archived successfully.");

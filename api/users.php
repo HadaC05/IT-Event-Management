@@ -26,8 +26,9 @@ final class UserManagementRepository
             throw new InvalidArgumentException('Search may not exceed 100 characters.');
         }
         if ($search !== '') {
-            $where[] = '(u.first_name LIKE :q ESCAPE \'\\\\\' OR u.middle_name LIKE :q ESCAPE \'\\\\\' OR u.last_name LIKE :q ESCAPE \'\\\\\' OR u.email LIKE :q ESCAPE \'\\\\\' OR u.username LIKE :q ESCAPE \'\\\\\' OR u.id_number LIKE :q ESCAPE \'\\\\\')';
-            $params['q'] = '%'.addcslashes($search, '%_\\').'%';
+            $where[] = '(u.first_name LIKE :q_first ESCAPE \'\\\\\' OR u.middle_name LIKE :q_middle ESCAPE \'\\\\\' OR u.last_name LIKE :q_last ESCAPE \'\\\\\' OR u.email LIKE :q_email ESCAPE \'\\\\\' OR u.username LIKE :q_username ESCAPE \'\\\\\' OR u.id_number LIKE :q_id ESCAPE \'\\\\\')';
+            $term = '%'.addcslashes($search, '%_\\').'%';
+            foreach (['q_first', 'q_middle', 'q_last', 'q_email', 'q_username', 'q_id'] as $key) $params[$key] = $term;
         }
         if ($role !== '') {
             if (!$this->value('SELECT id FROM tbl_roles WHERE name = ?', [$role])) {
@@ -53,6 +54,7 @@ final class UserManagementRepository
         $countStatement->execute($params);
         $total = (int) $countStatement->fetchColumn();
         $lastPage = max(1, (int) ceil($total / $perPage));
+        if ($page > $lastPage) $page = $lastPage;
 
         $sql = 'SELECT u.id, u.id_number, u.first_name, u.middle_name, u.last_name,
                     u.username, u.email, u.role_id, u.year_level, u.status AS status_id,
@@ -77,6 +79,16 @@ final class UserManagementRepository
             $assigned = $this->db->prepare('SELECT e.id, e.title, e.start_at FROM tbl_events e JOIN tbl_event_user eu ON eu.event_id = e.id WHERE eu.user_id = ? ORDER BY e.start_at');
             $assigned->execute([$user['id']]);
             $user['assigned_events'] = $assigned->fetchAll();
+            $user['responsibility_events_count'] = 0;
+            if ($user['role'] === 'SBO Officer') {
+                $responsibilities = $this->db->prepare("SELECT COUNT(DISTINCT schedule.event_id)
+                    FROM tbl_sbo_event_assignments responsibility
+                    JOIN tbl_sbo_officer_assignments officer ON officer.id = responsibility.officer_assignment_id
+                    JOIN tbl_event_attendance_schedules schedule ON schedule.id = responsibility.event_schedule_id
+                    WHERE officer.officer_user_id = ? AND officer.status = 'Active' AND responsibility.status = 'active'");
+                $responsibilities->execute([$user['id']]);
+                $user['responsibility_events_count'] = (int) $responsibilities->fetchColumn();
+            }
         }
         unset($user);
 
@@ -317,6 +329,8 @@ final class UserManagementRepository
         return $statement->fetchColumn();
     }
 }
+
+if (realpath((string) ($_SERVER['SCRIPT_FILENAME'] ?? '')) !== __FILE__) return;
 
 $actor=AuthGuard::requireRole('SBO Adviser'); $repo=new UserManagementRepository((new Database())->connection());
 try {

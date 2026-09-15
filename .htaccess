@@ -5,3 +5,13 @@ RewriteEngine On
 RewriteRule ^api/login\.php$ api/auth.php?action=login [L,QSA]
 RewriteRule ^api/logout\.php$ api/auth.php?action=logout [L,QSA]
 RewriteRule ^api/session\.php$ api/auth.php?action=session [L,QSA]
+
+# During local development, always revalidate frontend files so HTML and JavaScript
+# cannot drift into different cached versions after a pull or UI update.
+<IfModule mod_headers.c>
+    <FilesMatch "\.(?:html|css|js)$">
+        Header set Cache-Control "no-cache, must-revalidate"
+        Header set Pragma "no-cache"
+        Header set Expires "0"
+    </FilesMatch>
+</IfModule>

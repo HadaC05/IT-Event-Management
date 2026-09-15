@@ -88,48 +88,13 @@
         <div>
             <p class="mb-2 text-xs font-extrabold uppercase tracking-[.14em] text-emerald-700">Administration</p>
             <h1 class="text-3xl font-extrabold tracking-tight text-[#121017] sm:text-4xl">User Management</h1>
-            <p class="mt-2 text-sm text-slate-500">Manage access, roles, and event responsibilities.</p>
+            <p class="mt-2 text-sm text-slate-500">Manage user accounts, roles, and access.</p>
         </div>
         <button class="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-emerald-600 px-5 text-sm font-extrabold text-white shadow-lg shadow-emerald-600/15 transition hover:bg-emerald-700" type="button" data-dialog-open="add-user-dialog"><span class="text-xl font-normal" aria-hidden="true">+</span>Add User</button>
     </header>
 
-    <section class="mb-6 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm" aria-label="Account overview">
-        <div class="grid divide-y divide-slate-100 md:grid-cols-[1.3fr_repeat(5,1fr)] md:divide-x md:divide-y-0">
-            <div class="bg-[#121017] p-5 text-white md:p-6">
-                <p class="text-xs font-extrabold uppercase tracking-[.14em] text-emerald-300">Account Overview</p>
-                <div class="mt-2 flex items-baseline gap-2"><strong class="text-3xl font-black">14</strong><span class="text-xs font-semibold text-white/50">Total Users</span></div>
-            </div>
-                            <div class="flex items-center justify-between gap-4 px-5 py-4 md:block md:p-6">
-                    <span class="inline-flex items-center gap-2 text-sm font-semibold text-slate-500">
-                                                Students
-                    </span>
-                    <strong class="text-2xl font-extrabold text-[#121017] md:mt-2 md:block">12</strong>
-                </div>
-                            <div class="flex items-center justify-between gap-4 px-5 py-4 md:block md:p-6">
-                    <span class="inline-flex items-center gap-2 text-sm font-semibold text-slate-500">
-                                                Faculty
-                    </span>
-                    <strong class="text-2xl font-extrabold text-[#121017] md:mt-2 md:block">0</strong>
-                </div>
-                            <div class="flex items-center justify-between gap-4 px-5 py-4 md:block md:p-6">
-                    <span class="inline-flex items-center gap-2 text-sm font-semibold text-slate-500">
-                                                SBO Officers
-                    </span>
-                    <strong class="text-2xl font-extrabold text-[#121017] md:mt-2 md:block">0</strong>
-                </div>
-                            <div class="flex items-center justify-between gap-4 px-5 py-4 md:block md:p-6">
-                    <span class="inline-flex items-center gap-2 text-sm font-semibold text-[#397565]">
-                        <i class="h-2 w-2 rounded-full bg-[#C6F24E]" aria-hidden="true"></i>                        Active
-                    </span>
-                    <strong class="text-2xl font-extrabold text-[#121017] md:mt-2 md:block">13</strong>
-                </div>
-                            <div class="flex items-center justify-between gap-4 px-5 py-4 md:block md:p-6">
-                    <span class="inline-flex items-center gap-2 text-sm font-semibold text-[#FF6B2C]">
-                        <i class="h-2 w-2 rounded-full bg-[#FF6B2C]" aria-hidden="true"></i>                        Inactive
-                    </span>
-                    <strong class="text-2xl font-extrabold text-[#121017] md:mt-2 md:block">0</strong>
-                </div>
-                    </div>
+    <section class="mb-6 border-y border-[#121017]/10 py-4" aria-label="Account overview">
+        <p class="text-sm font-bold text-[#121017]" data-user-summary>Loading account totals…</p>
     </section>
 
     <section class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
@@ -140,13 +105,13 @@
                 <label class="relative"><svg class="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 fill-none stroke-slate-400" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg><span class="sr-only">Search users</span><input class="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 pl-10 pr-3 text-sm outline-none transition placeholder:text-slate-400 focus:border-emerald-500 focus:bg-white focus:ring-4 focus:ring-emerald-500/10" name="search" value="" placeholder="Search name, email, username or ID…"></label>
                 <label><span class="sr-only">Filter by role</span><select class="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm text-slate-600 outline-none transition focus:border-emerald-500 focus:bg-white focus:ring-4 focus:ring-emerald-500/10" name="role"><option value="">All roles</option><option value="SBO Adviser" >SBO Adviser</option><option value="Student" >Student</option></select></label>
                 <label><span class="sr-only">Filter by status</span><select class="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm text-slate-600 outline-none transition focus:border-emerald-500 focus:bg-white focus:ring-4 focus:ring-emerald-500/10" name="status"><option value="">Any status</option><option value="active" >Active</option><option value="inactive" >Inactive</option></select></label>
-                <button class="inline-flex h-11 items-center justify-center rounded-xl bg-[#397565] px-5 text-sm font-extrabold text-white transition hover:bg-[#397565]/90" type="submit">Apply</button>
+                <button class="sr-only" type="submit">Update directory</button>
             </form>
         </header>
 
         <div class="hidden overflow-x-auto lg:block">
             <table class="w-full min-w-[980px] border-collapse">
-                <thead class="bg-slate-50 text-left text-xs font-extrabold uppercase tracking-wider text-slate-400"><tr><th class="px-6 py-3.5">User</th><th class="px-4 py-3.5">Role</th><th class="px-4 py-3.5">Status</th><th class="px-4 py-3.5">Event Responsibilities</th><th class="px-6 py-3.5 text-right">Actions</th></tr></thead>
+                <thead class="bg-slate-50 text-left text-xs font-extrabold uppercase tracking-wider text-slate-400"><tr><th class="px-6 py-3.5">User</th><th class="px-4 py-3.5">Role</th><th class="px-4 py-3.5">Status</th><th class="px-4 py-3.5">Responsibility</th><th class="px-6 py-3.5 text-right">Actions</th></tr></thead>
                 <tbody class="divide-y divide-slate-100">
                                                                     <tr class="transition hover:bg-slate-50/70">
                             <td class="px-6 py-5"><div class="flex min-w-64 items-center gap-3"><span class="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#121017] text-xs font-extrabold text-[#F3F0E9]">SA</span><span class="grid min-w-0 gap-0.5"><strong class="truncate text-sm text-slate-700">SBO Adviser</strong><small class="truncate text-xs text-slate-400">adviser@itevents.local</small><small class="truncate text-xs text-slate-400">@sbo.adviser · SBO-ADV-001</small></span></div></td>
@@ -297,7 +262,7 @@
                     <nav class="flex flex-col items-center justify-between gap-3 border-t border-slate-100 px-5 py-4 text-xs sm:flex-row"><small class="text-slate-400">Showing 1–10 of 14</small><div class="flex items-center gap-2"><span class="rounded-lg border border-slate-100 bg-slate-50 px-3 py-2 text-slate-300">Previous</span><span class="px-2 text-slate-400">1 / 2</span><a class="rounded-lg border border-slate-200 px-3 py-2 font-bold text-slate-600 hover:bg-slate-50" href="pages/adviser/users.html?page=2">Next</a></div></nav>
             </section>
 
-    <dialog class="m-auto max-h-[calc(100vh_-_2rem)] w-[min(760px,calc(100%_-_2rem))] overflow-y-auto rounded-2xl border-0 bg-white p-0 shadow-2xl backdrop:bg-[#121017]/60 backdrop:backdrop-blur-[2px]" id="add-user-dialog">
+    <dialog class="m-auto max-h-[calc(100vh_-_2rem)] w-[min(760px,calc(100%_-_2rem))] overflow-y-auto rounded-2xl border-0 bg-white p-0 shadow-2xl backdrop:bg-[#121017]/60 backdrop:backdrop-blur-[2px]" id="add-user-dialog" data-modal-size="large" data-modal-kind="form">
         <form method="POST" action="pages/adviser/users.html">            <header class="border-b border-slate-100 border-t-4 border-t-emerald-500 px-6 py-5"><div class="flex items-start justify-between gap-5"><div><p class="mb-2 text-xs font-extrabold uppercase tracking-[.14em] text-emerald-700">New Account</p><h2 class="text-2xl font-extrabold tracking-tight text-[#121017]">Add User</h2><p class="mt-1.5 text-sm text-slate-500">Create an SBO Adviser, Faculty, or Student account. Officers are assigned from existing students.</p></div><button class="grid h-9 w-9 place-items-center rounded-lg bg-slate-100 text-xl text-slate-500 hover:bg-slate-200" type="button" data-dialog-close aria-label="Close">&times;</button></div></header>
             <div class="p-6"><input type="hidden" name="_form" value="create">
 
@@ -679,7 +644,7 @@
     <div class="pointer-events-none fixed right-4 top-4 z-[80] grid w-[min(380px,calc(100%_-_2rem))] gap-2.5 sm:right-6 sm:top-6" data-notification-region data-flash-type="" data-flash-message="" aria-live="polite" aria-atomic="true"></div>
 <div class="pointer-events-none fixed bottom-4 right-4 z-[75] w-[min(470px,calc(100%_-_2rem))] sm:bottom-6 sm:right-6" data-snackbar-region aria-live="polite" aria-atomic="true"></div>
 
-<dialog class="m-auto w-[min(440px,calc(100%_-_2rem))] rounded-2xl border-0 bg-white p-0 text-slate-700 shadow-2xl backdrop:bg-[#121017]/60 backdrop:backdrop-blur-[2px]" data-confirm-dialog aria-labelledby="confirm-title" aria-describedby="confirm-message">
+<dialog class="m-auto w-[min(440px,calc(100%_-_2rem))] rounded-2xl border-0 bg-white p-0 text-slate-700 shadow-2xl backdrop:bg-[#121017]/60 backdrop:backdrop-blur-[2px]" data-confirm-dialog data-modal-size="small" data-modal-kind="confirmation" aria-labelledby="confirm-title" aria-describedby="confirm-message">
     <div class="flex items-start gap-4 p-6 pb-5">
         <span class="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-red-50 text-red-600" aria-hidden="true"><svg class="h-5 w-5 fill-none stroke-current" viewBox="0 0 24 24"><path d="M12 9v4m0 4h.01M10.3 3.6 2.4 17.2A2 2 0 0 0 4.1 20h15.8a2 2 0 0 0 1.7-2.8L13.7 3.6a2 2 0 0 0-3.4 0Z"/></svg></span>
         <div><h2 class="text-lg font-extrabold tracking-tight text-[#121017]" id="confirm-title" data-confirm-title>Confirm action</h2><p class="mt-1.5 text-sm leading-6 text-slate-500" id="confirm-message" data-confirm-message>Are you sure you want to continue?</p></div>
@@ -689,6 +654,6 @@
         <button class="inline-flex min-h-10 items-center justify-center rounded-xl bg-red-600 px-4 text-sm font-bold text-white hover:bg-red-700" type="button" data-confirm-accept>Confirm</button>
     </div>
 </dialog>    <script src="js/vendor/axios.min.js"></script>
-    <script src="js/adviser/users.js"></script>
+    <script src="js/adviser/users.js?v=20260915-2"></script>
 </body>
 </html>

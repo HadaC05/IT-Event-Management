@@ -4,11 +4,14 @@
     let csrfToken = '';
     let currentPage = Math.max(1, Number(new URLSearchParams(location.search).get('page')) || 1);
     let students = [];
+    let searchTimer;
 
     const list = document.querySelector('[data-officer-list]');
     const listForm = document.querySelector('[data-officer-list-form]');
     const selectAll = document.querySelector('[data-select-all-officers]');
-    const batchButton = document.querySelector('[data-batch-unassign]');
+    const selectionBar = document.querySelector('[data-officer-selection-bar]');
+    const selectionCount = document.querySelector('[data-officer-selection-count]');
+    const filters = document.querySelector('[data-officer-filters]');
     const pagination = document.querySelector('[data-officer-pagination]');
     const dialog = document.querySelector('#assign-officer-dialog');
     const assignForm = document.querySelector('[data-assign-officer-form]');
@@ -41,8 +44,11 @@
 
     const updateUrl = () => {
         const url = new URL(location.href);
+        url.search = '';
+        new FormData(filters).forEach((value, key) => {
+            if (value) url.searchParams.set(key, value);
+        });
         if (currentPage > 1) url.searchParams.set('page', String(currentPage));
-        else url.searchParams.delete('page');
         history.replaceState(null, '', url);
     };
 
@@ -50,7 +56,40 @@
         const checks = [...list.querySelectorAll('[data-officer-checkbox]:not(:disabled)')];
         const selected = checks.filter(input => input.checked).length;
         selectAll.checked = checks.length > 0 && selected === checks.length;
-        batchButton.disabled = selected === 0;
+        selectAll.indeterminate = selected > 0 && selected < checks.length;
+        selectionCount.textContent = `${selected} ${selected === 1 ? 'officer' : 'officers'} selected`;
+        selectionBar.style.display = selected ? 'flex' : 'none';
+    };
+
+    const closeOfficerMenu = () => document.querySelector('[data-officer-actions-menu]')?.remove();
+
+    const openOfficerMenu = (anchor, assignment) => {
+        closeOfficerMenu();
+        const menu = document.createElement('div');
+        menu.dataset.officerActionsMenu = '';
+        menu.className = 'fixed z-[80] w-56 rounded-xl border border-[#121017]/10 bg-white p-1.5 shadow-2xl';
+        const menuItem = (label, action, danger = false) => {
+            const control = button(label, `block w-full rounded-lg px-3 py-2.5 text-left text-xs font-bold transition hover:bg-[#F3F0E9]/60 ${danger ? 'text-[#d9470a]' : 'text-[#121017]'}`, () => {
+                closeOfficerMenu();
+                action();
+            });
+            menu.append(control);
+        };
+        if (assignment.status === 'Active') {
+            menuItem('Manage responsibilities', () => document.querySelector('[data-task-open]')?.click());
+            menuItem('Reset officer login', () => openPasswordDialog(assignment));
+            const divider = document.createElement('div');
+            divider.className = 'my-1 border-t border-[#121017]/8';
+            menu.append(divider);
+            menuItem('Unassign officer', () => unassign(assignment), true);
+        } else {
+            menuItem('View assignment details', () => openDetailsDialog(assignment));
+        }
+        document.body.append(menu);
+        const anchorRect = anchor.getBoundingClientRect();
+        const menuRect = menu.getBoundingClientRect();
+        menu.style.left = `${Math.max(12, Math.min(innerWidth - menuRect.width - 12, anchorRect.right - menuRect.width))}px`;
+        menu.style.top = `${Math.min(innerHeight - menuRect.height - 12, anchorRect.bottom + 6)}px`;
     };
 
     const unassign = async assignment => {
@@ -112,10 +151,12 @@
 
     const renderAssignments = data => {
         list.replaceChildren();
+        document.querySelector('[data-officer-result-count]').textContent = `${data.pagination.total} ${data.pagination.total === 1 ? 'assignment' : 'assignments'} found`;
         if (!data.assignments.length) {
             const empty = document.createElement('div');
             empty.className = 'px-6 py-14 text-center';
-            empty.innerHTML = '<strong class="text-base font-black">No officer assignments yet</strong><p class="mt-1 text-sm text-[#121017]/45">Assign an existing student to create their separate officer login.</p>';
+            const filtered = [...new FormData(filters).values()].some(Boolean);
+            empty.innerHTML = `<strong class="text-base font-black">${filtered ? 'No officers match these filters' : 'No officer assignments yet'}</strong><p class="mt-1 text-sm text-[#121017]/45">${filtered ? 'Try another search or assignment status.' : 'Assign an existing student to create their separate officer login.'}</p>`;
             list.append(empty);
             syncSelection();
             return;
@@ -136,26 +177,28 @@
             check.addEventListener('change', syncSelection);
 
             const identity = document.createElement('div');
-            identity.innerHTML = '<span class="text-[10px] font-black uppercase tracking-wider text-[#121017]/35">Assigned officer</span><strong class="mt-1 block text-sm font-black"></strong><span class="mt-1 block text-xs text-[#121017]/45">Student-linked SBO account</span>';
+            identity.className = 'min-w-0';
+            identity.innerHTML = '<strong class="block truncate text-sm font-black"></strong><span class="mt-1 block truncate text-xs text-[#121017]/45"></span>';
             identity.querySelector('strong').textContent = assignment.full_name;
-            const term = document.createElement('div');
-            term.innerHTML = '<span class="text-[10px] font-black uppercase tracking-wider text-[#397565]"></span><strong class="mt-1 block text-sm"></strong>';
-            term.querySelector('span').textContent = assignment.position;
-            term.querySelector('strong').textContent = assignment.term;
+            identity.querySelector('span').textContent = `${assignment.school_year_label ? `SY ${assignment.school_year_label}` : assignment.term} · ${assignment.team_name || 'No tribe assigned'}`;
             const account = document.createElement('div');
-            account.innerHTML = '<span class="text-[10px] font-black uppercase tracking-wider text-[#397565]">Account</span><strong class="mt-1 block text-sm">SBO Officer login</strong><span class="mt-1 block text-[10px] text-[#121017]/45">Open details to view credentials</span>';
+            account.innerHTML = '<strong class="block text-sm">SBO Officer account</strong><span class="mt-1 block text-[10px] text-[#121017]/45"></span>';
+            const position = assignment.position ? assignment.position.charAt(0).toUpperCase() + assignment.position.slice(1) : 'Officer';
+            account.querySelector('span').textContent = `${position} · Term ${assignment.term}`;
             const actions = document.createElement('div');
             actions.className = 'flex flex-wrap items-center justify-end gap-2';
             const status = document.createElement('span');
-            status.className = `rounded-full px-3 py-1.5 text-[10px] font-black uppercase ${active ? 'bg-[#C6F24E]/35 text-[#397565]' : 'bg-[#121017]/6 text-[#121017]/40'}`;
+            status.className = `w-fit rounded-full px-3 py-1.5 text-[10px] font-black uppercase ${active ? 'bg-[#C6F24E]/35 text-[#397565]' : 'bg-[#121017]/6 text-[#121017]/40'}`;
             status.textContent = assignment.status;
-            actions.append(status);
-            actions.append(button('View Details', 'min-h-9 rounded-lg border border-[#397565]/25 bg-[#397565]/8 px-3 text-xs font-black text-[#397565]', () => openDetailsDialog(assignment)));
-            if (active) actions.append(button('Unassign', 'min-h-9 rounded-lg border border-[#FF6B2C]/25 bg-[#FF6B2C]/9 px-3 text-xs font-black text-[#d9470a]', () => unassign(assignment)));
-            term.append(document.createElement('small'));
-            term.lastElementChild.className = 'mt-1 block text-[10px] text-[#121017]/40';
-            term.lastElementChild.textContent = `Tribe: ${assignment.team_name || 'No tribe'}`;
-            article.append(check, identity, term, account, actions);
+            actions.append(button('View Details', 'min-h-9 rounded-lg border border-[#397565]/25 bg-[#397565]/8 px-3 text-xs font-black text-[#397565]', () => {
+                closeOfficerMenu();
+                openDetailsDialog(assignment);
+            }));
+            const more = button('⋯', 'grid h-9 w-9 place-items-center rounded-lg border border-[#121017]/10 text-lg font-black text-[#121017]/45 hover:bg-[#F3F0E9]/60', event => openOfficerMenu(event.currentTarget, assignment));
+            more.dataset.officerMenuTrigger = '';
+            more.setAttribute('aria-label', `More actions for ${assignment.full_name}`);
+            actions.append(more);
+            article.append(check, identity, account, status, actions);
             list.append(article);
         });
         syncSelection();
@@ -267,7 +310,9 @@
     };
 
     const load = async () => {
-        const response = await axios.get('api/officers.php', { params: { page: currentPage } });
+        const params = Object.fromEntries(new FormData(filters));
+        params.page = currentPage;
+        const response = await axios.get('api/officers.php', { params });
         currentPage = response.data.data.pagination.current_page;
         renderAssignments(response.data.data);
         renderPagination(response.data.data);
@@ -277,6 +322,23 @@
     selectAll.addEventListener('change', () => {
         list.querySelectorAll('[data-officer-checkbox]:not(:disabled)').forEach(input => { input.checked = selectAll.checked; });
         syncSelection();
+    });
+    document.querySelector('[data-clear-officer-selection]').addEventListener('click', () => {
+        list.querySelectorAll('[data-officer-checkbox]').forEach(input => { input.checked = false; });
+        syncSelection();
+    });
+    filters.addEventListener('change', async () => {
+        currentPage = 1;
+        await load();
+        updateUrl();
+    });
+    filters.elements.search.addEventListener('input', () => {
+        clearTimeout(searchTimer);
+        searchTimer = setTimeout(async () => {
+            currentPage = 1;
+            await load();
+            updateUrl();
+        }, 320);
     });
     listForm.addEventListener('submit', async submitEvent => {
         submitEvent.preventDefault();
@@ -375,6 +437,11 @@
             window.Notifications?.setLoading(submit, false);
         }
     });
+    document.addEventListener('click', event => {
+        if (!event.target.closest('[data-officer-actions-menu]') && !event.target.closest('[data-officer-menu-trigger]')) closeOfficerMenu();
+    });
+    addEventListener('resize', closeOfficerMenu);
+    addEventListener('scroll', closeOfficerMenu, true);
     logoutForm.addEventListener('submit', async submitEvent => {
         submitEvent.preventDefault();
         try {
@@ -392,6 +459,10 @@
         sidebar.classList.toggle('translate-x-0', opening);
         scrim.classList.toggle('hidden', !opening);
     }));
+
+    const initialFilters = new URLSearchParams(location.search);
+    filters.elements.search.value = initialFilters.get('search') || '';
+    filters.elements.status.value = initialFilters.get('status') || '';
 
     axios.get('api/auth.php?action=session').then(response => {
         if (response.data.user?.role !== 'SBO Adviser') {

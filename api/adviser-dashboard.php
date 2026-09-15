@@ -15,6 +15,7 @@ final class AdviserDashboardRepository
     {
         $attendance = $this->todayAttendance();
         $upcoming = $this->upcomingEvents();
+        $attention = $this->attention();
 
         return [
             'stats' => [
@@ -22,6 +23,7 @@ final class AdviserDashboardRepository
                 'students' => $this->roleCount('Student'),
                 'faculty' => $this->roleCount('Faculty'),
                 'sbo' => $this->rolesCount(['SBO', 'SBO Officer']),
+                'active_teams' => $this->scalar('SELECT COUNT(*) FROM tbl_teams WHERE is_active = 1'),
                 'students_present' => $this->todayPresentStudents(),
                 'upcoming_events' => $this->scalar('SELECT COUNT(*) FROM tbl_events WHERE deleted_at IS NULL AND start_at > CURRENT_TIMESTAMP'),
                 'points_awarded' => (float) $this->database->query('SELECT COALESCE(SUM(points), 0) FROM tbl_scores')->fetchColumn(),
@@ -32,8 +34,10 @@ final class AdviserDashboardRepository
             'today_events' => $this->todayEvents(),
             'upcoming_events' => $upcoming,
             'recent_attendance' => $this->recentAttendance(),
+            'recent_activity' => $this->recentActivity(),
             'leaderboard' => $this->leaderboard(),
             'starting_tomorrow' => $this->startingTomorrow(),
+            'attention' => $attention,
         ];
     }
 
@@ -73,17 +77,28 @@ final class AdviserDashboardRepository
 
     private function todayEvents(): array
     {
-        return $this->database->query(
+        $events = $this->database->query(
             "SELECT tbl_events.id, tbl_events.title, tbl_events.start_at, tbl_events.end_at, tbl_events.location,
-                    COUNT(tbl_event_user.user_id) AS assigned_count
+                    tbl_events.audience_type, COUNT(DISTINCT tbl_event_user.user_id) AS assigned_count,
+                    COUNT(DISTINCT tbl_attendances.id) AS attendances_count
              FROM tbl_events
              LEFT JOIN tbl_event_user ON tbl_event_user.event_id = tbl_events.id
+             LEFT JOIN tbl_attendances ON tbl_attendances.event_id = tbl_events.id
+                AND (tbl_attendances.attendance_date = CURRENT_DATE OR tbl_attendances.attendance_date IS NULL)
              WHERE tbl_events.deleted_at IS NULL
                AND tbl_events.start_at < CURRENT_DATE + INTERVAL 1 DAY
                AND tbl_events.end_at >= CURRENT_DATE
              GROUP BY tbl_events.id
              ORDER BY tbl_events.start_at"
         )->fetchAll();
+        foreach ($events as &$event) {
+            $event['id'] = (int) $event['id'];
+            $event['assigned_count'] = (int) $event['assigned_count'];
+            $event['attendances_count'] = (int) $event['attendances_count'];
+            $event['expected_count'] = $this->expectedStudentCount($event);
+        }
+        unset($event);
+        return $events;
     }
 
     private function upcomingEvents(): array
@@ -109,6 +124,105 @@ final class AdviserDashboardRepository
              ORDER BY COALESCE(attendance.checked_in_at, attendance.updated_at) DESC
              LIMIT 6"
         )->fetchAll();
+    }
+
+    private function recentActivity(): array
+    {
+        return $this->database->query(
+            "SELECT logs.action, logs.description, logs.created_at, events.title AS event_title,
+                    TRIM(CONCAT_WS(' ', users.first_name, NULLIF(users.middle_name, ''), users.last_name)) AS actor_name
+             FROM tbl_activity_logs AS logs
+             LEFT JOIN tbl_users AS users ON users.id = logs.actor_id
+             LEFT JOIN tbl_events AS events ON events.id = logs.event_id
+             ORDER BY logs.created_at DESC, logs.id DESC
+             LIMIT 6"
+        )->fetchAll();
+    }
+
+    private function attention(): array
+    {
+        $pendingPosts = $this->scalar("SELECT COUNT(*) FROM tbl_posts WHERE is_official = 0 AND status = 'pending' AND deleted_at IS NULL");
+        $schoolYearId = $this->database->query('SELECT id FROM tbl_school_years ORDER BY id DESC LIMIT 1')->fetchColumn();
+        $unassignedStudents = 0;
+        if ($schoolYearId !== false) {
+            $statement = $this->database->prepare(
+                "SELECT COUNT(*) FROM tbl_users AS users
+                 JOIN tbl_roles AS roles ON roles.id = users.role_id
+                 JOIN tbl_user_statuses AS statuses ON statuses.id = users.status
+                 WHERE roles.name = 'Student' AND statuses.label = 'active'
+                   AND NOT EXISTS (
+                       SELECT 1 FROM tbl_team_user AS membership
+                       JOIN tbl_teams AS teams ON teams.id = membership.team_id
+                       WHERE membership.user_id = users.id AND teams.school_year_id = ?
+                   )"
+            );
+            $statement->execute([(int) $schoolYearId]);
+            $unassignedStudents = (int) $statement->fetchColumn();
+        }
+        $scoringSetup = $this->scalar(
+            "SELECT COUNT(*) FROM tbl_events AS events
+             WHERE events.deleted_at IS NULL
+               AND events.end_at >= CURRENT_TIMESTAMP - INTERVAL 30 DAY
+               AND NOT EXISTS (SELECT 1 FROM tbl_score_categories AS categories WHERE categories.event_id = events.id)"
+        );
+        $attendanceIncomplete = $this->incompleteAttendanceEvents();
+
+        $items = [];
+        if ($pendingPosts > 0) $items[] = ['count' => $pendingPosts, 'label' => 'Posts waiting for review', 'description' => 'Approve or reject student submissions.', 'href' => 'pages/adviser/posts.html'];
+        if ($unassignedStudents > 0) $items[] = ['count' => $unassignedStudents, 'label' => 'Students without a tribe', 'description' => 'Assign active students for the current school year.', 'href' => 'pages/adviser/teams.html'];
+        if ($scoringSetup > 0) $items[] = ['count' => $scoringSetup, 'label' => 'Events need scoring setup', 'description' => 'Create criteria before judging begins.', 'href' => 'pages/adviser/scores.html'];
+        if ($attendanceIncomplete > 0) $items[] = ['count' => $attendanceIncomplete, 'label' => 'Attendance rosters incomplete', 'description' => 'Finish attendance for started events.', 'href' => 'pages/adviser/attendance.html'];
+
+        return [
+            'pending_posts' => $pendingPosts,
+            'unassigned_students' => $unassignedStudents,
+            'scoring_setup' => $scoringSetup,
+            'attendance_incomplete' => $attendanceIncomplete,
+            'items' => $items,
+        ];
+    }
+
+    private function incompleteAttendanceEvents(): int
+    {
+        $events = $this->database->query(
+            "SELECT events.id, events.audience_type,
+                    COUNT(DISTINCT attendance.user_id) AS attendances_count
+             FROM tbl_events AS events
+             LEFT JOIN tbl_attendances AS attendance ON attendance.event_id = events.id
+             WHERE events.deleted_at IS NULL
+               AND events.start_at <= CURRENT_TIMESTAMP
+               AND events.end_at >= CURRENT_TIMESTAMP - INTERVAL 30 DAY
+             GROUP BY events.id"
+        )->fetchAll();
+        $incomplete = 0;
+        foreach ($events as $event) {
+            $expected = $this->expectedStudentCount($event);
+            if ($expected > 0 && (int) $event['attendances_count'] < $expected) $incomplete++;
+        }
+        return $incomplete;
+    }
+
+    private function expectedStudentCount(array $event): int
+    {
+        $sql = "SELECT COUNT(DISTINCT users.id)
+                FROM tbl_users AS users
+                JOIN tbl_roles AS roles ON roles.id = users.role_id
+                JOIN tbl_user_statuses AS statuses ON statuses.id = users.status
+                WHERE roles.name = 'Student' AND statuses.label = 'active'";
+        $params = [];
+        if (($event['audience_type'] ?? '') === 'selected_tribes') {
+            $sql .= ' AND EXISTS (SELECT 1 FROM tbl_team_user AS membership JOIN tbl_event_team AS selected ON selected.team_id = membership.team_id WHERE membership.user_id = users.id AND selected.event_id = ?)';
+            $params[] = (int) $event['id'];
+        } elseif (($event['audience_type'] ?? '') === 'selected_year_levels') {
+            $sql .= ' AND EXISTS (SELECT 1 FROM tbl_event_year_level AS selected WHERE selected.year_level_id = users.year_level AND selected.event_id = ?)';
+            $params[] = (int) $event['id'];
+        } elseif (($event['audience_type'] ?? '') === 'specific_students') {
+            $sql .= ' AND EXISTS (SELECT 1 FROM tbl_event_participants AS selected WHERE selected.user_id = users.id AND selected.event_id = ?)';
+            $params[] = (int) $event['id'];
+        }
+        $statement = $this->database->prepare($sql);
+        $statement->execute($params);
+        return (int) $statement->fetchColumn();
     }
 
     private function leaderboard(): array
@@ -162,6 +276,8 @@ final class AdviserDashboardRepository
         return (int) $this->database->query($sql)->fetchColumn();
     }
 }
+
+if (realpath((string) ($_SERVER['SCRIPT_FILENAME'] ?? '')) !== __FILE__) return;
 
 if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
     JsonResponse::send(['success' => false, 'message' => 'Method not allowed.'], 405);

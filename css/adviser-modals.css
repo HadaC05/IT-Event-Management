@@ -1,0 +1,121 @@
+:root {
+    --cite-ink: #121017;
+    --cite-bone: #f3f0e9;
+    --cite-green: #397565;
+    --cite-warning: #ff6b2c;
+}
+
+dialog.app-dialog {
+    --modal-width: 620px;
+    width: min(calc(100vw - 2rem), var(--modal-width)) !important;
+    max-width: none !important;
+    max-height: min(90vh, calc(100vh - 2rem)) !important;
+    margin: auto !important;
+    padding: 0 !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    border: 0 !important;
+    border-radius: 18px !important;
+    background: #fff !important;
+    color: var(--cite-ink) !important;
+    box-shadow: 0 28px 85px rgba(18, 16, 23, 0.28) !important;
+    overscroll-behavior: contain;
+}
+
+dialog.app-dialog[data-modal-size="small"] { --modal-width: 440px; }
+dialog.app-dialog[data-modal-size="medium"] { --modal-width: 620px; }
+dialog.app-dialog[data-modal-size="large"] { --modal-width: 820px; }
+dialog.app-dialog[data-modal-size="workflow"] { --modal-width: 1040px; }
+
+dialog.app-dialog[data-category-dialog] {
+    border-top: 4px solid var(--cite-green) !important;
+}
+
+dialog.app-dialog::backdrop {
+    background: rgba(18, 16, 23, 0.6) !important;
+    backdrop-filter: blur(3px);
+}
+
+dialog.app-dialog[open] {
+    animation: adviser-modal-in 160ms cubic-bezier(.2, .8, .2, 1);
+}
+
+dialog.app-dialog > header:first-child,
+dialog.app-dialog > form > header:first-child,
+dialog.app-dialog > div > header:first-child {
+    border-top: 0 !important;
+    box-shadow: inset 0 4px 0 var(--cite-green);
+}
+
+dialog.app-dialog > form > footer:last-child,
+dialog.app-dialog > div > footer:last-child {
+    background: rgba(255, 255, 255, 0.96) !important;
+}
+
+dialog.app-dialog[data-modal-kind="form"] form > footer button[type="submit"],
+dialog.app-dialog[data-modal-kind="workflow"] form > footer button[type="submit"] {
+    background: var(--cite-green) !important;
+    color: #fff !important;
+}
+
+dialog.app-dialog [data-dialog-close],
+dialog.app-dialog [data-modal-close],
+dialog.app-dialog [data-task-close],
+dialog.app-dialog [data-scoring-close],
+dialog.app-dialog button[aria-label^="Close"] {
+    width: 40px;
+    height: 40px;
+    min-height: 40px;
+    flex: 0 0 40px;
+    display: inline-grid;
+    place-items: center;
+    padding: 0;
+    border: 0;
+    border-radius: 12px;
+    background: var(--cite-bone);
+    color: rgba(18, 16, 23, 0.55);
+    font-size: 1.25rem;
+    line-height: 1;
+}
+
+dialog.app-dialog [data-dialog-close]:hover,
+dialog.app-dialog [data-modal-close]:hover,
+dialog.app-dialog [data-task-close]:hover,
+dialog.app-dialog [data-scoring-close]:hover,
+dialog.app-dialog button[aria-label^="Close"]:hover {
+    color: var(--cite-ink);
+    background: #ebe7df;
+}
+
+dialog.app-dialog [data-modal-primary] {
+    background: var(--cite-green) !important;
+    color: #fff !important;
+}
+
+dialog.app-dialog[data-modal-kind="confirmation"] [data-confirm-accept] {
+    background: var(--cite-warning) !important;
+    color: #fff !important;
+}
+
+dialog.app-dialog[data-modal-kind="confirmation"] [data-confirm-cancel] {
+    background: #fff !important;
+    color: rgba(18, 16, 23, 0.68) !important;
+    border: 1px solid rgba(18, 16, 23, 0.12) !important;
+}
+
+@keyframes adviser-modal-in {
+    from { opacity: 0; transform: translateY(10px) scale(.985); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@media (max-width: 640px) {
+    dialog.app-dialog {
+        width: calc(100vw - 1rem) !important;
+        max-height: calc(100dvh - 1rem) !important;
+        border-radius: 16px !important;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    dialog.app-dialog[open] { animation: none; }
+}

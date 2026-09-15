@@ -11,11 +11,44 @@ final class OfficerManagementRepository
 
     public function __construct(private readonly PDO $db) {}
 
-    public function index(int $page = 1): array
+    public function index(array $filters = []): array
     {
-        $page = max(1, $page);
-        $total = (int) $this->db->query('SELECT COUNT(*) FROM tbl_sbo_officer_assignments')->fetchColumn();
+        $page = max(1, (int) ($filters['page'] ?? 1));
+        $search = trim((string) ($filters['search'] ?? ''));
+        $status = strtolower(trim((string) ($filters['status'] ?? '')));
+        if (mb_strlen($search) > 100) throw new InvalidArgumentException('Search may not exceed 100 characters.');
+        if ($status !== '' && !in_array($status, ['active', 'inactive'], true)) throw new InvalidArgumentException('Choose a valid assignment status.');
+
+        $where = [];
+        $params = [];
+        if ($search !== '') {
+            $term = '%'.addcslashes($search, '%_\\').'%';
+            $where[] = "(student.first_name LIKE :q_first ESCAPE '\\\\'
+                OR student.middle_name LIKE :q_middle ESCAPE '\\\\'
+                OR student.last_name LIKE :q_last ESCAPE '\\\\'
+                OR student.id_number LIKE :q_id ESCAPE '\\\\'
+                OR u.username LIKE :q_username ESCAPE '\\\\'
+                OR t.name LIKE :q_team ESCAPE '\\\\')";
+            foreach (['q_first', 'q_middle', 'q_last', 'q_id', 'q_username', 'q_team'] as $key) $params[$key] = $term;
+        }
+        if ($status !== '') {
+            $where[] = 'LOWER(a.status) = :assignment_status';
+            $params['assignment_status'] = $status;
+        }
+        $whereSql = $where ? ' WHERE '.implode(' AND ', $where) : '';
+        $baseJoins = " FROM tbl_sbo_officer_assignments a
+            JOIN tbl_users u ON u.id = a.officer_user_id
+            JOIN tbl_roles student_role ON student_role.name = 'Student'
+            JOIN tbl_users student ON student.id_number = a.student_id AND student.role_id = student_role.id
+            LEFT JOIN tbl_user_statuses us ON us.id = u.status
+            LEFT JOIN tbl_teams t ON t.id = a.team_id
+            LEFT JOIN tbl_school_years sy ON sy.id = t.school_year_id
+            LEFT JOIN tbl_users assigner ON assigner.id = a.assigned_by";
+        $count = $this->db->prepare('SELECT COUNT(*)'.$baseJoins.$whereSql);
+        $count->execute($params);
+        $total = (int) $count->fetchColumn();
         $lastPage = max(1, (int) ceil($total / self::PER_PAGE));
+        if ($page > $lastPage) $page = $lastPage;
         $offset = ($page - 1) * self::PER_PAGE;
 
         $statement = $this->db->prepare("SELECT a.id, a.student_id, a.officer_user_id, a.team_id,
@@ -23,17 +56,12 @@ final class OfficerManagementRepository
                 u.username, u.must_change_password,
                 student.first_name AS student_first_name, student.middle_name AS student_middle_name,
                 student.last_name AS student_last_name, student.email AS student_email,
-                us.label AS account_status, t.name AS team_name,
+                us.label AS account_status, t.name AS team_name, sy.label AS school_year_label,
                 TRIM(CONCAT_WS(' ', assigner.first_name, NULLIF(assigner.middle_name, ''), assigner.last_name)) AS assigned_by_name
-            FROM tbl_sbo_officer_assignments a
-            JOIN tbl_users u ON u.id = a.officer_user_id
-            JOIN tbl_roles student_role ON student_role.name = 'Student'
-            JOIN tbl_users student ON student.id_number = a.student_id AND student.role_id = student_role.id
-            LEFT JOIN tbl_user_statuses us ON us.id = u.status
-            LEFT JOIN tbl_teams t ON t.id = a.team_id
-            LEFT JOIN tbl_users assigner ON assigner.id = a.assigned_by
+            {$baseJoins}{$whereSql}
             ORDER BY a.assigned_at DESC, a.id DESC
             LIMIT :limit OFFSET :offset");
+        foreach ($params as $key => $value) $statement->bindValue(':'.$key, $value);
         $statement->bindValue(':limit', self::PER_PAGE, PDO::PARAM_INT);
         $statement->bindValue(':offset', $offset, PDO::PARAM_INT);
         $statement->execute();
@@ -306,12 +334,14 @@ final class OfficerManagementRepository
     }
 }
 
+if (realpath((string) ($_SERVER['SCRIPT_FILENAME'] ?? '')) !== __FILE__) return;
+
 $actor = AuthGuard::requireRole('SBO Adviser');
 $repository = new OfficerManagementRepository((new Database())->connection());
 
 try {
     if ($_SERVER['REQUEST_METHOD'] === 'GET') {
-        JsonResponse::send(['success' => true, 'data' => $repository->index((int) ($_GET['page'] ?? 1))]);
+        JsonResponse::send(['success' => true, 'data' => $repository->index($_GET)]);
     }
     if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
         JsonResponse::send(['success' => false, 'message' => 'Method not allowed.'], 405);

@@ -352,14 +352,16 @@
         }),
       );
   };
-  $("[data-mark-present]").onclick = () => {
+  $("[data-mark-present]").onclick = async () => {
     const selects = [...document.querySelectorAll("[data-status]")];
-    if (
-      selects.length &&
-      confirm(
-        `Mark all ${selects.length} students shown on this page as present? These changes will not be recorded until you save.`,
-      )
-    ) {
+    const accepted = selects.length && (window.Notifications?.confirm
+      ? await window.Notifications.confirm({
+          title: "Mark everyone present?",
+          message: `All ${selects.length} students shown on this page will be marked present. These changes are not recorded until you save.`,
+          action: "Mark present",
+        })
+      : confirm(`Mark all ${selects.length} students shown on this page as present? These changes will not be recorded until you save.`));
+    if (accepted) {
       selects.forEach((select) => (select.value = "present"));
       refresh();
     }
