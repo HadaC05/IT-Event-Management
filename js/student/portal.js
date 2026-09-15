@@ -276,12 +276,14 @@
         });
     };
 
+    let currentCsrfToken = '';
     const initialize = async activePage => {
         const response = await axios.get(SESSION_URL);
         if (!response.data.authenticated || response.data.user?.role !== 'Student') {
             window.location.href = './';
             throw new Error('Student authentication required.');
         }
+        currentCsrfToken = response.data.csrf_token;
         renderShell(activePage, response.data.user);
         initializeInteractions(response.data.csrf_token);
         await loadNotifications();
@@ -308,5 +310,5 @@
         .replaceAll('"', '&quot;')
         .replaceAll("'", '&#039;');
 
-    window.StudentPortal = {initialize, formatDate, timeOnly, escapeHtml};
+    window.StudentPortal = {initialize, formatDate, timeOnly, escapeHtml, get csrfToken() { return currentCsrfToken; }};
 })();

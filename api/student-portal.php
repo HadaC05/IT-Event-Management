@@ -29,14 +29,14 @@ final class StudentPortalRepository
 
         $active = [];
         $past = [];
-        $now = new DateTimeImmutable();
+        $now = new DateTimeImmutable('now', new DateTimeZone('Asia/Manila'));
         foreach ($events as $event) {
             $event['id'] = (int) $event['id'];
-            $end = new DateTimeImmutable((string) $event['end_at']);
-            $isPast = $end < $now || strtolower((string) $event['status']) === 'completed';
+            $end = new DateTimeImmutable((string) $event['end_at'], new DateTimeZone('Asia/Manila'));
+            $isPast = $end <= $now;
             $event['schedule_state'] = $isPast
                 ? 'completed'
-                : ((new DateTimeImmutable((string) $event['start_at'])) > $now ? 'upcoming' : 'ongoing');
+                : ((new DateTimeImmutable((string) $event['start_at'], new DateTimeZone('Asia/Manila'))) > $now ? 'upcoming' : 'ongoing');
             if ($isPast) {
                 array_unshift($past, $event);
             } else {
@@ -72,9 +72,11 @@ final class StudentPortalRepository
             "SELECT a.id, a.attendance_date, a.status, a.checked_in_at,
                     a.morning_in_at, a.morning_out_at,
                     a.afternoon_in_at, a.afternoon_out_at, a.notes,
-                    e.title AS event_title, e.start_at
+                    e.title AS event_title, e.start_at, asm.code AS attendance_mode
              FROM tbl_attendances a
              JOIN tbl_events e ON e.id = a.event_id
+             LEFT JOIN tbl_event_attendance_schedules eas ON eas.event_id=a.event_id AND eas.schedule_date=a.attendance_date
+             LEFT JOIN tbl_attendance_session_modes asm ON asm.id=eas.attendance_session_mode_id
              WHERE a.user_id = ?
              ORDER BY a.attendance_date DESC, a.updated_at DESC
              LIMIT 50"

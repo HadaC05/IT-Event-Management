@@ -64,7 +64,7 @@
                 <header class="border-b border-[#121017]/8 px-5 py-5">
                     <div class="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between"><div><h2 class="text-lg font-black">Officers</h2><p class="mt-1 text-xs text-[#121017]/45" data-officer-result-count></p></div><label class="inline-flex cursor-pointer items-center gap-2 text-xs font-bold text-[#121017]/50"><input class="h-4 w-4 accent-[#397565]" type="checkbox" data-select-all-officers>Select all active</label></div>
                     <form class="mt-4 grid gap-2 sm:grid-cols-[minmax(0,1fr)_180px]" data-officer-filters data-axios-form>
-                        <label class="relative"><span class="sr-only">Search officers</span><svg class="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 fill-none stroke-[#121017]/35 stroke-2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg><input class="h-11 w-full rounded-xl border border-[#121017]/10 bg-[#F3F0E9]/45 pl-10 pr-3 text-sm outline-none transition placeholder:text-[#121017]/35 focus:border-[#397565] focus:bg-white" type="search" name="search" maxlength="100" placeholder="Search officer, student ID, or tribe…" autocomplete="off"></label>
+                        <label class="relative"><span class="sr-only">Search officers or events</span><svg class="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 fill-none stroke-[#121017]/35 stroke-2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg><input class="h-11 w-full rounded-xl border border-[#121017]/10 bg-[#F3F0E9]/45 pl-10 pr-3 text-sm outline-none transition placeholder:text-[#121017]/35 focus:border-[#397565] focus:bg-white" type="search" name="search" maxlength="100" placeholder="Search officer, event, ID, or tribe…" autocomplete="off"></label>
                         <label><span class="sr-only">Filter by assignment status</span><select class="h-11 w-full rounded-xl border border-[#121017]/10 bg-[#F3F0E9]/45 px-3 text-sm text-[#121017]/60 outline-none focus:border-[#397565] focus:bg-white" name="status"><option value="">Any status</option><option value="active">Active</option><option value="inactive">Inactive</option></select></label>
                     </form>
                 </header>
@@ -96,7 +96,7 @@
         </form>
     </dialog>
 
-    <dialog class="m-auto w-[min(520px,calc(100%_-_2rem))] rounded-2xl border-0 bg-white p-0 shadow-2xl backdrop:bg-[#121017]/60" id="officer-details-dialog" data-modal-size="large" data-modal-kind="detail">
+    <dialog class="m-auto max-h-[calc(100vh_-_2rem)] w-[min(620px,calc(100%_-_2rem))] overflow-y-auto rounded-2xl border-0 bg-white p-0 shadow-2xl backdrop:bg-[#121017]/60" id="officer-details-dialog" data-modal-size="large" data-modal-kind="detail">
         <div>
             <header class="flex items-start justify-between gap-4 border-b border-[#121017]/8 px-6 py-5"><div class="flex min-w-0 items-center gap-4"><span class="grid h-14 w-14 shrink-0 place-items-center rounded-full bg-[#397565] text-sm font-black text-white">SO</span><div><p class="text-[10px] font-black uppercase tracking-[.14em] text-[#397565]">Linked account</p><h2 class="mt-1 text-2xl font-black">SBO Officer Details</h2><p class="mt-1 text-xs text-[#121017]/50" data-details-student-id></p></div></div><button type="button" data-dialog-close aria-label="Close officer details">×</button></header>
             <div class="px-6 py-2">
@@ -104,10 +104,11 @@
                     <div class="grid gap-1 py-4 sm:grid-cols-[170px_minmax(0,1fr)]"><dt class="text-[10px] font-black uppercase tracking-wider text-[#121017]/40">Student identity</dt><dd><strong class="block text-sm font-black" data-details-student-name></strong><span class="mt-1 block text-xs text-[#121017]/55" data-details-student-email></span></dd></div>
                     <div class="grid gap-1 py-4 sm:grid-cols-[170px_minmax(0,1fr)]"><dt class="text-[10px] font-black uppercase tracking-wider text-[#121017]/40">Officer login</dt><dd><div class="flex flex-wrap items-center gap-3"><strong class="text-sm font-black" data-details-officer-username></strong><span class="rounded-full bg-[#397565]/8 px-3 py-1 text-[10px] font-black uppercase text-[#397565]" data-details-status></span></div><span class="mt-1.5 block text-xs text-[#121017]/50" data-details-password-state></span></dd></div>
                     <div class="grid gap-1 py-4 sm:grid-cols-[170px_minmax(0,1fr)]"><dt class="text-[10px] font-black uppercase tracking-wider text-[#121017]/40">Assignment</dt><dd class="grid gap-1 text-sm font-bold"><span data-details-position></span><span data-details-term></span><span data-details-team></span></dd></div>
+                    <div class="grid gap-1 py-4 sm:grid-cols-[170px_minmax(0,1fr)]"><dt class="text-[10px] font-black uppercase tracking-wider text-[#121017]/40">Events in charge</dt><dd class="grid gap-2" data-details-event-responsibilities></dd></div>
                     <div class="grid gap-1 py-4 sm:grid-cols-[170px_minmax(0,1fr)]"><dt class="text-[10px] font-black uppercase tracking-wider text-[#121017]/40">Account separation</dt><dd class="text-xs leading-5 text-[#121017]/55">Changing the SBO password does not change the student's own account password.</dd></div>
                 </dl>
             </div>
-            <footer class="flex justify-end border-t border-[#121017]/8 px-6 py-4"><button class="min-h-11 rounded-xl px-5 text-sm font-black" type="button" data-details-change-password data-modal-primary>Change SBO Password</button></footer>
+            <footer class="flex flex-wrap justify-end gap-2 border-t border-[#121017]/8 px-6 py-4"><button class="min-h-11 rounded-xl border border-[#397565]/25 px-4 text-sm font-black text-[#397565]" type="button" data-details-assign-event>Assign to event</button><button class="min-h-11 rounded-xl px-5 text-sm font-black" type="button" data-details-change-password data-modal-primary>Change SBO Password</button></footer>
         </div>
     </dialog>
 
@@ -130,7 +131,7 @@
     <div class="pointer-events-none fixed right-4 top-12 z-[80] mt-12 grid w-[min(380px,calc(100%_-_2rem))] gap-3" data-notification-region aria-live="polite" aria-atomic="true"></div>
     <button class="fixed inset-0 z-30 hidden bg-[#121017]/60 lg:hidden" data-sidebar-scrim data-sidebar-toggle aria-label="Close navigation"></button>
     <script src="js/vendor/axios.min.js"></script>
-    <script src="js/adviser/officers.js?v=20260915-2"></script>
+    <script src="js/adviser/officers.js?v=20260915-3"></script>
     <script src="js/adviser/sbo-assignments.js"></script>
     <script src="js/adviser/sbo-scoring-admin.js"></script>
 </body>

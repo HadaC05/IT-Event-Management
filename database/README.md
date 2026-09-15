@@ -50,6 +50,15 @@ rate-limit state. Before importing, check that existing attendance entries have
 no duplicate `(attendance_id,event_schedule_id,session_code)` groups. Existing
 QR-token, assignment, team, schedule, location, and attendance tables are reused.
 
+The attendance QR belongs to each student and is scoped to that student's event
+and session. The same code is scanned by the assigned SBO officer for both time
+in and time out; the officer chooses the checkpoint before scanning. Time out
+requires a prior time in, and both timestamps appear in the student's attendance
+history. Time in opens 30 minutes before the session and closes at session end;
+time out opens 30 minutes before session end and closes 30 minutes after. The
+adviser manages event dates and times but does not issue an event attendance QR.
+Editing an event schedule retains attendance records and student QR tokens.
+
 For mobile event scanning, serve the XAMPP site through Apache HTTPS using a
 certificate trusted by each officer's device and open the HTTPS URL using a
 hostname covered by that certificate. A self-signed certificate that the phone

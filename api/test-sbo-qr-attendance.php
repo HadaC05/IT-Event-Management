@@ -6,6 +6,7 @@ require_once __DIR__.'/SboAuthorization.php';
 require_once __DIR__.'/sbo-attendance.php';
 require_once __DIR__.'/adviser-attendance-scans.php';
 require_once __DIR__.'/student-attendance-qr.php';
+require_once __DIR__.'/sbo-assignments.php';
 
 $live=(new Database())->connection();
 $source=(string)$live->query('SELECT DATABASE()')->fetchColumn();
@@ -28,7 +29,7 @@ $live->exec("CREATE DATABASE `$scratch` CHARACTER SET utf8mb4 COLLATE utf8mb4_un
 try {
     foreach($tables as $table){
         $live->exec("CREATE TABLE `$scratch`.`$table` LIKE `$source`.`$table`");
-        if($table!=='tbl_sbo_scan_rate_limits'&&$table!=='tbl_attendance_entries'&&$table!=='tbl_attendance_qr_tokens')
+        if($table!=='tbl_sbo_scan_rate_limits'&&$table!=='tbl_attendance_entries'&&$table!=='tbl_attendance_qr_tokens'&&$table!=='tbl_sbo_event_assignments')
             $live->exec("INSERT INTO `$scratch`.`$table` SELECT * FROM `$source`.`$table`");
     }
     $db=(new Database(null,$scratch))->connection();
@@ -67,6 +68,19 @@ try {
     $result=$repository->scan($officer,$payload($team1[0],$inside));
     $assert($result['location']['status']==='inside'&&count($result['recent_scans'])===1,'valid assigned-team scan inside venue');
     $expect(fn()=>$repository->scan($officer,$payload($team1[0],$inside)),LogicException::class,'already recorded');
+    $closingEnd=$now->modify('+10 minutes')->format('H:i:s');
+    $db->prepare('UPDATE tbl_event_attendance_schedules SET whole_day_out_time=? WHERE id=1')->execute([$closingEnd]);
+    $outPayload=$payload($team1[0],$inside)+['checkpoint'=>'out'];
+    $expect(fn()=>$repository->scan($officer,$payload($team1[1],$inside)+['checkpoint'=>'out']),LogicException::class,'time in');
+    $timeOut=$repository->scan($officer,$outPayload);
+    $assert($timeOut['checkpoint']==='out'&&$timeOut['counts']['checked_out']===1&&$timeOut['recent_scans'][0]['out_at']!==null,
+        'same student QR records time out and updates officer progress');
+    $savedTime=$db->prepare('SELECT morning_in_at,morning_out_at FROM tbl_attendances WHERE event_id=1 AND user_id=?');
+    $savedTime->execute([$team1[0]['id']]);
+    $times=$savedTime->fetch();
+    $assert($times['morning_in_at']!==null&&$times['morning_out_at']!==null,'student attendance shows both time in and time out');
+    $expect(fn()=>$repository->scan($officer,$outPayload),LogicException::class,'already recorded');
+    $db->prepare('UPDATE tbl_event_attendance_schedules SET whole_day_out_time=? WHERE id=1')->execute([$end]);
     $expect(fn()=>$repository->scan($officer,$payload($team2[0],$inside)),InvalidArgumentException::class,'belongs to');
     $expect(fn()=>$repository->scan($officer,['assignment_id'=>$assignment,'mode'=>'qr','token'=>str_repeat('x',32),'location'=>$inside]),InvalidArgumentException::class,'Invalid QR');
     $db->exec("UPDATE tbl_events SET audience_type='specific_students' WHERE id=1");
@@ -78,6 +92,15 @@ try {
     $db->exec("UPDATE tbl_events SET attendance_location_policy='warning' WHERE id=1");
     $warning=$repository->scan($officer,$payload($team1[1],$outside));
     $assert($warning['location']['status']==='outside','warning mode records outside venue');
+    $pastEnd=$now->modify('-10 minutes')->format('H:i:s');
+    $db->prepare('UPDATE tbl_event_attendance_schedules SET whole_day_out_time=? WHERE id=1')->execute([$pastEnd]);
+    $db->prepare('UPDATE tbl_events SET end_at=? WHERE id=1')->execute([$today.' '.$pastEnd]);
+    $afterEndQr=(new StudentAttendanceQrRepository($db))->issue((int)$team1[1]['id']);
+    $assert($afterEndQr['token']===$tokens[(int)$team1[1]['id']],'student QR remains available shortly after session end');
+    $afterEndOut=$repository->scan($officer,$payload($team1[1],$outside)+['checkpoint'=>'out']);
+    $assert($afterEndOut['checkpoint']==='out','officer records time out after scheduled event end');
+    $db->prepare('UPDATE tbl_event_attendance_schedules SET whole_day_out_time=? WHERE id=1')->execute([$end]);
+    $db->prepare('UPDATE tbl_events SET end_at=? WHERE id=1')->execute([$third.' 23:59:59']);
     if(isset($team1[2])){
         $denied=$repository->scan($officer,$payload($team1[2],['unavailable_reason'=>'permission_denied']));
         $assert($denied['location']['status']==='unavailable'&&$denied['location']['reason']==='permission_denied','warning mode records permission denied');
@@ -101,6 +124,22 @@ try {
     $expect(fn()=>$repository->scan($officer,$payload($team1[0],$inside)),InvalidArgumentException::class,'Invalid QR');
     $addAssignment->execute([1,$activity,2]);
     $assert(count($repository->dashboard($officer)['assignments'])===2,'multiple assignments exposed');
+    $taskManager=new SboAssignmentRepository($db);
+    $assignedTaskId=$taskManager->assign([
+        'officer_assignment_id'=>1,'event_schedule_id'=>1,'session_code'=>'whole_day',
+        'activity_name'=>'Event duties','team_id'=>1,'responsibility'=>'attendance',
+    ],14);
+    $assignedTask=current(array_filter($taskManager->index()['tasks'],fn($task)=>(int)$task['id']===$assignedTaskId));
+    $assert($assignedTask&&$assignedTask['event_name']==='IT Days 2026'&&$assignedTask['responsibility']==='attendance',
+        'adviser assigns officer to a specific event through responsibility API');
+    $db->prepare("UPDATE tbl_event_activities SET status='inactive' WHERE event_id=1 AND name='Event duties'")->execute();
+    $reactivatedId=$taskManager->assign([
+        'officer_assignment_id'=>1,'event_schedule_id'=>1,'session_code'=>'whole_day',
+        'activity_name'=>'Event duties','team_id'=>1,'responsibility'=>'media',
+    ],14);
+    $visibleIds=array_column($taskManager->index()['tasks'],'id');
+    $assert(in_array($reactivatedId,$visibleIds,true)&&in_array($assignedTaskId,$visibleIds,true),
+        'reassigning an inactive activity restores officer access and visibility');
     $addAssignment->execute([$day2,$activity,1]);$addAssignment->execute([$day3,$activity,1]);
     $days=$auth->assignments($officer,'attendance',false);
     $numbers=array_column($days,'day_number');

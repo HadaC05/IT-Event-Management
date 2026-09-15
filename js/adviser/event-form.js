@@ -275,7 +275,7 @@
         today = new Date().toLocaleDateString("en-CA");
       row.dataset.scheduleRow = "";
       row.className = "rounded-xl border border-slate-200 bg-white p-4";
-      row.innerHTML = `<div class="mb-3 flex items-center justify-between"><strong class="text-xs font-extrabold text-slate-600" data-schedule-number>Schedule ${index + 1}</strong><button class="text-xs font-bold text-rose-600" type="button" data-remove-schedule>Remove</button></div><div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4"><label class="grid gap-2"><span class="text-xs font-bold">Date *</span><input class="h-11 min-w-0 rounded-xl border border-slate-200 px-3 text-sm" type="date" min="${today}" name="attendance_days[${index}][date]" value="${day.date || day.schedule_date || ""}" required data-schedule-date></label><label class="grid gap-2"><span class="text-xs font-bold">Session *</span><select class="h-11 min-w-0 rounded-xl border border-slate-200 bg-white px-3 text-sm" name="attendance_days[${index}][attendance_session_mode_id]" data-session-mode>${modes.map((mode) => `<option value="${mode.id}">${escapeHtml(mode.name)}</option>`).join("")}</select></label>${[
+      row.innerHTML = `<input type="hidden" name="attendance_days[${index}][id]" value="${day.id || ""}"><div class="mb-3 flex items-center justify-between"><strong class="text-xs font-extrabold text-slate-600" data-schedule-number>Schedule ${index + 1}</strong><button class="text-xs font-bold text-rose-600" type="button" data-remove-schedule>Remove</button></div><div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4"><label class="grid gap-2"><span class="text-xs font-bold">Date *</span><input class="h-11 min-w-0 rounded-xl border border-slate-200 px-3 text-sm" type="date" min="${day.date && day.date < today ? day.date : today}" name="attendance_days[${index}][date]" value="${day.date || day.schedule_date || ""}" required data-schedule-date></label><label class="grid gap-2"><span class="text-xs font-bold">Session *</span><select class="h-11 min-w-0 rounded-xl border border-slate-200 bg-white px-3 text-sm" name="attendance_days[${index}][attendance_session_mode_id]" data-session-mode>${modes.map((mode) => `<option value="${mode.id}">${escapeHtml(mode.name)}</option>`).join("")}</select></label>${[
         ["morning_in", "Time in", "data-primary"],
         ["morning_out", "Time out", "data-primary"],
         ["afternoon_in", "Afternoon time in", "data-secondary"],
@@ -317,6 +317,7 @@
       }
     });
     const saved = (event?.attendance_schedules || []).map((day) => ({
+      id: day.id,
       date: day.schedule_date,
       attendance_session_mode_id: day.attendance_session_mode_id,
       morning_in: (day.whole_day_in_time || day.morning_in_time || "").slice(

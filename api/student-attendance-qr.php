@@ -7,7 +7,7 @@ final class StudentAttendanceQrRepository {
     public function __construct(private readonly PDO $db) {}
     public function issue(int $studentId):array {
         $now=new DateTimeImmutable('now',new DateTimeZone('Asia/Manila'));
-        $today=$now->format('Y-m-d');$clock=$now->format('H:i:s');
+        $today=$now->format('Y-m-d');
         $q=$this->db->prepare("SELECT e.id event_id,e.title,e.audience_type,s.schedule_date,s.whole_day_in_time,s.whole_day_out_time,
             s.morning_in_time,s.morning_out_time,s.afternoon_in_time,s.afternoon_out_time,m.code session_mode
             FROM tbl_events e JOIN tbl_event_attendance_schedules s ON s.event_id=e.id
@@ -20,7 +20,10 @@ final class StudentAttendanceQrRepository {
                 [['morning',$event['morning_in_time'],$event['morning_out_time']],['afternoon',$event['afternoon_in_time'],$event['afternoon_out_time']]]:
                 ($event['session_mode']==='whole_day'?[['whole_day',$event['whole_day_in_time'],$event['whole_day_out_time']]]:[]);
             foreach($sessions as [$session,$start,$end]){
-                if(!$start||!$end||$clock<$start||$clock>$end)continue;
+                if(!$start||!$end)continue;
+                $opens=(new DateTimeImmutable($today.' '.$start,new DateTimeZone('Asia/Manila')))->modify('-30 minutes');
+                $closes=(new DateTimeImmutable($today.' '.$end,new DateTimeZone('Asia/Manila')))->modify('+30 minutes');
+                if($now<$opens||$now>$closes)continue;
                 if(!$this->eligible($studentId,$event))continue;
                 $find=$this->db->prepare('SELECT id,token,DATE(updated_at) issued_date FROM tbl_attendance_qr_tokens WHERE event_id=? AND user_id=? AND session=?');
                 $find->execute([$event['event_id'],$studentId,$session]);$existing=$find->fetch();

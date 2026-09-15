@@ -36,12 +36,12 @@ final class SboAssignmentRepository
           e.id event_id,e.title event_name,s.schedule_date,a.name activity_name,t.name team_name,
           u.first_name,u.middle_name,u.last_name,u.username
           FROM tbl_sbo_event_assignments sea
-          JOIN tbl_sbo_officer_assignments oa ON oa.id=sea.officer_assignment_id
+          JOIN tbl_sbo_officer_assignments oa ON oa.id=sea.officer_assignment_id AND oa.status='Active'
           JOIN tbl_users u ON u.id=oa.officer_user_id
           JOIN tbl_event_attendance_schedules s ON s.id=sea.event_schedule_id
-          JOIN tbl_events e ON e.id=s.event_id
-          JOIN tbl_event_activities a ON a.id=sea.activity_id
-          JOIN tbl_teams t ON t.id=sea.team_id
+          JOIN tbl_events e ON e.id=s.event_id AND e.deleted_at IS NULL
+          JOIN tbl_event_activities a ON a.id=sea.activity_id AND a.status='active'
+          JOIN tbl_teams t ON t.id=sea.team_id AND t.is_active=1
           WHERE sea.status='active' ORDER BY s.schedule_date DESC,e.title,u.last_name")->fetchAll();
         foreach($tasks as &$task){foreach(['id','officer_assignment_id','event_schedule_id','event_id'] as $key)$task[$key]=(int)$task[$key];$task['officer_name']=$this->name($task);}unset($task);
         return compact('officers','events','teams','tasks');
@@ -66,9 +66,13 @@ final class SboAssignmentRepository
 
         $this->db->beginTransaction();
         try {
-            $activity=$this->row('SELECT id FROM tbl_event_activities WHERE event_id=? AND lower(name)=lower(?) LIMIT 1',[(int)$scheduleRow['event_id'],$activityName]);
+            $activity=$this->row('SELECT id,status FROM tbl_event_activities WHERE event_id=? AND lower(name)=lower(?) LIMIT 1',[(int)$scheduleRow['event_id'],$activityName]);
             if(!$activity){$statement=$this->db->prepare("INSERT INTO tbl_event_activities(event_id,name,status,created_by,created_at,updated_at) VALUES(?,?,'active',?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)");$statement->execute([(int)$scheduleRow['event_id'],$activityName,$actorId]);$activityId=(int)$this->db->lastInsertId();}
-            else $activityId=(int)$activity['id'];
+            else {
+                $activityId=(int)$activity['id'];
+                if($activity['status']!=='active')
+                    $this->db->prepare("UPDATE tbl_event_activities SET status='active',updated_at=CURRENT_TIMESTAMP WHERE id=?")->execute([$activityId]);
+            }
             if($this->scalar("SELECT COUNT(*) FROM tbl_sbo_event_assignments WHERE officer_assignment_id=? AND event_schedule_id=? AND session_code=? AND activity_id=? AND team_id=? AND responsibility=? AND status='active'",[$officer,$schedule,$session,$activityId,$team,$responsibility]))throw new InvalidArgumentException('This exact officer responsibility is already assigned.');
             $statement=$this->db->prepare("INSERT INTO tbl_sbo_event_assignments(officer_assignment_id,event_schedule_id,session_code,activity_id,team_id,responsibility,status,assigned_by,created_at,updated_at) VALUES(?,?,?,?,?,?,'active',?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)");
             $statement->execute([$officer,$schedule,$session,$activityId,$team,$responsibility,$actorId]);
@@ -112,6 +116,7 @@ final class SboAssignmentRepository
     private function name(array $row):string{return trim(implode(' ',array_filter([$row['first_name']??null,$row['middle_name']??null,$row['last_name']??null])));}
 }
 
+if(realpath((string)($_SERVER['SCRIPT_FILENAME']??''))!==__FILE__)return;
 $actor=AuthGuard::requireRole('SBO Adviser');$repository=new SboAssignmentRepository((new Database())->connection());
 try{
     if($_SERVER['REQUEST_METHOD']==='GET')JsonResponse::send(['success'=>true,'data'=>$repository->index()]);

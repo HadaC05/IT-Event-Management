@@ -37,12 +37,15 @@
                 <span class="rounded-full px-3 py-1 text-[9px] font-black uppercase ${statusTone(item.status)}">${escapeHtml(item.status)}</span>
             </div>
             <dl class="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
-                ${[
+                ${(item.attendance_mode === 'whole_day' ? [
+                    ['Time in', item.morning_in_at || item.checked_in_at],
+                    ['Time out', item.morning_out_at],
+                ] : [
                     ['Morning in', item.morning_in_at],
                     ['Morning out', item.morning_out_at],
                     ['Afternoon in', item.afternoon_in_at],
                     ['Afternoon out', item.afternoon_out_at],
-                ].map(([label, value]) => `
+                ]).map(([label, value]) => `
                     <div class="rounded-xl bg-[#F7F4ED] p-3">
                         <dt class="text-[9px] font-black uppercase text-[#121017]/35">${label}</dt>
                         <dd class="mt-1 text-xs font-black">${timeOnly(value)}</dd>
@@ -51,9 +54,7 @@
             ${item.notes ? `<p class="mt-3 text-xs text-[#121017]/50"><strong>Note:</strong> ${escapeHtml(item.notes)}</p>` : ''}
         </article>`;
 
-    const load = async () => {
-        await initialize('attendance');
-        await loadQr();
+    const refreshHistory = async () => {
         const response = await axios.get('api/student-portal.php', {params: {page: 'attendance'}});
         const {summary, current_event: event, records} = response.data.data;
 
@@ -77,8 +78,7 @@
     const loadQr = async () => {
         const host = document.querySelector('[data-student-qr]');
         try {
-            const session = await axios.get('api/auth.php?action=session');
-            const response = await axios.post('api/student-attendance-qr.php', {}, {headers: {'X-CSRF-Token': session.data.csrf_token}});
+            const response = await axios.post('api/student-attendance-qr.php', {}, {headers: {'X-CSRF-Token': StudentPortal.csrfToken}});
             const data = response.data.data;
             if (!data.token) {
                 host.textContent = 'No active attendance session is available for your account.';
@@ -97,6 +97,12 @@
         }
     };
     document.querySelector('[data-refresh-qr]').addEventListener('click', loadQr);
+
+    const load = async () => {
+        await initialize('attendance');
+        loadQr();
+        await refreshHistory();
+    };
 
     load().catch(() => {
         document.querySelector('[data-attendance-records]').innerHTML = '<div class="p-8 text-center font-bold text-[#FF6B2C]">Attendance could not be loaded.</div>';

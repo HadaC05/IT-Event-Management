@@ -28,8 +28,15 @@ final class OfficerManagementRepository
                 OR student.last_name LIKE :q_last ESCAPE '\\\\'
                 OR student.id_number LIKE :q_id ESCAPE '\\\\'
                 OR u.username LIKE :q_username ESCAPE '\\\\'
-                OR t.name LIKE :q_team ESCAPE '\\\\')";
-            foreach (['q_first', 'q_middle', 'q_last', 'q_id', 'q_username', 'q_team'] as $key) $params[$key] = $term;
+                OR t.name LIKE :q_team ESCAPE '\\\\'
+                OR EXISTS (SELECT 1 FROM tbl_sbo_event_assignments sea
+                    JOIN tbl_event_attendance_schedules eas ON eas.id=sea.event_schedule_id
+                    JOIN tbl_events ev ON ev.id=eas.event_id AND ev.deleted_at IS NULL
+                    JOIN tbl_event_activities act ON act.id=sea.activity_id AND act.status='active'
+                    JOIN tbl_teams task_team ON task_team.id=sea.team_id AND task_team.is_active=1
+                    WHERE sea.officer_assignment_id=a.id AND sea.status='active' AND a.status='Active'
+                      AND ev.title LIKE :q_event ESCAPE '\\\\'))";
+            foreach (['q_first', 'q_middle', 'q_last', 'q_id', 'q_username', 'q_team', 'q_event'] as $key) $params[$key] = $term;
         }
         if ($status !== '') {
             $where[] = 'LOWER(a.status) = :assignment_status';
@@ -71,6 +78,7 @@ final class OfficerManagementRepository
             $assignment['officer_user_id'] = (int) $assignment['officer_user_id'];
             $assignment['team_id'] = $assignment['team_id'] === null ? null : (int) $assignment['team_id'];
             $assignment['must_change_password'] = (bool) $assignment['must_change_password'];
+            $assignment['event_responsibilities'] = [];
             $assignment['full_name'] = $this->fullName([
                 'first_name' => $assignment['student_first_name'],
                 'middle_name' => $assignment['student_middle_name'],
@@ -83,6 +91,30 @@ final class OfficerManagementRepository
             );
         }
         unset($assignment);
+
+        if ($assignments) {
+            $visibleIds = array_column($assignments, 'id');
+            $marks = implode(',', array_fill(0, count($visibleIds), '?'));
+            $events = $this->db->prepare("SELECT sea.id,sea.officer_assignment_id,sea.responsibility,sea.session_code,
+                    e.id AS event_id,e.title AS event_name,s.schedule_date,a.name AS activity_name,t.name AS team_name
+                FROM tbl_sbo_event_assignments sea
+                JOIN tbl_sbo_officer_assignments oa ON oa.id=sea.officer_assignment_id AND oa.status='Active'
+                JOIN tbl_event_attendance_schedules s ON s.id=sea.event_schedule_id
+                JOIN tbl_events e ON e.id=s.event_id AND e.deleted_at IS NULL
+                JOIN tbl_event_activities a ON a.id=sea.activity_id AND a.status='active'
+                JOIN tbl_teams t ON t.id=sea.team_id AND t.is_active=1
+                WHERE sea.status='active' AND sea.officer_assignment_id IN ($marks)
+                ORDER BY s.schedule_date DESC,e.title,sea.responsibility");
+            $events->execute($visibleIds);
+            $positions = [];
+            foreach ($assignments as $index => $assignment) $positions[$assignment['id']] = $index;
+            foreach ($events->fetchAll() as $task) {
+                $task['id'] = (int) $task['id'];
+                $task['event_id'] = (int) $task['event_id'];
+                $task['officer_assignment_id'] = (int) $task['officer_assignment_id'];
+                $assignments[$positions[$task['officer_assignment_id']]]['event_responsibilities'][] = $task;
+            }
+        }
 
         $students = $this->db->query("SELECT u.id, u.id_number, u.first_name, u.middle_name, u.last_name,
                 u.email, u.username, u.year_level, yl.label AS year_level_label

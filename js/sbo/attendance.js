@@ -9,7 +9,7 @@
   const notify=(type,message)=>window.Notifications?.[type]?.(message);
   let csrf='',assignments=[],selected=null,scanner=null,QrScanner=null,cameras=[],cameraIndex=0,position=null;
   let locationReason='not_provided',locationRequest=null,isProcessing=false,cooldownUntil=0,lastToken='',lastTokenAt=0,contextTimer=0,startGeneration=0,cameraHintTimer=0;
-  let qrModulePromise=null;
+  let qrModulePromise=null,checkpoint='in';
   const time=value=>value?new Intl.DateTimeFormat('en-PH',{hour:'numeric',minute:'2-digit'}).format(new Date('2000-01-01T'+value)):'—';
   const date=value=>value?new Intl.DateTimeFormat('en-PH',{dateStyle:'medium'}).format(new Date(value.replace(' ','T'))):'—';
   const clock=value=>value?new Intl.DateTimeFormat('en-PH',{timeStyle:'short'}).format(new Date(value.replace(' ','T'))):'—';
@@ -88,10 +88,25 @@
       <span class="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#C6F24E]/35 text-xs font-black text-[#397565]">✓</span>
       <div class="min-w-0 flex-1"><strong class="block truncate text-sm">${esc(row.full_name)}</strong>
         <span class="block text-xs text-[#121017]/45">${esc(row.id_number)} · ${esc(row.team_name)} · ${esc(row.status)}</span></div>
-      <div class="text-right"><time class="block text-xs font-bold text-[#397565]">${clock(row.scanned_at)}</time>
+      <div class="text-right"><time class="block text-xs font-bold text-[#397565]">In ${clock(row.scanned_at)}</time>
+        ${row.out_at?`<time class="block text-xs font-bold text-[#397565]">Out ${clock(row.out_at)}</time>`:''}
         <small class="text-xs text-[#121017]/50">${esc(row.location_status)}</small></div></article>`).join(''):'<p class="p-8 text-center text-sm text-[#121017]/45">No attendance scans yet.</p>';
   }
-  function renderCounts(counts){$('[data-scan-counts]').textContent=`${counts.total} scanned · ${counts.remaining} remaining from your assigned team`;}
+  function renderCounts(counts){$('[data-scan-counts]').textContent=`${counts.total} timed in · ${counts.checked_out||0} timed out · ${counts.remaining} remaining from your assigned team`;}
+  function setCheckpoint(next){
+    checkpoint=next;lastToken='';lastTokenAt=0;
+    document.querySelectorAll('[data-checkpoint-option]').forEach(button=>{
+      const active=button.dataset.checkpointOption===checkpoint;
+      button.setAttribute('aria-pressed',String(active));
+      button.classList.toggle('bg-[#397565]',active);button.classList.toggle('text-white',active);
+      button.classList.toggle('bg-white',!active);button.classList.toggle('text-[#397565]',!active);
+    });
+    $('[data-checkpoint-hint]').textContent=checkpoint==='in'
+      ?'Use the student’s QR for time in. The same QR is used again for time out.'
+      :'Use the same student QR for time out. A previous time in is required.';
+    $('[data-scanner-checkpoint]').textContent=checkpoint==='in'?'time in':'time out';
+  }
+  document.querySelectorAll('[data-checkpoint-option]').forEach(button=>button.addEventListener('click',()=>setCheckpoint(button.dataset.checkpointOption)));
   function renderAssignment(next){
     if(!selected)return;
     $('[data-assignment-summary]').innerHTML=[
@@ -100,7 +115,7 @@
       ['Session',`${selected.session_name} · ${time(selected.session_start)}–${time(selected.session_end)}`],
     ].map(([label,value])=>`<article><span class="text-[10px] font-black uppercase tracking-wider text-[#397565]">${label}</span><strong class="mt-1 block text-sm">${esc(value)}</strong></article>`).join('')+
       `<details class="sbo-assignment-details"><summary>Venue and location policy</summary><p class="mt-2 text-sm">${esc(selected.venue_name||'Venue not configured')} · ${esc(selected.location_policy)} location policy</p></details>`;
-    $('[data-session-state]').textContent=selected.is_session_active?'Attendance session is active.':'No attendance session is currently active.';
+    $('[data-session-state]').textContent=selected.is_session_active?'Attendance checkpoint scanning is open.':'No attendance checkpoint is currently open.';
     $('[data-next-session]').textContent=next?`Next scheduled session: ${next.event} · ${next.name} · ${date(next.starts_at)} ${clock(next.starts_at)}`:'No later attendance session is scheduled for today.';
     renderLocation();updateControls();
   }
@@ -130,11 +145,12 @@
         await getLocation();
         if(!freshPosition()){notify('error','Your location could not be verified. Check your location permission and try again.');return;}
       }else if(selected.location_policy==='warning'&&!freshPosition())getLocation().catch(()=>{});
-      const response=await axios.post(API,{...payload,assignment_id:selected.id,location:locationPayload()},{headers:{'X-CSRF-Token':csrf}});
+      const response=await axios.post(API,{...payload,assignment_id:selected.id,checkpoint,location:locationPayload()},{headers:{'X-CSRF-Token':csrf}});
       const result=response.data.data;renderRecent(result.recent_scans);renderCounts(result.counts);
       const location=result.location.status==='unavailable'?'unavailable':result.location.status+(result.location.distance_m===null?'':' · '+result.location.distance_m+' meters from venue');
-      $('[data-scan-result]').innerHTML=`<strong class="text-[#397565]">Attendance recorded successfully.</strong><br>${esc(result.student.full_name)} · ${esc(result.student.team_name)}<br>${esc(result.session_name)} · ${clock(result.scanned_at)}<br>Location: ${esc(location)}`;
-      $('[data-modal-scan-result]').textContent=`Recorded: ${result.student.full_name} · ${result.student.team_name}`;
+      const label=result.checkpoint==='out'?'Time out':'Time in';
+      $('[data-scan-result]').innerHTML=`<strong class="text-[#397565]">${label} recorded successfully.</strong><br>${esc(result.student.full_name)} · ${esc(result.student.team_name)}<br>${esc(result.session_name)} · ${clock(result.scanned_at)}<br>Location: ${esc(location)}`;
+      $('[data-modal-scan-result]').textContent=`${label} recorded: ${result.student.full_name} · ${result.student.team_name}`;
       notify('success',response.data.message);successSound();
     }catch(error){
       const message=error.response?.data?.message||'Attendance scan failed.';

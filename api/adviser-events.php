@@ -210,6 +210,11 @@ final class EventManagementRepository
     {
         $existing = $id ? $this->eventRow($id) : null;
         $data = $this->validateEvent($input, $id);
+        if (!$existing || $existing['deleted_at'] === null) {
+            $now = date('Y-m-d H:i:s');
+            $statusLabel = $data['start_at'] > $now ? 'upcoming' : ($data['end_at'] <= $now ? 'completed' : 'ongoing');
+            $data['event_status_id'] = (int) $this->scalar('SELECT id FROM tbl_event_statuses WHERE label=?', [$statusLabel]);
+        }
         $newPoster = $this->storePoster($files['poster'] ?? null);
         $posterPath = $newPoster ?: ($existing['poster_path'] ?? null);
         if ($id && !$newPoster && $this->boolean($input['remove_poster'] ?? false)) {
@@ -226,13 +231,12 @@ final class EventManagementRepository
                 $statement->execute([$data['title'], $data['description'], $data['location'], $data['location_id'], $data['attendance_location_policy'], $data['audience_type'], $posterPath,
                     $data['start_at'], $data['end_at'], $data['event_type_id'], $data['event_status_id'], $id]);
             } else {
-                $upcoming = (int) $this->scalar("SELECT id FROM tbl_event_statuses WHERE label='upcoming'");
                 $statement = $this->db->prepare(
                     "INSERT INTO tbl_events(title,description,location,location_id,attendance_location_policy,audience_type,poster_path,start_at,end_at,event_type_id,event_status_id,created_by,is_featured,created_at,updated_at)
                      VALUES(?,?,?,?,?,?,?,?,?,?,?,?,0,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)"
                 );
                 $statement->execute([$data['title'], $data['description'], $data['location'], $data['location_id'], $data['attendance_location_policy'], $data['audience_type'], $posterPath,
-                    $data['start_at'], $data['end_at'], $data['event_type_id'], $upcoming, $actorId]);
+                    $data['start_at'], $data['end_at'], $data['event_type_id'], $data['event_status_id'], $actorId]);
                 $id = (int) $this->db->lastInsertId();
             }
             $this->replaceSchedules($id, $data['schedules']);
@@ -511,7 +515,7 @@ final class EventManagementRepository
         if ($description !== null && mb_strlen($description) > 5000) $errors['description'][] = 'Description may not exceed 5,000 characters.';
         if (!$typeId || !$this->exists('tbl_event_types', $typeId)) $errors['event_type_id'][] = 'Select a valid event type.';
         if (!in_array($audienceType, ['all_students', 'selected_tribes', 'selected_year_levels', 'specific_students'], true)) $errors['audience_type'][] = 'Select a valid participant group.';
-        $schedules = $this->validateSchedules($input['attendance_days'] ?? [], $errors);
+        $schedules = $this->validateSchedules($input['attendance_days'] ?? [], $errors, $id);
         $startAt = $schedules ? $schedules[0]['start_at'] : '';
         $endAt = $schedules ? $schedules[array_key_last($schedules)]['end_at'] : '';
         $assigned = $this->integerList($input['assigned_user_ids'] ?? []);
@@ -545,7 +549,7 @@ final class EventManagementRepository
         ];
     }
 
-    private function validateSchedules(mixed $input, array &$errors): array
+    private function validateSchedules(mixed $input, array &$errors, ?int $eventId = null): array
     {
         if (!is_array($input) || !$input) {
             $errors['attendance_days'][] = 'Add at least one event day.';
@@ -554,13 +558,36 @@ final class EventManagementRepository
         if (count($input) > 31) $errors['attendance_days'][] = 'An event schedule cannot exceed 31 days.';
         $modes = [];
         foreach ($this->db->query('SELECT id,code FROM tbl_attendance_session_modes') as $mode) $modes[(int) $mode['id']] = $mode['code'];
+        $existing = [];
+        $existingByDate = [];
+        if ($eventId) {
+            $statement = $this->db->prepare('SELECT id,schedule_date FROM tbl_event_attendance_schedules WHERE event_id=?');
+            $statement->execute([$eventId]);
+            foreach ($statement->fetchAll() as $saved) {
+                $existing[(int) $saved['id']] = (string) $saved['schedule_date'];
+                $existingByDate[(string) $saved['schedule_date']] = (int) $saved['id'];
+            }
+        }
         $rows = [];
         $dates = [];
+        $usedIds = [];
         foreach (array_values($input) as $index => $day) {
             $field = 'attendance_days.'.$index;
             $date = trim((string) ($day['date'] ?? ''));
+            $scheduleId = (int) ($day['id'] ?? 0);
             $modeId = (int) ($day['attendance_session_mode_id'] ?? 0);
-            if (!$this->validDate($date) || $date < date('Y-m-d')) $errors[$field.'.date'][] = 'Choose today or a future date.';
+            if ($scheduleId && (!isset($existing[$scheduleId]) || in_array($scheduleId, $usedIds, true)))
+                $errors[$field.'.id'][] = 'This schedule no longer belongs to the event. Refresh and try again.';
+            if ($scheduleId && isset($existingByDate[$date]) && $existingByDate[$date] !== $scheduleId)
+                $errors[$field.'.date'][] = 'This date belongs to another existing event day. Edit that day instead.';
+            if ($scheduleId) $usedIds[] = $scheduleId;
+            if (!$this->validDate($date) || ($date < date('Y-m-d') && ($scheduleId === 0 || ($existing[$scheduleId] ?? null) !== $date)))
+                $errors[$field.'.date'][] = 'Choose today or a future date, or keep an existing past day unchanged.';
+            if ($scheduleId && isset($existing[$scheduleId]) && $existing[$scheduleId] !== $date &&
+                ((int) $this->scalar('SELECT COUNT(*) FROM tbl_attendance_entries WHERE event_schedule_id=?', [$scheduleId]) > 0 ||
+                 (int) $this->scalar('SELECT COUNT(*) FROM tbl_sbo_event_assignments WHERE event_schedule_id=?', [$scheduleId]) > 0 ||
+                 (int) $this->scalar('SELECT COUNT(*) FROM tbl_attendances WHERE event_id=? AND attendance_date=?', [$eventId, $existing[$scheduleId]]) > 0))
+                $errors[$field.'.date'][] = 'A day with scans or SBO assignments cannot be moved to another date.';
             if (in_array($date, $dates, true)) $errors[$field.'.date'][] = 'Each schedule date must be unique.';
             $dates[] = $date;
             if (!isset($modes[$modeId])) $errors[$field.'.attendance_session_mode_id'][] = 'Select a valid attendance session.';
@@ -580,7 +607,7 @@ final class EventManagementRepository
             $startTime = $code === 'none' ? '00:00' : ($times['morning_in'] ?: '00:00');
             $endTime = $code === 'two_sessions' ? ($times['afternoon_out'] ?: '00:00') : ($code === 'whole_day' ? ($times['morning_out'] ?: '00:00') : '23:59');
             $rows[] = [
-                'schedule_date' => $date, 'attendance_session_mode_id' => $modeId,
+                'id' => $scheduleId ?: null, 'schedule_date' => $date, 'attendance_session_mode_id' => $modeId,
                 'whole_day_in_time' => $code === 'whole_day' ? $times['morning_in'] : null,
                 'whole_day_out_time' => $code === 'whole_day' ? $times['morning_out'] : null,
                 'morning_in_time' => $code === 'two_sessions' ? $times['morning_in'] : null,
@@ -630,13 +657,46 @@ final class EventManagementRepository
 
     private function replaceSchedules(int $eventId, array $schedules): void
     {
-        $this->db->prepare('DELETE FROM tbl_event_attendance_schedules WHERE event_id=?')->execute([$eventId]);
-        $statement = $this->db->prepare(
+        $stored = $this->db->prepare('SELECT id,schedule_date FROM tbl_event_attendance_schedules WHERE event_id=? FOR UPDATE');
+        $stored->execute([$eventId]);
+        $existingById = [];
+        $existingByDate = [];
+        foreach ($stored->fetchAll() as $row) {
+            $existingById[(int) $row['id']] = $row;
+            $existingByDate[(string) $row['schedule_date']] = (int) $row['id'];
+        }
+        $used = [];
+        $update = $this->db->prepare(
+            'UPDATE tbl_event_attendance_schedules SET schedule_date=?,attendance_session_mode_id=?,whole_day_in_time=?,whole_day_out_time=?,morning_in_time=?,morning_out_time=?,afternoon_in_time=?,afternoon_out_time=?,updated_at=CURRENT_TIMESTAMP WHERE id=? AND event_id=?'
+        );
+        $insert = $this->db->prepare(
             "INSERT INTO tbl_event_attendance_schedules(event_id,schedule_date,attendance_session_mode_id,whole_day_in_time,whole_day_out_time,morning_in_time,morning_out_time,afternoon_in_time,afternoon_out_time,created_at,updated_at)
              VALUES(?,?,?,?,?,?,?,?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)"
         );
         foreach ($schedules as $schedule) {
-            $statement->execute([$eventId, $schedule['schedule_date'], $schedule['attendance_session_mode_id'], $schedule['whole_day_in_time'], $schedule['whole_day_out_time'], $schedule['morning_in_time'], $schedule['morning_out_time'], $schedule['afternoon_in_time'], $schedule['afternoon_out_time']]);
+            $scheduleId = (int) ($schedule['id'] ?? 0);
+            if (!$scheduleId && isset($existingByDate[$schedule['schedule_date']]) && !isset($used[$existingByDate[$schedule['schedule_date']]]))
+                $scheduleId = $existingByDate[$schedule['schedule_date']];
+            $values = [$schedule['schedule_date'], $schedule['attendance_session_mode_id'], $schedule['whole_day_in_time'], $schedule['whole_day_out_time'], $schedule['morning_in_time'], $schedule['morning_out_time'], $schedule['afternoon_in_time'], $schedule['afternoon_out_time']];
+            if ($scheduleId && isset($existingById[$scheduleId])) {
+                $update->execute([...$values, $scheduleId, $eventId]);
+                $used[$scheduleId] = true;
+            } else {
+                $insert->execute([$eventId, ...$values]);
+                $used[(int) $this->db->lastInsertId()] = true;
+            }
+        }
+        $linked = $this->db->prepare('SELECT
+            (SELECT COUNT(*) FROM tbl_attendance_entries WHERE event_schedule_id=?) +
+            (SELECT COUNT(*) FROM tbl_sbo_event_assignments WHERE event_schedule_id=?) +
+            (SELECT COUNT(*) FROM tbl_attendances WHERE event_id=? AND attendance_date=?)');
+        $delete = $this->db->prepare('DELETE FROM tbl_event_attendance_schedules WHERE id=? AND event_id=?');
+        foreach ($existingById as $scheduleId => $row) {
+            if (isset($used[$scheduleId])) continue;
+            $linked->execute([$scheduleId, $scheduleId, $eventId, $row['schedule_date']]);
+            if ((int) $linked->fetchColumn() > 0)
+                throw new EventValidationException(['attendance_days' => ['A day with assignments or attendance records cannot be removed.']]);
+            $delete->execute([$scheduleId, $eventId]);
         }
     }
 

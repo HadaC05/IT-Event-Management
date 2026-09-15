@@ -41,7 +41,9 @@ final class SboAuthorization
             $end = new DateTimeImmutable($row['schedule_date'].' '.$row['session_end'], new DateTimeZone('Asia/Manila'));
             $eventStart = new DateTimeImmutable($row['start_at'], new DateTimeZone('Asia/Manila'));
             $eventEnd = new DateTimeImmutable($row['end_at'], new DateTimeZone('Asia/Manila'));
-            $row['is_session_active'] = $now >= $start && $now <= $end && $now >= $eventStart && $now <= $eventEnd;
+            $row['is_session_active'] = $responsibility === 'attendance'
+                ? $now >= $start->modify('-30 minutes') && $now <= $end->modify('+30 minutes')
+                : $now >= $start && $now <= $end && $now >= $eventStart && $now <= $eventEnd;
         }
         unset($row);
         return $rows;

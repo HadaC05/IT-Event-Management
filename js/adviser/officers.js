@@ -63,6 +63,45 @@
 
     const closeOfficerMenu = () => document.querySelector('[data-officer-actions-menu]')?.remove();
 
+    const openEventAssignments = assignment => {
+        if (assignment.status !== 'Active') return notify('error', 'Only active SBO Officers can be assigned to an event.');
+        const taskDialog = document.querySelector('[data-task-dialog]');
+        const opener = document.querySelector('[data-task-open]');
+        if (!taskDialog || !opener) return notify('error', 'Event responsibilities are unavailable. Reload this page and try again.');
+        const chooseOfficer = () => {
+            if (!taskDialog.open) return false;
+            const select = taskDialog.querySelector('[data-task-officer]');
+            if (select) {
+                select.value = String(assignment.id);
+                select.dispatchEvent(new Event('change', {bubbles: true}));
+            }
+            const team = taskDialog.querySelector('[data-task-team]');
+            if (team && assignment.team_id) team.value = String(assignment.team_id);
+            const event = taskDialog.querySelector('[data-task-event]');
+            if (event && !event.querySelector('option[value=""]')) event.prepend(new Option('Select an event day', ''));
+            if (event) { event.value = ''; event.dispatchEvent(new Event('change', {bubbles: true})); }
+            const activity = taskDialog.querySelector('input[name="activity_name"]');
+            if (activity && !activity.value.trim()) activity.value = 'Event duties';
+            select?.focus();
+            return true;
+        };
+        if (chooseOfficer()) return;
+        const observer = new MutationObserver(() => { if (chooseOfficer()) observer.disconnect(); });
+        observer.observe(taskDialog, {attributes: true, attributeFilter: ['open']});
+        setTimeout(() => observer.disconnect(), 10000);
+        opener.click();
+    };
+
+    const eventGroups = tasks => {
+        const groups = new Map();
+        tasks.forEach(task => {
+            const key = `${task.event_id}:${task.schedule_date}`;
+            if (!groups.has(key)) groups.set(key, {name: task.event_name, date: task.schedule_date, roles: new Set()});
+            groups.get(key).roles.add(task.responsibility);
+        });
+        return [...groups.values()];
+    };
+
     const openOfficerMenu = (anchor, assignment) => {
         closeOfficerMenu();
         const menu = document.createElement('div');
@@ -76,7 +115,7 @@
             menu.append(control);
         };
         if (assignment.status === 'Active') {
-            menuItem('Manage responsibilities', () => document.querySelector('[data-task-open]')?.click());
+            menuItem('Assign to event', () => openEventAssignments(assignment));
             menuItem('Reset officer login', () => openPasswordDialog(assignment));
             const divider = document.createElement('div');
             divider.className = 'my-1 border-t border-[#121017]/8';
@@ -140,6 +179,31 @@
         detailsDialog.querySelector('[data-details-position]').textContent = `Position: ${assignment.position}`;
         detailsDialog.querySelector('[data-details-term]').textContent = `Term: ${assignment.term}`;
         detailsDialog.querySelector('[data-details-team]').textContent = `Tribe: ${assignment.team_name || 'No tribe'}`;
+        const responsibilityHost = detailsDialog.querySelector('[data-details-event-responsibilities]');
+        responsibilityHost.replaceChildren();
+        if (!assignment.event_responsibilities.length) {
+            const empty = document.createElement('p');
+            empty.className = 'text-xs text-[#121017]/50';
+            empty.textContent = assignment.status === 'Active' ? 'No active event responsibility yet.' : 'This officer login is inactive.';
+            responsibilityHost.append(empty);
+        } else assignment.event_responsibilities.forEach(task => {
+            const item = document.createElement('div');
+            item.className = 'rounded-xl border border-[#397565]/15 bg-[#397565]/5 p-3';
+            const eventName = document.createElement('strong');
+            eventName.className = 'block text-sm';
+            eventName.textContent = task.event_name;
+            const context = document.createElement('span');
+            context.className = 'mt-1 block text-xs text-[#121017]/60';
+            context.textContent = `${task.schedule_date} · ${task.session_code.replace('_', ' ')} · ${task.responsibility} · ${task.team_name} · ${task.activity_name}`;
+            item.append(eventName, context);
+            responsibilityHost.append(item);
+        });
+        const assignEvent = detailsDialog.querySelector('[data-details-assign-event]');
+        assignEvent.hidden = assignment.status !== 'Active';
+        assignEvent.onclick = () => {
+            detailsDialog.close();
+            openEventAssignments(assignment);
+        };
         const changePassword = detailsDialog.querySelector('[data-details-change-password]');
         changePassword.hidden = assignment.status !== 'Active';
         changePassword.onclick = () => {
@@ -185,6 +249,39 @@
             account.innerHTML = '<strong class="block text-sm">SBO Officer account</strong><span class="mt-1 block text-[10px] text-[#121017]/45"></span>';
             const position = assignment.position ? assignment.position.charAt(0).toUpperCase() + assignment.position.slice(1) : 'Officer';
             account.querySelector('span').textContent = `${position} · Term ${assignment.term}`;
+            const eventCell = document.createElement('div');
+            eventCell.className = 'mt-3 min-w-0 rounded-xl bg-[#397565]/5 p-3';
+            const eventLabel = document.createElement('strong');
+            eventLabel.className = 'block text-xs font-black text-[#397565]';
+            eventLabel.textContent = 'Events in charge';
+            eventCell.append(eventLabel);
+            const groups = eventGroups(assignment.event_responsibilities);
+            if (!groups.length) {
+                const empty = document.createElement('p');
+                empty.className = 'mt-1 text-xs text-[#121017]/45';
+                empty.textContent = active ? 'No event assigned' : 'Officer login inactive';
+                eventCell.append(empty);
+            } else {
+                groups.slice(0, 2).forEach(group => {
+                    const item = document.createElement('p');
+                    item.className = 'mt-1 text-xs leading-5';
+                    const title = document.createElement('span');
+                    title.className = 'block truncate font-bold';
+                    title.textContent = group.name;
+                    const detail = document.createElement('small');
+                    detail.className = 'block text-[#121017]/50';
+                    detail.textContent = `${group.date} · ${[...group.roles].join(', ')}`;
+                    item.append(title, detail);
+                    eventCell.append(item);
+                });
+                if (groups.length > 2) {
+                    const moreEvents = document.createElement('small');
+                    moreEvents.className = 'mt-1 block font-bold text-[#397565]';
+                    moreEvents.textContent = `+${groups.length - 2} more in View Details`;
+                    eventCell.append(moreEvents);
+                }
+            }
+            if (active) eventCell.append(button('Assign to event', 'mt-2 min-h-9 rounded-lg border border-[#397565]/25 px-3 text-xs font-black text-[#397565]', () => openEventAssignments(assignment)));
             const actions = document.createElement('div');
             actions.className = 'flex flex-wrap items-center justify-end gap-2';
             const status = document.createElement('span');
@@ -198,6 +295,7 @@
             more.dataset.officerMenuTrigger = '';
             more.setAttribute('aria-label', `More actions for ${assignment.full_name}`);
             actions.append(more);
+            identity.append(eventCell);
             article.append(check, identity, account, status, actions);
             list.append(article);
         });
@@ -318,6 +416,8 @@
         renderPagination(response.data.data);
         renderFormOptions(response.data.data);
     };
+
+    document.querySelector('[data-task-dialog]')?.addEventListener('close', () => load().catch(error => notify('error', errorMessage(error))));
 
     selectAll.addEventListener('change', () => {
         list.querySelectorAll('[data-officer-checkbox]:not(:disabled)').forEach(input => { input.checked = selectAll.checked; });

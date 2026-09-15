@@ -107,6 +107,7 @@
       poster.replaceChildren();
     }
     $("[data-edit-link]").href = `pages/adviser/event-edit.html?id=${event.id}`;
+    $("[data-edit-link-visible]").href = `pages/adviser/event-edit.html?id=${event.id}`;
     const scoreLink = $("[data-event-scores]");
     const attendanceLink = $("[data-event-attendance]");
     if (scoreLink)
