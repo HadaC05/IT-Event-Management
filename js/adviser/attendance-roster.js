@@ -38,9 +38,16 @@
     if (Number(page) > 1) url.searchParams.set("page", page);
     return url.href;
   };
-  const confirmLeave = () =>
-    !dirty ||
-    confirm("You have unsaved attendance changes. Discard them and continue?");
+  const confirmLeave = async () => {
+    if (!dirty) return true;
+    return window.Notifications?.confirm
+      ? window.Notifications.confirm({
+          title: "Discard unsaved changes?",
+          message: "Attendance changes on this page have not been saved and will be lost.",
+          action: "Discard changes",
+        })
+      : confirm("You have unsaved attendance changes. Discard them and continue?");
+  };
   const localDate = (v) => new Date(String(v).replace(" ", "T"));
   const shortDate = (v) =>
     new Intl.DateTimeFormat("en-PH", { month: "short", day: "numeric" }).format(
@@ -153,8 +160,8 @@
         ),
       ),
     );
-    eventSwitch.onchange = () => {
-      if (confirmLeave())
+    eventSwitch.onchange = async () => {
+      if (await confirmLeave())
         location.assign(
           `pages/adviser/attendance-roster.html?event_id=${eventSwitch.value}`,
         );
@@ -175,8 +182,10 @@
         a.href = pageUrl({ date, page: 1, search: "", status: "" });
         a.textContent = `Day ${index + 1} · ${shortDate(`${date}T00:00:00`)}`;
         a.className = `rounded-xl px-4 py-2.5 text-xs font-black ${date === data.attendance_date ? "bg-[#397565] text-white" : "bg-[#F3F0E9]/60 text-[#121017]/55 hover:text-[#397565]"}`;
-        a.onclick = (e) => {
-          if (!confirmLeave()) e.preventDefault();
+        a.onclick = async (e) => {
+          if (!dirty) return;
+          e.preventDefault();
+          if (await confirmLeave()) location.assign(a.href);
         };
         nav.append(a);
       });
@@ -281,8 +290,10 @@
       a.textContent = label;
       a.href = disabled ? "#" : pageUrl({ page });
       a.className = `rounded-lg border px-3 py-2 ${disabled ? "pointer-events-none border-[#121017]/6 text-[#121017]/20" : "border-[#121017]/10 font-black text-[#397565]"}`;
-      a.onclick = (e) => {
-        if (!confirmLeave()) e.preventDefault();
+      a.onclick = async (e) => {
+        if (!dirty) return;
+        e.preventDefault();
+        if (await confirmLeave()) location.assign(a.href);
       };
       buttons.append(a);
     });
@@ -341,9 +352,9 @@
         );
     }
   }
-  filters.onsubmit = (e) => {
+  filters.onsubmit = async (e) => {
     e.preventDefault();
-    if (confirmLeave())
+    if (await confirmLeave())
       location.assign(
         pageUrl({
           search: filters.search.value.trim(),
