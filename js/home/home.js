@@ -224,6 +224,12 @@
     axios.get('api/auth.php?action=session').then(response => {
         state.csrfToken = response.data.csrf_token;
         state.user = response.data.user;
+        const loginReason = new URLSearchParams(window.location.search).get('login');
+        if (!state.user && loginReason === 'password-changed') {
+            loginModal?.showModal();
+            loginModal?.querySelector('[name="login"]')?.focus();
+            window.history.replaceState({}, '', window.location.pathname + window.location.hash);
+        }
         if (state.user) {
             document.querySelectorAll('[data-login-open]').forEach(button => {
                 button.firstChild.textContent = 'Dashboard ';

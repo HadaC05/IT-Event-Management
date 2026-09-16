@@ -138,7 +138,7 @@ final class SboAttendanceRepository {
     private function venue(int $event):array {
         $r=$this->row('SELECT e.attendance_location_policy,l.name venue_name,l.latitude venue_latitude,l.longitude venue_longitude,l.radius venue_radius FROM tbl_events e LEFT JOIN tbl_locations l ON l.id=e.location_id WHERE e.id=?',[$event]);
         if(!$r)throw new DomainException('Event venue was not found.');
-        return ['location_policy'=>$r['attendance_location_policy'],'venue_name'=>$r['venue_name'],
+        return ['location_policy'=>$r['attendance_location_policy']==='strict'?'strict':'warning','venue_name'=>$r['venue_name'],
             'venue_latitude'=>$r['venue_latitude']===null?null:(float)$r['venue_latitude'],
             'venue_longitude'=>$r['venue_longitude']===null?null:(float)$r['venue_longitude'],
             'venue_radius_m'=>$r['venue_radius']===null?null:(float)$r['venue_radius']];
@@ -165,10 +165,10 @@ final class SboAttendanceRepository {
                 }else $r['reason']='stale_location';
             }else $r['reason']='invalid_location';
         }
-        if($a['location_policy']==='strict'){
-            if($a['venue_latitude']===null||$a['venue_longitude']===null||$a['venue_radius_m']===null)throw new DomainException('Strict scan location is not configured for this event.');
+        if(in_array($a['location_policy'],['warning','strict'],true)){
+            if($a['venue_latitude']===null||$a['venue_longitude']===null||$a['venue_radius_m']===null)throw new DomainException('Scan location is not configured for this event.');
             if($r['status']==='unavailable')throw new InvalidArgumentException('Your location could not be verified. Check your location permission and try again.');
-            if($r['status']==='outside')throw new InvalidArgumentException('Scan location is outside the allowed event venue.');
+            if($a['location_policy']==='strict'&&$r['status']==='outside')throw new InvalidArgumentException('Scan location is outside the allowed event venue.');
         }
         return $r;
     }

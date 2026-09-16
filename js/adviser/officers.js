@@ -1,4 +1,4 @@
-(() => {
+window.SharedNavigation.ready.then(() => {
     'use strict';
 
     let csrfToken = '';
@@ -579,4 +579,4 @@
         account.querySelector('div > div span').textContent = user.email || user.username;
         return load();
     }).catch(() => location.replace('./'));
-})();
+});

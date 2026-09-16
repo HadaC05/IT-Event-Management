@@ -36,11 +36,12 @@ try {
     $zone=new DateTimeZone('Asia/Manila');$now=new DateTimeImmutable('now',$zone);
     $today=$now->format('Y-m-d');$tomorrow=$now->modify('+1 day')->format('Y-m-d');$third=$now->modify('+2 days')->format('Y-m-d');
     $start=$now->modify('-1 hour')->format('H:i:s');$end=$now->modify('+1 hour')->format('H:i:s');
+    $inClose=$now->modify('+10 minutes')->format('H:i:s');$outOpen=$now->modify('+20 minutes')->format('H:i:s');
     $db->exec("UPDATE tbl_locations SET latitude=8.4699237,longitude=124.6342058,radius=100 WHERE id=1");
     $db->prepare("UPDATE tbl_events SET start_at=?,end_at=?,audience_type='all_students',location_id=1,attendance_location_policy='strict' WHERE id=1")
         ->execute([$today.' 00:00:00',$third.' 23:59:59']);
-    $db->prepare("UPDATE tbl_event_attendance_schedules SET schedule_date=?,attendance_session_mode_id=2,whole_day_in_time=?,whole_day_out_time=? WHERE id=1")
-        ->execute([$today,$start,$end]);
+    $db->prepare("UPDATE tbl_event_attendance_schedules SET schedule_date=?,attendance_session_mode_id=2,whole_day_in_time=?,whole_day_in_close_time=?,whole_day_out_open_time=?,whole_day_out_time=? WHERE id=1")
+        ->execute([$today,$start,$inClose,$outOpen,$end]);
     $db->prepare("INSERT INTO tbl_event_attendance_schedules(event_id,schedule_date,attendance_session_mode_id,whole_day_in_time,whole_day_out_time,created_at,updated_at) VALUES(1,?,2,?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)")
         ->execute([$tomorrow,$start,$end]);$day2=(int)$db->lastInsertId();
     $db->prepare("INSERT INTO tbl_event_attendance_schedules(event_id,schedule_date,attendance_session_mode_id,whole_day_in_time,whole_day_out_time,created_at,updated_at) VALUES(1,?,2,?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)")
@@ -69,7 +70,8 @@ try {
     $assert($result['location']['status']==='inside'&&count($result['recent_scans'])===1,'valid assigned-team scan inside venue');
     $expect(fn()=>$repository->scan($officer,$payload($team1[0],$inside)),LogicException::class,'already recorded');
     $closingEnd=$now->modify('+10 minutes')->format('H:i:s');
-    $db->prepare('UPDATE tbl_event_attendance_schedules SET whole_day_out_time=? WHERE id=1')->execute([$closingEnd]);
+    $db->prepare('UPDATE tbl_event_attendance_schedules SET whole_day_in_close_time=?,whole_day_out_open_time=?,whole_day_out_time=? WHERE id=1')
+        ->execute([$now->modify('-2 minutes')->format('H:i:s'),$now->modify('-1 minute')->format('H:i:s'),$closingEnd]);
     $outPayload=$payload($team1[0],$inside)+['checkpoint'=>'out'];
     $expect(fn()=>$repository->scan($officer,$payload($team1[1],$inside)+['checkpoint'=>'out']),LogicException::class,'time in');
     $timeOut=$repository->scan($officer,$outPayload);
@@ -102,8 +104,7 @@ try {
     $db->prepare('UPDATE tbl_event_attendance_schedules SET whole_day_out_time=? WHERE id=1')->execute([$end]);
     $db->prepare('UPDATE tbl_events SET end_at=? WHERE id=1')->execute([$third.' 23:59:59']);
     if(isset($team1[2])){
-        $denied=$repository->scan($officer,$payload($team1[2],['unavailable_reason'=>'permission_denied']));
-        $assert($denied['location']['status']==='unavailable'&&$denied['location']['reason']==='permission_denied','warning mode records permission denied');
+        $expect(fn()=>$repository->scan($officer,$payload($team1[2],['unavailable_reason'=>'permission_denied'])),InvalidArgumentException::class,'could not be verified');
     }
     $scanView=(new AdviserAttendanceScanRepository($db))->index(['event_id'=>'1','location_status'=>'inside']);
     $assert(count($scanView['scans'])===1&&$scanView['scans'][0]['scan_latitude']!==null,'adviser can view scan coordinates');
@@ -111,12 +112,11 @@ try {
     $assert($issued['token']===$tokens[(int)$team1[0]['id']]&&strlen($issued['token'])===32,'student QR contains only the saved random token');
     $expect(fn()=>$repository->scan($officer,$payload($team1[0],$inside)+['event_id'=>999,'team_id'=>999,'session_id'=>999,'officer_id'=>999]),LogicException::class,'already recorded');
     $assert((int)$db->query('SELECT COUNT(*) FROM tbl_attendance_entries')->fetchColumn()===3,'client-supplied event/team/officer IDs ignored');
-    $offContext=$repository->dashboard($officer,$assignment)['selected_assignment'];
-    $offContext['location_policy']='off';
+    $warningContext=$repository->dashboard($officer,$assignment)['selected_assignment'];
+    $warningContext['location_policy']='warning';
     $locationMethod=new ReflectionMethod(SboAttendanceRepository::class,'location');
-    $assert($locationMethod->invoke($repository,$offContext,$outside)['status']==='outside' &&
-        $locationMethod->invoke($repository,$offContext,['unavailable_reason'=>'permission_denied'])['status']==='unavailable',
-        'Off mode records location without blocking scans');
+    $assert($locationMethod->invoke($repository,$warningContext,$outside)['status']==='outside','Warning mode permits a GPS position outside the venue');
+    $expect(fn()=>$locationMethod->invoke($repository,$warningContext,['unavailable_reason'=>'permission_denied']),InvalidArgumentException::class,'could not be verified');
     $db->prepare('UPDATE tbl_attendance_qr_tokens SET updated_at=? WHERE event_id=1 AND user_id=? AND session=?')
         ->execute([$now->modify('-1 day')->format('Y-m-d H:i:s'),$team1[0]['id'],'whole_day']);
     $rotated=(new StudentAttendanceQrRepository($db))->issue((int)$team1[0]['id']);

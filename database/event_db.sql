@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Generation Time: Sep 14, 2026 at 07:48 PM
+-- Generation Time: Sep 16, 2026 at 05:17 PM
 -- Server version: 10.4.32-MariaDB
 -- PHP Version: 8.2.12
 
@@ -68,7 +68,38 @@ INSERT INTO `tbl_activity_logs` (`id`, `actor_id`, `subject_user_id`, `student_i
 (7, 2, NULL, NULL, NULL, NULL, 'post_submitted', 'Student', 'Post #2 was submitted for adviser review.', '2026-09-13 06:18:43', '2026-09-13 06:18:43'),
 (8, 14, 15, '02-2026-000003', 1, NULL, 'officer_password_changed', 'SBO Adviser', 'The password for SBO Officer login student.blue was changed by the adviser.', '2026-09-14 11:16:48', '2026-09-14 11:16:48'),
 (9, 14, 15, '02-2026-000003', 1, NULL, 'officer_password_changed', 'SBO Adviser', 'The password for SBO Officer login student.blue was changed by the adviser.', '2026-09-14 11:18:54', '2026-09-14 11:18:54'),
-(10, 15, 15, NULL, NULL, NULL, 'password_changed', 'SBO Officer', 'SBO Officer completed the required password change.', '2026-09-14 12:32:36', '2026-09-14 12:32:36');
+(10, 15, 15, NULL, NULL, NULL, 'password_changed', 'SBO Officer', 'SBO Officer completed the required password change.', '2026-09-14 12:32:36', '2026-09-14 12:32:36'),
+(11, 14, NULL, NULL, NULL, 2, 'event_created', 'SBO Adviser', 'IT Days 2026 was created.', '2026-09-15 16:56:32', '2026-09-15 16:56:32'),
+(12, 14, 15, '02-2026-000003', 1, NULL, 'officer_password_changed', 'SBO Adviser', 'The password for SBO Officer login student.blue was changed by the adviser.', '2026-09-15 17:12:33', '2026-09-15 17:12:33'),
+(13, 15, 15, NULL, NULL, NULL, 'password_changed', 'SBO Officer', 'SBO Officer completed the required password change.', '2026-09-15 17:13:19', '2026-09-15 17:13:19'),
+(14, 14, NULL, NULL, 1, 2, 'sbo_event_assigned', 'SBO Adviser', 'Assigned attendance responsibility for Event duties.', '2026-09-15 17:13:40', '2026-09-15 17:13:40'),
+(15, 14, NULL, NULL, NULL, 2, 'event_updated', 'SBO Adviser', 'IT Days 2026 was updated.', '2026-09-15 17:15:15', '2026-09-15 17:15:15'),
+(16, 14, NULL, NULL, 1, 2, 'sbo_event_assigned', 'SBO Adviser', 'Assigned attendance responsibility for Event duties.', '2026-09-16 00:45:57', '2026-09-16 00:45:57'),
+(17, 14, NULL, NULL, NULL, 2, 'event_updated', 'SBO Adviser', 'IT Days 2026 was updated.', '2026-09-16 02:50:00', '2026-09-16 02:50:00'),
+(18, 14, 16, '02-2026-000001', 2, NULL, 'officer_assigned', 'SBO Adviser', 'Student First Year 1 was assigned as attendance for 2026.', '2026-09-16 02:57:06', '2026-09-16 02:57:06'),
+(19, 16, 16, NULL, NULL, NULL, 'password_changed', 'SBO Officer', 'SBO Officer completed the required password change.', '2026-09-16 03:02:33', '2026-09-16 03:02:33'),
+(20, 14, NULL, NULL, NULL, NULL, 'team_created', NULL, 'Leaderboard green was created without assigned members.', '2026-09-16 04:40:00', '2026-09-16 04:40:00'),
+(21, 14, NULL, NULL, NULL, NULL, 'team_created', NULL, 'Blue Cobalt was created without assigned members.', '2026-09-16 04:40:38', '2026-09-16 04:40:38'),
+(22, 14, 17, NULL, NULL, NULL, 'user_created', NULL, 'Micah D Lago was added as Student.', '2026-09-16 06:56:44', '2026-09-16 06:56:44'),
+(23, 14, 18, NULL, NULL, NULL, 'user_created', NULL, 'jessie D Parajes was added as Student.', '2026-09-16 06:59:28', '2026-09-16 06:59:28'),
+(24, 14, NULL, NULL, NULL, 2, 'event_updated', 'SBO Adviser', 'IT Days 2026 was updated.', '2026-09-16 07:00:22', '2026-09-16 07:00:22'),
+(25, 14, 19, '02-2324-011281', 3, NULL, 'officer_assigned', 'SBO Adviser', 'jessie D Parajes was assigned as Attendance Officer for 2026-2027.', '2026-09-16 07:03:06', '2026-09-16 07:03:06'),
+(26, 14, NULL, NULL, NULL, NULL, 'team_updated', NULL, 'Blue Cobalt was updated with 1 members.', '2026-09-16 07:03:30', '2026-09-16 07:03:30'),
+(27, 19, 19, NULL, NULL, NULL, 'password_changed', 'SBO Officer', 'SBO Officer completed the required password change.', '2026-09-16 07:16:08', '2026-09-16 07:16:08'),
+(28, 14, NULL, NULL, 3, 2, 'sbo_event_assigned', 'SBO Adviser', 'Assigned attendance responsibility for Event duties.', '2026-09-16 07:16:51', '2026-09-16 07:16:51'),
+(29, 14, NULL, NULL, NULL, 2, 'event_updated', 'SBO Adviser', 'IT Days 2026 was updated.', '2026-09-16 07:18:36', '2026-09-16 07:18:36'),
+(30, 19, NULL, NULL, 3, 2, 'sbo_attendance_scanned', 'SBO Officer', 'Recorded time in for 02-2324-011280.', '2026-09-16 07:23:56', '2026-09-16 07:23:56'),
+(31, 14, NULL, NULL, NULL, 2, 'event_updated', 'SBO Adviser', 'IT Days 2026 was updated.', '2026-09-16 07:31:54', '2026-09-16 07:31:54'),
+(32, 14, 20, NULL, NULL, NULL, 'user_created', NULL, 'mjay D calunsag was added as Student.', '2026-09-16 07:34:24', '2026-09-16 07:34:24'),
+(33, 14, NULL, NULL, NULL, 2, 'event_updated', 'SBO Adviser', 'IT Days 2026 was updated.', '2026-09-16 07:35:19', '2026-09-16 07:35:19'),
+(34, 14, NULL, NULL, NULL, 2, 'event_updated', 'SBO Adviser', 'IT Days 2026 was updated.', '2026-09-16 07:35:32', '2026-09-16 07:35:32'),
+(35, 14, NULL, NULL, NULL, NULL, 'team_updated', NULL, 'Blue Cobalt was updated with 2 members.', '2026-09-16 07:37:35', '2026-09-16 07:37:35'),
+(36, 14, NULL, NULL, 3, 2, 'sbo_event_assigned', 'SBO Adviser', 'Assigned attendance responsibility for Event duties.', '2026-09-16 07:39:54', '2026-09-16 07:39:54'),
+(37, 14, NULL, NULL, 3, 2, 'sbo_event_unassigned', 'SBO Adviser', 'Ended an SBO event responsibility.', '2026-09-16 07:41:44', '2026-09-16 07:41:44'),
+(38, 14, NULL, NULL, NULL, NULL, 'team_updated', NULL, 'Blue Cobalt was updated with 1 members.', '2026-09-16 07:44:58', '2026-09-16 07:44:58'),
+(39, 14, NULL, NULL, NULL, NULL, 'team_updated', NULL, 'Green Falcons was updated with 4 members.', '2026-09-16 07:45:09', '2026-09-16 07:45:09'),
+(41, 20, NULL, NULL, NULL, NULL, 'post_submitted', 'Student', 'Post #3 was submitted for adviser review.', '2026-09-16 07:48:56', '2026-09-16 07:48:56'),
+(42, 14, NULL, NULL, NULL, NULL, 'post_approved', 'SBO Adviser', 'Post #3 was approved.', '2026-09-16 07:49:16', '2026-09-16 07:49:16');
 
 -- --------------------------------------------------------
 
@@ -93,6 +124,13 @@ CREATE TABLE `tbl_attendances` (
   `updated_at` timestamp NULL DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+--
+-- Dumping data for table `tbl_attendances`
+--
+
+INSERT INTO `tbl_attendances` (`id`, `event_id`, `user_id`, `attendance_date`, `status`, `checked_in_at`, `morning_in_at`, `morning_out_at`, `afternoon_in_at`, `afternoon_out_at`, `recorded_by`, `notes`, `created_at`, `updated_at`) VALUES
+(1, 2, 17, '2026-09-16', 'present', '2026-09-16 07:23:56', '2026-09-16 07:23:56', NULL, NULL, NULL, 19, NULL, '2026-09-16 07:23:56', '2026-09-16 07:23:56');
+
 -- --------------------------------------------------------
 
 --
@@ -105,14 +143,30 @@ CREATE TABLE `tbl_attendance_entries` (
   `event_schedule_id` bigint(20) UNSIGNED NOT NULL,
   `sbo_event_assignment_id` bigint(20) UNSIGNED NOT NULL,
   `session_code` varchar(12) NOT NULL,
+  `phase` varchar(3) NOT NULL DEFAULT 'in',
   `activity_id` bigint(20) UNSIGNED NOT NULL,
   `team_id` bigint(20) UNSIGNED NOT NULL,
   `recorded_by` bigint(20) UNSIGNED DEFAULT NULL,
   `scanned_at` datetime NOT NULL,
+  `scan_latitude` decimal(10,7) DEFAULT NULL,
+  `scan_longitude` decimal(10,7) DEFAULT NULL,
+  `location_accuracy_m` decimal(10,2) DEFAULT NULL,
+  `distance_from_venue_m` decimal(10,2) DEFAULT NULL,
+  `location_status` enum('inside','outside','unavailable') NOT NULL DEFAULT 'unavailable',
+  `location_captured_at` datetime DEFAULT NULL,
+  `location_unavailable_reason` varchar(120) DEFAULT NULL,
+  `venue_name_snapshot` varchar(255) DEFAULT NULL,
   `status` varchar(20) NOT NULL DEFAULT 'present',
   `created_at` timestamp NULL DEFAULT current_timestamp(),
   `updated_at` timestamp NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+--
+-- Dumping data for table `tbl_attendance_entries`
+--
+
+INSERT INTO `tbl_attendance_entries` (`id`, `attendance_id`, `event_schedule_id`, `sbo_event_assignment_id`, `session_code`, `phase`, `activity_id`, `team_id`, `recorded_by`, `scanned_at`, `scan_latitude`, `scan_longitude`, `location_accuracy_m`, `distance_from_venue_m`, `location_status`, `location_captured_at`, `location_unavailable_reason`, `venue_name_snapshot`, `status`, `created_at`, `updated_at`) VALUES
+(1, 1, 2, 3, 'whole_day', 'in', 1, 6, 19, '2026-09-16 15:23:56', 8.4819630, 124.6361358, 10.63, 33.90, 'inside', '2026-09-16 15:23:56', NULL, 'PHINMA COC Carmen Campus', 'present', '2026-09-16 07:23:56', '2026-09-16 07:23:56');
 
 -- --------------------------------------------------------
 
@@ -125,10 +179,24 @@ CREATE TABLE `tbl_attendance_qr_tokens` (
   `event_id` bigint(20) UNSIGNED NOT NULL,
   `user_id` bigint(20) UNSIGNED NOT NULL,
   `session` varchar(12) NOT NULL,
+  `phase` varchar(3) NOT NULL DEFAULT 'in',
+  `schedule_date` date DEFAULT NULL,
   `token` varchar(48) NOT NULL,
+  `issued_at` datetime DEFAULT NULL,
+  `expires_at` datetime DEFAULT NULL,
+  `used_at` datetime DEFAULT NULL,
   `created_at` timestamp NULL DEFAULT NULL,
   `updated_at` timestamp NULL DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+--
+-- Dumping data for table `tbl_attendance_qr_tokens`
+--
+
+INSERT INTO `tbl_attendance_qr_tokens` (`id`, `event_id`, `user_id`, `session`, `phase`, `schedule_date`, `token`, `issued_at`, `expires_at`, `used_at`, `created_at`, `updated_at`) VALUES
+(1, 2, 1, 'whole_day', 'in', '2026-09-16', 'h6j3e5JHzbZpQ6GtNyB3ie_PS9aZzXee', '2026-09-16 01:46:57', '2026-09-16 01:47:27', NULL, '2026-09-15 17:00:27', '2026-09-15 17:46:57'),
+(2, 2, 17, 'whole_day', 'in', '2026-09-16', 'apUKg8XUfgINKOLFvhGvWeSxC882hYw-', '2026-09-16 15:23:51', '2026-09-16 15:24:21', '2026-09-16 15:23:56', '2026-09-16 07:12:47', '2026-09-16 07:23:56'),
+(3, 2, 20, 'whole_day', 'in', '2026-09-16', '04N4M0PXLSALKL7MjWziGsSpfHuFo1Pm', '2026-09-16 15:48:10', '2026-09-16 15:48:40', NULL, '2026-09-16 07:43:34', '2026-09-16 07:48:10');
 
 -- --------------------------------------------------------
 
@@ -197,6 +265,7 @@ CREATE TABLE `tbl_events` (
   `description` text DEFAULT NULL,
   `location` varchar(255) DEFAULT NULL,
   `location_id` bigint(20) UNSIGNED DEFAULT NULL,
+  `attendance_location_policy` enum('off','warning','strict') NOT NULL DEFAULT 'off',
   `audience_type` varchar(30) NOT NULL DEFAULT 'all_students',
   `poster_path` varchar(255) DEFAULT NULL,
   `is_featured` tinyint(1) NOT NULL DEFAULT 0,
@@ -216,8 +285,9 @@ CREATE TABLE `tbl_events` (
 -- Dumping data for table `tbl_events`
 --
 
-INSERT INTO `tbl_events` (`id`, `title`, `description`, `location`, `location_id`, `audience_type`, `poster_path`, `is_featured`, `featured_order`, `featured_until`, `start_at`, `end_at`, `event_type_id`, `event_status_id`, `created_by`, `created_at`, `updated_at`, `deleted_at`) VALUES
-(1, 'IT Days 2026', 'test', 'PHINMA COC Carmen Campus', 1, 'selected_year_levels', 'assets/uploads/event-posters/W70sh2mMP9zsCz9YO3UPVGVwrOIHFGGbNVLF268j.png', 0, NULL, NULL, '2026-09-12 08:00:00', '2026-09-12 18:00:00', 1, 3, 14, '2026-09-11 15:48:49', '2026-09-13 05:43:00', NULL);
+INSERT INTO `tbl_events` (`id`, `title`, `description`, `location`, `location_id`, `attendance_location_policy`, `audience_type`, `poster_path`, `is_featured`, `featured_order`, `featured_until`, `start_at`, `end_at`, `event_type_id`, `event_status_id`, `created_by`, `created_at`, `updated_at`, `deleted_at`) VALUES
+(1, 'IT Days 2026', 'test', 'PHINMA COC Carmen Campus', 1, 'off', 'selected_year_levels', 'assets/uploads/event-posters/W70sh2mMP9zsCz9YO3UPVGVwrOIHFGGbNVLF268j.png', 0, NULL, NULL, '2026-09-12 08:00:00', '2026-09-12 18:00:00', 1, 3, 14, '2026-09-11 15:48:49', '2026-09-16 03:05:50', NULL),
+(2, 'IT Days 2026', NULL, 'PHINMA COC Carmen Campus', 1, 'off', 'all_students', NULL, 0, NULL, NULL, '2026-09-16 15:08:00', '2026-09-16 22:00:00', 1, 2, 14, '2026-09-15 16:56:32', '2026-09-16 07:35:32', NULL);
 
 -- --------------------------------------------------------
 
@@ -236,6 +306,13 @@ CREATE TABLE `tbl_event_activities` (
   `updated_at` timestamp NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+--
+-- Dumping data for table `tbl_event_activities`
+--
+
+INSERT INTO `tbl_event_activities` (`id`, `event_id`, `name`, `description`, `status`, `created_by`, `created_at`, `updated_at`) VALUES
+(1, 2, 'Event duties', NULL, 'active', 14, '2026-09-15 17:13:40', '2026-09-15 17:13:40');
+
 -- --------------------------------------------------------
 
 --
@@ -248,11 +325,17 @@ CREATE TABLE `tbl_event_attendance_schedules` (
   `schedule_date` date NOT NULL,
   `attendance_session_mode_id` bigint(20) UNSIGNED NOT NULL,
   `whole_day_in_time` time DEFAULT NULL,
+  `whole_day_in_close_time` time DEFAULT NULL,
   `whole_day_out_time` time DEFAULT NULL,
+  `whole_day_out_open_time` time DEFAULT NULL,
   `morning_in_time` time DEFAULT NULL,
+  `morning_in_close_time` time DEFAULT NULL,
   `morning_out_time` time DEFAULT NULL,
+  `morning_out_open_time` time DEFAULT NULL,
   `afternoon_in_time` time DEFAULT NULL,
+  `afternoon_in_close_time` time DEFAULT NULL,
   `afternoon_out_time` time DEFAULT NULL,
+  `afternoon_out_open_time` time DEFAULT NULL,
   `created_at` timestamp NULL DEFAULT NULL,
   `updated_at` timestamp NULL DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -261,8 +344,9 @@ CREATE TABLE `tbl_event_attendance_schedules` (
 -- Dumping data for table `tbl_event_attendance_schedules`
 --
 
-INSERT INTO `tbl_event_attendance_schedules` (`id`, `event_id`, `schedule_date`, `attendance_session_mode_id`, `whole_day_in_time`, `whole_day_out_time`, `morning_in_time`, `morning_out_time`, `afternoon_in_time`, `afternoon_out_time`, `created_at`, `updated_at`) VALUES
-(1, 1, '2026-09-12', 2, '08:00:00', '18:00:00', NULL, NULL, NULL, NULL, '2026-09-11 15:48:49', '2026-09-11 15:48:49');
+INSERT INTO `tbl_event_attendance_schedules` (`id`, `event_id`, `schedule_date`, `attendance_session_mode_id`, `whole_day_in_time`, `whole_day_in_close_time`, `whole_day_out_time`, `whole_day_out_open_time`, `morning_in_time`, `morning_in_close_time`, `morning_out_time`, `morning_out_open_time`, `afternoon_in_time`, `afternoon_in_close_time`, `afternoon_out_time`, `afternoon_out_open_time`, `created_at`, `updated_at`) VALUES
+(1, 1, '2026-09-12', 2, '08:00:00', '17:30:00', '18:00:00', '17:30:00', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, '2026-09-11 15:48:49', '2026-09-11 15:48:49'),
+(2, 2, '2026-09-16', 2, '15:08:00', '15:50:00', '22:00:00', '21:00:00', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, '2026-09-15 16:56:32', '2026-09-16 07:35:32');
 
 -- --------------------------------------------------------
 
@@ -355,7 +439,8 @@ CREATE TABLE `tbl_event_user` (
 --
 
 INSERT INTO `tbl_event_user` (`id`, `event_id`, `user_id`, `created_at`, `updated_at`) VALUES
-(1, 1, 14, '2026-09-11 15:48:49', '2026-09-11 15:48:49');
+(1, 1, 14, '2026-09-11 15:48:49', '2026-09-11 15:48:49'),
+(9, 2, 14, '2026-09-16 07:35:32', '2026-09-16 07:35:32');
 
 -- --------------------------------------------------------
 
@@ -455,7 +540,7 @@ CREATE TABLE `tbl_locations` (
 --
 
 INSERT INTO `tbl_locations` (`id`, `name`, `type`, `parent_location_id`, `latitude`, `longitude`, `radius`, `created_at`, `updated_at`) VALUES
-(1, 'PHINMA COC Carmen Campus', 'general', NULL, NULL, NULL, NULL, '2026-09-11 15:45:47', '2026-09-11 15:45:47'),
+(1, 'PHINMA COC Carmen Campus', 'general', NULL, 8.4822620, 124.6361958, 50.00, '2026-09-11 15:45:47', '2026-09-16 03:05:50'),
 (2, 'MS Computer Lab 1', 'specific', 1, NULL, NULL, NULL, '2026-09-11 15:45:47', '2026-09-11 15:45:47'),
 (3, 'PH 310', 'specific', 1, NULL, NULL, NULL, '2026-09-11 15:45:47', '2026-09-11 15:45:47'),
 (4, 'jessss', 'general', NULL, 8.4702571, 124.6341782, 1.00, '2026-09-14 16:00:32', '2026-09-14 16:00:32'),
@@ -541,7 +626,9 @@ CREATE TABLE `tbl_notifications` (
 
 INSERT INTO `tbl_notifications` (`id`, `type`, `notifiable_type`, `notifiable_id`, `data`, `read_at`, `created_at`, `updated_at`) VALUES
 ('7a87c08e-e938-4e3c-b84f-6b84799be5e6', 'App\\Notifications\\PostReviewed', 'App\\Models\\User', 2, '{\"post_id\":1,\"status\":\"approved\",\"reason\":null,\"message\":\"Your post was approved.\"}', '2026-09-13 06:02:08', '2026-09-11 15:47:39', '2026-09-13 06:02:08'),
+('7c0d0018-7c84-492e-a416-adc91b36bcf7', 'App\\Notifications\\PostReviewed', 'App\\Models\\User', 20, '{\"post_id\":3,\"status\":\"approved\",\"reason\":null,\"message\":\"Your post was approved.\"}', NULL, '2026-09-16 07:49:16', '2026-09-16 07:49:16'),
 ('9976f955-0bb1-4462-9f84-d79301352eb4', 'App\\Notifications\\PostReviewSubmitted', 'App\\Models\\User', 14, '{\"post_id\":1,\"message\":\"Student First Year 2 submitted a post for review.\"}', NULL, '2026-09-11 15:46:58', '2026-09-11 15:46:58'),
+('d147ff4e-b949-4ee0-a5ae-20b3010bbf4f', 'post_submitted', 'AppModelsUser', 14, '{\"post_id\":3,\"student_id\":20,\"message\":\"mjay D calunsag submitted a post for review.\"}', NULL, '2026-09-16 07:48:56', '2026-09-16 07:48:56'),
 ('f22c5e82-abac-4ec4-82bb-9cfa235c8569', 'post_submitted', 'AppModelsUser', 14, '{\"post_id\":2,\"student_id\":2,\"message\":\"Student First Year 2 submitted a post for review.\"}', NULL, '2026-09-13 06:18:43', '2026-09-13 06:18:43');
 
 -- --------------------------------------------------------
@@ -588,7 +675,8 @@ CREATE TABLE `tbl_posts` (
 
 INSERT INTO `tbl_posts` (`id`, `user_id`, `event_id`, `activity_id`, `sbo_event_assignment_id`, `category`, `content`, `image_path`, `video_path`, `status`, `rejection_reason`, `reviewed_by`, `reviewed_at`, `created_at`, `updated_at`, `deleted_at`, `is_official`) VALUES
 (1, 2, NULL, NULL, NULL, 'special-events', 'test', 'assets/uploads/posts/zIkJIDrCYdSHIFcoPDfABkPa9OmoB9RT3wZMuRUX.png', NULL, 'approved', NULL, 14, '2026-09-11 15:47:39', '2026-09-11 15:46:57', '2026-09-11 15:47:39', NULL, 0),
-(2, 2, NULL, NULL, NULL, 'general', 'asdas', NULL, NULL, 'pending', NULL, NULL, NULL, '2026-09-13 06:18:43', '2026-09-13 06:18:43', NULL, 0);
+(2, 2, NULL, NULL, NULL, 'general', 'asdas', NULL, NULL, 'pending', NULL, NULL, NULL, '2026-09-13 06:18:43', '2026-09-13 06:18:43', NULL, 0),
+(3, 20, NULL, NULL, NULL, 'general', 'Mga bayot', NULL, NULL, 'approved', NULL, 14, '2026-09-16 07:49:16', '2026-09-16 07:48:56', '2026-09-16 07:49:16', NULL, 0);
 
 -- --------------------------------------------------------
 
@@ -615,7 +703,9 @@ CREATE TABLE `tbl_post_audits` (
 INSERT INTO `tbl_post_audits` (`id`, `post_id`, `actor_id`, `action`, `from_status`, `to_status`, `notes`, `created_at`, `updated_at`) VALUES
 (1, 1, 2, 'submitted', NULL, 'pending', NULL, '2026-09-11 15:46:57', '2026-09-11 15:46:57'),
 (2, 1, 14, 'approved', 'pending', 'approved', NULL, '2026-09-11 15:47:39', '2026-09-11 15:47:39'),
-(3, 2, 2, 'submitted', NULL, 'pending', NULL, '2026-09-13 06:18:43', '2026-09-13 06:18:43');
+(3, 2, 2, 'submitted', NULL, 'pending', NULL, '2026-09-13 06:18:43', '2026-09-13 06:18:43'),
+(4, 3, 20, 'submitted', NULL, 'pending', NULL, '2026-09-16 07:48:56', '2026-09-16 07:48:56'),
+(5, 3, 14, 'approved', 'pending', 'approved', NULL, '2026-09-16 07:49:16', '2026-09-16 07:49:16');
 
 -- --------------------------------------------------------
 
@@ -700,6 +790,16 @@ CREATE TABLE `tbl_sbo_event_assignments` (
   `updated_at` timestamp NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+--
+-- Dumping data for table `tbl_sbo_event_assignments`
+--
+
+INSERT INTO `tbl_sbo_event_assignments` (`id`, `officer_assignment_id`, `event_schedule_id`, `session_code`, `activity_id`, `team_id`, `responsibility`, `status`, `assigned_by`, `ended_by`, `ended_at`, `created_at`, `updated_at`) VALUES
+(1, 1, 2, 'whole_day', 1, 2, 'attendance', 'active', 14, NULL, NULL, '2026-09-15 17:13:40', '2026-09-15 17:13:40'),
+(2, 1, 2, 'whole_day', 1, 1, 'attendance', 'active', 14, NULL, NULL, '2026-09-16 00:45:57', '2026-09-16 00:45:57'),
+(3, 3, 2, 'whole_day', 1, 6, 'attendance', 'inactive', 14, 14, '2026-09-16 07:41:44', '2026-09-16 07:16:51', '2026-09-16 07:41:44'),
+(4, 3, 2, 'whole_day', 1, 1, 'attendance', 'active', 14, NULL, NULL, '2026-09-16 07:39:54', '2026-09-16 07:39:54');
+
 -- --------------------------------------------------------
 
 --
@@ -727,7 +827,29 @@ CREATE TABLE `tbl_sbo_officer_assignments` (
 --
 
 INSERT INTO `tbl_sbo_officer_assignments` (`id`, `student_id`, `officer_user_id`, `team_id`, `position`, `term`, `assigned_by`, `assigned_at`, `ended_by`, `ended_at`, `status`, `created_at`, `updated_at`) VALUES
-(1, '02-2026-000003', 15, 2, 'attendance', '2027', 14, '2026-09-12 05:09:22', NULL, NULL, 'Active', '2026-09-12 05:09:22', '2026-09-12 05:09:22');
+(1, '02-2026-000003', 15, 2, 'attendance', '2027', 14, '2026-09-12 05:09:22', NULL, NULL, 'Active', '2026-09-12 05:09:22', '2026-09-12 05:09:22'),
+(2, '02-2026-000001', 16, 1, 'attendance', '2026', 14, '2026-09-16 02:57:06', NULL, NULL, 'Active', '2026-09-16 02:57:06', '2026-09-16 02:57:06'),
+(3, '02-2324-011281', 19, 6, 'Attendance Officer', '2026-2027', 14, '2026-09-16 07:03:06', NULL, NULL, 'Active', '2026-09-16 07:03:06', '2026-09-16 07:03:06');
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `tbl_sbo_scan_rate_limits`
+--
+
+CREATE TABLE `tbl_sbo_scan_rate_limits` (
+  `officer_user_id` bigint(20) UNSIGNED NOT NULL,
+  `window_started_at` datetime NOT NULL,
+  `attempts` smallint(5) UNSIGNED NOT NULL DEFAULT 0,
+  `updated_at` datetime NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+--
+-- Dumping data for table `tbl_sbo_scan_rate_limits`
+--
+
+INSERT INTO `tbl_sbo_scan_rate_limits` (`officer_user_id`, `window_started_at`, `attempts`, `updated_at`) VALUES
+(19, '2026-09-16 15:47:12', 1, '2026-09-16 15:47:12');
 
 -- --------------------------------------------------------
 
@@ -856,10 +978,12 @@ CREATE TABLE `tbl_teams` (
 --
 
 INSERT INTO `tbl_teams` (`id`, `school_year_id`, `name`, `color`, `is_active`, `created_at`, `updated_at`) VALUES
-(1, 1, 'Green Falcons', '#397565', 1, '2026-09-12 05:05:33', '2026-09-12 05:05:33'),
+(1, 1, 'Green Falcons', '#397565', 1, '2026-09-12 05:05:33', '2026-09-16 07:45:09'),
 (2, 1, 'Blue Sharks', '#2F3AE0', 1, '2026-09-12 05:05:33', '2026-09-12 05:05:33'),
 (3, 1, 'Yellow Tigers', '#D4A017', 1, '2026-09-12 05:05:33', '2026-09-12 05:05:33'),
-(4, 1, 'Red Lions', '#DC2626', 1, '2026-09-12 05:05:33', '2026-09-12 05:05:33');
+(4, 1, 'Red Lions', '#DC2626', 1, '2026-09-12 05:05:33', '2026-09-12 05:05:33'),
+(5, 1, 'Leaderboard green', '#397565', 1, '2026-09-16 04:40:00', '2026-09-16 04:40:00'),
+(6, 1, 'Blue Cobalt', '#2F3AE0', 1, '2026-09-16 04:40:38', '2026-09-16 07:44:58');
 
 -- --------------------------------------------------------
 
@@ -880,9 +1004,6 @@ CREATE TABLE `tbl_team_user` (
 --
 
 INSERT INTO `tbl_team_user` (`id`, `team_id`, `user_id`, `created_at`, `updated_at`) VALUES
-(1, 1, 8, '2026-09-12 05:06:41', '2026-09-12 05:06:41'),
-(2, 1, 6, '2026-09-12 05:06:41', '2026-09-12 05:06:41'),
-(3, 1, 10, '2026-09-12 05:06:41', '2026-09-12 05:06:41'),
 (4, 2, 9, '2026-09-12 05:06:41', '2026-09-12 05:06:41'),
 (5, 2, 11, '2026-09-12 05:06:41', '2026-09-12 05:06:41'),
 (6, 2, 3, '2026-09-12 05:06:41', '2026-09-12 05:06:41'),
@@ -891,7 +1012,12 @@ INSERT INTO `tbl_team_user` (`id`, `team_id`, `user_id`, `created_at`, `updated_
 (9, 3, 4, '2026-09-12 05:06:41', '2026-09-12 05:06:41'),
 (10, 4, 7, '2026-09-12 05:06:41', '2026-09-12 05:06:41'),
 (11, 4, 12, '2026-09-12 05:06:41', '2026-09-12 05:06:41'),
-(12, 4, 1, '2026-09-12 05:06:41', '2026-09-12 05:06:41');
+(12, 4, 1, '2026-09-12 05:06:41', '2026-09-12 05:06:41'),
+(16, 6, 17, '2026-09-16 07:44:58', '2026-09-16 07:44:58'),
+(17, 1, 20, '2026-09-16 07:45:09', '2026-09-16 07:45:09'),
+(18, 1, 10, '2026-09-16 07:45:09', '2026-09-16 07:45:09'),
+(19, 1, 6, '2026-09-16 07:45:09', '2026-09-16 07:45:09'),
+(20, 1, 8, '2026-09-16 07:45:09', '2026-09-16 07:45:09');
 
 -- --------------------------------------------------------
 
@@ -926,7 +1052,7 @@ CREATE TABLE `tbl_users` (
 --
 
 INSERT INTO `tbl_users` (`id`, `role_id`, `id_number`, `first_name`, `middle_name`, `last_name`, `year_level`, `officer_team_id`, `username`, `password`, `must_change_password`, `status`, `email`, `email_verified_at`, `profile_photo_path`, `bio`, `remember_token`, `created_at`, `updated_at`) VALUES
-(1, 5, '02-2026-000001', 'Student', NULL, 'First Year 1', 1, NULL, 'student.1', '$2y$12$7IBbXwSwYdeDTQcmuN5ZuuzIWDsfTTHML/q2VbbK/n3N5LVAZezw2', 0, 1, 'student1@cite.local', NULL, NULL, NULL, NULL, '2026-09-11 15:45:48', '2026-09-11 15:45:48'),
+(1, 5, '02-2026-000001', 'Student', NULL, 'First Year 1', 1, NULL, 'student.1', '$2y$10$niFXH2gKuGscfKUcvNhFpuvYNetSEql8kLJGdIIGkTtaYZMzi5Jqa', 0, 1, 'student1@cite.local', NULL, NULL, NULL, NULL, '2026-09-11 15:45:48', '2026-09-15 16:52:57'),
 (2, 5, '02-2026-000002', 'Student', NULL, 'First Year 2', 1, NULL, 'student.2', '$2y$12$d9sSWozwG.nSbuDBnpBK.uhKqIhbgOSJer/olqnnO3oHwp6SD9TSe', 0, 1, 'student2@cite.local', NULL, NULL, NULL, NULL, '2026-09-11 15:45:48', '2026-09-11 15:45:48'),
 (3, 5, '02-2026-000003', 'Student', NULL, 'First Year 3', 1, NULL, 'student.3', '$2y$12$x4cgSsAwXCZAG0XWS7xe5eGmbOq/BesCPYnvF9ZXgHsqi4y1/Wzkq', 0, 1, 'student3@cite.local', NULL, NULL, NULL, NULL, '2026-09-11 15:45:48', '2026-09-11 15:45:48'),
 (4, 5, '02-2026-000004', 'Student', NULL, 'Second Year 1', 2, NULL, 'student.4', '$2y$12$rhHOhM91kaoVYzipsl4jpeqMU9gC.p8l/58XwC9LlJ5XBZ4VUSX8S', 0, 1, 'student4@cite.local', NULL, NULL, NULL, NULL, '2026-09-11 15:45:49', '2026-09-11 15:45:49'),
@@ -940,7 +1066,12 @@ INSERT INTO `tbl_users` (`id`, `role_id`, `id_number`, `first_name`, `middle_nam
 (12, 5, '02-2026-000012', 'Student', NULL, 'Fourth Year 3', 4, NULL, 'student.12', '$2y$12$N7xg6/.SwG2J8g1xy0kbhOq2ETl.yjVdphRw9MloUjku5.4nlscEm', 0, 1, 'student12@cite.local', NULL, NULL, NULL, NULL, '2026-09-11 15:45:52', '2026-09-11 15:45:52'),
 (13, NULL, '00000001', 'Test', NULL, 'User', NULL, NULL, 'testuser', '$2y$12$yK34qNcXoqCznpPFqu2IluUZtK0vuSF53yvfgoc7xzpgVf4./by.a', 0, NULL, 'test@example.com', NULL, NULL, NULL, NULL, '2026-09-11 15:45:53', '2026-09-11 15:45:53'),
 (14, 2, 'SBO-ADV-001', 'SBO', NULL, 'Adviser', NULL, NULL, 'sbo.adviser', '$2y$12$L5TwgVhfKq6uscpYKpQSOua44hO5wWiuk06mSzw1xJlLFL1LCzkl6', 0, 1, 'adviser@itevents.local', NULL, NULL, NULL, NULL, '2026-09-11 15:45:54', '2026-09-11 15:45:54'),
-(15, 1, '02-2026-000003', 'Student', NULL, 'First Year 3', 1, 2, 'student.blue', '$2y$10$c2kRmRD/oQQXYq77fOT1huMrWj4SozeI5hqOKTFUVYmFLtzwLyiyq', 0, 1, 'student3@cite.local', NULL, NULL, NULL, NULL, '2026-09-12 05:09:22', '2026-09-14 12:32:36');
+(15, 1, '02-2026-000003', 'Student', NULL, 'First Year 3', 1, 2, 'student.blue', '$2y$10$fVlGoT7gvEpRM7397xlEpeD6ffynOvzmSasBFbC4KwR64MBK/C5CG', 0, 1, 'student3@cite.local', NULL, NULL, NULL, NULL, '2026-09-12 05:09:22', '2026-09-15 17:13:19'),
+(16, 1, '02-2026-000001', 'Student', NULL, 'First Year 1', 1, 1, 'student.green', '$2y$10$G6zrjkmyQs8/G69UVHF8j.vlWnRmsU3uXU58XMTEZUXLKl1ZsCagC', 0, 1, 'student1@cite.local', NULL, NULL, NULL, NULL, '2026-09-16 02:57:06', '2026-09-16 03:02:33'),
+(17, 5, '02-2324-011280', 'Micah', 'D', 'Lago', 4, NULL, 'micah2026', '$2y$10$r/cROsPk7hWW4e8zCncwkeKBRUd1T82qA.wbX81rqoi2wG/6O.ZMy', 0, 1, 'micah@gmail.com', NULL, NULL, NULL, NULL, '2026-09-16 06:56:44', '2026-09-16 06:56:44'),
+(18, 5, '02-2324-011281', 'jessie', 'D', 'Parajes', 1, NULL, 'jessiejames', '$2y$10$/htQc9UinMa3oCIA2WwPNui4EfBjuP3kLx2MhVIWDn3/4vAp51Vqm', 0, 1, 'jessiejames123@gmai.com', NULL, NULL, NULL, NULL, '2026-09-16 06:59:28', '2026-09-16 06:59:28'),
+(19, 1, '02-2324-011281', 'jessie', 'D', 'Parajes', 1, 6, 'jessie.blue', '$2y$10$4H1qzt4iQcstc8y2ZoCg6.jIOZ04p.FShJ.QjBXK2eT3N6D4leicS', 0, 1, 'jessiejames123@gmai.com', NULL, NULL, NULL, NULL, '2026-09-16 07:03:06', '2026-09-16 07:16:08'),
+(20, 5, '02-2324-011290', 'mjay', 'D', 'calunsag', NULL, NULL, 'mjay', '$2y$10$vjr/1gJkgqjyCZlxVNtxmOyUIMiEeqLtVIGrlm28PseE2b0XlQAyO', 0, 1, 'mjay@gmail.com', NULL, NULL, NULL, NULL, '2026-09-16 07:34:24', '2026-09-16 07:43:15');
 
 -- --------------------------------------------------------
 
@@ -1022,20 +1153,23 @@ ALTER TABLE `tbl_attendances`
 --
 ALTER TABLE `tbl_attendance_entries`
   ADD PRIMARY KEY (`id`),
-  ADD UNIQUE KEY `attendance_entries_session_unique` (`attendance_id`,`event_schedule_id`,`session_code`,`activity_id`,`team_id`),
+  ADD UNIQUE KEY `attendance_entries_session_phase_unique` (`attendance_id`,`event_schedule_id`,`session_code`,`phase`,`activity_id`,`team_id`),
+  ADD UNIQUE KEY `attendance_entries_student_phase_unique` (`attendance_id`,`event_schedule_id`,`session_code`,`phase`),
   ADD KEY `attendance_entries_assignment_index` (`sbo_event_assignment_id`,`scanned_at`),
   ADD KEY `attendance_entries_recorded_by_foreign` (`recorded_by`),
   ADD KEY `attendance_entries_schedule_foreign` (`event_schedule_id`),
   ADD KEY `attendance_entries_activity_foreign` (`activity_id`),
-  ADD KEY `attendance_entries_team_foreign` (`team_id`);
+  ADD KEY `attendance_entries_team_foreign` (`team_id`),
+  ADD KEY `attendance_entries_recent_event_index` (`event_schedule_id`,`session_code`,`scanned_at`),
+  ADD KEY `attendance_entries_location_status_index` (`location_status`,`scanned_at`);
 
 --
 -- Indexes for table `tbl_attendance_qr_tokens`
 --
 ALTER TABLE `tbl_attendance_qr_tokens`
   ADD PRIMARY KEY (`id`),
-  ADD UNIQUE KEY `attendance_qr_tokens_event_id_user_id_session_unique` (`event_id`,`user_id`,`session`),
   ADD UNIQUE KEY `attendance_qr_tokens_token_unique` (`token`),
+  ADD UNIQUE KEY `attendance_qr_tokens_student_phase_unique` (`event_id`,`user_id`,`session`,`phase`),
   ADD KEY `attendance_qr_tokens_user_id_foreign` (`user_id`);
 
 --
@@ -1247,6 +1381,12 @@ ALTER TABLE `tbl_sbo_officer_assignments`
   ADD KEY `officer_student_term_status_index` (`student_id`,`term`,`status`);
 
 --
+-- Indexes for table `tbl_sbo_scan_rate_limits`
+--
+ALTER TABLE `tbl_sbo_scan_rate_limits`
+  ADD PRIMARY KEY (`officer_user_id`);
+
+--
 -- Indexes for table `tbl_school_years`
 --
 ALTER TABLE `tbl_school_years`
@@ -1346,25 +1486,25 @@ ALTER TABLE `tbl_account_password_reset_tokens`
 -- AUTO_INCREMENT for table `tbl_activity_logs`
 --
 ALTER TABLE `tbl_activity_logs`
-  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=11;
+  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=43;
 
 --
 -- AUTO_INCREMENT for table `tbl_attendances`
 --
 ALTER TABLE `tbl_attendances`
-  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT;
+  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
 
 --
 -- AUTO_INCREMENT for table `tbl_attendance_entries`
 --
 ALTER TABLE `tbl_attendance_entries`
-  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT;
+  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
 
 --
 -- AUTO_INCREMENT for table `tbl_attendance_qr_tokens`
 --
 ALTER TABLE `tbl_attendance_qr_tokens`
-  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT;
+  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
 
 --
 -- AUTO_INCREMENT for table `tbl_attendance_session_modes`
@@ -1376,19 +1516,19 @@ ALTER TABLE `tbl_attendance_session_modes`
 -- AUTO_INCREMENT for table `tbl_events`
 --
 ALTER TABLE `tbl_events`
-  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
+  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
 
 --
 -- AUTO_INCREMENT for table `tbl_event_activities`
 --
 ALTER TABLE `tbl_event_activities`
-  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT;
+  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
 
 --
 -- AUTO_INCREMENT for table `tbl_event_attendance_schedules`
 --
 ALTER TABLE `tbl_event_attendance_schedules`
-  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
+  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
 
 --
 -- AUTO_INCREMENT for table `tbl_event_participants`
@@ -1418,7 +1558,7 @@ ALTER TABLE `tbl_event_types`
 -- AUTO_INCREMENT for table `tbl_event_user`
 --
 ALTER TABLE `tbl_event_user`
-  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
+  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=10;
 
 --
 -- AUTO_INCREMENT for table `tbl_event_year_level`
@@ -1454,13 +1594,13 @@ ALTER TABLE `tbl_migrations`
 -- AUTO_INCREMENT for table `tbl_posts`
 --
 ALTER TABLE `tbl_posts`
-  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
+  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
 
 --
 -- AUTO_INCREMENT for table `tbl_post_audits`
 --
 ALTER TABLE `tbl_post_audits`
-  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
+  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=6;
 
 --
 -- AUTO_INCREMENT for table `tbl_post_comments`
@@ -1484,13 +1624,13 @@ ALTER TABLE `tbl_roles`
 -- AUTO_INCREMENT for table `tbl_sbo_event_assignments`
 --
 ALTER TABLE `tbl_sbo_event_assignments`
-  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT;
+  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=5;
 
 --
 -- AUTO_INCREMENT for table `tbl_sbo_officer_assignments`
 --
 ALTER TABLE `tbl_sbo_officer_assignments`
-  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
+  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
 
 --
 -- AUTO_INCREMENT for table `tbl_school_years`
@@ -1520,19 +1660,19 @@ ALTER TABLE `tbl_score_sheets`
 -- AUTO_INCREMENT for table `tbl_teams`
 --
 ALTER TABLE `tbl_teams`
-  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=5;
+  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=7;
 
 --
 -- AUTO_INCREMENT for table `tbl_team_user`
 --
 ALTER TABLE `tbl_team_user`
-  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=13;
+  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=21;
 
 --
 -- AUTO_INCREMENT for table `tbl_users`
 --
 ALTER TABLE `tbl_users`
-  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=16;
+  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=21;
 
 --
 -- AUTO_INCREMENT for table `tbl_user_statuses`
@@ -1698,6 +1838,12 @@ ALTER TABLE `tbl_sbo_officer_assignments`
   ADD CONSTRAINT `sbo_officer_assignments_ended_by_foreign` FOREIGN KEY (`ended_by`) REFERENCES `tbl_users` (`id`) ON DELETE SET NULL,
   ADD CONSTRAINT `sbo_officer_assignments_officer_user_id_foreign` FOREIGN KEY (`officer_user_id`) REFERENCES `tbl_users` (`id`) ON DELETE CASCADE,
   ADD CONSTRAINT `sbo_officer_assignments_team_id_foreign` FOREIGN KEY (`team_id`) REFERENCES `tbl_teams` (`id`) ON DELETE SET NULL;
+
+--
+-- Constraints for table `tbl_sbo_scan_rate_limits`
+--
+ALTER TABLE `tbl_sbo_scan_rate_limits`
+  ADD CONSTRAINT `sbo_scan_rate_limits_officer_foreign` FOREIGN KEY (`officer_user_id`) REFERENCES `tbl_users` (`id`) ON DELETE CASCADE;
 
 --
 -- Constraints for table `tbl_scores`

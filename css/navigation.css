@@ -1,0 +1,16 @@
+.shared-navigation-sidebar { transform: translateX(-100%); }
+.shared-navigation-sidebar.is-open { transform: translateX(0); }
+.shared-navigation-mobile { padding-bottom: max(.375rem, env(safe-area-inset-bottom)); }
+body[data-navigation-role="student"],
+body[data-navigation-role="sbo"] { padding-bottom: 4.5rem; }
+
+@media (min-width: 1024px) {
+  .shared-navigation-sidebar { display: flex; width: 5rem; transform: translateX(0); }
+  .shared-navigation-sidebar.is-expanded { width: 16rem; }
+  .shared-navigation-header,
+  [data-shared-content] { margin-left: 5rem !important; }
+  .shared-navigation-header.is-expanded,
+  [data-shared-content].is-expanded { margin-left: 16rem !important; }
+  body[data-navigation-role="student"],
+  body[data-navigation-role="sbo"] { padding-bottom: 0; }
+}

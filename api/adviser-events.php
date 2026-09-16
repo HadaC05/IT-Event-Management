@@ -499,14 +499,14 @@ final class EventManagementRepository
         }
         $location = (string) ($locationRow['name'] ?? '');
         $locationId = isset($locationRow['id']) ? (int) $locationRow['id'] : 0;
-        $locationPolicy = (string) ($input['attendance_location_policy'] ?? 'off');
-        if (!in_array($locationPolicy, ['off','warning','strict'], true)) $errors['attendance_location_policy'][] = 'Choose a valid scan location policy.';
-        if ($locationPolicy === 'strict' && $locationId > 0) {
+        $locationPolicy = (string) ($input['attendance_location_policy'] ?? 'warning');
+        if (!in_array($locationPolicy, ['warning','strict'], true)) $errors['attendance_location_policy'][] = 'Choose a valid scan location policy.';
+        if (in_array($locationPolicy, ['warning','strict'], true) && $locationId > 0) {
             $venue = $this->db->prepare('SELECT latitude,longitude,radius FROM tbl_locations WHERE id=?');
             $venue->execute([$locationId]);
             $coordinates = $venue->fetch();
             if (!$coordinates || $coordinates['latitude'] === null || $coordinates['longitude'] === null || $coordinates['radius'] === null)
-                $errors['attendance_location_policy'][] = 'Strict mode requires coordinates and a radius for the selected venue.';
+                $errors['attendance_location_policy'][] = 'Attendance scanning requires coordinates and a box radius for the selected venue.';
         }
         $typeId = (int) ($input['event_type_id'] ?? 0);
         $statusId = (int) ($input['event_status_id'] ?? 0);

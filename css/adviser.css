@@ -1,4 +1,120 @@
 /* Match the active adviser sidebar item without a translucent or glowing finish. */
+[data-page-loading-cloak] {
+    position: fixed;
+    inset: 0;
+    z-index: 100;
+    display: grid;
+    place-items: center;
+    background: #fff;
+}
+
+.attendance-scan-list {
+  max-height: min(68vh, 720px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-right: 0.25rem;
+  scrollbar-gutter: stable;
+}
+
+.attendance-scan-summary {
+  display: grid;
+  align-items: center;
+}
+
+.attendance-scan-summary::-webkit-details-marker {
+  display: none;
+}
+
+.attendance-scan-chevron {
+  transition: transform 180ms ease;
+}
+
+.attendance-map-tooltip {
+  min-width: 10rem;
+  padding: 0.6rem 0.7rem;
+  border: 1px solid rgb(18 16 23 / 12%);
+  border-radius: 0.75rem;
+  box-shadow: 0 10px 25px rgb(18 16 23 / 14%);
+}
+
+.attendance-map-tooltip strong {
+  display: block;
+  margin-bottom: 0.35rem;
+  color: #121017;
+}
+
+.gps-accuracy-badge {
+  display: inline-block;
+  margin-top: 0.35rem;
+  padding: 0.18rem 0.45rem;
+  border: 1px solid;
+  border-radius: 9999px;
+  font-size: 0.65rem;
+  font-weight: 800;
+  line-height: 1.15;
+  white-space: nowrap;
+}
+
+.gps-accuracy-good {
+  color: #245f50;
+  background: #e5f4ee;
+  border-color: #93cdbd;
+}
+
+.gps-accuracy-moderate {
+  color: #795b00;
+  background: #fff6cc;
+  border-color: #e3c85b;
+}
+
+.gps-accuracy-poor {
+  color: #a53d13;
+  background: #ffeadf;
+  border-color: #eea178;
+}
+
+.gps-accuracy-low {
+  color: #a4261d;
+  background: #fde5e3;
+  border-color: #e88982;
+}
+
+.gps-accuracy-unknown {
+  color: #5f5b63;
+  background: #f0eef1;
+  border-color: #cbc7ce;
+}
+
+details[open] > .attendance-scan-summary .attendance-scan-chevron {
+  transform: rotate(180deg);
+}
+
+@media (min-width: 640px) {
+  .attendance-scan-summary {
+    grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr) minmax(0, 0.9fr) auto;
+  }
+}
+
+[data-page-loading-cloak]::before {
+    width: 2rem;
+    height: 2rem;
+    content: "";
+    border: 3px solid rgba(57, 117, 101, .18);
+    border-top-color: #397565;
+    border-radius: 9999px;
+    animation: shared-navigation-loading .7s linear infinite;
+}
+
+@keyframes shared-navigation-loading {
+    to { transform: rotate(360deg); }
+}
+
+@media (min-width: 1024px) {
+    [data-page-loading-cloak] {
+        box-shadow: inset 5rem 0 #121017, inset 0 4.25rem rgba(255, 255, 255, .98);
+    }
+}
+
 [data-admin-shell] > div > header {
   background: #397565;
   border-bottom-color: #2d5e51;
@@ -50,5 +166,143 @@
 @media (min-width: 1280px) {
   [data-admin-shell] > div > header > div:first-child {
     padding-right: 1.5rem;
+  }
+}
+
+[data-events-page] {
+  overflow-x: clip;
+}
+
+[data-events-page] #create-event-dialog {
+  overflow-x: hidden;
+}
+
+@media (min-width: 1024px) {
+  [data-events-page] [data-event-filters] {
+    grid-template-columns: minmax(240px, 1fr) auto auto auto;
+    align-items: center;
+  }
+
+  [data-events-page] [data-event-filters] > * {
+    grid-column: auto;
+  }
+}
+
+/* Event Management: replace the wide desktop table with readable cards on phones. */
+@media (max-width: 699px) {
+  [data-events-page] .admin-main {
+    padding-top: 1.25rem;
+    padding-bottom: 2rem;
+  }
+
+  [data-events-page] .event-table-wrap {
+    overflow: visible;
+  }
+
+  [data-events-page] .event-table,
+  [data-events-page] .event-table tbody,
+  [data-events-page] .event-table tr,
+  [data-events-page] .event-table td {
+    display: block;
+    width: 100%;
+    min-width: 0;
+  }
+
+  [data-events-page] .event-table thead {
+    display: none;
+  }
+
+  [data-events-page] .event-table tbody {
+    display: grid;
+    gap: 0.75rem;
+    padding: 0.75rem;
+    background: #f8fafc;
+  }
+
+  [data-events-page] .event-table tr {
+    position: relative;
+    overflow: hidden;
+    border: 1px solid rgb(226 232 240);
+    border-radius: 1rem;
+    background: #fff;
+    box-shadow: 0 2px 8px rgb(18 16 23 / 5%);
+  }
+
+  [data-events-page] .event-table td {
+    max-width: none;
+    padding: 0.65rem 1rem;
+  }
+
+  [data-events-page] .event-table td[data-event-cell="event"] {
+    padding: 1rem 3.5rem 0.8rem 1rem;
+    border-bottom: 1px solid rgb(226 232 240);
+  }
+
+  [data-events-page] .event-table td[data-event-cell="event"] > div {
+    min-width: 0;
+  }
+
+  [data-events-page] .event-table td[data-label] {
+    display: grid;
+    grid-template-columns: minmax(6.5rem, 38%) minmax(0, 1fr);
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  [data-events-page] .event-table td[data-label]::before {
+    content: attr(data-label);
+    color: rgb(100 116 139);
+    font-size: 0.625rem;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  [data-events-page] .event-table td[data-event-cell="location"] span,
+  [data-events-page] .event-table td[data-event-cell="in-charge"] span {
+    min-width: 0;
+  }
+
+  [data-events-page] .event-table td[data-event-cell="actions"] {
+    position: absolute;
+    top: 0.45rem;
+    right: 0.45rem;
+    width: auto;
+    padding: 0;
+  }
+
+  [data-events-page] .event-table td[colspan] {
+    padding: 3rem 1rem;
+  }
+
+  [data-events-page] [data-pagination] {
+    flex-direction: column;
+    align-items: stretch;
+    padding-inline: 1rem;
+  }
+
+  [data-events-page] [data-pagination] > * {
+    justify-content: center;
+  }
+
+  [data-events-page] #create-event-dialog form {
+    padding: 1rem;
+  }
+
+  [data-events-page] #create-event-dialog {
+    width: calc(100vw - 1rem);
+    max-height: calc(100dvh - 1rem);
+  }
+
+  [data-events-page] #create-event-dialog h2 {
+    font-size: 1.35rem;
+  }
+
+  [data-events-page] #create-event-dialog input,
+  [data-events-page] #create-event-dialog select,
+  [data-events-page] #create-event-dialog textarea,
+  [data-events-page] #create-event-dialog label {
+    min-width: 0;
+    max-width: 100%;
   }
 }

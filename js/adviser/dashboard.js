@@ -1,4 +1,4 @@
-(() => {
+window.SharedNavigation.ready.then(() => {
     'use strict';
 
     let csrfToken = '';
@@ -193,4 +193,4 @@
         console.error('Unable to load adviser dashboard:', error);
         document.querySelector('[data-today-content]')?.replaceChildren(emptyState('Dashboard unavailable', 'Refresh the page to try loading the latest data again.'));
     });
-})();
+});

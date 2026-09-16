@@ -1,4 +1,4 @@
-(() => {
+window.SharedNavigation.ready.then(() => {
   "use strict";
 
   const $ = (selector, root = document) => root.querySelector(selector);
@@ -424,4 +424,4 @@
           '<p class="p-10 text-center text-red-600">The event scoreboard could not be loaded.</p>';
       }
     });
-})();
+});

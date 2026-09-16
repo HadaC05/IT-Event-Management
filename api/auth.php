@@ -238,10 +238,11 @@ try {
             JsonResponse::send(['success' => false, 'message' => 'Authentication required.'], 401);
         }
         $controller->completeRequiredPasswordChange($input, $user);
-        $_SESSION['user']['must_change_password'] = false;
+        $controller->logout();
         JsonResponse::send([
             'success' => true,
-            'message' => 'Your SBO Officer password was changed successfully.',
+            'message' => 'Your password was changed. Sign in again using your new password.',
+            'redirect_url' => './?login=password-changed',
         ]);
     }
 

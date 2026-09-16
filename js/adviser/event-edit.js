@@ -1,4 +1,4 @@
-(() => {
+window.SharedNavigation.ready.then(() => {
   "use strict";
   const id = Number(new URLSearchParams(location.search).get("id")),
     toast = (type, message) =>
@@ -118,4 +118,4 @@
       if (error.message !== "Unauthorized")
         toast("error", "Unable to verify your session.");
     });
-})();
+});

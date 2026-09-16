@@ -123,7 +123,7 @@ try {
         'unique phase rows retain separate officer and scan locations');
     $form=[
         'title'=>'Long-window phase QA','description'=>'Separated Time In and Time Out',
-        'general_location_id'=>1,'specific_location_id'=>0,'attendance_location_policy'=>'off',
+        'general_location_id'=>1,'specific_location_id'=>0,'attendance_location_policy'=>'warning',
         'audience_type'=>'all_students','event_type_id'=>1,'acknowledge_conflicts'=>true,
         'attendance_days'=>[ ['date'=>$today,'attendance_session_mode_id'=>2,
             'morning_in'=>'08:00','morning_in_close'=>'10:00','morning_out_open'=>'19:00','morning_out'=>'21:00',

@@ -1,0 +1,58 @@
+<template data-shared-navigation-sidebar>
+  <aside class="shared-navigation-sidebar fixed inset-y-0 left-0 z-50 flex w-64 flex-col border-r border-[#397565]/35 bg-[#121017] text-[#F3F0E9] shadow-[8px_0_30px_rgba(18,16,23,.16)] transition-[width,transform] duration-200" data-shared-sidebar>
+    <div class="flex h-[68px] shrink-0 items-center gap-3 border-b border-white/10 px-3" data-shared-sidebar-header>
+      <span class="hidden min-w-0 flex-1 items-center gap-2 overflow-hidden whitespace-nowrap rounded-xl border border-white/10 bg-white/[.06] px-2 text-xs font-black text-[#F3F0E9]" data-shared-sidebar-label data-shared-brand>
+        <img class="h-7 w-7 shrink-0 rounded-full object-contain" src="assets/images/cite-logo.png" alt="">
+        <span data-shared-brand-label>CITE</span>
+      </span>
+      <button class="grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-[#C6F24E]/25 bg-[#C6F24E]/12 text-[#C6F24E] shadow-sm transition hover:bg-[#C6F24E]/20 focus-visible:ring-2 focus-visible:ring-[#C6F24E]" type="button" data-shared-sidebar-toggle aria-label="Expand navigation" aria-expanded="false">
+        <svg class="h-6 w-6 fill-none stroke-current stroke-2" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"></path></svg>
+      </button>
+    </div>
+    <nav class="grid gap-2 overflow-y-auto px-3 py-5" data-shared-navigation-links aria-label="Main navigation"></nav>
+    <div class="mx-3 mb-5 mt-auto hidden rounded-2xl border border-white/10 bg-white/[.06] p-3" data-shared-sidebar-label>
+      <span class="block text-[9px] font-black uppercase tracking-wider text-[#C6F24E]">Signed in as</span>
+      <strong class="mt-1 block truncate text-xs text-[#F3F0E9]" data-shared-sidebar-name></strong>
+      <span class="mt-1 block truncate text-[10px] text-[#F3F0E9]/45" data-shared-sidebar-account></span>
+    </div>
+  </aside>
+</template>
+
+<template data-shared-navigation-header>
+  <header class="shared-navigation-header sticky top-0 z-40 border-b border-[#121017]/8 bg-white/90 backdrop-blur-xl transition-[margin] duration-200" data-shared-header>
+    <nav class="flex h-[68px] w-full items-center pl-3 pr-2 sm:pl-4 sm:pr-3 lg:px-4" aria-label="Account header">
+      <button class="mr-2 hidden h-11 w-11 shrink-0 place-items-center rounded-xl border border-[#397565]/20 text-[#397565] lg:hidden" type="button" data-shared-mobile-toggle aria-label="Open navigation" aria-expanded="false">
+        <svg class="h-6 w-6 fill-none stroke-current stroke-2" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"></path></svg>
+      </button>
+      <a class="flex min-w-0 items-center gap-2.5 text-lg font-black tracking-tight" data-shared-home-link>
+        <img class="h-9 w-9 shrink-0 rounded-full object-contain" src="assets/images/cite-logo.png" alt="CITE logo">
+        <span class="truncate">CITE<span class="text-[#397565]">.</span></span>
+      </a>
+      <div class="ml-auto" data-shared-notification-slot></div>
+      <details class="group relative ml-auto shrink-0" data-shared-account-menu data-account-menu>
+        <summary class="flex min-h-12 cursor-pointer list-none items-center gap-2.5 rounded-xl border border-transparent px-1.5 py-1 outline-none transition focus-visible:ring-4 focus-visible:ring-[#397565]/12">
+          <span class="relative grid h-11 w-11 shrink-0 place-items-center rounded-full bg-[#C6F24E] text-xs font-black text-[#121017] ring-2 ring-[#397565]/12" data-shared-account-initials data-account-initials></span>
+          <span class="hidden min-w-0 text-left sm:grid"><strong class="max-w-40 truncate text-sm font-black leading-tight text-[#121017]" data-shared-account-name></strong><small class="mt-1 max-w-40 truncate text-[9px] font-bold uppercase tracking-[.1em] text-[#397565]" data-shared-account-role></small></span>
+          <svg class="h-4 w-4 shrink-0 fill-none stroke-current stroke-2 text-[#121017]/55 transition group-open:rotate-180" viewBox="0 0 24 24" aria-hidden="true"><path d="m7 10 5 5 5-5"></path></svg>
+        </summary>
+        <div class="absolute right-0 top-[calc(100%+.6rem)] w-[min(16rem,calc(100vw-1rem))] overflow-hidden rounded-2xl border border-[#121017]/10 bg-white p-2 text-[#121017] shadow-[0_20px_55px_rgba(18,16,23,.16)]">
+          <div class="border-b border-[#121017]/8 px-3 py-3"><p class="text-[9px] font-black uppercase tracking-wider text-[#397565]" data-shared-account-heading></p><strong class="mt-1 block truncate text-sm" data-shared-account-menu-name></strong><span class="mt-1 block truncate text-xs text-[#121017]/45" data-shared-account-detail></span></div>
+          <a class="mt-2 flex min-h-10 items-center gap-3 rounded-xl px-3 text-xs font-bold text-[#121017]/65 hover:bg-[#397565]/8 hover:text-[#397565]" href="./"><svg class="h-4 w-4 shrink-0 fill-none stroke-current stroke-2" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11 12 3l9 8M5 10v10h14V10"></path></svg><span>View public homepage</span></a>
+          <form action="api/auth.php?action=logout" method="post" data-shared-logout-form data-logout-form>
+            <button class="flex min-h-10 w-full items-center gap-3 rounded-xl px-3 text-left text-xs font-bold text-[#FF6B2C] hover:bg-[#FF6B2C]/8" type="submit" data-shared-logout><svg class="h-4 w-4 shrink-0 fill-none stroke-current stroke-2" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4m7 14 5-5-5-5m5 5H9"></path></svg><span>Sign out</span></button>
+          </form>
+        </div>
+      </details>
+    </nav>
+  </header>
+</template>
+
+<template data-shared-navigation-mobile>
+  <nav class="shared-navigation-mobile fixed inset-x-0 bottom-0 z-50 border-t border-[#397565]/35 bg-[#121017]/95 px-2 py-1.5 text-white shadow-[0_-12px_35px_rgba(18,16,23,.18)] backdrop-blur-xl lg:hidden" data-shared-mobile-navigation aria-label="Mobile navigation">
+    <div class="mx-auto grid h-[72px] max-w-3xl gap-1" data-shared-mobile-links></div>
+  </nav>
+</template>
+
+<template data-shared-navigation-scrim>
+  <button class="shared-navigation-scrim fixed inset-0 z-40 hidden bg-[#121017]/60 lg:hidden" type="button" data-shared-sidebar-scrim aria-label="Close navigation"></button>
+</template>

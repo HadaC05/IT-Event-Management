@@ -1,4 +1,4 @@
-(() => {
+window.SharedNavigation.ready.then(() => {
   "use strict";
   const id = Number(new URLSearchParams(location.search).get("id")),
     toast = (type, message) =>
@@ -371,4 +371,4 @@
         );
       }
     };
-})();
+});

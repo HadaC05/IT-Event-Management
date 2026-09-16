@@ -1,4 +1,4 @@
-(() => {
+window.SharedNavigation.ready.then(() => {
   "use strict";
   let csrf = "",
     data = null,
@@ -428,4 +428,4 @@
       if (error.message !== "Unauthorized")
         console.error("Unable to load attendance roster:", error);
     });
-})();
+});

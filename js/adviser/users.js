@@ -1,4 +1,4 @@
-(() => {
+window.SharedNavigation.ready.then(() => {
     'use strict';
 
     let csrfToken = '';
@@ -607,4 +607,4 @@
         }
         return loadUsers();
     }).catch(() => location.replace('./'));
-})();
+});

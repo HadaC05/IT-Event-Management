@@ -56,7 +56,7 @@
     const hasVenueBoundary=freshPosition()&&selected?.venue_latitude!==null&&selected?.venue_latitude!==undefined&&selected?.venue_longitude!==null&&selected?.venue_longitude!==undefined&&selected?.venue_radius_m!==null&&selected?.venue_radius_m!==undefined;
     const proximity=hasVenueBoundary?boxProximity(position.latitude,position.longitude,Number(selected.venue_latitude),Number(selected.venue_longitude),Number(selected.venue_radius_m)):null;
     const venueDistance=proximity?(proximity.inside?' (At venue)':` (${Math.max(1,Math.round(proximity.outsideMeters)).toLocaleString('en-US')} m outside venue)`):'';
-    let status=locationReason==='checking'?'Checking GPS…':selected?.location_policy==='off'?'Not required':selected?.location_policy==='strict'?'GPS required':'GPS unavailable';
+    let status=locationReason==='checking'?'Checking GPS…':'GPS required';
     if(freshPosition()){
       if(selected?.venue_latitude===null||selected?.venue_longitude===null||selected?.venue_radius_m===null)
         status='Venue boundary not configured';
@@ -70,9 +70,8 @@
       ?selected?.location_policy==='strict'?'You are outside the permitted location box. Move inside before scanning attendance.':'You are outside the location box. Warning mode allows scanning, but the location will be recorded as outside.'
       :'';
     const reason=locationReason==='location_timeout'?'No fresh GPS reading arrived before the request timed out.':locationReason==='permission_denied'?'Location permission was denied.':locationReason==='stale_location'?'The device returned only an outdated GPS reading.':locationReason==='not_provided'?'Location has not been checked.':'Location is unavailable.';
-    const note=selected?.location_policy==='off'?'GPS is off for this event; scanning does not need location.':
-      locationReason==='checking'?'Checking location in the background.':
-      freshPosition()?'Live GPS is active. Accuracy depends on your device.':selected?.location_policy==='strict'?`${reason} Refresh to enable attendance scanning.`:`${reason} Scanning can continue without GPS.`;
+    const note=locationReason==='checking'?'Checking location in the background.':
+      freshPosition()?'Live GPS is active. Accuracy depends on your device.':`${reason} Turn on or refresh GPS to enable attendance scanning.`;
     locationCard.innerHTML=`<div class="rounded-xl border p-3 ${statusStyle}"><p><strong>Status:</strong> ${esc(status)}</p>${statusGuidance?`<p class="mt-1 leading-5">${esc(statusGuidance)}</p>`:''}</div>
       <p class="text-[#121017]/60">${esc(note)}</p>
       <details class="mt-2 rounded-xl border border-[#121017]/10 p-3" ${detailsOpen?'open':''}><summary class="cursor-pointer font-bold text-[#397565]">View location details</summary>
@@ -86,25 +85,26 @@
   }
   function updateControls(){
     const active=Boolean(selected?.[`${checkpoint}_window_open`]);
+    const boundaryConfigured=selected?.venue_latitude!==null&&selected?.venue_latitude!==undefined&&selected?.venue_longitude!==null&&selected?.venue_longitude!==undefined&&selected?.venue_radius_m!==null&&selected?.venue_radius_m!==undefined;
+    const gpsBlocked=!freshPosition()||!boundaryConfigured;
     const strictBlocked=selected?.location_policy==='strict'&&!insideSelectedVenue();
-    openButton.disabled=!active||strictBlocked||!window.isSecureContext||!navigator.mediaDevices;
+    const locationBlocked=gpsBlocked||strictBlocked;
+    openButton.disabled=!active||locationBlocked||!window.isSecureContext||!navigator.mediaDevices;
     cameraButton.disabled=openButton.disabled;
-    manualButton.disabled=!active||strictBlocked;
-    const policyOff=selected?.location_policy==='off';
-    gpsToggle.hidden=policyOff;
+    manualButton.disabled=!active||locationBlocked;
+    gpsToggle.hidden=false;
     gpsToggle.textContent=gpsEnabled?'Turn Off GPS':'Turn On GPS';
     gpsToggle.classList.toggle('bg-[#397565]',!gpsEnabled);
     gpsToggle.classList.toggle('bg-[#FF6B2C]',gpsEnabled);
-    locationRefresh.hidden=policyOff||!gpsEnabled;
+    locationRefresh.hidden=!gpsEnabled;
     if(!window.isSecureContext)$('[data-camera-status]').textContent='Camera: HTTPS is required on mobile devices.';
-    if(strictBlocked)$('[data-camera-message]').textContent=!freshPosition()
-      ?'Turn on GPS and wait for a current location before strict attendance scanning.'
-      :selected?.venue_latitude===null||selected?.venue_longitude===null||selected?.venue_radius_m===null
+    if(locationBlocked)$('[data-camera-message]').textContent=!freshPosition()
+      ?'Turn on GPS and wait for a current location before attendance scanning.'
+      :!boundaryConfigured
         ?'The event location boundary is not configured.'
         :'Move inside the event location box before strict attendance scanning.';
   }
   function getLocation(force=false){
-    if(!force&&selected?.location_policy==='off')return Promise.resolve(null);
     if(!gpsEnabled)return Promise.resolve(null);
     if(!force&&freshPosition())return Promise.resolve(position);
     if(locationRequest)return locationRequest;
@@ -158,14 +158,13 @@
   }
   function toggleGps(){
     if(gpsEnabled){turnOffGps(true);return;}
-    if(selected?.location_policy==='off')return;
     gpsManuallyDisabled=false;gpsGeneration++;gpsEnabled=true;locationReason='checking';renderLocation();getLocation(true).catch(()=>{});
   }
   async function autoStartGps(){
-    if(gpsEnabled||gpsManuallyDisabled||!selected||selected.location_policy==='off'||!navigator.geolocation||!navigator.permissions?.query)return freshPosition()?position:null;
+    if(gpsEnabled||gpsManuallyDisabled||!selected||!navigator.geolocation||!navigator.permissions?.query)return freshPosition()?position:null;
     try{
       const permission=await navigator.permissions.query({name:'geolocation'});
-      if(permission.state!=='granted'||gpsEnabled||gpsManuallyDisabled||selected.location_policy==='off')return freshPosition()?position:null;
+      if(permission.state!=='granted'||gpsEnabled||gpsManuallyDisabled)return freshPosition()?position:null;
       gpsGeneration++;gpsEnabled=true;locationReason='checking';renderLocation();return await getLocation(true);
     }catch{return null;}
   }
@@ -176,14 +175,13 @@
     if(!force&&shownGpsNotices.get(eventId)===policy)return;
     shownGpsNotices.set(eventId,policy);
     if(!['strict','warning'].includes(policy))return;
-    $('[data-gps-policy-title]').textContent=policy==='strict'?'GPS is required for this event':'GPS is recommended for this event';
+    $('[data-gps-policy-title]').textContent='GPS is required for this event';
     $('[data-gps-policy-message]').textContent=policy==='strict'
       ?'Turn on GPS and remain inside the event location box. Attendance scanning stays disabled when GPS is off, unavailable, or outside the boundary.'
-      :'Turn on GPS to record where attendance was scanned. You may continue without GPS, but the scan location will be recorded as unavailable.';
+      :'Turn on GPS before scanning attendance. Warning mode permits attendance outside the venue box, but GPS must remain available and the outside location will be recorded.';
     gpsPolicyDialog.showModal();
   }
   function locationPayload(){
-    if(selected?.location_policy==='off')return {unavailable_reason:'not_provided'};
     if(freshPosition())return {latitude:position.latitude,longitude:position.longitude,accuracy_m:position.accuracy,timestamp_ms:Math.round(position.timestamp)};
     return {unavailable_reason:position?'stale_location':locationReason||'not_provided'};
   }
@@ -222,7 +220,6 @@
   document.querySelectorAll('[data-checkpoint-option]').forEach(button=>button.addEventListener('click',()=>setCheckpoint(button.dataset.checkpointOption)));
   function renderAssignment(next){
     if(!selected)return;
-    if(selected.location_policy==='off'&&gpsEnabled){gpsGeneration++;stopLocationWatch();locationRequest=null;gpsEnabled=false;position=null;locationReason='not_provided';}
     const assignmentSummary=$('[data-assignment-summary]');
     const detailsOpen=Boolean(assignmentSummary.querySelector('details')?.open);
     assignmentSummary.innerHTML=[
@@ -263,10 +260,8 @@
     if(isProcessing||Date.now()<cooldownUntil||!selected?.[`${checkpoint}_window_open`])return;
     isProcessing=true;
     try{
-      if(selected.location_policy==='strict'){
-        await getLocation();
-        if(!freshPosition()){notify('error','Your location could not be verified. Check your location permission and try again.');return;}
-      }else if(selected.location_policy==='warning'&&!freshPosition())getLocation().catch(()=>{});
+      await getLocation();
+      if(!freshPosition()){notify('error','Your location could not be verified. Check your location permission and try again.');return;}
       const response=await axios.post(API,{...payload,assignment_id:selected.id,checkpoint,location:locationPayload()},{headers:{'X-CSRF-Token':csrf}});
       const result=response.data.data;renderRecent(result.recent_scans);renderCounts(result.counts);
       const location=result.location.status==='unavailable'?'unavailable':result.location.status+(result.location.distance_m===null?'':' · '+result.location.distance_m+' meters from venue');
@@ -295,7 +290,7 @@
     $('[data-camera-status]').textContent='Preparing scanner…';
     $('[data-camera-message]').textContent='Opening camera…';
     if(!window.isSecureContext){notify('error','Open this page over HTTPS on your phone to use camera and location.');await stop();return;}
-    if(selected.location_policy==='strict'&&!freshPosition()){
+    if(!freshPosition()){
       $('[data-modal-scan-result]').textContent='Camera can open now; GPS must be verified before attendance is recorded.';
       getLocation().catch(()=>{});
     }
@@ -318,7 +313,6 @@
       preview.classList.remove('is-loading');preview.classList.add('is-active');
       $('[data-camera-status]').textContent='Camera: active';
       $('[data-camera-message]').textContent='Point the student QR token inside the highlighted region.';
-      if(selected.location_policy==='warning'&&!freshPosition())getLocation().catch(()=>{});
       try{cameras=await QrScanner.listCameras();cameraIndex=0;if(scanner===current)switchButton.hidden=cameras.length<2;}catch{cameras=[];switchButton.hidden=true;}
       try{if(scanner===current)flashButton.hidden=!(await current.hasFlash());}catch{flashButton.hidden=true;}
     }catch(error){if(generation===startGeneration){notify('error','Camera is unavailable: '+(error?.message||'check permission.'));await stop();$('[data-camera-status]').textContent='Camera unavailable';$('[data-camera-message]').textContent='Allow camera access, then retry.';$('[data-modal-scan-result]').textContent='Camera could not start. Check permission and retry.';}}

@@ -12,34 +12,11 @@
     <script src="js/shared/notifications.js" defer></script>
     <script src="js/shared/interactions.js" defer></script>
 </head>
-<body class="app-shell min-h-screen bg-white font-sans text-[#121017] antialiased" data-admin-shell>
+<body class="app-shell min-h-screen bg-white font-sans text-[#121017] antialiased" data-admin-shell data-navigation-role="adviser">
     <span class="route-progress" data-route-progress data-active="false" aria-hidden="true"></span>
-    <aside class="fixed inset-y-0 left-0 z-40 flex w-64 -translate-x-full flex-col overflow-y-auto bg-[#121017] px-5 pb-5 pt-5 text-[#F3F0E9] shadow-2xl transition-transform duration-200 lg:translate-x-0 lg:shadow-none" id="sidebar">
-        <a class="mb-10 flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[.07] p-3 text-xl font-extrabold tracking-tight" href="pages/adviser/dashboard.html"><img class="h-10 w-10 rounded-full object-contain" src="assets/images/cite-logo.png" alt="CITE logo"><span class="grid leading-tight">CITE<span class="text-[9px] font-bold uppercase tracking-[.15em] text-[#F3F0E9]/45">Events Admin</span></span></a>
-        <nav class="grid gap-2" aria-label="Main navigation">
-            <a href="pages/adviser/dashboard.html" class="flex min-h-12 items-center gap-3 rounded-xl px-4 text-sm font-bold text-[#F3F0E9]/65 hover:bg-white/5"><svg class="h-5 w-5 fill-none stroke-current" viewBox="0 0 24 24"><path d="M4 13h6V4H4v9Zm0 7h6v-4H4v4Zm10 0h6v-9h-6v9Zm0-16v4h6V4h-6Z"/></svg>Dashboard</a>
-            <a href="pages/adviser/users.html" class="flex min-h-12 items-center gap-3 rounded-xl px-4 text-sm font-bold text-[#F3F0E9]/65 hover:bg-white/5"><svg class="h-5 w-5 fill-none stroke-current" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm13 10v-2a4 4 0 0 0-3-3.87"/></svg>User Management</a>
-            <a href="pages/adviser/officers.html" class="flex min-h-12 items-center gap-3 rounded-xl px-4 text-sm font-bold text-[#F3F0E9]/65 hover:bg-white/5"><svg class="h-5 w-5 fill-none stroke-current" viewBox="0 0 24 24"><path d="M12 3 4 7v5c0 4.6 3.2 7.8 8 9 4.8-1.2 8-4.4 8-9V7l-8-4Z"/></svg>Officer Management</a>
-            <a href="pages/adviser/teams.html" class="flex min-h-12 items-center gap-3 rounded-xl px-4 text-sm font-bold text-[#F3F0E9]/65 hover:bg-white/5"><svg class="h-5 w-5 fill-none stroke-current" viewBox="0 0 24 24"><path d="M8 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6Zm8 0a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM2 20v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2"/></svg>Team Management</a>
-            <a href="pages/adviser/events.html" class="flex min-h-12 items-center gap-3 rounded-xl px-4 text-sm font-bold text-[#F3F0E9]/65 hover:bg-white/5"><svg class="h-5 w-5 fill-none stroke-current" viewBox="0 0 24 24"><path d="M6 2v4m12-4v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14H3V6a2 2 0 0 1 2-2Z"/></svg>Event Management</a>
-            <a href="pages/adviser/locations.html" class="flex min-h-12 items-center gap-3 rounded-xl bg-[#397565] px-4 text-sm font-bold text-white shadow-lg shadow-black/10"><svg class="h-5 w-5 fill-none stroke-current" viewBox="0 0 24 24"><path d="M20 10c0 5-8 11-8 11S4 15 4 10a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="2.5"/></svg>Locations</a>
-            <a href="pages/adviser/attendance.html" class="flex min-h-12 items-center gap-3 rounded-xl px-4 text-sm font-bold text-[#F3F0E9]/65 hover:bg-white/5"><svg class="h-5 w-5 fill-none stroke-current" viewBox="0 0 24 24"><path d="M9 11l2 2 4-4m6 3a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/></svg>Attendance</a>
-            <a href="pages/adviser/scores.html" class="flex min-h-12 items-center gap-3 rounded-xl px-4 text-sm font-bold text-[#F3F0E9]/65 hover:bg-white/5"><svg class="h-5 w-5 fill-none stroke-current" viewBox="0 0 24 24"><path d="M8 21h8M12 17v4M7 4h10v4a5 5 0 0 1-10 0V4Z"/></svg>Scores</a>
-            <a href="pages/adviser/leaderboard.html" class="flex min-h-12 items-center gap-3 rounded-xl px-4 text-sm font-bold text-[#F3F0E9]/65 hover:bg-white/5"><svg class="h-5 w-5 fill-none stroke-current" viewBox="0 0 24 24"><path d="M4 20V10h4v10H4Zm6 0V4h4v16h-4Zm6 0v-7h4v7h-4Z"/></svg>Leaderboard</a>
-            <a href="pages/adviser/announcements.html" class="flex min-h-12 items-center gap-3 rounded-xl px-4 text-sm font-bold text-[#F3F0E9]/65 hover:bg-white/5"><svg class="h-5 w-5 fill-none stroke-current" viewBox="0 0 24 24"><path d="M4 13V9l11-5v14L4 13Z"/></svg>Announcements</a>
-            <a href="pages/adviser/reports.html" class="flex min-h-12 items-center gap-3 rounded-xl px-4 text-sm font-bold text-[#F3F0E9]/65 hover:bg-white/5"><svg class="h-5 w-5 fill-none stroke-current" viewBox="0 0 24 24"><path d="M5 3h10l4 4v14H5V3Zm10 0v5h4M8 12h8"/></svg>Reports</a>
-            <a href="pages/adviser/posts.html" class="flex min-h-12 items-center gap-3 rounded-xl px-4 text-sm font-bold text-[#F3F0E9]/65 hover:bg-white/5"><svg class="h-5 w-5 fill-none stroke-current" viewBox="0 0 24 24"><path d="M4 5h16v12H8l-4 4V5Z"/></svg>Post Review</a>
-        </nav>
-        <p class="mt-auto px-3 text-[9px] font-bold uppercase tracking-[.15em] text-[#F3F0E9]/30">Campus Event Management</p>
-    </aside>
 
-    <div class="min-h-screen lg:ml-64">
-        <header class="sticky top-0 z-30 border-b border-[#397565]/25 bg-[#DDEBE6]/90">
-            <div class="mx-auto flex h-[72px] w-full max-w-[1500px] items-center gap-3 px-4 sm:px-6 lg:px-10 xl:px-16">
-                <button class="grid h-10 w-10 place-items-center rounded-xl border border-[#121017]/10 lg:hidden" type="button" data-sidebar-toggle aria-controls="sidebar" aria-label="Open navigation"><svg class="h-5 w-5 fill-none stroke-current stroke-2" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button>
-                <details class="group relative ml-auto" data-account-menu><summary class="flex min-h-11 cursor-pointer list-none items-center gap-2 rounded-xl px-2"><span class="grid h-9 w-9 place-items-center rounded-full bg-[#C6F24E] text-xs font-black">SA</span><span class="hidden text-left sm:grid"><strong class="text-xs font-black">SBO Adviser</strong><small class="text-[9px] font-bold uppercase text-[#397565]">SBO Adviser</small></span></summary><div class="absolute right-0 top-[calc(100%+.65rem)] w-64 rounded-2xl border border-[#121017]/10 bg-white p-2 shadow-2xl"><div class="border-b border-[#121017]/7 px-3 py-3"><strong class="block truncate text-sm">SBO Adviser</strong><span class="block truncate text-xs text-[#121017]/45">Account</span></div><form data-logout-form><button class="mt-2 min-h-10 w-full rounded-xl px-3 text-left text-xs font-bold text-[#FF6B2C]" type="submit">Sign out</button></form></div></details>
-            </div>
-        </header>
+    <div data-shared-navigation-host></div>
+    <div class="min-h-screen lg:ml-20">
 
         <main class="admin-main mx-auto w-full max-w-[1500px] px-4 py-7 sm:px-6 lg:px-10 lg:py-9 xl:px-16" data-page-content>
             <header class="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between"><div><p class="text-xs font-black uppercase tracking-[.14em] text-[#397565]">GPS geofences</p><h1 class="mt-2 text-4xl font-black tracking-[-.05em] sm:text-5xl">Locations</h1><p class="mt-3 max-w-2xl text-base leading-7 text-[#121017]/55">Manage the square GPS boundaries available when creating events.</p></div><button class="min-h-12 rounded-xl bg-[#397565] px-5 text-sm font-black text-white shadow-lg" type="button" data-open-location>+ Create Location</button></header>
@@ -83,9 +60,9 @@
             <footer class="sticky bottom-0 flex justify-end gap-3 border-t border-[#121017]/8 bg-white px-5 py-4 sm:px-6"><button class="min-h-11 rounded-xl border border-[#121017]/12 px-5 text-sm font-bold" type="button" data-close-location>Cancel</button><button class="min-h-11 rounded-xl bg-[#397565] px-5 text-sm font-black text-white disabled:opacity-50" type="submit" data-save-location>Create Location</button></footer>
         </form>
     </dialog>
-    <button class="fixed inset-0 z-30 hidden bg-[#121017]/60 lg:hidden" data-sidebar-scrim data-sidebar-toggle aria-label="Close navigation"></button>
     <div class="pointer-events-none fixed right-4 top-4 z-[80] grid w-[min(380px,calc(100%_-_2rem))] gap-3" data-notification-region aria-live="polite"></div>
     <script src="js/vendor/axios.min.js"></script>
+    <script src="js/shared/navigation.js?v=20260916-7"></script>
     <script src="js/adviser/locations.js?v=20260915-2"></script>
 </body>
 </html>

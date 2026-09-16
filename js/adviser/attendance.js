@@ -1,4 +1,4 @@
-(() => {
+window.SharedNavigation.ready.then(() => {
   "use strict";
 
   const $ = (selector, root = document) => root.querySelector(selector);
@@ -261,4 +261,4 @@
   authenticate().then(load).catch((error) => {
     if (error.message !== "Unauthorized") console.error(error);
   });
-})();
+});

@@ -74,14 +74,13 @@
             const response = await axios.post('api/auth.php?action=change_password', data, {
                 headers: { 'X-CSRF-Token': csrfToken },
             });
-            passwordDialog.close();
-            document.querySelector('main p.text-base').textContent = response.data.message;
+            window.location.replace(response.data.redirect_url || './?login=password-changed');
         } catch (error) {
             passwordError.textContent = error.response?.data?.message || 'Unable to change your password.';
             passwordError.classList.remove('hidden');
         } finally {
             submit.disabled = false;
-            submit.textContent = 'Save New Password';
+            submit.textContent = 'Save and Sign In Again';
         }
     });
 })();

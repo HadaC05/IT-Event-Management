@@ -1,4 +1,4 @@
-(() => {
+window.SharedNavigation.ready.then(() => {
   "use strict";
   let csrf = "",
     page = 1,
@@ -127,7 +127,7 @@
       row.tabIndex = 0;
       row.setAttribute("role", "link");
       row.setAttribute("aria-label", `View ${event.title}`);
-      row.innerHTML = `<td class="px-5 py-4"><div class="grid min-w-48 gap-1"><strong class="text-sm text-[#121017] transition group-hover:text-[#397565]">${EventForm.escapeHtml(event.title)}</strong><small class="max-w-sm truncate text-[10px] text-[#121017]/35">${EventForm.escapeHtml(event.description || "No description")}</small></div></td><td class="px-4 py-4"><span class="grid gap-0.5 text-xs font-semibold text-[#121017]/60">${formatDate(event.start_at)}<small class="font-medium text-[#121017]/35">${formatTime(event.start_at)}</small></span></td><td class="max-w-52 px-4 py-4 text-xs text-[#121017]/48"><span class="block truncate">${EventForm.escapeHtml(event.location || "Not specified")}</span></td><td class="px-4 py-4"><span class="rounded-full px-2.5 py-1 text-[10px] font-bold ${statusClass(event.status_label)}">${event.status_label[0].toUpperCase() + event.status_label.slice(1)}</span></td><td class="px-4 py-4">${inChargeMarkup(event)}</td><td class="px-5 py-4 text-right"><div class="inline-flex" data-actions></div></td>`;
+      row.innerHTML = `<td class="px-5 py-4" data-event-cell="event"><div class="grid min-w-48 gap-1"><strong class="text-sm text-[#121017] transition group-hover:text-[#397565]">${EventForm.escapeHtml(event.title)}</strong><small class="max-w-sm truncate text-[10px] text-[#121017]/35">${EventForm.escapeHtml(event.description || "No description")}</small></div></td><td class="px-4 py-4" data-event-cell="schedule" data-label="Schedule"><span class="grid gap-0.5 text-xs font-semibold text-[#121017]/60">${formatDate(event.start_at)}<small class="font-medium text-[#121017]/35">${formatTime(event.start_at)}</small></span></td><td class="max-w-52 px-4 py-4 text-xs text-[#121017]/48" data-event-cell="location" data-label="Location"><span class="block truncate">${EventForm.escapeHtml(event.location || "Not specified")}</span></td><td class="px-4 py-4" data-event-cell="status" data-label="Status"><span class="rounded-full px-2.5 py-1 text-[10px] font-bold ${statusClass(event.status_label)}">${event.status_label[0].toUpperCase() + event.status_label.slice(1)}</span></td><td class="px-4 py-4" data-event-cell="in-charge" data-label="Event-in-Charge">${inChargeMarkup(event)}</td><td class="px-5 py-4 text-right" data-event-cell="actions"><div class="inline-flex" data-actions></div></td>`;
       const actions = row.querySelector("[data-actions]");
       const menu = makeButton(
         "",
@@ -433,5 +433,6 @@
         error.response?.data?.message ||
           "Event Management could not finish loading. Please refresh the page.",
       );
-    });
-})();
+    })
+    .finally(() => window.SharedNavigation.finishPageLoad());
+});

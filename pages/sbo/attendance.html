@@ -10,7 +10,7 @@
   <link rel="stylesheet" href="css/sbo.css?v=20260915-4">
   <script src="js/shared/notifications.js" defer></script>
 </head>
-<body class="min-h-screen bg-white font-sans text-[#121017] antialiased">
+<body class="min-h-screen bg-white font-sans text-[#121017] antialiased" data-navigation-role="sbo">
   <div data-sbo-sidebar-host></div><div data-sbo-header-host></div>
   <button class="mr-2 min-h-10 shrink-0 rounded-xl bg-[#397565] px-3 text-xs font-black text-white" type="button" data-gps-toggle hidden>Turn On GPS</button>
   <main class="w-auto max-w-[1200px] px-4 pb-28 pt-5 transition-[margin] duration-200 sm:px-6 lg:ml-20 lg:px-8 lg:pb-12" data-sbo-main>
@@ -113,7 +113,8 @@
   </dialog>
   <div class="pointer-events-none fixed right-4 top-4 z-[100] grid w-[min(380px,calc(100%_-_2rem))] gap-3" data-notification-region aria-live="polite"></div>
   <script src="js/vendor/axios.min.js"></script>
+  <script src="js/shared/navigation.js?v=20260916-7"></script>
   <script src="js/sbo/portal.js"></script>
-  <script src="js/sbo/attendance.js?v=20260916-14"></script>
+  <script src="js/sbo/attendance.js?v=20260916-15"></script>
 </body>
 </html>

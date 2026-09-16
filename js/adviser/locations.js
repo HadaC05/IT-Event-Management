@@ -1,4 +1,4 @@
-(() => {
+window.SharedNavigation.ready.then(() => {
     'use strict';
 
     const API = 'api/adviser-locations.php';
@@ -346,4 +346,4 @@
     filters.status.value = initialQuery.get('status') || '';
     initializeShell();
     authenticate().then(loadLocations).catch(error => notify('error', error.response?.data?.message || error.message));
-})();
+});

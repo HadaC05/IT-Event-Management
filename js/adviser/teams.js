@@ -1,4 +1,4 @@
-(() => {
+window.SharedNavigation.ready.then(() => {
   "use strict";
   let csrf = "",
     page = 1,
@@ -616,4 +616,4 @@
       return load();
     })
     .catch(() => location.replace("./"));
-})();
+});

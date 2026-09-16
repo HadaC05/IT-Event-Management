@@ -1,4 +1,4 @@
-(() => {
+window.SharedNavigation.ready.then(() => {
   "use strict";
 
   const $ = (selector, root = document) => root.querySelector(selector);
@@ -434,5 +434,5 @@
   initializeShell();
   authenticate().then(() => load({ preserveSelection: false })).catch((error) => {
     if (error.message !== "Unauthorized") console.error(error);
-  });
-})();
+  }).finally(() => window.SharedNavigation.finishPageLoad());
+});
