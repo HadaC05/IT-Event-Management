@@ -8,7 +8,7 @@
     <link rel="icon" type="image/png" sizes="512x512" href="assets/images/cite_favicon.png">
     <link rel="stylesheet" href="css/tailwind.css">
     <link rel="stylesheet" href="css/adviser.css">
-    <script src="js/shared/notifications.js" defer></script>
+    <script src="js/shared/notifications.js?v=20260917-5" defer></script>
     <script src="js/shared/interactions.js" defer></script>
 </head>
 <body class="app-shell min-h-screen bg-white font-sans text-[#121017] antialiased" data-admin-shell data-navigation-role="adviser">
@@ -51,6 +51,7 @@
                 </fieldset>
                 <div class="grid gap-4 sm:grid-cols-2"><label class="grid gap-2"><span class="text-sm font-bold">Officer position</span><input class="h-12 rounded-xl border border-[#121017]/12 px-3 text-sm outline-none focus:border-[#397565]" name="position" placeholder="e.g. Attendance Officer" maxlength="100" required></label><label class="grid gap-2"><span class="text-sm font-bold">School year / term</span><input class="h-12 rounded-xl border border-[#121017]/12 px-3 text-sm outline-none focus:border-[#397565]" name="term" placeholder="e.g. 2026–2027 · 1st Term" maxlength="100" required></label></div>
                 <label class="grid gap-2"><span class="text-sm font-bold">Assigned tribe</span><select class="h-12 rounded-xl border border-[#121017]/12 px-3 text-sm outline-none focus:border-[#397565]" name="team_id" required><option value="">Select a tribe</option></select></label>
+                <label class="grid gap-2"><span class="text-sm font-bold">Attendance scanner access</span><select class="h-12 rounded-xl border border-[#121017]/12 px-3 text-sm outline-none focus:border-[#397565]" name="scanner_mode"><option value="specific">Specific tribe/team only</option><option value="general">General — all tribes/teams</option></select></label>
                 <label class="grid gap-2"><span class="flex items-center justify-between text-sm font-bold">Officer username <button class="text-xs font-black text-[#397565]" type="button" data-generate-officer-username>Generate</button></span><input class="h-12 rounded-xl border border-[#121017]/12 px-3 text-sm outline-none focus:border-[#397565]" name="username" required data-officer-username></label>
                 <div class="grid gap-4 sm:grid-cols-2"><label class="grid gap-2"><span class="text-sm font-bold">Temporary password</span><input class="h-12 rounded-xl border border-[#121017]/12 px-3 text-sm outline-none focus:border-[#397565]" name="password" type="password" minlength="8" required autocomplete="new-password"></label><label class="grid gap-2"><span class="text-sm font-bold">Confirm password</span><input class="h-12 rounded-xl border border-[#121017]/12 px-3 text-sm outline-none focus:border-[#397565]" name="password_confirmation" type="password" minlength="8" required autocomplete="new-password"></label></div>
                 <p class="rounded-xl bg-[#397565]/7 px-4 py-3 text-xs leading-5 text-[#397565]">The officer must change this temporary password after their first sign-in.</p>
@@ -67,6 +68,7 @@
                     <div class="grid gap-1 py-4 sm:grid-cols-[170px_minmax(0,1fr)]"><dt class="text-[10px] font-black uppercase tracking-wider text-[#121017]/40">Student identity</dt><dd><strong class="block text-sm font-black" data-details-student-name></strong><span class="mt-1 block text-xs text-[#121017]/55" data-details-student-email></span></dd></div>
                     <div class="grid gap-1 py-4 sm:grid-cols-[170px_minmax(0,1fr)]"><dt class="text-[10px] font-black uppercase tracking-wider text-[#121017]/40">Officer login</dt><dd><div class="flex flex-wrap items-center gap-3"><strong class="text-sm font-black" data-details-officer-username></strong><span class="rounded-full bg-[#397565]/8 px-3 py-1 text-[10px] font-black uppercase text-[#397565]" data-details-status></span></div><span class="mt-1.5 block text-xs text-[#121017]/50" data-details-password-state></span></dd></div>
                     <div class="grid gap-1 py-4 sm:grid-cols-[170px_minmax(0,1fr)]"><dt class="text-[10px] font-black uppercase tracking-wider text-[#121017]/40">Assignment</dt><dd class="grid gap-1 text-sm font-bold"><span data-details-position></span><span data-details-term></span><span data-details-team></span></dd></div>
+                    <div class="grid gap-1 py-4 sm:grid-cols-[170px_minmax(0,1fr)]"><dt class="text-[10px] font-black uppercase tracking-wider text-[#121017]/40">Scanner access</dt><dd><form class="grid gap-3" data-scanner-config-form data-axios-form><input type="hidden" name="assignment_id"><label class="grid gap-1 text-xs font-bold">Mode<select class="h-11 rounded-xl border border-[#121017]/12 px-3 text-sm" name="scanner_mode"><option value="specific">Specific tribe/team only</option><option value="general">General — all tribes/teams</option></select></label><label class="grid gap-1 text-xs font-bold">Allowed team (used in Specific mode)<select class="h-11 rounded-xl border border-[#121017]/12 px-3 text-sm" name="team_id" required></select></label><button class="min-h-10 rounded-xl bg-[#397565] px-4 text-sm font-bold text-white" type="submit">Save scanner access</button></form></dd></div>
                     <div class="grid gap-1 py-4 sm:grid-cols-[170px_minmax(0,1fr)]"><dt class="text-[10px] font-black uppercase tracking-wider text-[#121017]/40">Events in charge</dt><dd class="grid gap-2" data-details-event-responsibilities></dd></div>
                     <div class="grid gap-1 py-4 sm:grid-cols-[170px_minmax(0,1fr)]"><dt class="text-[10px] font-black uppercase tracking-wider text-[#121017]/40">Account separation</dt><dd class="text-xs leading-5 text-[#121017]/55">Changing the SBO password does not change the student's own account password.</dd></div>
                 </dl>
@@ -93,8 +95,8 @@
     </dialog>
     <div class="pointer-events-none fixed right-4 top-12 z-[80] mt-12 grid w-[min(380px,calc(100%_-_2rem))] gap-3" data-notification-region aria-live="polite" aria-atomic="true"></div>
     <script src="js/vendor/axios.min.js"></script>
-    <script src="js/shared/navigation.js?v=20260916-7"></script>
-    <script src="js/adviser/officers.js?v=20260915-3"></script>
+    <script src="js/shared/navigation.js?v=20260917-7"></script>
+    <script src="js/adviser/officers.js?v=20260917-1"></script>
     <script src="js/adviser/sbo-assignments.js"></script>
     <script src="js/adviser/sbo-scoring-admin.js"></script>
 </body>

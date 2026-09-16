@@ -14,6 +14,7 @@ final class OfficerManagementRepository
     public function index(array $filters = []): array
     {
         $page = max(1, (int) ($filters['page'] ?? 1));
+        $perPage = PageSize::from($filters, self::PER_PAGE);
         $search = trim((string) ($filters['search'] ?? ''));
         $status = strtolower(trim((string) ($filters['status'] ?? '')));
         if (mb_strlen($search) > 100) throw new InvalidArgumentException('Search may not exceed 100 characters.');
@@ -54,12 +55,12 @@ final class OfficerManagementRepository
         $count = $this->db->prepare('SELECT COUNT(*)'.$baseJoins.$whereSql);
         $count->execute($params);
         $total = (int) $count->fetchColumn();
-        $lastPage = max(1, (int) ceil($total / self::PER_PAGE));
+        $lastPage = max(1, (int) ceil($total / $perPage));
         if ($page > $lastPage) $page = $lastPage;
-        $offset = ($page - 1) * self::PER_PAGE;
+        $offset = ($page - 1) * $perPage;
 
         $statement = $this->db->prepare("SELECT a.id, a.student_id, a.officer_user_id, a.team_id,
-                a.position, a.term, a.assigned_by, a.assigned_at, a.ended_by, a.ended_at, a.status,
+                a.position, a.term, a.scanner_mode, a.assigned_by, a.assigned_at, a.ended_by, a.ended_at, a.status,
                 u.username, u.must_change_password,
                 student.first_name AS student_first_name, student.middle_name AS student_middle_name,
                 student.last_name AS student_last_name, student.email AS student_email,
@@ -69,7 +70,7 @@ final class OfficerManagementRepository
             ORDER BY a.assigned_at DESC, a.id DESC
             LIMIT :limit OFFSET :offset");
         foreach ($params as $key => $value) $statement->bindValue(':'.$key, $value);
-        $statement->bindValue(':limit', self::PER_PAGE, PDO::PARAM_INT);
+        $statement->bindValue(':limit', $perPage, PDO::PARAM_INT);
         $statement->bindValue(':offset', $offset, PDO::PARAM_INT);
         $statement->execute();
         $assignments = $statement->fetchAll();
@@ -141,16 +142,17 @@ final class OfficerManagementRepository
             'pagination' => [
                 'current_page' => $page,
                 'last_page' => $lastPage,
-                'per_page' => self::PER_PAGE,
+                'per_page' => $perPage,
                 'total' => $total,
                 'from' => $total === 0 ? null : $offset + 1,
-                'to' => $total === 0 ? null : min($offset + self::PER_PAGE, $total),
+                'to' => $total === 0 ? null : min($offset + $perPage, $total),
             ],
         ];
     }
 
     public function assign(array $data, array $actor): int
     {
+        $scannerMode = $this->scannerMode($data);
         foreach (['student_user_id', 'team_id', 'position', 'term', 'username', 'password'] as $field) {
             if (trim((string) ($data[$field] ?? '')) === '') {
                 throw new InvalidArgumentException(ucfirst(str_replace('_', ' ', $field)).' is required.');
@@ -226,10 +228,10 @@ final class OfficerManagementRepository
             }
 
             $statement = $this->db->prepare("INSERT INTO tbl_sbo_officer_assignments
-                (student_id, officer_user_id, team_id, position, term, assigned_by, assigned_at, status, created_at, updated_at)
-                VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, 'Active', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)");
+                (student_id, officer_user_id, team_id, scanner_mode, position, term, assigned_by, assigned_at, status, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, 'Active', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)");
             $statement->execute([
-                $student['id_number'], $officerId, $teamId, trim((string) $data['position']),
+                $student['id_number'], $officerId, $teamId, $scannerMode, trim((string) $data['position']),
                 trim((string) $data['term']), (int) $actor['id'],
             ]);
             $assignmentId = (int) $this->db->lastInsertId();
@@ -241,6 +243,40 @@ final class OfficerManagementRepository
             $this->db->rollBack();
             throw $error;
         }
+    }
+
+    public function configureScanner(array $data, array $actor): void
+    {
+        $assignmentId = filter_var($data['assignment_id'] ?? null, FILTER_VALIDATE_INT);
+        $teamId = filter_var($data['team_id'] ?? null, FILTER_VALIDATE_INT);
+        $mode = $this->scannerMode($data);
+        if (!$assignmentId || !$teamId) throw new InvalidArgumentException('Select an officer and an active team.');
+        if (!$this->value('SELECT id FROM tbl_teams WHERE id=? AND is_active=1', [$teamId]))
+            throw new InvalidArgumentException('Select an active team.');
+        $this->db->beginTransaction();
+        try {
+            $q = $this->db->prepare("SELECT officer_user_id,student_id FROM tbl_sbo_officer_assignments WHERE id=? AND status='Active' FOR UPDATE");
+            $q->execute([$assignmentId]);
+            $assignment = $q->fetch();
+            if (!$assignment) throw new InvalidArgumentException('This officer assignment is no longer active.');
+            $this->db->prepare('UPDATE tbl_sbo_officer_assignments SET team_id=?,scanner_mode=?,updated_at=CURRENT_TIMESTAMP WHERE id=?')
+                ->execute([$teamId,$mode,$assignmentId]);
+            $this->db->prepare('UPDATE tbl_users SET officer_team_id=?,updated_at=CURRENT_TIMESTAMP WHERE id=?')
+                ->execute([$teamId,$assignment['officer_user_id']]);
+            $this->log((int)$actor['id'],(int)$assignment['officer_user_id'],$assignment['student_id'],$assignmentId,
+                'officer_scanner_configured',(string)$actor['role'],'Scanner set to '.$mode.'; allowed team ID '.$teamId.'.');
+            $this->db->commit();
+        } catch (Throwable $error) {
+            $this->db->rollBack();
+            throw $error;
+        }
+    }
+
+    private function scannerMode(array $data): string
+    {
+        $mode = (string)($data['scanner_mode'] ?? 'specific');
+        if (!in_array($mode, ['specific','general'], true)) throw new InvalidArgumentException('Choose a valid scanner mode.');
+        return $mode;
     }
 
     public function unassign(array $ids, array $actor): int
@@ -394,6 +430,10 @@ try {
             'success' => true,
             'message' => 'The SBO Officer password was changed. The student password was not affected.',
         ]);
+    }
+    if ($action === 'scanner_config') {
+        $repository->configureScanner($input, $actor);
+        JsonResponse::send(['success' => true, 'message' => 'Scanner access updated. The next scan uses this setting.']);
     }
     if (in_array($action, ['unassign', 'batch_unassign'], true)) {
         $ids = $action === 'unassign' ? [(int) ($input['id'] ?? 0)] : (array) ($input['assignment_ids'] ?? []);

@@ -2,6 +2,15 @@
 
 declare(strict_types=1);
 
+final class PageSize
+{
+    public static function from(array $input, int $default = 10): int
+    {
+        $requested = filter_var($input['per_page'] ?? null, FILTER_VALIDATE_INT);
+        return in_array($requested, [5, 10, 20], true) ? $requested : $default;
+    }
+}
+
 final class JsonResponse
 {
     public static function send(array $payload, int $status = 200): never

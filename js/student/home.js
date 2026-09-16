@@ -503,7 +503,6 @@
         const response = await axios.get(API_URL);
         const data = response.data.data;
         renderStudent(data.student);
-        renderNotifications(data.notifications, data.unread_notifications);
         renderSubmissions(data.submissions);
         renderCurrentEvent(data.current_event);
         renderFeaturedEvents(data.featured_events);
@@ -549,10 +548,8 @@
     };
 
     const initialize = async () => {
-        initializeMenus();
         initializeSidebar();
         initializeMediaPicker();
-        initializeNotifications();
         initializePostForm();
         initializeLogout();
 

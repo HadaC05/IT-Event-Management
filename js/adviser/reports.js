@@ -122,9 +122,9 @@ window.SharedNavigation.ready.then(() => {
   }
 
   function statusBadge(status) {
-    const tone = ["present", "late"].includes(status)
+    const tone = status === "present"
       ? "bg-[#C6F24E]/35 text-[#397565]"
-      : status === "absent" ? "bg-[#FF6B2C]/10 text-[#FF6B2C]" : "bg-[#2F3AE0]/8 text-[#2F3AE0]";
+      : "bg-[#FF6B2C]/10 text-[#FF6B2C]";
     return `<span class="rounded-full px-2.5 py-1 text-[9px] font-black uppercase tracking-wider ${tone}">${escapeHtml(status)}</span>`;
   }
 

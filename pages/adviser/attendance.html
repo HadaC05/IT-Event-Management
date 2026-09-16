@@ -14,7 +14,7 @@
 >
 <link rel="stylesheet" href="css/tailwind.css" />
 <link rel="stylesheet" href="css/adviser.css?v=20260916-3" />
-<link rel="stylesheet" href="js/vendor/leaflet.css" />    <script src="js/shared/notifications.js" defer></script>
+<link rel="stylesheet" href="js/vendor/leaflet.css" />    <script src="js/shared/notifications.js?v=20260917-5" defer></script>
     <script src="js/shared/interactions.js" defer></script>
 </head>
 <body class="app-shell min-h-screen bg-white font-sans text-[#121017] antialiased" data-admin-shell data-navigation-role="adviser">
@@ -27,7 +27,9 @@
 <p class="mt-6 text-xs font-black text-[#121017]/48" data-attendance-summary>Loading attendance summary…</p></header>
 <section class="py-8" aria-labelledby="attendance-directory-heading"><header class="mb-5"><div class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between"><div><p class="text-[10px] font-black uppercase tracking-[.16em] text-[#397565]">Attendance workspace</p><h2 id="attendance-directory-heading" class="mt-1 text-xl font-black tracking-[-.025em] text-[#121017]">Choose an event</h2><p class="mt-1 text-[10px] font-semibold text-[#121017]/40" data-result-count>Loading events…</p></div><button class="hidden text-[10px] font-black text-[#FF6B2C] transition hover:text-[#c94414]" type="button" data-clear-filters>Clear all filters</button></div>
 <form class="mt-5 hidden gap-2 md:grid-cols-[minmax(260px,1fr)_190px_auto]" data-attendance-filters><label class="relative"><svg class="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 fill-none stroke-[#121017]/35 stroke-2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg><span class="sr-only">Search events</span><input class="h-11 w-full rounded-xl border border-[#121017]/10 bg-white/65 pl-10 pr-3 text-sm text-[#121017] outline-none transition placeholder:text-[#121017]/30 focus:border-[#397565] focus:bg-white focus:ring-4 focus:ring-[#397565]/10" name="search" maxlength="100" placeholder="Search event or venue…"></label><label class="relative"><span class="sr-only">Filter by schedule</span><select class="h-11 w-full appearance-none rounded-xl border border-[#121017]/10 bg-white/65 px-3 pr-9 text-xs font-bold text-[#121017]/60 outline-none transition focus:border-[#397565] focus:bg-white focus:ring-4 focus:ring-[#397565]/10" name="timing"><option value="">Any schedule</option><option value="upcoming">Upcoming</option><option value="ongoing">Ongoing</option><option value="completed">Ended</option></select><svg class="pointer-events-none absolute right-3.5 top-1/2 h-4 w-4 -translate-y-1/2 fill-none stroke-[#397565] stroke-2" viewBox="0 0 24 24"><path d="m7 10 5 5 5-5"/></svg></label></form></header>
-<div class="grid gap-5" data-event-list></div><nav class="mt-5 hidden items-center justify-between border-t border-[#121017]/8 pt-4 text-[10px]" data-pagination></nav></section>
+<nav class="mb-4 hidden flex-wrap items-center justify-between gap-3 border-y border-[#121017]/8 py-3 text-xs" data-pagination aria-label="Event pages"></nav><div class="grid gap-4 md:grid-cols-2 xl:grid-cols-3" data-event-list></div><nav class="mt-5 hidden flex-wrap items-center justify-between gap-3 border-t border-[#121017]/8 pt-4 text-xs" data-pagination aria-label="Event pages"></nav></section>
+<details class="group border-t border-[#121017]/10 py-6" data-scan-details>
+  <summary class="flex min-h-14 cursor-pointer list-none items-center justify-between rounded-2xl border border-[#121017]/10 bg-white px-5 text-sm font-black text-[#397565] marker:hidden">Scan locations <span class="text-xs text-[#121017]/50 group-open:rotate-180" aria-hidden="true">⌄</span></summary>
 <section class="border-t border-[#121017]/10 py-8" aria-labelledby="scan-locations-heading">
   <header class="mb-5"><p class="text-[10px] font-black uppercase tracking-[.16em] text-[#397565]">SBO QR attendance</p>
     <h2 class="mt-1 text-xl font-black" id="scan-locations-heading">Scan locations</h2>
@@ -60,10 +62,16 @@
   <div class="attendance-scan-list mt-5 grid gap-2" data-scan-locations><p class="text-sm text-[#121017]/50">Loading scan locations…</p></div>
   <nav class="mt-4 hidden items-center justify-between gap-3 border-t border-[#121017]/8 pt-4 text-xs" data-scan-pagination aria-label="Attendance scan pages"></nav>
 </section>
+</details>
 </main>
     </div>
     <div class="pointer-events-none fixed right-4 top-4 z-[80] grid w-[min(380px,calc(100%_-_2rem))] gap-2.5 sm:right-6 sm:top-6" data-notification-region data-flash-type="" data-flash-message="" aria-live="polite" aria-atomic="true"></div>
 <div class="pointer-events-none fixed bottom-4 right-4 z-[75] w-[min(470px,calc(100%_-_2rem))] sm:bottom-6 sm:right-6" data-snackbar-region aria-live="polite" aria-atomic="true"></div>
+
+<dialog class="m-auto max-h-[calc(100dvh-2rem)] w-[min(520px,calc(100%_-_2rem))] overflow-y-auto rounded-3xl border-0 bg-white p-0 text-[#121017] shadow-2xl backdrop:bg-[#121017]/60" data-event-attendance-dialog aria-labelledby="event-attendance-title">
+  <div class="flex items-start justify-between gap-4 border-b border-[#121017]/10 px-5 py-4 sm:px-6"><div><p class="text-[10px] font-black uppercase tracking-widest text-[#397565]">Event attendance</p><h2 class="mt-1 text-xl font-black" id="event-attendance-title" data-event-dialog-title></h2><p class="mt-1 text-xs text-[#121017]/50" data-event-dialog-schedule></p></div><button class="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-[#121017]/10 text-lg" type="button" data-event-dialog-close aria-label="Close event details">×</button></div>
+  <div class="p-5 sm:p-6"><div class="grid grid-cols-2 gap-3" data-event-dialog-counts></div><p class="mt-4 text-sm font-bold" data-event-dialog-recorded></p><p class="mt-1 text-xs text-[#121017]/55" data-event-dialog-status></p><a class="mt-6 flex min-h-11 items-center justify-center rounded-xl bg-[#397565] px-5 text-sm font-black text-white" data-event-dialog-roster href="#">Open roster →</a></div>
+</dialog>
 
 <dialog class="m-auto w-[min(440px,calc(100%_-_2rem))] rounded-2xl border-0 bg-white p-0 text-slate-700 shadow-2xl backdrop:bg-[#121017]/60 backdrop:backdrop-blur-[2px]" data-confirm-dialog aria-labelledby="confirm-title" aria-describedby="confirm-message">
     <div class="flex items-start gap-4 p-6 pb-5">
@@ -76,9 +84,9 @@
     </div>
 </dialog>
     <script src="js/vendor/axios.min.js"></script>
-    <script src="js/shared/navigation.js?v=20260916-7"></script>
+    <script src="js/shared/navigation.js?v=20260917-7"></script>
     <script src="js/vendor/leaflet.js"></script>
-    <script src="js/adviser/attendance.js"></script>
-    <script src="js/adviser/attendance-scans.js?v=20260916-12"></script>
+    <script src="js/adviser/attendance.js?v=20260917-1"></script>
+    <script src="js/adviser/attendance-scans.js?v=20260916-13"></script>
 </body>
 </html>

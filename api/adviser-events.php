@@ -33,6 +33,7 @@ final class EventManagementRepository
         $status = (int) ($filters['status'] ?? 0);
         $type = (int) ($filters['event_type'] ?? 0);
         $page = max(1, (int) ($filters['page'] ?? 1));
+        $perPage = PageSize::from($filters, self::PER_PAGE);
         if (mb_strlen($search) > 100) {
             throw new EventValidationException(['search' => ['Search may not exceed 100 characters.']]);
         }
@@ -67,9 +68,9 @@ final class EventManagementRepository
         $count = $this->db->prepare("SELECT COUNT(*) FROM tbl_events e $whereSql");
         $count->execute($params);
         $total = (int) $count->fetchColumn();
-        $lastPage = max(1, (int) ceil($total / self::PER_PAGE));
+        $lastPage = max(1, (int) ceil($total / $perPage));
         $page = min($page, $lastPage);
-        $offset = ($page - 1) * self::PER_PAGE;
+        $offset = ($page - 1) * $perPage;
         $query = $this->db->prepare(
             "SELECT e.*,et.label type_label,es.label status_label
              FROM tbl_events e
@@ -82,7 +83,7 @@ final class EventManagementRepository
         foreach ($params as $key => $value) {
             $query->bindValue(':'.$key, $value, PDO::PARAM_STR);
         }
-        $query->bindValue(':limit', self::PER_PAGE, PDO::PARAM_INT);
+        $query->bindValue(':limit', $perPage, PDO::PARAM_INT);
         $query->bindValue(':offset', $offset, PDO::PARAM_INT);
         $query->execute();
         $events = $query->fetchAll();
@@ -98,9 +99,10 @@ final class EventManagementRepository
             'pagination' => [
                 'current_page' => $page,
                 'last_page' => $lastPage,
+                'per_page' => $perPage,
                 'total' => $total,
                 'from' => $total ? $offset + 1 : null,
-                'to' => $total ? min($offset + self::PER_PAGE, $total) : null,
+                'to' => $total ? min($offset + $perPage, $total) : null,
             ],
         ];
     }
@@ -322,65 +324,6 @@ final class EventManagementRepository
     {
         $archived = (int) $this->scalar("SELECT id FROM tbl_event_statuses WHERE label='archived'");
         $this->setStatus($id, $archived, $actorId);
-    }
-
-    public function duplicate(int $id, int $actorId): int
-    {
-        $source = $this->eventRow($id);
-        if ($source['deleted_at'] !== null) {
-            throw new EventValidationException(['event' => ['Restore the event before duplicating it.']]);
-        }
-
-        $title = mb_substr((string) $source['title'], 0, 248).' (Copy)';
-        $upcoming = (int) $this->scalar("SELECT id FROM tbl_event_statuses WHERE label='upcoming'");
-        $this->db->beginTransaction();
-        try {
-            $insert = $this->db->prepare(
-                'INSERT INTO tbl_events
-                 (title,description,location,audience_type,poster_path,is_featured,featured_order,featured_until,start_at,end_at,event_type_id,event_status_id,created_by,created_at,updated_at,deleted_at)
-                 VALUES (?,?,?,?,NULL,0,NULL,NULL,?,?,?,?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP,NULL)'
-            );
-            $insert->execute([
-                $title,
-                $source['description'],
-                $source['location'],
-                $source['audience_type'],
-                $source['start_at'],
-                $source['end_at'],
-                $source['event_type_id'],
-                $upcoming,
-                $actorId,
-            ]);
-            $copyId = (int) $this->db->lastInsertId();
-
-            $copySchedule = $this->db->prepare(
-                'INSERT INTO tbl_event_attendance_schedules
-                 (event_id,schedule_date,attendance_session_mode_id,whole_day_in_time,whole_day_in_close_time,whole_day_out_open_time,whole_day_out_time,morning_in_time,morning_in_close_time,morning_out_open_time,morning_out_time,afternoon_in_time,afternoon_in_close_time,afternoon_out_open_time,afternoon_out_time,created_at,updated_at)
-                 SELECT ?,schedule_date,attendance_session_mode_id,whole_day_in_time,whole_day_in_close_time,whole_day_out_open_time,whole_day_out_time,morning_in_time,morning_in_close_time,morning_out_open_time,morning_out_time,afternoon_in_time,afternoon_in_close_time,afternoon_out_open_time,afternoon_out_time,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP
-                 FROM tbl_event_attendance_schedules WHERE event_id=?'
-            );
-            $copySchedule->execute([$copyId, $id]);
-
-            foreach ([
-                ['tbl_event_user', 'user_id'],
-                ['tbl_event_team', 'team_id'],
-                ['tbl_event_year_level', 'year_level_id'],
-                ['tbl_event_participants', 'user_id'],
-            ] as [$table, $column]) {
-                $copyPivot = $this->db->prepare(
-                    "INSERT INTO $table (event_id,$column,created_at,updated_at)
-                     SELECT ?,$column,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP FROM $table WHERE event_id=?"
-                );
-                $copyPivot->execute([$copyId, $id]);
-            }
-
-            $this->log($actorId, $copyId, 'event_duplicated', $source['title'].' was duplicated as '.$title.'.');
-            $this->db->commit();
-            return $copyId;
-        } catch (Throwable $exception) {
-            $this->db->rollBack();
-            throw $exception;
-        }
     }
 
     public function restore(int $id, int $actorId): void
@@ -914,9 +857,6 @@ try {
         case 'archive':
             $repository->archive((int) ($input['id'] ?? 0), $actorId);
             JsonResponse::send(['success' => true, 'message' => 'Event archived successfully.']);
-        case 'duplicate':
-            $id = $repository->duplicate((int) ($input['id'] ?? 0), $actorId);
-            JsonResponse::send(['success' => true, 'id' => $id, 'message' => 'Event duplicated successfully.']);
         case 'restore':
             $repository->restore((int) ($input['id'] ?? 0), $actorId);
             JsonResponse::send(['success' => true, 'message' => 'Event restored successfully.']);

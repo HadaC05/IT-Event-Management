@@ -5,6 +5,7 @@ window.SharedNavigation.ready.then(() => {
   const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
   const filters = $("[data-leaderboard-filters]");
   const standings = $("[data-standings]");
+  const PAGE_SIZE = 10;
   const initial = Object.fromEntries(new URLSearchParams(location.search));
   const state = {
     values: {
@@ -15,6 +16,8 @@ window.SharedNavigation.ready.then(() => {
     },
     debounce: 0,
     requestId: 0,
+    page: 1,
+    data: null,
   };
 
   const escapeHtml = (value) => String(value ?? "").replace(
@@ -145,8 +148,12 @@ window.SharedNavigation.ready.then(() => {
       standings.innerHTML = emptyState(data);
       return;
     }
-    const rows = data.rankings.map((team) => `<tr class="transition hover:bg-[#397565]/[.025]"><td class="px-6 py-4"><span class="text-base font-black ${team.rank <= 3 ? "text-[#397565]" : "text-[#121017]/45"}">${team.rank}</span></td><td class="px-3 py-4"><div class="flex items-center gap-3"><i class="h-3 w-3 rounded-full ring-4 ring-[#121017]/5" style="background:${escapeHtml(team.color)}"></i><span><strong class="block text-sm">${escapeHtml(team.name)}</strong><small class="text-[10px] text-[#121017]/38">${escapeHtml(team.school_year_label || "School year not set")}</small></span></div></td><td class="px-3 py-4 text-xs font-bold text-[#121017]/55">${team.scored_events_count} ${team.scored_events_count === 1 ? "event" : "events"}</td><td class="px-3 py-4 text-xs text-[#121017]/45">${formatDate(team.last_scored_at)}</td><td class="px-6 py-4 text-right"><strong class="text-lg font-black text-[#397565]">${formatPoints(team.total_score)}</strong><small class="ml-1 text-[10px] font-bold text-[#121017]/30">pts</small></td></tr>`).join("");
-    standings.innerHTML = `<div class="overflow-x-auto"><table class="w-full min-w-[700px] border-collapse text-left"><thead class="bg-[#F3F0E9]/55 text-[9px] font-black uppercase tracking-[.14em] text-[#121017]/38"><tr><th class="w-20 px-6 py-3.5">#</th><th class="px-3 py-3.5">Tribe</th><th class="px-3 py-3.5">Events</th><th class="px-3 py-3.5">Last scored</th><th class="px-6 py-3.5 text-right">Points</th></tr></thead><tbody class="divide-y divide-[#121017]/7">${rows}</tbody></table></div>`;
+    const lastPage = Math.ceil(data.rankings.length / PAGE_SIZE);
+    state.page = Math.min(Math.max(1, state.page), lastPage);
+    const start = (state.page - 1) * PAGE_SIZE;
+    const rows = data.rankings.slice(start, start + PAGE_SIZE).map((team) => `<tr class="transition hover:bg-[#397565]/[.025]"><td class="px-6 py-4"><span class="text-base font-black ${team.rank <= 3 ? "text-[#397565]" : "text-[#121017]/45"}">${team.rank}</span></td><td class="px-3 py-4"><div class="flex items-center gap-3"><i class="h-3 w-3 rounded-full ring-4 ring-[#121017]/5" style="background:${escapeHtml(team.color)}"></i><span><strong class="block text-sm">${escapeHtml(team.name)}</strong><small class="text-[10px] text-[#121017]/38">${escapeHtml(team.school_year_label || "School year not set")}</small></span></div></td><td class="px-3 py-4 text-xs font-bold text-[#121017]/55">${team.scored_events_count} ${team.scored_events_count === 1 ? "event" : "events"}</td><td class="px-3 py-4 text-xs text-[#121017]/45">${formatDate(team.last_scored_at)}</td><td class="px-6 py-4 text-right"><strong class="text-lg font-black text-[#397565]">${formatPoints(team.total_score)}</strong><small class="ml-1 text-[10px] font-bold text-[#121017]/30">pts</small></td></tr>`).join("");
+    const pager = lastPage > 1 ? `<nav class="flex flex-wrap items-center justify-between gap-3 border-t border-[#121017]/8 px-4 py-3 text-xs" aria-label="Standings pages"><span>Showing ${start + 1}–${Math.min(start + PAGE_SIZE, data.rankings.length)} of ${data.rankings.length}</span><span class="flex items-center gap-2"><button class="min-h-10 rounded-lg border px-3 font-bold disabled:opacity-30" type="button" data-standings-page="${state.page - 1}" ${state.page === 1 ? "disabled" : ""}>Previous</button><b>${state.page} / ${lastPage}</b><button class="min-h-10 rounded-lg border px-3 font-bold disabled:opacity-30" type="button" data-standings-page="${state.page + 1}" ${state.page === lastPage ? "disabled" : ""}>Next</button></span></nav>` : "";
+    standings.innerHTML = `<div class="overflow-x-auto"><table class="w-full min-w-[700px] border-collapse text-left"><thead class="bg-[#F3F0E9]/55 text-[9px] font-black uppercase tracking-[.14em] text-[#121017]/38"><tr><th class="w-20 px-6 py-3.5">#</th><th class="px-3 py-3.5">Tribe</th><th class="px-3 py-3.5">Events</th><th class="px-3 py-3.5">Last scored</th><th class="px-6 py-3.5 text-right">Points</th></tr></thead><tbody class="divide-y divide-[#121017]/7">${rows}</tbody></table></div>${pager}`;
   }
 
   async function load() {
@@ -158,6 +165,7 @@ window.SharedNavigation.ready.then(() => {
       const response = await axios.get("api/leaderboard.php", { params: state.values });
       if (requestId !== state.requestId) return;
       const data = response.data.data;
+      state.data = data;
       fillOptions(data);
       renderCompactSummary(data.summary);
       renderTop(data);
@@ -177,12 +185,14 @@ window.SharedNavigation.ready.then(() => {
     event.preventDefault();
     clearTimeout(state.debounce);
     state.values.search = filters.search.value.trim();
+    state.page = 1;
     load();
   });
   ["event_id", "school_year_id", "category_id"].forEach((name) => filters[name].addEventListener("change", () => {
     clearTimeout(state.debounce);
     state.values.search = filters.search.value.trim();
     state.values[name] = filters[name].value;
+    state.page = 1;
     if (name === "event_id") state.values.category_id = "";
     load();
   }));
@@ -190,16 +200,25 @@ window.SharedNavigation.ready.then(() => {
     clearTimeout(state.debounce);
     state.debounce = setTimeout(() => {
       state.values.search = filters.search.value.trim();
+      state.page = 1;
       load();
     }, 320);
   });
   $("[data-clear-filters]").addEventListener("click", () => {
     state.values = { event_id: "", school_year_id: "", category_id: "", search: "" };
+    state.page = 1;
     load();
   });
   standings.addEventListener("click", (event) => {
+    const pageButton = event.target.closest("[data-standings-page]");
+    if (pageButton && state.data) {
+      state.page = Number(pageButton.dataset.standingsPage);
+      renderStandings(state.data);
+      return;
+    }
     if (event.target.closest("[data-empty-clear]")) {
       state.values = { event_id: "", school_year_id: "", category_id: "", search: "" };
+      state.page = 1;
       load();
     }
   });

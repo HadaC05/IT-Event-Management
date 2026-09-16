@@ -3,12 +3,13 @@ window.SharedNavigation.ready.then(() => {
   let csrf = "",
     data = null,
     dirty = false,
-    submitting = false;
+    submitting = false,
+    rosterRequest = 0;
   const $ = (s) => document.querySelector(s),
     form = $("[data-attendance-form]"),
     filters = $("[data-roster-filters]"),
     rows = $("[data-roster-rows]"),
-    pagination = $("[data-pagination]");
+    paginations = [...document.querySelectorAll("[data-pagination]")];
   const escapeHtml = (v) =>
     String(v ?? "").replace(
       /[&<>'"]/g,
@@ -194,20 +195,11 @@ window.SharedNavigation.ready.then(() => {
 
   function renderSummary(counts = data.counts) {
     const recorded = Object.values(counts).reduce((n, v) => n + Number(v), 0),
-      expected = data.summary.expected,
-      attended = Number(counts.present) + Number(counts.late),
-      completion = expected
-        ? Math.min(100, Math.round((recorded / expected) * 1000) / 10)
-        : null,
-      rate = recorded ? Math.round((attended / recorded) * 1000) / 10 : null;
+      expected = data.summary.expected;
     $("[data-recorded]").textContent = recorded;
     $("[data-expected]").textContent = expected;
-    $("[data-completion]").textContent =
-      completion === null ? "—" : `${completion}%`;
-    $("[data-completion-bar]").style.width = `${completion ?? 0}%`;
     $("[data-unrecorded]").textContent =
-      `${Math.max(0, expected - recorded)} awaiting status`;
-    $("[data-rate]").textContent = rate === null ? "—" : `${rate}%`;
+      Math.max(0, expected - recorded);
     Object.entries(counts).forEach(
       ([status, count]) => ($(`[data-count="${status}"]`).textContent = count),
     );
@@ -232,9 +224,7 @@ window.SharedNavigation.ready.then(() => {
       ],
       styles = {
         present: ["border-[#397565]/25", "bg-[#397565]/8", "text-[#397565]"],
-        late: ["border-[#FF6B2C]/25", "bg-[#FF6B2C]/8", "text-[#b94312]"],
         absent: ["border-red-300/60", "bg-red-50", "text-red-700"],
-        excused: ["border-[#2F3AE0]/20", "bg-[#2F3AE0]/5", "text-[#2F3AE0]"],
         "": ["border-[#121017]/10", "bg-white", "text-[#121017]/55"],
       };
     select.classList.remove(...all);
@@ -260,7 +250,7 @@ window.SharedNavigation.ready.then(() => {
         tr = document.createElement("tr");
       tr.className =
         "grid grid-cols-2 gap-x-4 gap-y-4 px-5 py-5 transition hover:bg-[#397565]/[.035] sm:table-row sm:px-0 sm:py-0";
-      tr.innerHTML = `<td class="col-span-2 block p-0 sm:table-cell sm:px-6 sm:py-3.5"><div class="flex items-center gap-3"><span class="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[#121017] text-[9px] font-black text-[#F3F0E9]">${escapeHtml(person.first_name[0] + person.last_name[0])}</span><span class="grid min-w-0"><strong class="truncate text-xs font-black text-[#121017]">${escapeHtml(person.full_name)}</strong><small class="mt-0.5 text-[9px] font-semibold text-[#121017]/38">${escapeHtml(person.id_number || "No student ID")}${person.is_expected ? "" : " · Historical record"}</small></span></div></td><td class="block p-0 sm:table-cell sm:px-4 sm:py-3.5"><span class="mb-1.5 block text-[8px] font-black uppercase tracking-[.13em] text-[#121017]/30 sm:hidden">Tribe / Year</span><span class="block max-w-52 truncate text-[10px] font-bold text-[#121017]/65">${escapeHtml(person.team_names || "No tribe")}</span><small class="mt-0.5 block text-[9px] font-semibold text-[#121017]/35">${escapeHtml(person.year_level_label || "Year level not set")}</small></td><td class="block p-0 sm:table-cell sm:px-4 sm:py-3.5"><span class="mb-1.5 block text-[8px] font-black uppercase tracking-[.13em] text-[#121017]/30 sm:hidden">Status</span><label class="relative block w-full sm:max-w-48"><span class="pointer-events-none absolute left-3 top-1/2 h-1.5 w-1.5 -translate-y-1/2 rounded-full bg-current"></span><select class="h-10 w-full appearance-none rounded-xl border py-0 pl-7 pr-8 text-[10px] font-black outline-none transition focus:ring-4 focus:ring-[#397565]/10" data-status data-user-id="${person.id}" data-original="${status}" data-checked-in="${escapeHtml(person.checked_in_at || "")}"><option value="">Not recorded</option><option value="present">Present</option><option value="late">Late</option><option value="absent">Absent</option><option value="excused">Excused</option></select><svg class="pointer-events-none absolute right-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 fill-none stroke-current stroke-2" viewBox="0 0 24 24"><path d="m7 10 5 5 5-5"/></svg></label></td><td class="col-span-2 block border-t border-[#121017]/6 pt-3 text-[10px] font-semibold text-[#121017]/38 sm:table-cell sm:border-0 sm:px-6 sm:py-3.5"><span class="mr-2 text-[8px] font-black uppercase tracking-[.13em] text-[#121017]/30 sm:hidden">Check-in</span><span data-check-in>${checkedAt(person.checked_in_at)}</span></td>`;
+      tr.innerHTML = `<td class="col-span-2 block p-0 sm:table-cell sm:px-6 sm:py-3.5"><div class="flex items-center gap-3"><span class="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[#121017] text-[9px] font-black text-[#F3F0E9]">${escapeHtml(person.first_name[0] + person.last_name[0])}</span><span class="grid min-w-0"><strong class="truncate text-xs font-black text-[#121017]">${escapeHtml(person.full_name)}</strong><small class="mt-0.5 text-[9px] font-semibold text-[#121017]/38">${escapeHtml(person.id_number || "No student ID")}${person.is_expected ? "" : " · Historical record"}</small></span></div></td><td class="block p-0 sm:table-cell sm:px-4 sm:py-3.5"><span class="mb-1.5 block text-[8px] font-black uppercase tracking-[.13em] text-[#121017]/30 sm:hidden">Tribe / Year</span><span class="block max-w-52 truncate text-[10px] font-bold text-[#121017]/65">${escapeHtml(person.team_names || "No tribe")}</span><small class="mt-0.5 block text-[9px] font-semibold text-[#121017]/35">${escapeHtml(person.year_level_label || "Year level not set")}</small></td><td class="block p-0 sm:table-cell sm:px-4 sm:py-3.5"><span class="mb-1.5 block text-[8px] font-black uppercase tracking-[.13em] text-[#121017]/30 sm:hidden">Status</span><label class="relative block w-full sm:max-w-48"><span class="pointer-events-none absolute left-3 top-1/2 h-1.5 w-1.5 -translate-y-1/2 rounded-full bg-current"></span><select class="h-10 w-full appearance-none rounded-xl border py-0 pl-7 pr-8 text-[10px] font-black outline-none transition focus:ring-4 focus:ring-[#397565]/10" data-status data-user-id="${person.id}" data-original="${status}" data-checked-in="${escapeHtml(person.checked_in_at || "")}"><option value="">Not recorded</option><option value="present">Present</option><option value="absent">Absent</option></select><svg class="pointer-events-none absolute right-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 fill-none stroke-current stroke-2" viewBox="0 0 24 24"><path d="m7 10 5 5 5-5"/></svg></label></td><td class="col-span-2 block border-t border-[#121017]/6 pt-3 text-[10px] font-semibold text-[#121017]/38 sm:table-cell sm:border-0 sm:px-6 sm:py-3.5"><span class="mr-2 text-[8px] font-black uppercase tracking-[.13em] text-[#121017]/30 sm:hidden">Check-in</span><span data-check-in>${checkedAt(person.checked_in_at)}</span></td>`;
       const select = tr.querySelector("[data-status]");
       select.value = status;
       tone(select);
@@ -272,32 +262,37 @@ window.SharedNavigation.ready.then(() => {
   }
 
   function renderPagination() {
-    pagination.replaceChildren();
     const meta = data.pagination;
-    pagination.classList.toggle("hidden", meta.last_page <= 1);
-    if (meta.last_page <= 1) return;
-    pagination.classList.add("flex");
-    const info = document.createElement("small");
-    info.className = "font-semibold text-[#121017]/35";
-    info.textContent = `Showing ${meta.from}–${meta.to} of ${meta.total}`;
-    const buttons = document.createElement("div");
-    buttons.className = "flex gap-2";
-    [
-      ["Previous", meta.current_page - 1, meta.current_page === 1],
-      ["Next", meta.current_page + 1, meta.current_page === meta.last_page],
-    ].forEach(([label, page, disabled]) => {
-      const a = document.createElement("a");
-      a.textContent = label;
-      a.href = disabled ? "#" : pageUrl({ page });
-      a.className = `rounded-lg border px-3 py-2 ${disabled ? "pointer-events-none border-[#121017]/6 text-[#121017]/20" : "border-[#121017]/10 font-black text-[#397565]"}`;
-      a.onclick = async (e) => {
-        if (!dirty) return;
-        e.preventDefault();
-        if (await confirmLeave()) location.assign(a.href);
-      };
-      buttons.append(a);
+    paginations.forEach(pagination => {
+      pagination.replaceChildren();
+      pagination.classList.toggle("hidden", meta.last_page <= 1);
+      if (meta.last_page <= 1) return;
+      pagination.classList.add("flex");
+      const info = document.createElement("small");
+      info.className = "font-semibold text-[#121017]/50";
+      info.textContent = `Page ${meta.current_page} of ${meta.last_page} · ${meta.from}–${meta.to} of ${meta.total}`;
+      const buttons = document.createElement("div");
+      buttons.className = "flex gap-2";
+      [
+        ["Previous", meta.current_page - 1, meta.current_page === 1],
+        ["Next", meta.current_page + 1, meta.current_page === meta.last_page],
+      ].forEach(([label, page, disabled]) => {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.textContent = label;
+        button.disabled = disabled;
+        button.className = "min-h-10 rounded-lg border border-[#121017]/10 px-3 py-2 font-black text-[#397565] disabled:opacity-30";
+        button.onclick = async () => {
+          if (!(await confirmLeave())) return;
+          const previousUrl = location.href;
+          history.replaceState(null, "", pageUrl({ page }));
+          if (!(await load())) { history.replaceState(null, "", previousUrl); return; }
+          $("#student-roster-heading").scrollIntoView({ behavior: "smooth", block: "start" });
+        };
+        buttons.append(button);
+      });
+      pagination.append(info, buttons);
     });
-    pagination.append(info, buttons);
   }
   function refresh() {
     const counts = { ...data.counts },
@@ -315,7 +310,7 @@ window.SharedNavigation.ready.then(() => {
       select.closest("tr").querySelector("[data-check-in]").textContent =
         original === current
           ? checkedAt(select.dataset.checkedIn)
-          : ["present", "late"].includes(current)
+          : current === "present"
             ? "Set when saved"
             : "—";
     });
@@ -329,18 +324,23 @@ window.SharedNavigation.ready.then(() => {
       location.replace("pages/adviser/attendance.html");
       return;
     }
+    const requestId = ++rosterRequest;
     try {
       const response = await axios.get("api/attendance.php", {
         params: { ...params(), event_id: eventId },
       });
+      if (requestId !== rosterRequest) return;
       data = response.data.data;
       filters.search.value = params().search || "";
       filters.status.value = params().status || "";
+      $("[data-roster-filter-details]").open = Boolean(params().search || params().status);
       $("[data-attendance-date]").value = data.attendance_date;
       renderHeader();
       renderSummary();
       renderRows();
+      return true;
     } catch (error) {
+      if (requestId !== rosterRequest) return;
       window.Notifications?.error?.(
         error.response?.data?.message ||
           "Attendance roster could not be loaded.",
@@ -350,6 +350,7 @@ window.SharedNavigation.ready.then(() => {
           () => location.replace("pages/adviser/attendance.html"),
           700,
         );
+      return false;
     }
   }
   filters.onsubmit = async (e) => {
@@ -404,7 +405,7 @@ window.SharedNavigation.ready.then(() => {
         { headers: { "X-CSRF-Token": csrf } },
       );
       dirty = false;
-      window.Notifications?.success?.(response.data.message);
+      window.Notifications?.flashNext?.(response.data.message || "Attendance saved successfully.");
       setTimeout(() => location.reload(), 450);
     } catch (error) {
       submitting = false;

@@ -20,7 +20,7 @@ final class UserManagementRepository
         $role = trim((string) ($filters['role'] ?? ''));
         $status = trim((string) ($filters['status'] ?? ''));
         $page = max(1, (int) ($filters['page'] ?? 1));
-        $perPage = 10;
+        $perPage = PageSize::from($filters, 10);
 
         if (mb_strlen($search) > 100) {
             throw new InvalidArgumentException('Search may not exceed 100 characters.');

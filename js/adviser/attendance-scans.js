@@ -4,6 +4,7 @@ window.SharedNavigation.ready.then(() => {
   const mapCanvas=document.querySelector('[data-latest-map-canvas]'),mapEmpty=document.querySelector('[data-latest-map-empty]');
   const mapEmptyMessage=document.querySelector('[data-latest-map-empty-message]'),mapDetails=document.querySelector('[data-latest-map-details]');
   const mapUpdated=document.querySelector('[data-latest-map-updated]');
+  const scanDetails=document.querySelector('[data-scan-details]');
   const mapReset=document.querySelector('[data-map-reset]');
   const esc=value=>String(value??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
   const when=value=>new Intl.DateTimeFormat('en-PH',{dateStyle:'medium',timeStyle:'short'}).format(new Date(String(value).replace(' ','T')));
@@ -21,6 +22,9 @@ window.SharedNavigation.ready.then(() => {
   const officerMarkers=new Map();
   const eventBoundaries=new Map();
   const scanMap=L.map(mapCanvas,{zoomControl:true}).setView([8.4702,124.6344],16);
+  scanDetails?.addEventListener('toggle',event=>{
+    if(event.target.open){requestAnimationFrame(()=>scanMap.invalidateSize());load();}
+  });
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
     maxZoom:19,
     attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
@@ -245,7 +249,7 @@ window.SharedNavigation.ready.then(() => {
       renderPagination(response.data.data.pagination);
     }catch(error){if(id===request)list.textContent=error.response?.data?.message||'Scan locations could not be loaded.';}
   }
-  const schedulePoll=()=>{clearInterval(pollTimer);pollTimer=setInterval(()=>{if(!document.hidden)load();},5000);};
+  const schedulePoll=()=>{clearInterval(pollTimer);pollTimer=setInterval(()=>{if(!document.hidden&&scanDetails?.open)load();},5000);};
   form.addEventListener('change',event=>{if(event.target===dateInput||event.target===form.elements.event_type_id)syncEventOptions();if(event.target.name!=='page')form.elements.page.value='1';load();});
   document.querySelector('[data-date-previous]').addEventListener('click',()=>shiftDate(-1));
   document.querySelector('[data-date-next]').addEventListener('click',()=>shiftDate(1));
@@ -269,7 +273,7 @@ window.SharedNavigation.ready.then(() => {
     load();
     list.scrollIntoView({behavior:'smooth',block:'start'});
   });
-  document.addEventListener('visibilitychange',()=>{if(!document.hidden)load();});
+  document.addEventListener('visibilitychange',()=>{if(!document.hidden&&scanDetails?.open)load();});
   addEventListener('beforeunload',()=>clearInterval(pollTimer));
-  load();schedulePoll();
+  schedulePoll();
 });

@@ -180,6 +180,18 @@ body > main textarea:focus-visible,
   line-height: 1.35;
 }
 
+.sbo-modal-result[data-state="success"] {
+  background: #e8f4ed;
+  border: 1px solid #397565;
+  color: #245d4f;
+}
+
+.sbo-modal-result[data-state="error"] {
+  background: #fff1e9;
+  border: 1px solid #d64a12;
+  color: #a33b0e;
+}
+
 [data-filters] {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }

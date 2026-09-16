@@ -8,6 +8,10 @@ window.SharedNavigation.ready.then(() => {
   const eventId = Number(new URLSearchParams(location.search).get("event_id"));
   const criteriaSection = $("[data-criteria-section]");
   const matrixSection = $("[data-matrix-section]");
+  const PAGE_SIZE = 10;
+  let criteriaPage = 1;
+  let matrixPage = 1;
+  let matrixSearch = "";
   let csrfToken = "";
   let state = null;
   const escapeHtml = (value) =>
@@ -223,13 +227,17 @@ window.SharedNavigation.ready.then(() => {
     if (!state.categories.length) {
       criteriaSection.innerHTML = `<div class="grid overflow-hidden rounded-2xl border border-[#121017]/10 bg-white/70 lg:grid-cols-[minmax(0,.8fr)_minmax(420px,1.2fr)]"><div class="border-b border-[#121017]/8 p-6 sm:p-8 lg:border-b-0 lg:border-r"><p class="text-[10px] font-black uppercase tracking-[.16em] text-[#FF6B2C]">Start here</p><h2 class="mt-3 text-2xl font-black">Define how this event is judged.</h2><p class="mt-3 text-sm leading-6 text-[#121017]/55">Add the first criterion and its highest possible score. You can add more criteria before entering tribe results.</p><p class="mt-5 text-[10px] font-bold text-[#397565]">Examples: Performance, Creativity, Sportsmanship</p></div><form class="p-6 sm:p-8" data-create-category><div class="grid gap-4 sm:grid-cols-[minmax(0,1fr)_150px]">${categoryFields()}</div><button class="mt-5 min-h-12 w-full rounded-xl bg-[#397565] px-5 text-sm font-black text-white" type="submit">Add First Criterion →</button></form></div>`;
     } else {
-      const rows = state.categories
+      const lastPage = Math.ceil(state.categories.length / PAGE_SIZE);
+      criteriaPage = Math.min(Math.max(1, criteriaPage), lastPage);
+      const start = (criteriaPage - 1) * PAGE_SIZE;
+      const rows = state.categories.slice(start, start + PAGE_SIZE)
         .map(
           (category, index) =>
-            `<tr><td class="px-6 py-3.5"><div class="flex items-center gap-3"><span class="grid h-7 w-7 place-items-center rounded-lg bg-[#397565]/10 text-[10px] font-black text-[#397565]">${index + 1}</span><strong class="text-sm">${escapeHtml(category.name)}</strong></div></td><td class="px-4 py-3.5 text-xs font-black">${formatScore(category.max_points)} <span class="font-semibold text-[#121017]/35">pts</span></td><td class="px-4 py-3.5 text-[10px] font-bold text-[#121017]/50">● ${category.scores_count} ${category.scores_count === 1 ? "entry" : "entries"}</td><td class="px-6 py-3.5"><div class="flex justify-end gap-2"><button class="min-h-10 rounded-xl border border-[#2F3AE0]/25 bg-[#2F3AE0]/8 px-4 text-xs font-black text-[#2F3AE0]" type="button" data-edit-category="${category.id}">Edit</button><button class="min-h-10 rounded-xl border border-[#FF6B2C]/25 bg-[#FF6B2C]/10 px-4 text-xs font-black text-[#d9470a]" type="button" data-delete-category="${category.id}">Remove</button></div></td></tr>`,
+            `<tr><td class="px-6 py-3.5"><div class="flex items-center gap-3"><span class="grid h-7 w-7 place-items-center rounded-lg bg-[#397565]/10 text-[10px] font-black text-[#397565]">${start + index + 1}</span><strong class="text-sm">${escapeHtml(category.name)}</strong></div></td><td class="px-4 py-3.5 text-xs font-black">${formatScore(category.max_points)} <span class="font-semibold text-[#121017]/35">pts</span></td><td class="px-4 py-3.5 text-[10px] font-bold text-[#121017]/50">● ${category.scores_count} ${category.scores_count === 1 ? "entry" : "entries"}</td><td class="px-6 py-3.5"><div class="flex justify-end gap-2"><button class="min-h-10 rounded-xl border border-[#2F3AE0]/25 bg-[#2F3AE0]/8 px-4 text-xs font-black text-[#2F3AE0]" type="button" data-edit-category="${category.id}">Edit</button><button class="min-h-10 rounded-xl border border-[#FF6B2C]/25 bg-[#FF6B2C]/10 px-4 text-xs font-black text-[#d9470a]" type="button" data-delete-category="${category.id}">Remove</button></div></td></tr>`,
         )
         .join("");
-      criteriaSection.innerHTML = `<div class="overflow-hidden rounded-2xl border border-[#121017]/10 bg-white/70"><header class="flex items-end justify-between border-b px-6 py-5"><div><p class="text-[10px] font-black uppercase tracking-[.16em] text-[#397565]">Scoring rules</p><h2 class="mt-1 text-xl font-black">${state.categories.length} configured ${state.categories.length === 1 ? "criterion" : "criteria"}</h2></div><p class="text-[10px] font-bold text-[#121017]/40">${formatScore(state.summary.maximum)} maximum points per tribe</p></header><div class="overflow-x-auto"><table class="w-full min-w-[620px]"><thead class="bg-[#121017]/[.025] text-left text-[9px] font-black uppercase text-[#121017]/40"><tr><th class="px-6 py-3">Criterion</th><th class="px-4 py-3">Maximum</th><th class="px-4 py-3">Recorded</th><th class="px-6 py-3 text-right">Actions</th></tr></thead><tbody class="divide-y">${rows}</tbody></table></div><form class="grid gap-3 border-t bg-[#121017]/[.025] p-4 sm:grid-cols-[minmax(220px,1fr)_150px_auto]" data-create-category>${categoryFields()}<button class="min-h-11 rounded-xl bg-[#397565] px-5 text-xs font-black text-white" type="submit">+ Add Criterion</button></form></div>`;
+      const pager = lastPage > 1 ? `<nav class="flex flex-wrap items-center justify-between gap-3 border-t px-4 py-3 text-xs" aria-label="Criterion pages"><span>Showing ${start + 1}–${Math.min(start + PAGE_SIZE, state.categories.length)} of ${state.categories.length}</span><span class="flex items-center gap-2"><button class="min-h-10 rounded-lg border px-3 font-bold disabled:opacity-30" type="button" data-criteria-page="${criteriaPage - 1}" ${criteriaPage === 1 ? "disabled" : ""}>Previous</button><b>${criteriaPage} / ${lastPage}</b><button class="min-h-10 rounded-lg border px-3 font-bold disabled:opacity-30" type="button" data-criteria-page="${criteriaPage + 1}" ${criteriaPage === lastPage ? "disabled" : ""}>Next</button></span></nav>` : "";
+      criteriaSection.innerHTML = `<div class="overflow-hidden rounded-2xl border border-[#121017]/10 bg-white/70"><header class="flex items-end justify-between border-b px-6 py-5"><div><p class="text-[10px] font-black uppercase tracking-[.16em] text-[#397565]">Scoring rules</p><h2 class="mt-1 text-xl font-black">${state.categories.length} configured ${state.categories.length === 1 ? "criterion" : "criteria"}</h2></div><p class="text-[10px] font-bold text-[#121017]/40">${formatScore(state.summary.maximum)} maximum points per tribe</p></header><div class="overflow-x-auto"><table class="w-full min-w-[620px]"><thead class="bg-[#121017]/[.025] text-left text-[9px] font-black uppercase text-[#121017]/40"><tr><th class="px-6 py-3">Criterion</th><th class="px-4 py-3">Maximum</th><th class="px-4 py-3">Recorded</th><th class="px-6 py-3 text-right">Actions</th></tr></thead><tbody class="divide-y">${rows}</tbody></table></div>${pager}<form class="grid gap-3 border-t bg-[#121017]/[.025] p-4 sm:grid-cols-[minmax(220px,1fr)_150px_auto]" data-create-category>${categoryFields()}<button class="min-h-11 rounded-xl bg-[#397565] px-5 text-xs font-black text-white" type="submit">+ Add Criterion</button></form></div>`;
     }
     const form = $("[data-create-category]");
     if (form) bindCategoryForm(form, "category-create");
@@ -241,6 +249,21 @@ window.SharedNavigation.ready.then(() => {
         removeCategory(Number(button.dataset.deleteCategory));
     });
   }
+
+  criteriaSection.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-criteria-page]");
+    if (!button) return;
+    const draft = $("[data-create-category]");
+    const draftName = draft?.elements.name.value || "";
+    const draftMaximum = draft?.elements.max_points.value || "";
+    criteriaPage = Number(button.dataset.criteriaPage);
+    renderCriteria();
+    const restored = $("[data-create-category]");
+    if (restored) {
+      restored.elements.name.value = draftName;
+      restored.elements.max_points.value = draftMaximum;
+    }
+  });
 
   function openEdit(categoryId) {
     const category = state.categories.find((item) => item.id === categoryId);
@@ -306,6 +329,7 @@ window.SharedNavigation.ready.then(() => {
       })
       .join("");
     matrixSection.innerHTML = `<div class="overflow-hidden rounded-2xl border border-[#121017]/10 bg-white/80 shadow-[0_18px_55px_rgba(18,16,23,.06)]"><header class="border-b px-5 py-5 sm:px-6"><div class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between"><div><p class="text-[10px] font-black uppercase tracking-[.16em] text-[#397565]">Main workspace</p><h2 class="mt-1 text-xl font-black">Tribe Score Matrix</h2><p class="mt-1 text-xs text-[#121017]/45">Enter awarded points below. Blank fields remain unjudged.</p></div><div class="flex gap-2"><p class="inline-flex min-h-10 items-center rounded-xl bg-[#C6F24E]/25 px-3 text-[10px] font-black text-[#397565]" data-save-state>● All changes saved</p><input class="h-10 rounded-xl border bg-[#F3F0E9]/55 px-3 text-xs" type="search" placeholder="Find a tribe…" data-team-search /></div></div></header><form data-score-form><div class="max-h-[62vh] overflow-auto"><table class="w-full border-collapse" style="min-width:${470 + state.categories.length * 154}px"><thead class="sticky top-0 z-20 bg-[#F3F0E9] text-left text-[9px] font-black uppercase text-[#121017]/40"><tr><th class="sticky left-0 z-30 min-w-60 bg-[#F3F0E9] px-6 py-3.5">Rank / Tribe</th>${heads}<th class="min-w-28 px-6 text-right">Total</th></tr></thead><tbody class="divide-y" data-score-body>${rows}<tr class="hidden" data-no-team-results><td class="px-6 py-10 text-center" colspan="${state.categories.length + 2}">No tribes match your search.</td></tr></tbody></table></div><footer class="sticky bottom-0 flex items-center justify-between border-t bg-white/95 px-6 py-4"><div><p class="text-xs font-bold text-[#121017]/45"><strong data-change-count>0</strong> unsaved changes</p><p class="text-[9px] text-[#121017]/35">Maximum ${formatScore(state.summary.maximum)} points per tribe</p></div><div class="flex gap-2"><button class="min-h-11 rounded-xl border px-4 text-xs font-black" type="button" data-reset>Reset</button><button class="min-h-11 rounded-xl bg-[#2F3AE0] px-6 text-xs font-black text-white disabled:bg-[#121017]/15" type="submit" data-save-scores disabled>Save Scores</button></div></footer></form></div>`;
+    $("[data-score-form] > div").insertAdjacentHTML("afterend", '<nav class="flex flex-wrap items-center justify-between gap-3 border-t px-4 py-3 text-xs sm:px-6" data-matrix-pagination aria-label="Score matrix pages"></nav>');
     bindMatrix();
   }
 
@@ -360,17 +384,37 @@ window.SharedNavigation.ready.then(() => {
       $("[data-completion-bar]").style.width = `${completion}%`;
     };
     inputs.forEach((input) => input.addEventListener("input", refresh));
-    $("[data-team-search]").oninput = (event) => {
-      let visible = 0;
-      rows.forEach((row) => {
-        const match = row.dataset.teamName.includes(
-          event.target.value.trim().toLowerCase(),
-        );
-        row.classList.toggle("hidden", !match);
-        if (match) visible++;
-      });
-      $("[data-no-team-results]").classList.toggle("hidden", Boolean(visible));
+    const pagination = $("[data-matrix-pagination]");
+    const applyPage = () => {
+      const matching = rows.filter((row) => row.dataset.teamName.includes(matrixSearch));
+      const lastPage = Math.max(1, Math.ceil(matching.length / PAGE_SIZE));
+      matrixPage = Math.min(Math.max(1, matrixPage), lastPage);
+      const start = (matrixPage - 1) * PAGE_SIZE;
+      const visible = new Set(matching.slice(start, start + PAGE_SIZE));
+      rows.forEach((row) => row.classList.toggle("hidden", !visible.has(row)));
+      $("[data-no-team-results]").classList.toggle("hidden", matching.length > 0);
+      pagination.classList.toggle("hidden", lastPage <= 1);
+      pagination.innerHTML = lastPage <= 1 ? "" : `<span>Showing ${start + 1}–${Math.min(start + PAGE_SIZE, matching.length)} of ${matching.length} tribes${matrixSearch ? " matching search" : ""}</span><span class="flex items-center gap-2"><button class="min-h-10 rounded-lg border px-3 font-bold disabled:opacity-30" type="button" data-matrix-page="${matrixPage - 1}" ${matrixPage === 1 ? "disabled" : ""}>Previous</button><b>${matrixPage} / ${lastPage}</b><button class="min-h-10 rounded-lg border px-3 font-bold disabled:opacity-30" type="button" data-matrix-page="${matrixPage + 1}" ${matrixPage === lastPage ? "disabled" : ""}>Next</button></span>`;
     };
+    $("[data-team-search]").value = matrixSearch;
+    $("[data-team-search]").oninput = (event) => {
+      matrixSearch = event.target.value.trim().toLowerCase();
+      matrixPage = 1;
+      applyPage();
+    };
+    pagination.onclick = (event) => {
+      const button = event.target.closest("[data-matrix-page]");
+      if (!button) return;
+      const invalid = inputs.find((input) => !input.validity.valid);
+      if (invalid) {
+        window.Notifications?.warning?.("Correct the invalid score before changing pages.");
+        invalid.focus();
+        return;
+      }
+      matrixPage = Number(button.dataset.matrixPage);
+      applyPage();
+    };
+    applyPage();
     $("[data-reset]").onclick = () => {
       inputs.forEach((input) => (input.value = input.dataset.originalScore));
       refresh();

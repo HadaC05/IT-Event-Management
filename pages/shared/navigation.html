@@ -28,18 +28,17 @@
         <img class="h-9 w-9 shrink-0 rounded-full object-contain" src="assets/images/cite-logo.png" alt="CITE logo">
         <span class="truncate">CITE<span class="text-[#397565]">.</span></span>
       </a>
-      <div class="ml-auto" data-shared-notification-slot></div>
-      <details class="group relative ml-auto shrink-0" data-shared-account-menu data-account-menu>
+      <div class="ml-auto shrink-0" data-shared-notification-slot></div>
+      <details class="group relative ml-2 shrink-0" data-shared-account-menu data-account-menu>
         <summary class="flex min-h-12 cursor-pointer list-none items-center gap-2.5 rounded-xl border border-transparent px-1.5 py-1 outline-none transition focus-visible:ring-4 focus-visible:ring-[#397565]/12">
           <span class="relative grid h-11 w-11 shrink-0 place-items-center rounded-full bg-[#C6F24E] text-xs font-black text-[#121017] ring-2 ring-[#397565]/12" data-shared-account-initials data-account-initials></span>
           <span class="hidden min-w-0 text-left sm:grid"><strong class="max-w-40 truncate text-sm font-black leading-tight text-[#121017]" data-shared-account-name></strong><small class="mt-1 max-w-40 truncate text-[9px] font-bold uppercase tracking-[.1em] text-[#397565]" data-shared-account-role></small></span>
           <svg class="h-4 w-4 shrink-0 fill-none stroke-current stroke-2 text-[#121017]/55 transition group-open:rotate-180" viewBox="0 0 24 24" aria-hidden="true"><path d="m7 10 5 5 5-5"></path></svg>
         </summary>
-        <div class="absolute right-0 top-[calc(100%+.6rem)] w-[min(16rem,calc(100vw-1rem))] overflow-hidden rounded-2xl border border-[#121017]/10 bg-white p-2 text-[#121017] shadow-[0_20px_55px_rgba(18,16,23,.16)]">
-          <div class="border-b border-[#121017]/8 px-3 py-3"><p class="text-[9px] font-black uppercase tracking-wider text-[#397565]" data-shared-account-heading></p><strong class="mt-1 block truncate text-sm" data-shared-account-menu-name></strong><span class="mt-1 block truncate text-xs text-[#121017]/45" data-shared-account-detail></span></div>
-          <a class="mt-2 flex min-h-10 items-center gap-3 rounded-xl px-3 text-xs font-bold text-[#121017]/65 hover:bg-[#397565]/8 hover:text-[#397565]" href="./"><svg class="h-4 w-4 shrink-0 fill-none stroke-current stroke-2" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11 12 3l9 8M5 10v10h14V10"></path></svg><span>View public homepage</span></a>
+        <div class="shared-navigation-account-panel absolute right-0 top-[calc(100%+.6rem)] overflow-hidden rounded-2xl border border-[#121017]/10 bg-white p-2 text-[#121017] shadow-[0_20px_55px_rgba(18,16,23,.16)]">
+          <div class="border-b border-[#121017]/8 px-3 py-3"><p class="text-[9px] font-black uppercase tracking-wider text-[#397565]" data-shared-account-heading></p><strong class="mt-1.5 block text-sm leading-5" data-shared-account-menu-name></strong><span class="mt-1 block text-xs leading-5 text-[#121017]/55" data-shared-account-detail></span></div>
           <form action="api/auth.php?action=logout" method="post" data-shared-logout-form data-logout-form>
-            <button class="flex min-h-10 w-full items-center gap-3 rounded-xl px-3 text-left text-xs font-bold text-[#FF6B2C] hover:bg-[#FF6B2C]/8" type="submit" data-shared-logout><svg class="h-4 w-4 shrink-0 fill-none stroke-current stroke-2" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4m7 14 5-5-5-5m5 5H9"></path></svg><span>Sign out</span></button>
+            <button class="mt-1 flex min-h-11 w-full items-center gap-3 rounded-xl px-3 text-left text-sm font-bold text-[#D64A12] transition hover:bg-[#FF6B2C]/8 focus-visible:outline-2 focus-visible:outline-[#D64A12]" type="submit" data-shared-logout><svg class="h-4 w-4 shrink-0 fill-none stroke-current stroke-2" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4m7 14 5-5-5-5m5 5H9"></path></svg><span>Sign out</span></button>
           </form>
         </div>
       </details>

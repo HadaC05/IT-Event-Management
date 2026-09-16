@@ -99,7 +99,7 @@ window.SharedNavigation.ready.then(() => {
             csrf: session.csrf,
             event,
             onSaved: (result) => {
-              toast("success", result.message);
+              window.Notifications?.flashNext?.(result.message || 'Event details updated successfully.');
               location.replace(
                 `pages/adviser/event-details.html?id=${result.id}`,
               );

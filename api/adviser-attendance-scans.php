@@ -10,6 +10,7 @@ final class AdviserAttendanceScanRepository {
         $pageRaw=trim((string)($filters['page']??'1'));
         if(!ctype_digit($pageRaw)||(int)$pageRaw<1)throw new InvalidArgumentException('Invalid page.');
         $page=(int)$pageRaw;
+        $perPage=PageSize::from($filters,self::PAGE_SIZE);
         $conditions=[];$values=[];
         $columns=['event_id'=>'atd.event_id','event_type_id'=>'e.event_type_id','schedule_date'=>'s.schedule_date','session'=>'ae.session_code','team_id'=>'ae.team_id','officer_id'=>'ae.recorded_by','location_status'=>'ae.location_status'];
         foreach($columns as $key=>$column){
@@ -39,13 +40,13 @@ final class AdviserAttendanceScanRepository {
             LEFT JOIN tbl_users officer ON officer.id=ae.recorded_by";
         $count=$this->db->prepare('SELECT COUNT(*)'.$from.$where);
         $count->execute($values);$total=(int)$count->fetchColumn();
-        $lastPage=max(1,(int)ceil($total/self::PAGE_SIZE));$page=min($page,$lastPage);$offset=($page-1)*self::PAGE_SIZE;
-        $q=$this->db->prepare('SELECT '.$fields.$from.$where.' ORDER BY ae.scanned_at DESC,ae.id DESC LIMIT '.self::PAGE_SIZE.' OFFSET '.$offset);
+        $lastPage=max(1,(int)ceil($total/$perPage));$page=min($page,$lastPage);$offset=($page-1)*$perPage;
+        $q=$this->db->prepare('SELECT '.$fields.$from.$where.' ORDER BY ae.scanned_at DESC,ae.id DESC LIMIT '.$perPage.' OFFSET '.$offset);
         $q->execute($values);$rows=$q->fetchAll();
         $mapQuery=$this->db->prepare('SELECT ranked.* FROM (SELECT '.$fields.',ROW_NUMBER() OVER (PARTITION BY atd.event_id,COALESCE(ae.recorded_by,-ae.id) ORDER BY ae.scanned_at DESC,ae.id DESC) scan_rank'.$from.$where.') ranked WHERE ranked.scan_rank=1 ORDER BY ranked.scanned_at DESC,ranked.id DESC');
         $mapQuery->execute($values);$mapRows=$mapQuery->fetchAll();
         $this->hydrate($rows);$this->hydrate($mapRows);
-        return ['scans'=>$rows,'map_scans'=>$mapRows,'pagination'=>['current_page'=>$page,'last_page'=>$lastPage,'per_page'=>self::PAGE_SIZE,'total'=>$total,'from'=>$total?$offset+1:null,'to'=>$total?min($offset+self::PAGE_SIZE,$total):null],'options'=>$this->options()];
+        return ['scans'=>$rows,'map_scans'=>$mapRows,'pagination'=>['current_page'=>$page,'last_page'=>$lastPage,'per_page'=>$perPage,'total'=>$total,'from'=>$total?$offset+1:null,'to'=>$total?min($offset+$perPage,$total):null],'options'=>$this->options()];
     }
     private function hydrate(array &$rows):void {
         foreach($rows as &$row){

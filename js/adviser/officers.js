@@ -16,6 +16,7 @@ window.SharedNavigation.ready.then(() => {
     const dialog = document.querySelector('#assign-officer-dialog');
     const assignForm = document.querySelector('[data-assign-officer-form]');
     const detailsDialog = document.querySelector('#officer-details-dialog');
+    const scannerForm = detailsDialog.querySelector('[data-scanner-config-form]');
     const passwordDialog = document.querySelector('#change-officer-password-dialog');
     const passwordForm = document.querySelector('[data-change-officer-password-form]');
     const studentList = document.querySelector('[data-officer-student-list]');
@@ -179,6 +180,10 @@ window.SharedNavigation.ready.then(() => {
         detailsDialog.querySelector('[data-details-position]').textContent = `Position: ${assignment.position}`;
         detailsDialog.querySelector('[data-details-term]').textContent = `Term: ${assignment.term}`;
         detailsDialog.querySelector('[data-details-team]').textContent = `Tribe: ${assignment.team_name || 'No tribe'}`;
+        scannerForm.hidden = assignment.status !== 'Active';
+        scannerForm.elements.assignment_id.value = assignment.id;
+        scannerForm.elements.scanner_mode.value = assignment.scanner_mode || 'specific';
+        scannerForm.elements.team_id.value = String(assignment.team_id || '');
         const responsibilityHost = detailsDialog.querySelector('[data-details-event-responsibilities]');
         responsibilityHost.replaceChildren();
         if (!assignment.event_responsibilities.length) {
@@ -372,6 +377,10 @@ window.SharedNavigation.ready.then(() => {
         const team = assignForm.elements.team_id;
         team.replaceChildren(new Option('Select a tribe', ''));
         data.teams.forEach(item => team.add(new Option(item.name, item.id)));
+        const scannerTeam = scannerForm.elements.team_id;
+        const previousScannerTeam = scannerTeam.value;
+        scannerTeam.replaceChildren(...data.teams.map(item => new Option(item.name, item.id)));
+        if (previousScannerTeam) scannerTeam.value = previousScannerTeam;
         studentList.replaceChildren();
         data.students.forEach(student => {
             const option = document.createElement('label');
@@ -467,6 +476,21 @@ window.SharedNavigation.ready.then(() => {
     });
     dialog.querySelectorAll('[data-dialog-close]').forEach(close => close.addEventListener('click', () => dialog.close()));
     detailsDialog.querySelectorAll('[data-dialog-close]').forEach(close => close.addEventListener('click', () => detailsDialog.close()));
+    scannerForm.addEventListener('submit', async submitEvent => {
+        submitEvent.preventDefault();
+        if (!scannerForm.reportValidity()) return;
+        const submit = submitEvent.submitter;
+        window.Notifications?.setLoading(submit, true, 'Saving access…');
+        try {
+            const data = Object.fromEntries(new FormData(scannerForm));
+            data.action = 'scanner_config';
+            const response = await axios.post('api/officers.php', data, { headers: { 'X-CSRF-Token': csrfToken } });
+            detailsDialog.close();
+            notify('success', response.data.message);
+            await load();
+        } catch (error) { notify('error', errorMessage(error)); }
+        finally { window.Notifications?.setLoading(submit, false); }
+    });
     passwordDialog.querySelectorAll('[data-dialog-close]').forEach(close => close.addEventListener('click', () => passwordDialog.close()));
     passwordDialog.querySelectorAll('[data-password-toggle]').forEach(toggle => toggle.addEventListener('click', () => {
         const input = toggle.parentElement.querySelector('input');

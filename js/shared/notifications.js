@@ -10,6 +10,38 @@
 
     const region = () => document.querySelector('[data-notification-region]');
     const snackbarRegion = () => document.querySelector('[data-snackbar-region]');
+    function visibleToastHost() {
+        const pageHost = region();
+        if (!['adviser', 'sbo'].includes(document.body.dataset.navigationRole)) return pageHost;
+        const dialogs = document.querySelectorAll('dialog:modal');
+        const dialog = dialogs[dialogs.length - 1];
+        if (!dialog) return pageHost;
+
+        let host = dialog.querySelector(':scope > [data-dialog-notification-region]');
+        if (!host) {
+            host = document.createElement('div');
+            host.className = 'pointer-events-none fixed z-[200] grid gap-2.5';
+            host.setAttribute('data-dialog-notification-region', '');
+            host.setAttribute('aria-live', 'polite');
+            dialog.append(host);
+            const positionHost = () => {
+                const bounds = dialog.getBoundingClientRect();
+                const width = Math.min(380, Math.max(0, bounds.width - 32));
+                host.style.width = `${width}px`;
+                host.style.left = `${bounds.right - width - 16}px`;
+                host.style.top = `${Math.max(8, bounds.top + 16)}px`;
+            };
+            positionHost();
+            window.addEventListener('resize', positionHost);
+            dialog.addEventListener('close', () => {
+                window.removeEventListener('resize', positionHost);
+                const nextHost = visibleToastHost();
+                if (nextHost && nextHost !== host) nextHost.append(...host.children);
+                host.remove();
+            }, { once: true });
+        }
+        return host;
+    }
     const toastTones = {
         success: { border: 'border-l-[#397565]', icon: 'bg-[#C6F24E] text-[#121017]', progress: 'bg-[#397565]', title: 'All set' },
         error: { border: 'border-l-[#FF6B2C]', icon: 'bg-[#FF6B2C]/12 text-[#D64A12]', progress: 'bg-[#FF6B2C]', title: 'Action failed' },
@@ -18,7 +50,7 @@
     };
 
     function toast(type, message, options = {}) {
-        const host = region();
+        const host = visibleToastHost();
         if (!host || !message) return null;
 
         const kind = icons[type] ? type : 'info';
@@ -27,8 +59,21 @@
         const element = document.createElement('div');
         element.className = `pointer-events-auto relative grid min-h-[72px] grid-cols-[auto_1fr_auto] items-center gap-3 overflow-hidden rounded-2xl border border-l-[4px] border-[#121017]/10 ${tone.border} bg-white/95 p-3.5 shadow-[0_18px_50px_rgba(18,16,23,.18)] backdrop-blur-xl transition duration-200 hover:-translate-y-0.5 hover:shadow-[0_22px_58px_rgba(18,16,23,.22)]`;
         element.setAttribute('role', kind === 'error' ? 'alert' : 'status');
-        element.innerHTML = `<span class="grid h-9 w-9 place-items-center rounded-full ${tone.icon} [&_svg]:h-4 [&_svg]:w-4 [&_svg]:fill-none [&_svg]:stroke-current [&_svg]:stroke-[2.5]" aria-hidden="true">${icons[kind]}</span><span class="min-w-0"><strong class="block text-sm font-black tracking-[-.01em] text-[#121017]">${options.title || tone.title}</strong><span data-toast-message class="mt-0.5 block text-xs font-semibold leading-5 text-[#121017]/60"></span></span><button class="grid h-8 w-8 place-items-center rounded-lg border-0 bg-transparent text-lg text-[#121017]/35 transition hover:bg-[#121017]/6 hover:text-[#121017]" type="button" aria-label="Dismiss notification">&times;</button><span data-toast-progress class="absolute inset-x-0 bottom-0 h-1 origin-left ${tone.progress}"></span>`;
+        element.innerHTML = `<span class="grid h-9 w-9 place-items-center rounded-full ${tone.icon} [&_svg]:h-4 [&_svg]:w-4 [&_svg]:fill-none [&_svg]:stroke-current [&_svg]:stroke-[2.5]" aria-hidden="true">${icons[kind]}</span><span class="min-w-0"><strong data-toast-title class="block text-sm font-black tracking-[-.01em] text-[#121017]"></strong><span data-toast-message class="mt-0.5 block text-xs font-semibold leading-5 text-[#121017]/60"></span><span data-toast-details class="mt-2 hidden grid-cols-1 gap-1 border-t border-[#121017]/10 pt-2 text-xs text-[#121017]/75"></span></span><button class="grid h-8 w-8 place-items-center rounded-lg border-0 bg-transparent text-lg text-[#121017]/35 transition hover:bg-[#121017]/6 hover:text-[#121017]" type="button" aria-label="Dismiss notification">&times;</button><span data-toast-progress class="absolute inset-x-0 bottom-0 h-1 origin-left ${tone.progress}"></span>`;
+        element.querySelector('[data-toast-title]').textContent = options.title || tone.title;
         element.querySelector('[data-toast-message]').textContent = message;
+        if (Array.isArray(options.details) && options.details.length) {
+            const details = element.querySelector('[data-toast-details]');
+            details.classList.remove('hidden');
+            details.classList.add('grid');
+            options.details.forEach(({ label, value }) => {
+                const line = document.createElement('span');
+                const caption = document.createElement('strong');
+                caption.textContent = `${label}: `;
+                line.append(caption, document.createTextNode(String(value ?? '—')));
+                details.append(line);
+            });
+        }
         host.appendChild(element);
 
         const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -194,11 +239,33 @@
         undo,
         setLoading,
         request,
+        flashNext: (message, type = 'success') => {
+            try { sessionStorage.setItem('cite-next-notification', JSON.stringify({ message, type })); }
+            catch { /* The action remains saved even if browser storage is unavailable. */ }
+        },
     };
 
     document.addEventListener('DOMContentLoaded', () => {
         const host = region();
         if (host?.dataset.flashMessage) toast(host.dataset.flashType || 'info', host.dataset.flashMessage);
+        try {
+            const next = sessionStorage.getItem('cite-next-notification');
+            if (next) {
+                sessionStorage.removeItem('cite-next-notification');
+                const flash = JSON.parse(next);
+                if (flash?.message) toast(flash.type || 'success', flash.message);
+            }
+        } catch { /* Notifications still work without session storage. */ }
+        if (['adviser', 'sbo'].includes(document.body.dataset.navigationRole)) {
+            const dialogs = new MutationObserver((changes) => {
+                if (!changes.some(({ target }) => target instanceof HTMLDialogElement && target.matches(':modal'))) return;
+                const activeHost = visibleToastHost();
+                document.querySelectorAll('[data-notification-region], [data-dialog-notification-region]').forEach(other => {
+                    if (other !== activeHost) activeHost.append(...other.children);
+                });
+            });
+            dialogs.observe(document.body, { subtree: true, attributes: true, attributeFilter: ['open'] });
+        }
 
         document.addEventListener('submit', async (event) => {
             const form = event.target.closest('[data-async-unassign]');

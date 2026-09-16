@@ -17,6 +17,7 @@ final class TeamManagementRepository
         $status = trim((string)($filters['status'] ?? ''));
         $schoolYear = (int)($filters['school_year'] ?? 0);
         $page = max(1, (int)($filters['page'] ?? 1));
+        $perPage = PageSize::from($filters, self::PER_PAGE);
         if (mb_strlen($search) > 100) throw new InvalidArgumentException('Search may not exceed 100 characters.');
         if ($status !== '' && !in_array($status, ['active', 'inactive'], true)) throw new InvalidArgumentException('Invalid status filter.');
         if ($schoolYear && !$this->value('SELECT id FROM tbl_school_years WHERE id=?', [$schoolYear])) throw new InvalidArgumentException('Invalid school year.');
@@ -33,13 +34,13 @@ final class TeamManagementRepository
         if ($schoolYear) {$where[]='t.school_year_id=:school_year';$params['school_year']=$schoolYear;}
         $whereSql=$where?' WHERE '.implode(' AND ',$where):'';
         $count=$this->db->prepare('SELECT COUNT(*) FROM tbl_teams t'.$whereSql);$count->execute($params);$total=(int)$count->fetchColumn();
-        $lastPage=max(1,(int)ceil($total/self::PER_PAGE));
+        $lastPage=max(1,(int)ceil($total/$perPage));
         if($page>$lastPage)$page=$lastPage;
         $sql="SELECT t.id,t.school_year_id,t.name,t.color,t.is_active,sy.label school_year_label,
                 (SELECT COUNT(*) FROM tbl_team_user tum WHERE tum.team_id=t.id) members_count
               FROM tbl_teams t JOIN tbl_school_years sy ON sy.id=t.school_year_id
               $whereSql ORDER BY t.is_active DESC,t.name LIMIT :limit OFFSET :offset";
-        $st=$this->db->prepare($sql);foreach($params as $k=>$v)$st->bindValue(':'.$k,$v);$st->bindValue(':limit',self::PER_PAGE,PDO::PARAM_INT);$st->bindValue(':offset',($page-1)*self::PER_PAGE,PDO::PARAM_INT);$st->execute();$teams=$st->fetchAll();
+        $st=$this->db->prepare($sql);foreach($params as $k=>$v)$st->bindValue(':'.$k,$v);$st->bindValue(':limit',$perPage,PDO::PARAM_INT);$st->bindValue(':offset',($page-1)*$perPage,PDO::PARAM_INT);$st->execute();$teams=$st->fetchAll();
         foreach($teams as &$team){$team['id']=(int)$team['id'];$team['school_year_id']=(int)$team['school_year_id'];$team['is_active']=(bool)$team['is_active'];$team['members_count']=(int)$team['members_count'];$m=$this->db->prepare("SELECT u.id,u.first_name,u.middle_name,u.last_name,u.id_number,yl.label year_level_label FROM tbl_team_user tu JOIN tbl_users u ON u.id=tu.user_id LEFT JOIN tbl_year_levels yl ON yl.id=u.year_level WHERE tu.team_id=? ORDER BY u.last_name,u.first_name");$m->execute([$team['id']]);$team['members']=$m->fetchAll();foreach($team['members'] as &$member)$member['full_name']=$this->fullName($member);unset($member);}unset($team);
         $studentRole=(int)$this->value("SELECT id FROM tbl_roles WHERE name='Student'");$active=(int)$this->value("SELECT id FROM tbl_user_statuses WHERE label='active'");
         $studentsSt=$this->db->prepare("SELECT u.id,u.id_number,u.first_name,u.middle_name,u.last_name,u.year_level,yl.label year_level_label FROM tbl_users u LEFT JOIN tbl_year_levels yl ON yl.id=u.year_level WHERE u.role_id=? AND u.status=? ORDER BY u.last_name,u.first_name");$studentsSt->execute([$studentRole,$active]);$students=$studentsSt->fetchAll();
@@ -60,7 +61,7 @@ final class TeamManagementRepository
         $summarySt=$this->db->prepare($summarySql);$summarySt->execute($summaryParams);$summary=$summarySt->fetch();
         $summary=array_map('intval',$summary);$summary['unassigned']=$summary['students']-$summary['assigned'];
         $summary['school_year_label']=$schoolYear?(string)$this->value('SELECT label FROM tbl_school_years WHERE id=?',[$schoolYear]):null;
-        return ['teams'=>$teams,'students'=>$students,'school_years'=>$this->db->query('SELECT id,label,teams_randomized_at FROM tbl_school_years ORDER BY label DESC')->fetchAll(),'summary'=>$summary,'pagination'=>['current_page'=>$page,'last_page'=>$lastPage,'total'=>$total,'from'=>$total?($page-1)*self::PER_PAGE+1:null,'to'=>$total?min($page*self::PER_PAGE,$total):null]];
+        return ['teams'=>$teams,'students'=>$students,'school_years'=>$this->db->query('SELECT id,label,teams_randomized_at FROM tbl_school_years ORDER BY label DESC')->fetchAll(),'summary'=>$summary,'pagination'=>['current_page'=>$page,'last_page'=>$lastPage,'per_page'=>$perPage,'total'=>$total,'from'=>$total?($page-1)*$perPage+1:null,'to'=>$total?min($page*$perPage,$total):null]];
     }
 
     public function save(array $data,int $actorId,?int $id=null): int

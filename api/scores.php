@@ -16,6 +16,7 @@ final class ScoreManagementRepository
         $search = trim((string)($filters['search'] ?? ''));
         $timing = trim((string)($filters['timing'] ?? ''));
         $page = max(1, (int)($filters['page'] ?? 1));
+        $perPage = PageSize::from($filters, self::PAGE_SIZE);
         if (mb_strlen($search) > 100) throw new InvalidArgumentException('Search may not exceed 100 characters.');
         if ($timing !== '' && !in_array($timing, ['upcoming', 'ongoing', 'completed'], true)) throw new InvalidArgumentException('Invalid timing filter.');
 
@@ -28,7 +29,7 @@ final class ScoreManagementRepository
         $whereSql = ' WHERE '.implode(' AND ', $where);
 
         $count = $this->db->prepare('SELECT COUNT(*) FROM tbl_events e'.$whereSql); $count->execute($params);
-        $total = (int)$count->fetchColumn(); $lastPage = max(1, (int)ceil($total / self::PAGE_SIZE)); $page = min($page, $lastPage);
+        $total = (int)$count->fetchColumn(); $lastPage = max(1, (int)ceil($total / $perPage)); $page = min($page, $lastPage);
         $sql = "SELECT e.id,e.title,e.location,e.start_at,e.end_at,
             (SELECT COUNT(*) FROM tbl_score_categories c WHERE c.event_id=e.id) score_categories_count,
             (SELECT COUNT(*) FROM tbl_scores s WHERE s.event_id=e.id AND s.score_category_id IS NOT NULL) scores_count,
@@ -40,7 +41,7 @@ final class ScoreManagementRepository
             COALESCE((SELECT SUM(s.points) FROM tbl_scores s WHERE s.event_id=e.id),0) scores_sum_points
             FROM tbl_events e $whereSql ORDER BY e.start_at DESC LIMIT :limit OFFSET :offset";
         $statement = $this->db->prepare($sql); foreach ($params as $key => $value) $statement->bindValue(':'.$key, $value);
-        $statement->bindValue(':limit', self::PAGE_SIZE, PDO::PARAM_INT); $statement->bindValue(':offset', ($page - 1) * self::PAGE_SIZE, PDO::PARAM_INT); $statement->execute();
+        $statement->bindValue(':limit', $perPage, PDO::PARAM_INT); $statement->bindValue(':offset', ($page - 1) * $perPage, PDO::PARAM_INT); $statement->execute();
         $events = $statement->fetchAll();
         foreach ($events as &$event) {
             foreach (['id','score_categories_count','scores_count','scored_teams_count','eligible_teams_count','completed_teams_count','score_sheets_count','finalized_score_sheets_count'] as $key) $event[$key] = (int)$event[$key];
@@ -78,7 +79,7 @@ final class ScoreManagementRepository
             (SELECT COUNT(*) FROM (SELECT DISTINCT event_id,team_id FROM tbl_scores WHERE score_category_id IS NOT NULL) AS scored_pairs) AS results,
             COALESCE((SELECT SUM(points) FROM tbl_scores),0) points")->fetch();
         foreach (['events','configured','ready','finalized','results'] as $key) $summary[$key] = (int)$summary[$key]; $summary['points'] = (float)$summary['points'];
-        return ['events'=>$events,'summary'=>$summary,'pagination'=>['current_page'=>$page,'last_page'=>$lastPage,'total'=>$total,'from'=>$total?($page-1)*self::PAGE_SIZE+1:null,'to'=>$total?min($page*self::PAGE_SIZE,$total):null]];
+        return ['events'=>$events,'summary'=>$summary,'pagination'=>['current_page'=>$page,'last_page'=>$lastPage,'per_page'=>$perPage,'total'=>$total,'from'=>$total?($page-1)*$perPage+1:null,'to'=>$total?min($page*$perPage,$total):null]];
     }
 
     public function show(int $eventId): array

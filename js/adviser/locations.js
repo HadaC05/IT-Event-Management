@@ -300,9 +300,9 @@ window.SharedNavigation.ready.then(() => {
         saveButton.textContent = form.elements.action.value === 'update' ? 'Saving...' : 'Creating...';
         try {
             const response = await axios.post(API, Object.fromEntries(new FormData(form)), { headers: { 'X-CSRF-Token': csrfToken } });
-            notify('success', response.data.message);
             closeDialog();
-            await loadLocations();
+            notify('success', response.data.message);
+            await loadLocations().catch(() => notify('warning', 'Saved, but the location list could not refresh. Reload the page.'));
         } catch (error) {
             notify('error', error.response?.data?.message || 'Unable to save the location.');
         } finally {

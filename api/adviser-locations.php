@@ -15,7 +15,7 @@ final class AdviserLocationRepository
         $type = in_array(($filters['type'] ?? ''), ['general', 'specific'], true) ? (string) $filters['type'] : '';
         $status = in_array(($filters['status'] ?? ''), ['configured', 'pending'], true) ? (string) $filters['status'] : '';
         $page = max(1, (int) ($filters['page'] ?? 1));
-        $perPage = 10;
+        $perPage = PageSize::from($filters, 10);
         $where = [];
         $parameters = [];
 

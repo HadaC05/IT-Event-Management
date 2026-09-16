@@ -8,6 +8,7 @@ require_once __DIR__.'/student-attendance-qr.php';
 require_once __DIR__.'/SboAuthorization.php';
 require_once __DIR__.'/sbo-attendance.php';
 require_once __DIR__.'/adviser-events.php';
+require_once __DIR__.'/officers.php';
 
 $live=(new Database())->connection();
 $source=(string)$live->query('SELECT DATABASE()')->fetchColumn();
@@ -47,6 +48,7 @@ try {
     $outClose=$now->modify('+20 minutes')->format('H:i:s');
     $db->prepare("UPDATE tbl_events SET start_at=?,end_at=?,audience_type='all_students',location_id=1,attendance_location_policy='warning' WHERE id=1")
         ->execute([$today.' 00:00:00',$today.' 23:59:59']);
+    $db->prepare("UPDATE tbl_sbo_officer_assignments SET team_id=1,scanner_mode='specific' WHERE id=1")->execute();
     $db->prepare('UPDATE tbl_locations SET latitude=?,longitude=?,radius=? WHERE id=1')->execute([8.4699237,124.6342058,100]);
     $db->prepare('UPDATE tbl_event_attendance_schedules SET schedule_date=?,attendance_session_mode_id=2,
         whole_day_in_time=?,whole_day_in_close_time=?,whole_day_out_open_time=?,whole_day_out_time=? WHERE id=1')
@@ -61,7 +63,7 @@ try {
         JOIN tbl_roles r ON r.id=u.role_id AND r.name='Student' WHERE tu.team_id IN(1,2) ORDER BY tu.team_id,u.id")->fetchAll();
     $team1=array_values(array_filter($fixtures,static fn(array $row):bool=>(int)$row['team_id']===1));
     $team2=array_values(array_filter($fixtures,static fn(array $row):bool=>(int)$row['team_id']===2));
-    $assert(count($team1)>=2&&count($team2)>=1,'student/team fixtures');
+    $assert(count($team1)>=2&&count($team2)>=3,'student/team fixtures');
     $issuer=new StudentAttendanceQrRepository($db);
     $scanner=new SboAttendanceRepository($db,new SboAuthorization($db));
     $card=static function(int $student) use ($issuer):array {
@@ -77,14 +79,34 @@ try {
     $assert($in['state']==='in_open'&&$in['phase']==='in'&&is_string($in['token']),'only Time In QR appears in its window');
     $team2In=$card((int)$team2[0]['id']);
     $reject(fn()=>$scanner->scan(15,$scan($team2In['token'],'in',$inside)),InvalidArgumentException::class,'wrong-team QR rejected');
+    $q=$db->prepare('SELECT used_at FROM tbl_attendance_qr_tokens WHERE token=?');$q->execute([$team2In['token']]);
+    $assert($q->fetchColumn()===null,'wrong-team rejection does not consume QR');
+    $q=$db->prepare('SELECT COUNT(*) FROM tbl_attendances WHERE event_id=1 AND user_id=?');$q->execute([$team2[0]['id']]);
+    $assert((int)$q->fetchColumn()===0,'wrong-team rejection does not create attendance');
+    $db->prepare('UPDATE tbl_team_user SET team_id=1 WHERE user_id=? AND team_id=2')->execute([$team2[0]['id']]);
+    $moved=$scanner->scan(15,$scan($team2In['token'],'in',$inside));
+    $assert($moved['student']['team_id']===1,'same QR works after student moves to allowed team');
+    try {$scanner->scan(15,$scan($team2In['token'],'in',$inside));$assert(false,'duplicate QR rejected');}
+    catch(LogicException $error){$assert($error->getMessage()==='This QR was already scanned.','duplicate attendance has clear QR message');}
+    $otherTeamQr=$card((int)$team2[1]['id']);
+    $reject(fn()=>$scanner->scan(15,$scan($otherTeamQr['token'],'in',$inside)),InvalidArgumentException::class,'second wrong-team QR rejected in Specific mode');
+    (new OfficerManagementRepository($db))->configureScanner(
+        ['assignment_id'=>1,'team_id'=>1,'scanner_mode'=>'general'],['id'=>14,'role'=>'SBO Adviser']);
+    $generalOther=$scanner->scan(15,$scan($otherTeamQr['token'],'in',$inside));
+    $assert($generalOther['student']['team_id']===2,'same rejected QR works after changing officer to General; actual team returned');
+    $team1General=$card((int)$team1[1]['id']);
+    $generalOwn=$scanner->scan(15,$scan($team1General['token'],'in',$inside));
+    $assert($generalOwn['student']['team_id']===1,'General scans own team too');
+    try {$scanner->scan(15,$scan($otherTeamQr['token'],'in',$inside));$assert(false,'General duplicate rejected');}
+    catch(LogicException $error){$assert($error->getMessage()==='This QR was already scanned.','General duplicate has clear QR message');}
     $reject(fn()=>$scanner->scan(15,$scan($in['token'],'out',$inside)),InvalidArgumentException::class,'Time In QR cannot record Time Out');
-    $expired=$card((int)$team1[1]['id']);
+    $expired=$card((int)$team2[2]['id']);
     $db->prepare('UPDATE tbl_attendance_qr_tokens SET expires_at=? WHERE token=?')
         ->execute([$now->modify('-1 minute')->format('Y-m-d H:i:s'),$expired['token']]);
     $reject(fn()=>$scanner->scan(15,$scan($expired['token'],'in',$inside)),InvalidArgumentException::class,'expired QR rejected');
     $result=$scanner->scan(15,$scan($in['token'],'in',$inside));
     $assert($result['checkpoint']==='in'&&$result['location']['status']==='inside','Time In scan saves its location');
-    $reject(fn()=>$scanner->scan(15,$scan($in['token'],'in',$inside)),InvalidArgumentException::class,'used/screenshot-replayed Time In QR rejected');
+    $reject(fn()=>$scanner->scan(15,$scan($in['token'],'in',$inside)),LogicException::class,'used/screenshot-replayed Time In QR rejected');
 
     $gapClose=$now->modify('-2 minutes')->format('H:i:s');
     $gapOpen=$now->modify('+5 minutes')->format('H:i:s');
@@ -104,16 +126,16 @@ try {
     $edit->invoke(new EventManagementRepository($db),1,[$schedule]);
     $out=$card((int)$team1[0]['id']);
     $assert($out['phase']==='out'&&$out['token']!==$in['token'],'adviser extension opens a distinct Time Out QR');
-    $noIn=$card((int)$team1[1]['id']);
+    $noIn=$card((int)$team2[2]['id']);
     $assert($noIn['token']===null&&$noIn['state']==='time_in_required','no Time Out QR without Time In');
     $forged=rtrim(strtr(base64_encode(random_bytes(24)),'+/','-_'),'=');
     $db->prepare('INSERT INTO tbl_attendance_qr_tokens(event_id,user_id,session,phase,schedule_date,token,issued_at,expires_at)
         VALUES(1,?,\'whole_day\',\'out\',?,?,?,?)')
-        ->execute([$team1[1]['id'],$today,$forged,$now->format('Y-m-d H:i:s'),$now->modify('+5 minutes')->format('Y-m-d H:i:s')]);
+        ->execute([$team2[2]['id'],$today,$forged,$now->format('Y-m-d H:i:s'),$now->modify('+5 minutes')->format('Y-m-d H:i:s')]);
     $reject(fn()=>$scanner->scan(15,$scan($forged,'out',$inside)),LogicException::class,'Time Out without Time In rejected server-side');
     $outResult=$scanner->scan(15,$scan($out['token'],'out',$outside));
     $assert($outResult['checkpoint']==='out'&&$outResult['location']['status']==='outside','Time Out scan saves separate location');
-    $reject(fn()=>$scanner->scan(15,$scan($out['token'],'out',$inside)),InvalidArgumentException::class,'duplicate/replayed Time Out QR rejected');
+    $reject(fn()=>$scanner->scan(15,$scan($out['token'],'out',$inside)),LogicException::class,'duplicate/replayed Time Out QR rejected');
     $saved=$db->prepare('SELECT ae.phase,ae.recorded_by,ae.scan_latitude,ae.location_status FROM tbl_attendance_entries ae
         JOIN tbl_attendances atd ON atd.id=ae.attendance_id WHERE atd.event_id=1 AND atd.user_id=? ORDER BY ae.phase');
     $saved->execute([$team1[0]['id']]);$entries=$saved->fetchAll();

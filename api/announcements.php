@@ -38,6 +38,7 @@ final class AnnouncementRepository
         if (!in_array($scope, ['', 'event'], true)) throw new InvalidArgumentException('Choose a valid announcement scope.');
         $eventId = $this->optionalEventId($filters['event_id'] ?? null);
         $page = max(1, (int) ($filters['page'] ?? 1));
+        $perPage = PageSize::from($filters, self::PAGE_SIZE);
 
         $where = ['p.is_official=1'];
         $params = [];
@@ -50,9 +51,9 @@ final class AnnouncementRepository
         $whereSql = implode(' AND ', $where);
 
         $total = (int) $this->scalar("SELECT COUNT(*) FROM tbl_posts p WHERE $whereSql", $params);
-        $lastPage = max(1, (int) ceil($total / self::PAGE_SIZE));
+        $lastPage = max(1, (int) ceil($total / $perPage));
         $page = min($page, $lastPage);
-        $offset = ($page - 1) * self::PAGE_SIZE;
+        $offset = ($page - 1) * $perPage;
         $statement = $this->db->prepare(
             "SELECT p.*,e.title event_title,u.first_name,u.middle_name,u.last_name,u.username
              FROM tbl_posts p LEFT JOIN tbl_events e ON e.id=p.event_id LEFT JOIN tbl_users u ON u.id=p.user_id
@@ -60,7 +61,7 @@ final class AnnouncementRepository
         );
         $index = 1;
         foreach ($params as $value) $statement->bindValue($index++, $value, is_int($value) ? PDO::PARAM_INT : PDO::PARAM_STR);
-        $statement->bindValue($index++, self::PAGE_SIZE, PDO::PARAM_INT);
+        $statement->bindValue($index++, $perPage, PDO::PARAM_INT);
         $statement->bindValue($index, $offset, PDO::PARAM_INT);
         $statement->execute();
         $announcements = $statement->fetchAll();
@@ -77,7 +78,7 @@ final class AnnouncementRepository
                 'events' => (int) $this->scalar("SELECT COUNT(*) FROM tbl_posts WHERE is_official=1 AND event_id IS NOT NULL AND deleted_at IS NULL"),
                 'archived' => (int) $this->scalar('SELECT COUNT(*) FROM tbl_posts WHERE is_official=1 AND deleted_at IS NOT NULL'),
             ],
-            'pagination' => ['page' => $page, 'last_page' => $lastPage, 'per_page' => self::PAGE_SIZE, 'total' => $total],
+            'pagination' => ['page' => $page, 'last_page' => $lastPage, 'per_page' => $perPage, 'total' => $total],
             'filters' => ['search' => $search, 'status' => $status, 'event_id' => $eventId, 'scope' => $scope],
         ];
     }

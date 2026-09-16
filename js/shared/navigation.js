@@ -44,7 +44,7 @@
   };
   const ensureStyles = () => {
     if (document.querySelector('link[href^="css/navigation.css"]')) return;
-    const link = document.createElement('link'); link.rel = 'stylesheet'; link.href = 'css/navigation.css?v=20260916-1'; document.head.append(link);
+    const link = document.createElement('link'); link.rel = 'stylesheet'; link.href = 'css/navigation.css?v=20260917-7'; document.head.append(link);
   };
   const clone = (documentFragment, selector) => documentFragment.querySelector(selector).content.firstElementChild.cloneNode(true);
   const linkMarkup = (item, active, mobile = false) => {
@@ -65,6 +65,8 @@
     const mark = async id => { await axios.post('api/student-home.php',{action:'mark_notifications_read',...(id ? {notification_id:id} : {})},{headers:{'X-CSRF-Token':csrf}}); await load(); };
     slot.querySelector('[data-mark-all-notifications]').onclick = () => mark();
     slot.querySelector('[data-notification-list]').onclick = event => { const button = event.target.closest('[data-mark-notification]'); if (button) mark(button.dataset.markNotification); };
+    const menu = slot.querySelector('[data-notification-menu]');
+    document.addEventListener('click', event => { if (menu.open && !menu.contains(event.target)) menu.removeAttribute('open'); });
     await load();
   };
 
@@ -73,7 +75,7 @@
     if (role) document.body.dataset.navigationRole = role;
     if (!ROLE_PAGES[role]) return null;
     ensureStyles();
-    const [session, fragmentResponse] = await Promise.all([axios.get('api/auth.php?action=session'), axios.get('pages/shared/navigation.html?v=20260916-6',{responseType:'text'})]);
+    const [session, fragmentResponse] = await Promise.all([axios.get('api/auth.php?action=session'), axios.get('pages/shared/navigation.html?v=20260917-6',{responseType:'text'})]);
     const expected = ROLE_LABELS[role];
     if (!session.data.authenticated || session.data.user?.role !== expected) { location.href = './'; throw new Error(`${expected} authentication required.`); }
     const user = session.data.user, csrf = session.data.csrf_token, name = user.full_name || `${user.first_name || ''} ${user.last_name || ''}`.trim(), initials = `${user.first_name?.[0] || ''}${user.last_name?.[0] || ''}`.toUpperCase() || expected.slice(0,2).toUpperCase();
@@ -83,6 +85,7 @@
     sidebar.querySelector('[data-shared-navigation-links]').innerHTML = pages.map(item => linkMarkup(item,active)).join('');
     sidebar.querySelector('[data-shared-sidebar-name]').textContent = name;
     sidebar.querySelector('[data-shared-sidebar-account]').textContent = user.username ? `@${user.username}` : user.email || '';
+    if (role === 'adviser') sidebar.querySelector('[data-shared-sidebar-name]')?.closest('[data-shared-sidebar-label]')?.remove();
     header.querySelector('[data-shared-home-link]').href = ROLE_HOME[role];
     header.querySelector('[data-shared-account-initials]').textContent = initials;
     header.querySelector('[data-shared-account-name]').textContent = name;

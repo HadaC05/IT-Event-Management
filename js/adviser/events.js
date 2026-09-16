@@ -89,7 +89,7 @@ window.SharedNavigation.ready.then(() => {
       "flex min-h-10 w-full items-center rounded-lg px-3 text-left text-xs font-bold text-[#D64A12] transition hover:bg-[#FF6B2C]/8";
     actionMenu.innerHTML = event.is_archived
       ? `<a class="${itemClass}" href="pages/adviser/event-details.html?id=${event.id}" role="menuitem">View details</a><button class="${itemClass}" type="button" data-menu-action="restore" role="menuitem">Restore event</button><div class="my-1 border-t border-[#121017]/8"></div><button class="${destructiveClass}" type="button" data-menu-action="delete" role="menuitem">Delete permanently</button>`
-      : `<a class="${itemClass}" href="pages/adviser/event-details.html?id=${event.id}" role="menuitem">View details</a><a class="${itemClass}" href="pages/adviser/event-edit.html?id=${event.id}" role="menuitem">Edit event</a><button class="${itemClass}" type="button" data-menu-action="duplicate" role="menuitem">Duplicate event</button><div class="my-1 border-t border-[#121017]/8"></div><button class="${destructiveClass}" type="button" data-menu-action="archive" role="menuitem">Archive event</button>`;
+      : `<a class="${itemClass}" href="pages/adviser/event-details.html?id=${event.id}" role="menuitem">View details</a><a class="${itemClass}" href="pages/adviser/event-edit.html?id=${event.id}" role="menuitem">Edit event</a><div class="my-1 border-t border-[#121017]/8"></div><button class="${destructiveClass}" type="button" data-menu-action="archive" role="menuitem">Archive event</button>`;
     actionMenu.dataset.eventId = String(event.id);
     actionMenu.classList.remove("hidden");
     actionMenu.style.visibility = "hidden";
@@ -180,18 +180,6 @@ window.SharedNavigation.ready.then(() => {
       toast(
         "error",
         error.response?.data?.message || "Unable to archive event.",
-      );
-    }
-  }
-  async function duplicateEvent(event) {
-    try {
-      const response = await post({ action: "duplicate", id: event.id });
-      toast("success", "Event duplicated. Review the copied details before saving changes.");
-      location.assign(`pages/adviser/event-edit.html?id=${response.data.id}`);
-    } catch (error) {
-      toast(
-        "error",
-        error.response?.data?.message || "Unable to duplicate event.",
       );
     }
   }
@@ -329,7 +317,6 @@ window.SharedNavigation.ready.then(() => {
     const event = state?.events.find((item) => String(item.id) === actionMenu.dataset.eventId);
     closeActionMenu();
     if (!event) return;
-    if (action === "duplicate") await duplicateEvent(event);
     if (action === "archive") await archiveEvent(event);
     if (action === "restore") await restoreEvent(event);
     if (action === "delete") await deleteEvent(event);

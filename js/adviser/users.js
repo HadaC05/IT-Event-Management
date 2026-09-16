@@ -27,7 +27,8 @@ window.SharedNavigation.ready.then(() => {
     const creatableRoles = ['SBO Adviser', 'Faculty', 'Student'];
     const isManageable = role => manageableRoles.includes(role);
     const initials = user => `${user.first_name?.[0] || ''}${user.last_name?.[0] || ''}`.toUpperCase();
-    const showError = error => alert(error.response?.data?.message || 'Unable to complete the request.');
+    const notify = (type, message) => window.Notifications?.[type]?.(message) || (type === 'error' ? alert(message) : null);
+    const showError = error => notify('error', error.response?.data?.message || 'Unable to complete the request.');
 
     // The directory is rendered from the API. Remove legacy server-rendered edit
     // dialogs so there is only one reusable add/edit form in the accessibility tree.
@@ -155,10 +156,11 @@ window.SharedNavigation.ready.then(() => {
             : confirm(`${action[0].toUpperCase()}${action.slice(1)} ${user.full_name}?`);
         if (!accepted) return;
         try {
-            await axios.post('api/users.php', { action: 'toggle', id: user.id }, {
+            const response = await axios.post('api/users.php', { action: 'toggle', id: user.id }, {
                 headers: { 'X-CSRF-Token': csrfToken },
             });
-            await loadUsers();
+            notify('success', response.data.message || `${user.full_name} ${action}d successfully.`);
+            await loadUsers().catch(() => notify('warning', 'Saved, but the user list could not refresh. Reload the page.'));
         } catch (error) {
             showError(error);
         }
@@ -256,10 +258,11 @@ window.SharedNavigation.ready.then(() => {
             : confirm(`Remove ${user.full_name} from ${event.title}?`);
         if (!accepted) return;
         try {
-            await axios.post('api/users.php', { action: 'unassign_event', id: user.id, event_id: event.id }, {
+            const response = await axios.post('api/users.php', { action: 'unassign_event', id: user.id, event_id: event.id }, {
                 headers: { 'X-CSRF-Token': csrfToken },
             });
-            await loadUsers();
+            notify('success', response.data.message || 'Event assignment removed.');
+            await loadUsers().catch(() => notify('warning', 'Saved, but the user list could not refresh. Reload the page.'));
         } catch (error) {
             showError(error);
         }
@@ -269,7 +272,7 @@ window.SharedNavigation.ready.then(() => {
         const assignedIds = new Set(user.assigned_events.map(event => String(event.id)));
         const available = events.filter(event => !assignedIds.has(String(event.id)));
         if (!available.length) {
-            alert('No active events are available for this user.');
+            notify('warning', 'No active events are available for this user.');
             return;
         }
         const dialog = document.createElement('dialog');
@@ -289,11 +292,12 @@ window.SharedNavigation.ready.then(() => {
         form.addEventListener('submit', async submitEvent => {
             submitEvent.preventDefault();
             try {
-                await axios.post('api/users.php', { action: 'assign_event', id: user.id, event_id: select.value }, {
+                const response = await axios.post('api/users.php', { action: 'assign_event', id: user.id, event_id: select.value }, {
                     headers: { 'X-CSRF-Token': csrfToken },
                 });
                 dialog.close();
-                await loadUsers();
+                notify('success', response.data.message || 'Event assigned successfully.');
+                await loadUsers().catch(() => notify('warning', 'Saved, but the user list could not refresh. Reload the page.'));
             } catch (error) {
                 showError(error);
             }
@@ -559,9 +563,10 @@ window.SharedNavigation.ready.then(() => {
         data.action = userForm.dataset.userId ? 'update' : 'create';
         if (userForm.dataset.userId) data.id = userForm.dataset.userId;
         try {
-            await axios.post('api/users.php', data, { headers: { 'X-CSRF-Token': csrfToken } });
+            const response = await axios.post('api/users.php', data, { headers: { 'X-CSRF-Token': csrfToken } });
             addDialog.close();
-            await loadUsers();
+            notify('success', response.data.message || (data.action === 'update' ? 'User updated successfully.' : 'User added successfully.'));
+            await loadUsers().catch(() => notify('warning', 'Saved, but the user list could not refresh. Reload the page.'));
         } catch (error) {
             showError(error);
         }

@@ -811,6 +811,7 @@ CREATE TABLE `tbl_sbo_officer_assignments` (
   `student_id` varchar(255) NOT NULL,
   `officer_user_id` bigint(20) UNSIGNED NOT NULL,
   `team_id` bigint(20) UNSIGNED DEFAULT NULL,
+  `scanner_mode` varchar(8) NOT NULL DEFAULT 'specific',
   `position` varchar(100) NOT NULL,
   `term` varchar(100) NOT NULL,
   `assigned_by` bigint(20) UNSIGNED DEFAULT NULL,

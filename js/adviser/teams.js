@@ -415,8 +415,9 @@ window.SharedNavigation.ready.then(() => {
     )
       return;
     try {
-      await api({ action: "toggle", id: t.id });
-      await load();
+      const response = await api({ action: "toggle", id: t.id });
+      toast("success", response.data.message || (t.is_active ? "Tribe deactivated." : "Tribe activated."));
+      await load().catch(() => toast("warning", "Saved, but the tribe list could not refresh. Reload the page."));
     } catch (e) {
       toast("error", e.response?.data?.message || "Unable to update tribe.");
     }

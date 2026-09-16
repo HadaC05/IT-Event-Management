@@ -7,14 +7,15 @@
   const switchButton=$('[data-camera-switch]'),flashButton=$('[data-flash-toggle]'),manualButton=$('[data-manual-submit]');
   const locationRefresh=$('[data-location-refresh]'),gpsToggle=$('[data-gps-toggle]'),gpsPolicyDialog=$('[data-gps-policy-dialog]');
   const esc=value=>window.SboPortal.escapeHtml(value);
-  const notify=(type,message)=>window.Notifications?.[type]?.(message);
+  const notify=(type,message,options)=>window.Notifications?.[type]?.(message,options);
   let csrf='',assignments=[],selected=null,scanner=null,QrScanner=null,cameras=[],cameraIndex=0,position=null;
-  let locationReason='not_provided',locationRequest=null,locationWatchId=null,gpsEnabled=false,gpsGeneration=0,gpsManuallyDisabled=false,isProcessing=false,cooldownUntil=0,lastToken='',lastTokenAt=0,contextTimer=0,startGeneration=0,cameraHintTimer=0;
+  let locationReason='not_provided',locationRequest=null,locationWatchId=null,gpsEnabled=false,gpsGeneration=0,gpsManuallyDisabled=false,isProcessing=false,cooldownUntil=0,lastToken='',lastTokenAt=0,lastTokenIgnoreMs=3000,lastScanToast=null,contextTimer=0,startGeneration=0,cameraHintTimer=0;
   let qrModulePromise=null,checkpoint='in';
   const shownGpsNotices=new Map();
   const time=value=>value?new Intl.DateTimeFormat('en-PH',{hour:'numeric',minute:'2-digit'}).format(new Date('2000-01-01T'+value)):'—';
   const date=value=>value?new Intl.DateTimeFormat('en-PH',{dateStyle:'medium'}).format(new Date(value.replace(' ','T'))):'—';
-  const clock=value=>value?new Intl.DateTimeFormat('en-PH',{timeStyle:'short'}).format(new Date(value.replace(' ','T'))):'—';
+  const clock=value=>value?new Intl.DateTimeFormat('en-PH',{timeStyle:'short',timeZone:'Asia/Manila'}).format(new Date(value.replace(' ','T')+'+08:00')):'—';
+  const scanNotice=(type,message,options={})=>{lastScanToast?.remove();lastScanToast=notify(type,message,options);};
   const coords=value=>Number(value).toFixed(6);
   const insideBox=(latitude,longitude,centerLatitude,centerLongitude,radius)=>{
     const latitudeDelta=radius/111320;
@@ -193,7 +194,7 @@
       <div class="text-right"><time class="block text-xs font-bold text-[#397565]">${row.phase==='out'?'Out':'In'} ${clock(row.scanned_at)}</time>
         <small class="text-xs text-[#121017]/50">${esc(row.location_status)}</small></div></article>`).join(''):'<p class="p-8 text-center text-sm text-[#121017]/45">No attendance scans yet.</p>';
   }
-  function renderCounts(counts){$('[data-scan-counts]').textContent=`${counts.total} timed in · ${counts.checked_out||0} timed out · ${counts.remaining} remaining from your assigned team`;}
+  function renderCounts(counts){$('[data-scan-counts]').textContent=`${counts.total} timed in · ${counts.checked_out||0} timed out · ${counts.remaining} remaining ${selected?.scanner_mode==='general'?'eligible students':'from your assigned team'}`;}
   function renderPhaseStatus(){
     $('[data-session-state]').textContent=selected?.[`${checkpoint}_window_open`]
       ?`Time ${checkpoint==='in'?'In':'Out'} scanning is open.`
@@ -201,7 +202,7 @@
         :'No QR is scannable now. Wait for the next window or ask the adviser to extend it.';
   }
   function setCheckpoint(next){
-    checkpoint=next;lastToken='';lastTokenAt=0;
+    checkpoint=next;lastToken='';lastTokenAt=0;lastTokenIgnoreMs=3000;
     document.querySelectorAll('[data-checkpoint-option]').forEach(button=>{
       const active=button.dataset.checkpointOption===checkpoint;
       button.setAttribute('aria-pressed',String(active));
@@ -223,7 +224,7 @@
     const assignmentSummary=$('[data-assignment-summary]');
     const detailsOpen=Boolean(assignmentSummary.querySelector('details')?.open);
     assignmentSummary.innerHTML=[
-      ['Event',selected.event_name],['Your team',selected.team_name],
+      ['Event',selected.event_name],['Scanner access',selected.scanner_mode==='general'?'General · all teams':`Specific · ${selected.scanner_team_name}`],
       ['Event day',`Day ${selected.day_number} · ${date(selected.schedule_date)}`],
       ['Session',`${selected.session_name} · ${time(selected.session_start)}–${time(selected.session_end)}`],
     ].map(([label,value])=>`<article><span class="text-[10px] font-black uppercase tracking-wider text-[#397565]">${label}</span><strong class="mt-1 block text-sm">${esc(value)}</strong></article>`).join('')+
@@ -257,29 +258,46 @@
       tone.start();tone.stop(audio.currentTime+0.16);tone.onended=()=>audio.close();}catch{}
   }
   async function submit(payload){
-    if(isProcessing||Date.now()<cooldownUntil||!selected?.[`${checkpoint}_window_open`])return;
+    if(isProcessing||Date.now()<cooldownUntil||!selected?.[`${checkpoint}_window_open`])return false;
     isProcessing=true;
     try{
       await getLocation();
-      if(!freshPosition()){notify('error','Your location could not be verified. Check your location permission and try again.');return;}
+      if(!freshPosition()){
+        const message='Your location could not be verified. Check your location permission and try again.';
+        $('[data-scan-result]').textContent=message;
+        $('[data-modal-scan-result]').dataset.state='error';
+        $('[data-modal-scan-result]').textContent=message;
+        scanNotice('error',message,{title:'Scan not recorded',duration:7000});lastTokenIgnoreMs=1000;return false;
+      }
       const response=await axios.post(API,{...payload,assignment_id:selected.id,checkpoint,location:locationPayload()},{headers:{'X-CSRF-Token':csrf}});
       const result=response.data.data;renderRecent(result.recent_scans);renderCounts(result.counts);
       const location=result.location.status==='unavailable'?'unavailable':result.location.status+(result.location.distance_m===null?'':' · '+result.location.distance_m+' meters from venue');
       const label=result.checkpoint==='out'?'Time out':'Time in';
-      $('[data-scan-result]').innerHTML=`<strong class="text-[#397565]">${label} recorded successfully.</strong><br>${esc(result.student.full_name)} · ${esc(result.student.team_name)}<br>${esc(result.session_name)} · ${clock(result.scanned_at)}<br>Location: ${esc(location)}`;
-      $('[data-modal-scan-result]').textContent=`${label} recorded: ${result.student.full_name} · ${result.student.team_name}`;
-      notify('success',response.data.message);successSound();
+      $('[data-scan-result]').innerHTML=`<strong class="text-[#397565]">${label} recorded successfully.</strong><br>${esc(result.student.full_name)} · ${esc(result.student.id_number)} · ${esc(result.student.team_name)}<br>${esc(result.session_name)} · ${clock(result.scanned_at)}<br>Location: ${esc(location)}`;
+      $('[data-modal-scan-result]').dataset.state='success';
+      $('[data-modal-scan-result]').innerHTML=`<strong>${esc(label)} recorded</strong><br>${esc(result.student.full_name)} · ${esc(result.student.id_number)}<br>${esc(result.student.team_name)} · ${clock(result.scanned_at)}`;
+      scanNotice('success','Attendance saved.',{title:`${label} recorded`,duration:8000,details:[
+        {label:'Name',value:result.student.full_name},
+        {label:'Student ID',value:result.student.id_number},
+        {label:'Team',value:result.student.team_name},
+        {label:'Time',value:clock(result.scanned_at)},
+      ]});
+      if(payload.mode==='qr'){lastToken=payload.token;lastTokenAt=Date.now();lastTokenIgnoreMs=30000;}
+      successSound();return true;
     }catch(error){
       const message=error.response?.data?.message||'Attendance scan failed.';
-      $('[data-scan-result]').textContent=message;notify(error.response?.status===409?'warning':'error',message);
+      $('[data-scan-result]').textContent=message;scanNotice(error.response?.status===409?'warning':'error',message,{title:error.response?.status===409?'Already recorded':'Scan not recorded',duration:7000});
+      $('[data-modal-scan-result]').dataset.state='error';
       $('[data-modal-scan-result]').textContent=message;
+      lastTokenIgnoreMs=1000;
+      return false;
     }finally{cooldownUntil=Date.now()+1000;setTimeout(()=>isProcessing=false,1000);}
   }
   async function onDecode(result){
     const token=String(result?.data||'').trim();
     if(!token||isProcessing||Date.now()<cooldownUntil)return;
-    if(token===lastToken&&Date.now()-lastTokenAt<3000)return;
-    lastToken=token;lastTokenAt=Date.now();
+    if(token===lastToken&&Date.now()-lastTokenAt<lastTokenIgnoreMs)return;
+    lastToken=token;lastTokenAt=Date.now();lastTokenIgnoreMs=3000;
     await submit({mode:'qr',token});
   }
   async function start(){
@@ -315,7 +333,7 @@
       $('[data-camera-message]').textContent='Point the student QR token inside the highlighted region.';
       try{cameras=await QrScanner.listCameras();cameraIndex=0;if(scanner===current)switchButton.hidden=cameras.length<2;}catch{cameras=[];switchButton.hidden=true;}
       try{if(scanner===current)flashButton.hidden=!(await current.hasFlash());}catch{flashButton.hidden=true;}
-    }catch(error){if(generation===startGeneration){notify('error','Camera is unavailable: '+(error?.message||'check permission.'));await stop();$('[data-camera-status]').textContent='Camera unavailable';$('[data-camera-message]').textContent='Allow camera access, then retry.';$('[data-modal-scan-result]').textContent='Camera could not start. Check permission and retry.';}}
+    }catch(error){if(generation===startGeneration){notify('error','Camera is unavailable: '+(error?.message||'check permission.'));await stop();$('[data-camera-status]').textContent='Camera unavailable';$('[data-camera-message]').textContent='Allow camera access, then retry.';$('[data-modal-scan-result]').dataset.state='error';$('[data-modal-scan-result]').textContent='Camera could not start. Check permission and retry.';}}
     finally{clearTimeout(cameraHintTimer);cameraHintTimer=0;if(generation===startGeneration)updateControls();}
   }
   async function stop(){
@@ -328,7 +346,7 @@
     $('[data-camera-status]').textContent='Camera: off';$('[data-camera-message]').textContent='Point the QR code inside the frame.';
     updateControls();
   }
-  openButton.addEventListener('click',async()=>{if(openButton.disabled)return;dialog.showModal();$('[data-modal-scan-result]').textContent='Ready to scan.';await start();});
+  openButton.addEventListener('click',async()=>{if(openButton.disabled)return;dialog.showModal();$('[data-modal-scan-result]').dataset.state='';$('[data-modal-scan-result]').textContent='Ready to scan.';await start();});
   $('[data-scanner-close]').addEventListener('click',()=>dialog.close());
   dialog.addEventListener('close',()=>stop());
   dialog.addEventListener('click',event=>{if(event.target===dialog)dialog.close();});
@@ -340,7 +358,7 @@
   $('[data-gps-policy-confirm]').addEventListener('click',()=>gpsPolicyDialog.close());
   gpsPolicyDialog.addEventListener('click',event=>{if(event.target===gpsPolicyDialog)gpsPolicyDialog.close();});
   selector.addEventListener('change',async()=>{if(dialog.open)dialog.close();await stop();turnOffGps();await load(Number(selector.value));});
-  $('[data-manual-form]').addEventListener('submit',async event=>{event.preventDefault();const field=event.currentTarget.elements.student_id;const value=field.value.trim();if(!value)return;await submit({mode:'manual',student_id:value});field.value='';});
+  $('[data-manual-form]').addEventListener('submit',async event=>{event.preventDefault();const field=event.currentTarget.elements.student_id;const value=field.value.trim();if(!value)return;if(await submit({mode:'manual',student_id:value}))field.value='';});
   window.addEventListener('pagehide',()=>{clearInterval(contextTimer);stopLocationWatch();if(dialog.open)dialog.close();stop();});
   document.addEventListener('visibilitychange',()=>{if(document.hidden){if(dialog.open)dialog.close();stop();}});
   SboPortal.initialize('attendance').then(async context=>{csrf=context.csrfToken;const accountMenu=document.querySelector('[data-sbo-account-menu]');if(accountMenu){accountMenu.classList.remove('ml-auto');gpsToggle.classList.add('ml-auto');accountMenu.before(gpsToggle);}await load();if(selected?.is_session_active)loadQrModule().catch(()=>{});contextTimer=setInterval(async()=>{if(isProcessing)return;const old=selected?.id,wasActive=selected?.is_session_active;await load(old||0);if(!wasActive&&selected?.is_session_active)loadQrModule().catch(()=>{});if(!selected?.is_session_active){if(dialog.open)dialog.close();await stop();}},30000);})

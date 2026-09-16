@@ -54,9 +54,10 @@ final class PostReviewRepository
         if ($period === '30_days') $where[] = 'p.created_at>=DATE_SUB(CURRENT_TIMESTAMP,INTERVAL 30 DAY)';
 
         $requestedPage = max(1, (int) ($input['page'] ?? 1));
+        $perPage = PageSize::from($input, self::PAGE_SIZE);
         $from = " FROM tbl_posts p LEFT JOIN tbl_events e ON e.id=p.event_id LEFT JOIN tbl_users a ON a.id=p.user_id WHERE ".implode(' AND ', $where);
         $total = (int) $this->scalar('SELECT COUNT(*)'.$from, $params);
-        $lastPage = max(1, (int) ceil($total / self::PAGE_SIZE));
+        $lastPage = max(1, (int) ceil($total / $perPage));
         $page = min($requestedPage, $lastPage);
         $order = $sort === 'newest' ? 'DESC' : 'ASC';
         $statement = $this->db->prepare(
@@ -71,8 +72,8 @@ final class PostReviewRepository
              ORDER BY p.created_at {$order},p.id {$order} LIMIT ? OFFSET ?"
         );
         foreach ($params as $index => $value) $statement->bindValue($index + 1, $value);
-        $statement->bindValue(count($params) + 1, self::PAGE_SIZE, PDO::PARAM_INT);
-        $statement->bindValue(count($params) + 2, ($page - 1) * self::PAGE_SIZE, PDO::PARAM_INT);
+        $statement->bindValue(count($params) + 1, $perPage, PDO::PARAM_INT);
+        $statement->bindValue(count($params) + 2, ($page - 1) * $perPage, PDO::PARAM_INT);
         $statement->execute();
         $posts = $statement->fetchAll();
         foreach ($posts as &$post) $post = $this->normalize($post);
@@ -89,7 +90,7 @@ final class PostReviewRepository
             'pending_count' => $counts['pending'],
             'categories' => $categories,
             'filters' => ['status' => $status, 'search' => $search, 'category' => $category, 'period' => $period, 'sort' => $sort],
-            'pagination' => ['page' => $page, 'last_page' => $lastPage, 'per_page' => self::PAGE_SIZE, 'total' => $total],
+            'pagination' => ['page' => $page, 'last_page' => $lastPage, 'per_page' => $perPage, 'total' => $total],
         ];
     }
 

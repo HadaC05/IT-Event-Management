@@ -4,7 +4,9 @@ window.SharedNavigation.ready.then(() => {
   const $ = (selector, root = document) => root.querySelector(selector);
   const filters = $("[data-attendance-filters]");
   const eventList = $("[data-event-list]");
-  const pagination = $("[data-pagination]");
+  const paginations = [...document.querySelectorAll("[data-pagination]")];
+  const eventDialog = $("[data-event-attendance-dialog]");
+  let visibleEvents = new Map();
   const initial = Object.fromEntries(new URLSearchParams(location.search));
   const state = {
     search: initial.search || "",
@@ -97,10 +99,6 @@ window.SharedNavigation.ready.then(() => {
     filters.classList.toggle("grid", Boolean(summary.events));
   }
 
-  function eventLifecycle(value) {
-    return { upcoming: "Upcoming event", ongoing: "Event in progress", completed: "Event ended" }[value] || "Event schedule";
-  }
-
   function attendancePresentation(event) {
     const expected = event.expected_count;
     const recorded = event.attendances_count;
@@ -130,56 +128,37 @@ window.SharedNavigation.ready.then(() => {
     };
   }
 
-  function statusMetric(label, value, color) {
-    return `<span class="inline-flex items-center gap-2 text-xs font-bold text-[#121017]/55"><i class="h-2.5 w-2.5 rounded-full ${color}" aria-hidden="true"></i><strong class="text-[#121017]">${value.toLocaleString()}</strong> ${label}</span>`;
-  }
-
   function renderEvent(event) {
     const expected = event.expected_count;
     const recorded = event.attendances_count;
-    const coverage = event.coverage_rate ?? 0;
     const attendance = attendancePresentation(event);
-    return `<article class="rounded-3xl border border-[#121017]/9 bg-white p-5 shadow-[0_16px_45px_rgba(18,16,23,.045)] sm:p-7">
-      <header class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div class="min-w-0">
-          <div class="flex flex-wrap items-center gap-2">
-            <h3 class="text-xl font-black tracking-[-.035em] sm:text-2xl">${escapeHtml(event.title)}</h3>
-            <span class="rounded-full bg-[#121017]/5 px-2.5 py-1 text-[9px] font-black uppercase tracking-wider text-[#121017]/40">${eventLifecycle(event.schedule_state)}</span>
-          </div>
-          <p class="mt-2 text-xs font-bold text-[#121017]/45">${eventSchedule(event)}</p>
-          <p class="mt-1 text-xs font-semibold text-[#121017]/38">${escapeHtml(event.location || "Venue not specified")}</p>
-        </div>
-        <span class="w-fit rounded-full px-3 py-1.5 text-[9px] font-black uppercase tracking-wider ${attendance.tone}">${attendance.label}</span>
-      </header>
-      <div class="mt-6 border-t border-[#121017]/8 pt-5">
-        <div class="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
-          <div class="min-w-0 flex-1">
-            <p class="text-[9px] font-black uppercase tracking-[.15em] text-[#397565]">Attendance progress</p>
-            <p class="mt-2 text-2xl font-black tracking-[-.035em]">${recorded.toLocaleString()} <span class="text-base text-[#121017]/35">/ ${expected.toLocaleString()} students recorded</span></p>
-            <div class="mt-4 flex flex-wrap gap-x-6 gap-y-2">
-              ${statusMetric("Present", event.present_count, "bg-[#397565]")}
-              ${statusMetric("Late", event.late_count, "bg-[#FF6B2C]")}
-              ${statusMetric("Absent", event.absent_count, "bg-[#121017]/30")}
-            </div>
-            <div class="mt-5 flex items-center gap-3">
-              <div class="h-2 flex-1 overflow-hidden rounded-full bg-[#121017]/7"><i class="block h-full rounded-full ${recorded >= expected && expected ? "bg-[#397565]" : "bg-[#FF6B2C]"}" style="width:${coverage}%"></i></div>
-              <strong class="w-10 text-right text-xs text-[#121017]/48">${event.coverage_rate === null ? "—" : `${event.coverage_rate}%`}</strong>
-            </div>
-            <h4 class="mt-5 text-sm font-black">${attendance.title}</h4>
-            <p class="mt-1 text-xs leading-5 text-[#121017]/42">${attendance.detail}</p>
-          </div>
-          <a class="inline-flex min-h-11 shrink-0 items-center justify-center rounded-xl bg-[#397565] px-5 text-xs font-black text-white transition hover:bg-[#2f6255]" href="pages/adviser/attendance-roster.html?event_id=${event.id}">Open roster →</a>
-        </div>
-      </div>
-    </article>`;
+    return `<button class="group flex min-h-36 w-full flex-col justify-between rounded-2xl border border-[#121017]/10 bg-white p-5 text-left shadow-sm transition hover:border-[#397565]/40 hover:shadow-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#397565]" type="button" data-event-id="${event.id}" aria-label="View ${escapeHtml(event.title)} attendance">
+      <span class="flex w-full items-start justify-between gap-3"><strong class="text-lg font-black leading-tight">${escapeHtml(event.title)}</strong><span class="shrink-0 rounded-full px-2.5 py-1 text-[9px] font-black uppercase tracking-wide ${attendance.tone}">${attendance.label}</span></span>
+      <span class="mt-3 block text-xs text-[#121017]/50">${eventSchedule(event)}<br>${escapeHtml(event.location || "Venue not specified")}</span>
+      <span class="mt-4 flex w-full items-center justify-between border-t border-[#121017]/8 pt-3 text-xs font-bold text-[#397565]"><span>${recorded.toLocaleString()} of ${expected.toLocaleString()} recorded</span><span class="group-hover:translate-x-1 transition-transform">View details →</span></span>
+    </button>`;
+  }
+
+  function openEvent(event) {
+    const attendance = attendancePresentation(event);
+    $("[data-event-dialog-title]").textContent = event.title;
+    $("[data-event-dialog-schedule]").textContent = `${eventSchedule(event)} · ${event.location || "Venue not specified"}`;
+    $("[data-event-dialog-status]").textContent = attendance.detail;
+    $("[data-event-dialog-counts]").innerHTML = `
+      <div class="rounded-2xl bg-[#397565]/8 p-4"><span class="text-xs font-bold text-[#397565]">Present</span><strong class="mt-1 block text-3xl font-black text-[#397565]">${Number(event.present_count).toLocaleString()}</strong></div>
+      <div class="rounded-2xl bg-red-50 p-4"><span class="text-xs font-bold text-red-700">Absent</span><strong class="mt-1 block text-3xl font-black text-red-700">${Number(event.absent_count).toLocaleString()}</strong></div>`;
+    $("[data-event-dialog-recorded]").textContent = `${event.attendances_count} of ${event.expected_count} students recorded`;
+    $("[data-event-dialog-roster]").href = `pages/adviser/attendance-roster.html?event_id=${encodeURIComponent(event.id)}`;
+    eventDialog.showModal();
   }
 
   function renderEvents(data) {
+    visibleEvents = new Map(data.events.map(event => [String(event.id), event]));
     $("[data-result-count]").textContent = `${data.pagination.total.toLocaleString()} ${data.pagination.total === 1 ? "event" : "events"} available`;
     $("[data-clear-filters]").classList.toggle("hidden", !state.search && !state.timing);
     if (!data.events.length) {
       const filtered = state.search || state.timing;
-      eventList.innerHTML = `<div class="rounded-3xl border border-[#121017]/9 bg-white px-6 py-16 text-center"><span class="text-4xl" aria-hidden="true">✓</span><h3 class="mt-5 text-lg font-black">${filtered ? "No events match these filters" : "There are no attendance rosters yet"}</h3><p class="mt-2 text-sm text-[#121017]/45">${filtered ? "Change or clear the current filters." : "Create an event and define its participants to begin."}</p><${filtered ? "button" : "a"} class="mt-5 inline-flex min-h-11 items-center rounded-xl bg-[#397565] px-5 text-xs font-black text-white" ${filtered ? 'type="button" data-empty-clear' : 'href="pages/adviser/events.html?create=1"'}>${filtered ? "Clear filters" : "Create event"}</${filtered ? "button" : "a"}></div>`;
+      eventList.innerHTML = `<div class="rounded-3xl border border-[#121017]/9 bg-white px-6 py-16 text-center md:col-span-2 xl:col-span-3"><span class="text-4xl" aria-hidden="true">✓</span><h3 class="mt-5 text-lg font-black">${filtered ? "No events match these filters" : "There are no attendance rosters yet"}</h3><p class="mt-2 text-sm text-[#121017]/45">${filtered ? "Change or clear the current filters." : "Create an event and define its participants to begin."}</p><${filtered ? "button" : "a"} class="mt-5 inline-flex min-h-11 items-center rounded-xl bg-[#397565] px-5 text-xs font-black text-white" ${filtered ? 'type="button" data-empty-clear' : 'href="pages/adviser/events.html?create=1"'}>${filtered ? "Clear filters" : "Create event"}</${filtered ? "button" : "a"}></div>`;
     } else {
       eventList.innerHTML = data.events.map(renderEvent).join("");
     }
@@ -187,10 +166,12 @@ window.SharedNavigation.ready.then(() => {
   }
 
   function renderPagination(meta) {
-    pagination.classList.toggle("hidden", meta.last_page <= 1);
-    pagination.classList.toggle("flex", meta.last_page > 1);
-    if (meta.last_page <= 1) return;
-    pagination.innerHTML = `<small>Showing ${meta.from}–${meta.to} of ${meta.total}</small><div class="flex gap-2"><button class="rounded-lg border px-3 py-2 font-black text-[#397565] disabled:opacity-30" type="button" data-page="${meta.current_page - 1}" ${meta.current_page === 1 ? "disabled" : ""}>Previous</button><button class="rounded-lg border px-3 py-2 font-black text-[#397565] disabled:opacity-30" type="button" data-page="${meta.current_page + 1}" ${meta.current_page === meta.last_page ? "disabled" : ""}>Next</button></div>`;
+    paginations.forEach(pagination => {
+      pagination.classList.toggle("hidden", meta.last_page <= 1);
+      pagination.classList.toggle("flex", meta.last_page > 1);
+      if (meta.last_page <= 1) return;
+      pagination.innerHTML = `<small>Page ${meta.current_page} of ${meta.last_page} · ${meta.from}–${meta.to} of ${meta.total}</small><div class="flex gap-2"><button class="min-h-10 rounded-lg border px-3 py-2 font-black text-[#397565] disabled:opacity-30" type="button" data-page="${meta.current_page - 1}" ${meta.current_page === 1 ? "disabled" : ""}>Previous</button><button class="min-h-10 rounded-lg border px-3 py-2 font-black text-[#397565] disabled:opacity-30" type="button" data-page="${meta.current_page + 1}" ${meta.current_page === meta.last_page ? "disabled" : ""}>Next</button></div>`;
+    });
   }
 
   async function load() {
@@ -208,7 +189,7 @@ window.SharedNavigation.ready.then(() => {
       if (requestId !== state.requestId) return;
       const message = error.response?.data?.message || "Attendance events could not be loaded.";
       window.Notifications?.error?.(message);
-      eventList.innerHTML = `<p class="rounded-2xl bg-white p-10 text-center text-sm text-[#D64A12]">${escapeHtml(message)}</p>`;
+      eventList.innerHTML = `<p class="rounded-2xl bg-white p-10 text-center text-sm text-[#D64A12] md:col-span-2 xl:col-span-3">${escapeHtml(message)}</p>`;
     } finally {
       if (requestId === state.requestId) eventList.style.opacity = "";
     }
@@ -248,14 +229,19 @@ window.SharedNavigation.ready.then(() => {
   });
   eventList.addEventListener("click", (event) => {
     if (event.target.closest("[data-empty-clear]")) $("[data-clear-filters]").click();
+    const card = event.target.closest("[data-event-id]");
+    if (card) { const selected = visibleEvents.get(card.dataset.eventId); if (selected) openEvent(selected); }
   });
-  pagination.addEventListener("click", (event) => {
+  eventDialog.querySelector("[data-event-dialog-close]").onclick = () => eventDialog.close();
+  eventDialog.addEventListener("click", event => { if (event.target === eventDialog) eventDialog.close(); });
+  const changePage = async (event) => {
     const button = event.target.closest("[data-page]");
     if (!button || button.disabled) return;
     state.page = Number(button.dataset.page);
-    load();
-    $("[data-result-count]").scrollIntoView({ behavior: "smooth", block: "center" });
-  });
+    await load();
+    $("[data-result-count]").scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+  paginations.forEach(pagination => pagination.addEventListener("click", changePage));
 
   initializeShell();
   authenticate().then(load).catch((error) => {

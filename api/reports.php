@@ -19,13 +19,15 @@ final class ReportValidationException extends RuntimeException
 final class ReportRepository
 {
     private const PAGE_SIZE = 25;
+    private int $perPage = self::PAGE_SIZE;
     private const TYPES = ['attendance', 'participation', 'scores', 'rankings'];
-    private const ATTENDANCE_STATUSES = ['present', 'late', 'absent', 'excused'];
+    private const ATTENDANCE_STATUSES = ['present', 'absent'];
 
     public function __construct(private readonly PDO $db) {}
 
     public function view(array $input, bool $all = false): array
     {
+        $this->perPage = PageSize::from($input, self::PAGE_SIZE);
         $filters = $this->validateFilters($input);
         $report = match ($filters['type']) {
             'participation' => $this->participation($filters, $all),
@@ -87,7 +89,7 @@ final class ReportRepository
         $params = [];
         if ($filters['event_id']) {$where[] = 'a.event_id=?'; $params[] = $filters['event_id'];}
         if ($filters['school_year_id']) {$where[] = 'EXISTS(SELECT 1 FROM tbl_team_user tus JOIN tbl_teams ts ON ts.id=tus.team_id WHERE tus.user_id=a.user_id AND ts.school_year_id=?)'; $params[] = $filters['school_year_id'];}
-        if ($filters['status']) {$where[] = 'a.status=?'; $params[] = $filters['status'];}
+        if ($filters['status']) $where[] = "a.status IN (".($filters['status']==='present'?"'present','late'":"'absent','excused'").")";
         if ($filters['date_from']) {$where[] = 'date(a.attendance_date)>=date(?)'; $params[] = $filters['date_from'];}
         if ($filters['date_to']) {$where[] = 'date(a.attendance_date)<=date(?)'; $params[] = $filters['date_to'];}
         if ($filters['search'] !== '') {
@@ -97,15 +99,14 @@ final class ReportRepository
         }
         $whereSql = $where ? 'WHERE '.implode(' AND ', $where) : '';
         $from = "FROM tbl_attendances a LEFT JOIN tbl_events e ON e.id=a.event_id LEFT JOIN tbl_users u ON u.id=a.user_id LEFT JOIN tbl_year_levels yl ON yl.id=u.year_level $whereSql";
-        $summary = $this->row("SELECT COUNT(*) records,SUM(CASE WHEN a.status IN ('present','late') THEN 1 ELSE 0 END) attended,SUM(CASE WHEN a.status='absent' THEN 1 ELSE 0 END) absent,SUM(CASE WHEN a.status='excused' THEN 1 ELSE 0 END) excused $from", $params);
+        $summary = $this->row("SELECT COUNT(*) records,SUM(CASE WHEN a.status IN ('present','late') THEN 1 ELSE 0 END) attended,SUM(CASE WHEN a.status IN ('absent','excused') THEN 1 ELSE 0 END) absent $from", $params);
         $total = (int) $summary['records'];
-        $sql = "SELECT a.id,a.attendance_date,a.status,a.checked_in_at,e.title event_title,u.id_number,TRIM(CONCAT_WS(' ',u.first_name,NULLIF(u.middle_name,''),u.last_name)) student_name,yl.label year_level,(SELECT t.name FROM tbl_team_user tu JOIN tbl_teams t ON t.id=tu.team_id WHERE tu.user_id=u.id ORDER BY tu.id LIMIT 1) team_name $from ORDER BY DATE(a.attendance_date) DESC,a.id DESC";
+        $sql = "SELECT a.id,a.attendance_date,CASE WHEN a.status='late' THEN 'present' WHEN a.status='excused' THEN 'absent' ELSE a.status END status,a.checked_in_at,e.title event_title,u.id_number,TRIM(CONCAT_WS(' ',u.first_name,NULLIF(u.middle_name,''),u.last_name)) student_name,yl.label year_level,(SELECT t.name FROM tbl_team_user tu JOIN tbl_teams t ON t.id=tu.team_id WHERE tu.user_id=u.id ORDER BY tu.id LIMIT 1) team_name $from ORDER BY DATE(a.attendance_date) DESC,a.id DESC";
         $rows = $this->pagedRows($sql, $params, $total, $filters['page'], $all);
         return ['rows' => $rows['rows'], 'pagination' => $rows['pagination'], 'summary' => [
             'records' => $total,
             'attended' => (int) ($summary['attended'] ?? 0),
             'absent' => (int) ($summary['absent'] ?? 0),
-            'excused' => (int) ($summary['excused'] ?? 0),
             'rate' => $total ? round(((int) $summary['attended'] / $total) * 100, 1) : null,
         ]];
     }
@@ -144,7 +145,7 @@ final class ReportRepository
         $expected = (int) array_sum(array_column($events, 'expected_count'));
         $attended = (int) array_sum(array_column($events, 'attended_count'));
         $total = count($events);
-        $rows = $all ? $events : array_slice($events, ($this->page($filters['page'], $total) - 1) * self::PAGE_SIZE, self::PAGE_SIZE);
+        $rows = $all ? $events : array_slice($events, ($this->page($filters['page'], $total) - 1) * $this->perPage, $this->perPage);
         return ['rows' => $rows, 'pagination' => $this->pagination($filters['page'], $total, $all), 'summary' => [
             'events' => $total, 'expected' => $expected,
             'recorded' => (int) array_sum(array_column($events, 'recorded_count')),
@@ -184,7 +185,7 @@ final class ReportRepository
         ]);
         $total = count($data['rankings']);
         $page = $this->page($filters['page'], $total);
-        $rows = $all ? $data['rankings'] : array_slice($data['rankings'], ($page - 1) * self::PAGE_SIZE, self::PAGE_SIZE);
+        $rows = $all ? $data['rankings'] : array_slice($data['rankings'], ($page - 1) * $this->perPage, $this->perPage);
         return ['rows' => $rows, 'pagination' => $this->pagination($page, $total, $all), 'summary' => [
             'ranked' => $data['summary']['ranked_teams'], 'eligible' => $data['summary']['eligible_teams'],
             'points' => $data['summary']['points'], 'events' => $data['summary']['events'],
@@ -232,15 +233,15 @@ final class ReportRepository
         $statement = $this->db->prepare($sql.' LIMIT ? OFFSET ?');
         $index = 1;
         foreach ($params as $value) $statement->bindValue($index++, $value, is_int($value) ? PDO::PARAM_INT : PDO::PARAM_STR);
-        $statement->bindValue($index++, self::PAGE_SIZE, PDO::PARAM_INT);
-        $statement->bindValue($index, ($page - 1) * self::PAGE_SIZE, PDO::PARAM_INT);
+        $statement->bindValue($index++, $this->perPage, PDO::PARAM_INT);
+        $statement->bindValue($index, ($page - 1) * $this->perPage, PDO::PARAM_INT);
         $statement->execute();
         return ['rows' => $statement->fetchAll(), 'pagination' => $this->pagination($page, $total, false)];
     }
 
     private function pagination(int $page, int $total, bool $all): array
     {
-        return ['page' => $all ? 1 : $this->page($page, $total), 'last_page' => $all ? 1 : max(1, (int) ceil($total / self::PAGE_SIZE)), 'per_page' => self::PAGE_SIZE, 'total' => $total];
+        return ['page' => $all ? 1 : $this->page($page, $total), 'last_page' => $all ? 1 : max(1, (int) ceil($total / $this->perPage)), 'per_page' => $this->perPage, 'total' => $total];
     }
 
     private function hasAnyData(string $type): bool
@@ -253,7 +254,7 @@ final class ReportRepository
         };
     }
 
-    private function page(int $requested, int $total): int { return min(max(1, $requested), max(1, (int) ceil($total / self::PAGE_SIZE))); }
+    private function page(int $requested, int $total): int { return min(max(1, $requested), max(1, (int) ceil($total / $this->perPage))); }
     private function typedRows(string $sql, array $params = []): array { $rows = $this->rows($sql, $params); foreach ($rows as &$row) {$row['id'] = (int) $row['id']; if (isset($row['max_points'])) $row['max_points'] = (float) $row['max_points'];} unset($row); return $rows; }
     private function rows(string $sql, array $params = []): array { $statement = $this->db->prepare($sql); $statement->execute($params); return $statement->fetchAll(); }
     private function row(string $sql, array $params = []): array { return $this->rows($sql, $params)[0] ?? []; }

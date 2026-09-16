@@ -362,7 +362,7 @@ window.SharedNavigation.ready.then(() => {
       if (!accepted) return;
       try {
         await post({ action: "archive", id });
-        toast("success", "Event archived successfully.");
+        window.Notifications?.flashNext?.("Event archived successfully.");
         location.replace("pages/adviser/events.html");
       } catch (error) {
         toast(
