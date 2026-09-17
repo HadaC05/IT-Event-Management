@@ -8,8 +8,8 @@
     <link rel="icon" href="assets/images/cite_favicon.png" />
     <link rel="stylesheet" href="css/tailwind.css" />
     <link rel="stylesheet" href="css/adviser.css" />
-    <script src="js/shared/notifications.js?v=20260917-5" defer></script>
-    <script src="js/shared/interactions.js" defer></script>
+    <script src="js/shared/notifications.js?v=20260917-7" defer></script>
+    <script src="js/shared/interactions.js?v=20260917-3" defer></script>
   </head>
   <body
     class="app-shell min-h-screen bg-white font-sans text-[#121017] antialiased"
@@ -59,11 +59,11 @@
                 data-summary-year
               ></p>
               <p class="mt-1 text-sm font-bold text-[#121017]" data-team-context></p>
-              <a
-                class="mt-2 hidden text-xs font-extrabold text-[#c94b18]"
-                href="pages/adviser/users.html?role=Student&amp;status=active"
+              <button
+                class="mt-2 hidden text-left text-xs font-extrabold text-[#c94b18] transition hover:text-[#a83d14]"
+                type="button"
                 data-unassigned-summary
-              ></a>
+              ></button>
             </div>
             <form
               class="hidden flex-col gap-2 sm:flex-row sm:items-center"
@@ -453,6 +453,49 @@
       </form>
     </dialog>
     <dialog
+      class="unassigned-review-dialog m-auto overflow-hidden rounded-3xl border-0 bg-white p-0"
+      id="unassigned-students-dialog"
+      data-modal-size="large"
+      data-modal-kind="workflow"
+    >
+      <div class="unassigned-review-shell flex flex-col">
+        <header class="flex shrink-0 items-start justify-between gap-5 border-b border-[#121017]/8 px-5 py-5 sm:px-7">
+          <div>
+            <p class="text-[10px] font-black uppercase tracking-[.16em] text-[#397565]">Assignment Review</p>
+            <h2 class="mt-1 text-2xl font-black tracking-[-.035em] text-[#121017]">Unassigned Students</h2>
+            <p class="mt-1 text-sm text-slate-500" data-unassigned-context></p>
+          </div>
+          <button class="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#F3F0E9] text-xl text-[#121017]/50 transition hover:text-[#121017]" type="button" data-unassigned-close aria-label="Close unassigned students review">×</button>
+        </header>
+        <div class="shrink-0 border-b border-slate-100 bg-[#F3F0E9]/55 px-5 py-4 sm:px-7">
+          <div class="unassigned-review-controls grid gap-3">
+            <label class="relative">
+              <span class="sr-only">Search unassigned students</span>
+              <svg class="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 fill-none stroke-slate-400" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>
+              <input class="h-11 w-full rounded-xl border border-slate-200 bg-white pl-10 pr-3 text-sm outline-none transition placeholder:text-slate-400 focus:border-[#397565] focus:ring-4 focus:ring-[#397565]/10" type="search" placeholder="Search name, student ID, program, year, or section…" data-unassigned-search />
+            </label>
+            <label>
+              <span class="sr-only">School year</span>
+              <select class="h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 outline-none" data-unassigned-year></select>
+            </label>
+            <button class="inline-flex min-h-11 items-center justify-center rounded-xl border border-[#397565]/25 bg-white px-4 text-sm font-extrabold text-[#397565] transition hover:bg-[#397565]/5" type="button" data-randomize-unassigned>Randomize unassigned</button>
+          </div>
+          <div class="mt-3 flex flex-col gap-3 rounded-xl border border-[#397565]/15 bg-white px-4 py-3 sm:flex-row sm:items-center sm:justify-between" data-unassigned-bulk-bar>
+            <label class="inline-flex items-center gap-2 text-xs font-extrabold text-slate-600"><input class="h-4 w-4 rounded border-slate-300 accent-[#397565]" type="checkbox" data-unassigned-select-all /><span data-unassigned-selected>0 selected</span></label>
+            <div class="flex flex-col gap-2 sm:flex-row">
+              <select class="h-10 min-w-52 rounded-xl border border-slate-200 bg-white px-3 text-xs font-bold text-slate-700 outline-none" data-unassigned-bulk-team><option value="">Choose a tribe…</option></select>
+              <button class="inline-flex min-h-10 items-center justify-center rounded-xl bg-[#397565] px-4 text-xs font-extrabold text-white transition hover:bg-[#2e6355] disabled:cursor-not-allowed disabled:bg-slate-300" type="button" data-assign-selected disabled>Assign selected</button>
+            </div>
+          </div>
+        </div>
+        <div class="min-h-0 flex-1 overflow-y-auto" data-unassigned-list></div>
+        <footer class="flex shrink-0 items-center justify-between gap-4 border-t border-slate-100 bg-white px-5 py-4 sm:px-7">
+          <p class="text-xs text-slate-500" data-unassigned-visible-count></p>
+          <button class="inline-flex min-h-10 items-center rounded-xl border border-slate-200 px-5 text-sm font-extrabold text-slate-600 hover:bg-slate-50" type="button" data-unassigned-close>Done</button>
+        </footer>
+      </div>
+    </dialog>
+    <dialog
       class="m-auto w-[min(460px,calc(100%_-_2rem))] rounded-2xl border-0 bg-white p-0 shadow-2xl backdrop:bg-black/60"
       data-confirm-dialog
       data-modal-size="small"
@@ -478,7 +521,8 @@
       data-notification-region
     ></div>
     <script src="js/vendor/axios.min.js"></script>
-    <script src="js/shared/navigation.js?v=20260917-7"></script>
-    <script src="js/adviser/teams.js?v=20260917-5"></script>
+    <script src="js/shared/password-gate.js?v=20260917-1"></script>
+    <script src="js/shared/navigation.js?v=20260917-8"></script>
+    <script src="js/adviser/teams.js?v=20260917-6"></script>
   </body>
 </html>

@@ -11,6 +11,16 @@ final class PageSize
     }
 }
 
+final class StudentId
+{
+    public const FORMAT_MESSAGE = 'Student ID numbers must use 02-xxxx-xxxxx or 02-xxxx-xxxxxx.';
+
+    public static function isValid(string $value): bool
+    {
+        return preg_match('/^02-\d{4}-\d{5,6}$/', trim($value)) === 1;
+    }
+}
+
 final class JsonResponse
 {
     public static function send(array $payload, int $status = 200): never
@@ -99,6 +109,14 @@ final class AuthGuard
 
         if (($user['role'] ?? null) !== $role) {
             JsonResponse::send(['success' => false, 'message' => 'You are not authorized to access this resource.'], 403);
+        }
+
+        if (!empty($user['must_change_password'])) {
+            JsonResponse::send([
+                'success' => false,
+                'code' => 'password_change_required',
+                'message' => 'Change your temporary password before using the system.',
+            ], 403);
         }
 
         return $user;

@@ -9,7 +9,14 @@ window.SharedNavigation.ready.then(() => {
     list = $("[data-team-list]"),
     filters = $("[data-tribe-filters]"),
     dialog = $("#team-dialog"),
+    unassignedDialog = $("#unassigned-students-dialog"),
     form = $("[data-team-form]");
+  let unassignedSelection = new Set();
+  const initialUrl = new URL(location.href);
+  let requestedSchoolYear = initialUrl.searchParams.get("school_year") || "";
+  filters.search.value = initialUrl.searchParams.get("search") || "";
+  filters.status.value = initialUrl.searchParams.get("status") || "";
+  page = Math.max(1, Number(initialUrl.searchParams.get("page")) || 1);
   const toast = (type, msg) =>
     window.Notifications?.[type]?.(msg) || (type === "error" && alert(msg));
   const initials = (name) => {
@@ -23,6 +30,8 @@ window.SharedNavigation.ready.then(() => {
         : (w[0] || "TR").slice(0, 2)
     ).toUpperCase();
   };
+  const schoolYearLabel = (label) =>
+    /^SY\b/i.test(String(label || "")) ? String(label) : `SY ${label}`;
   const api = async (payload) =>
     axios.post("api/teams.php", payload, { headers: { "X-CSRF-Token": csrf } });
   const confirmAction = (o) =>
@@ -47,13 +56,172 @@ window.SharedNavigation.ready.then(() => {
     history.replaceState(null, "", u);
   };
 
+  const selectedReviewYear = () =>
+    String(
+      $("[data-unassigned-year]")?.value ||
+        filters.school_year.value ||
+        data?.school_years?.[0]?.id ||
+        "",
+    );
+
+  function activeTeamsForYear(yearId) {
+    return (data.assignment_teams || data.teams).filter(
+      (team) => String(team.school_year_id) === String(yearId),
+    );
+  }
+
+  function unassignedForYear(yearId) {
+    return data.students.filter(
+      (student) =>
+        !student.teams.some(
+          (team) => String(team.school_year_id) === String(yearId),
+        ),
+    );
+  }
+
+  function fillTeamSelect(select, teams, placeholder = "Choose a tribe…") {
+    select.replaceChildren(new Option(placeholder, ""));
+    teams.forEach((team) =>
+      select.add(new Option(`${team.name} · ${team.members_count} members`, team.id)),
+    );
+  }
+
+  function updateUnassignedSelection() {
+    const visibleChecks = [
+      ...$("[data-unassigned-list]").querySelectorAll(
+        '[data-unassigned-check]:not([disabled])',
+      ),
+    ].filter((check) => !check.closest("[data-unassigned-row]").classList.contains("hidden"));
+    const selected = visibleChecks.filter((check) => check.checked).length;
+    $("[data-unassigned-selected]").textContent = `${unassignedSelection.size.toLocaleString()} selected`;
+    $("[data-assign-selected]").disabled =
+      !unassignedSelection.size || !$("[data-unassigned-bulk-team]").value;
+    const all = $("[data-unassigned-select-all]");
+    all.checked = !!visibleChecks.length && selected === visibleChecks.length;
+    all.indeterminate = selected > 0 && selected < visibleChecks.length;
+  }
+
+  function filterUnassignedRows() {
+    const query = $("[data-unassigned-search]").value.trim().toLowerCase();
+    let visible = 0;
+    $("[data-unassigned-list]")
+      .querySelectorAll("[data-unassigned-row]")
+      .forEach((row) => {
+        const matches = !query || row.dataset.search.includes(query);
+        row.classList.toggle("hidden", !matches);
+        if (matches) visible++;
+      });
+    const total = unassignedForYear(selectedReviewYear()).length;
+    $("[data-unassigned-visible-count]").textContent = query
+      ? `Showing ${visible.toLocaleString()} of ${total.toLocaleString()} unassigned students`
+      : `${total.toLocaleString()} unassigned ${total === 1 ? "student" : "students"}`;
+    updateUnassignedSelection();
+  }
+
+  function renderUnassignedReview() {
+    if (!data) return;
+    const yearId = selectedReviewYear();
+    const year = data.school_years.find((item) => String(item.id) === yearId);
+    const students = unassignedForYear(yearId);
+    const teams = activeTeamsForYear(yearId);
+    const host = $("[data-unassigned-list]");
+    const randomizeButton = $("[data-randomize-unassigned]");
+    randomizeButton.disabled = !students.length || teams.length < 2;
+    randomizeButton.classList.toggle("opacity-40", randomizeButton.disabled);
+    randomizeButton.title = teams.length < 2
+      ? "Create at least two active tribes before randomizing students."
+      : "Distribute unassigned students without changing existing assignments.";
+    unassignedSelection = new Set(
+      [...unassignedSelection].filter((id) => students.some((student) => student.id === id)),
+    );
+    $("[data-unassigned-context]").textContent =
+      `${students.length.toLocaleString()} students have no tribe assignment for ${year ? schoolYearLabel(year.label) : "the selected school year"}.`;
+    fillTeamSelect($("[data-unassigned-bulk-team]"), teams);
+    host.replaceChildren();
+    if (!students.length) {
+      const empty = document.createElement("div");
+      empty.className = "px-6 py-16 text-center";
+      empty.innerHTML = '<span class="mx-auto grid h-14 w-14 place-items-center rounded-full bg-[#C6F24E]/35 text-2xl text-[#397565]">✓</span><strong class="mt-4 block text-base text-[#121017]">Everyone is assigned</strong><p class="mt-1 text-sm text-slate-500">There are no unassigned active students for this school year.</p>';
+      host.append(empty);
+      $("[data-unassigned-bulk-bar]").classList.add("hidden");
+      filterUnassignedRows();
+      return;
+    }
+    $("[data-unassigned-bulk-bar]").classList.remove("hidden");
+    students.forEach((student) => {
+      const row = document.createElement("article");
+      const details = [student.program, student.year_level_label, student.section_name]
+        .filter(Boolean)
+        .join(" · ");
+      const reason = student.import_missing_tribe
+        ? "Roster imported without a confirmed tribe"
+        : `No tribe in ${year ? schoolYearLabel(year.label) : "the selected school year"}`;
+      row.dataset.unassignedRow = "";
+      row.dataset.search = `${student.full_name} ${student.id_number || ""} ${details}`.toLowerCase();
+      row.className = "unassigned-review-row grid gap-4 border-b border-slate-100 px-5 py-4 last:border-0 sm:px-7";
+      row.innerHTML = `<div class="flex min-w-0 items-start gap-3"><input class="mt-3 h-4 w-4 shrink-0 rounded border-slate-300 accent-[#397565]" type="checkbox" data-unassigned-check><span class="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#121017] text-[10px] font-black text-white">${initials(student.full_name)}</span><span class="min-w-0"><strong class="block truncate text-sm text-[#121017]">${escapeHtml(student.full_name)}</strong><span class="mt-0.5 block truncate text-xs text-slate-500">${escapeHtml(student.id_number || "No student ID")}</span><span class="mt-0.5 block text-xs text-slate-400">${escapeHtml(details || "Program or year information unavailable")}</span></span></div><div><span class="block text-[10px] font-black uppercase tracking-[.12em] text-slate-400">Reason</span><span class="mt-1 block text-xs font-semibold text-[#c94b18]">${escapeHtml(reason)}</span></div><div class="flex gap-2"><select class="h-10 min-w-0 flex-1 rounded-xl border border-slate-200 bg-white px-3 text-xs font-bold text-slate-700 outline-none" data-row-team></select><button class="min-h-10 rounded-xl border border-[#397565]/25 px-4 text-xs font-extrabold text-[#397565] transition hover:bg-[#397565]/5 disabled:cursor-not-allowed disabled:text-slate-300" type="button" data-row-assign disabled>Assign</button></div>`;
+      const check = row.querySelector("[data-unassigned-check]");
+      check.value = student.id;
+      check.checked = unassignedSelection.has(student.id);
+      check.onchange = () => {
+        check.checked
+          ? unassignedSelection.add(student.id)
+          : unassignedSelection.delete(student.id);
+        updateUnassignedSelection();
+      };
+      const teamSelect = row.querySelector("[data-row-team]");
+      const assignButton = row.querySelector("[data-row-assign]");
+      fillTeamSelect(teamSelect, teams, "Assign to…");
+      teamSelect.onchange = () => (assignButton.disabled = !teamSelect.value);
+      assignButton.onclick = () => assignUnassigned([student.id], teamSelect.value);
+      host.append(row);
+    });
+    filterUnassignedRows();
+  }
+
+  async function openUnassignedReview() {
+    const yearSelect = $("[data-unassigned-year]");
+    const yearId = filters.school_year.value || data.school_years[0]?.id || "";
+    if (!filters.school_year.value && yearId) {
+      filters.school_year.value = yearId;
+      page = 1;
+      await load();
+      syncUrl();
+    }
+    yearSelect.replaceChildren();
+    data.school_years.forEach((year) =>
+      yearSelect.add(new Option(schoolYearLabel(year.label), year.id, false, String(year.id) === String(yearId))),
+    );
+    unassignedSelection.clear();
+    $("[data-unassigned-search]").value = "";
+    renderUnassignedReview();
+    unassignedDialog.showModal();
+  }
+
+  async function assignUnassigned(studentIds, teamId) {
+    if (!studentIds.length || !teamId) return;
+    try {
+      const response = await api({
+        action: "assign_unassigned",
+        school_year_id: selectedReviewYear(),
+        team_id: teamId,
+        student_ids: studentIds,
+      });
+      toast("success", response.data.message);
+      await load();
+      renderUnassignedReview();
+    } catch (error) {
+      toast("error", error.response?.data?.message || "Unable to assign the selected students.");
+    }
+  }
+
   function renderSummary() {
     const s = data.summary;
     const summaryYear =
       s.school_year_label ||
       (data.school_years.length === 1 ? data.school_years[0].label : null);
     $("[data-summary-year]").textContent = summaryYear
-      ? `SY ${summaryYear}`
+      ? schoolYearLabel(summaryYear)
       : "All school years";
     const assignment = s.students
       ? s.unassigned
@@ -74,19 +242,21 @@ window.SharedNavigation.ready.then(() => {
   }
 
   function fillOptions() {
-    const selectedYear = filters.school_year.value;
+    const selectedYear = filters.school_year.value || requestedSchoolYear;
     filters.school_year.replaceChildren(new Option("All school years", ""));
     data.school_years.forEach((y) =>
       filters.school_year.add(
-        new Option(`SY ${y.label}`, y.id, false, String(y.id) === selectedYear),
+        new Option(schoolYearLabel(y.label), y.id, false, String(y.id) === selectedYear),
       ),
     );
+    filters.school_year.value = selectedYear;
+    requestedSchoolYear = "";
     const ry = $("[data-randomize-year]");
     const selected = filters.school_year.value || ry.value;
     ry.replaceChildren();
     data.school_years.forEach((y) => {
       const o = new Option(
-        `SY ${y.label}`,
+        schoolYearLabel(y.label),
         y.id,
         false,
         String(y.id) === selected,
@@ -128,7 +298,7 @@ window.SharedNavigation.ready.then(() => {
       const card = document.createElement("article");
       card.className =
         "group overflow-hidden rounded-2xl border border-slate-200 bg-white transition hover:-translate-y-0.5 hover:shadow-lg";
-      card.innerHTML = `<div class="h-1.5" style="background:${t.color}"></div><div class="p-5"><header class="flex items-start justify-between gap-4"><div class="flex min-w-0 items-center gap-3"><span class="grid h-11 w-11 place-items-center rounded-xl text-sm font-black text-white" style="background:${t.color}">${initials(t.name)}</span><div class="min-w-0"><h3 class="truncate text-base font-extrabold">${escapeHtml(t.name)}</h3><p class="mt-0.5 text-xs text-slate-400">SY ${escapeHtml(t.school_year_label)} · ${t.members_count} ${t.members_count === 1 ? "student" : "students"}</p></div></div><span class="rounded-full px-2.5 py-1 text-[10px] font-extrabold ${t.is_active ? "bg-[#C6F24E]/35 text-[#397565]" : "bg-[#FF6B2C]/10 text-[#FF6B2C]"}">${t.is_active ? "Active" : "Inactive"}</span></header><div class="mt-5 min-h-12" data-members></div><footer class="mt-5 flex items-center justify-between border-t border-slate-100 pt-4" data-actions></footer></div>`;
+      card.innerHTML = `<div class="h-1.5" style="background:${t.color}"></div><div class="p-5"><header class="flex items-start justify-between gap-4"><div class="flex min-w-0 items-center gap-3"><span class="grid h-11 w-11 place-items-center rounded-xl text-sm font-black text-white" style="background:${t.color}">${initials(t.name)}</span><div class="min-w-0"><h3 class="truncate text-base font-extrabold">${escapeHtml(t.name)}</h3><p class="mt-0.5 text-xs text-slate-400">${escapeHtml(schoolYearLabel(t.school_year_label))} · ${t.members_count} ${t.members_count === 1 ? "student" : "students"}</p></div></div><span class="rounded-full px-2.5 py-1 text-[10px] font-extrabold ${t.is_active ? "bg-[#C6F24E]/35 text-[#397565]" : "bg-[#FF6B2C]/10 text-[#FF6B2C]"}">${t.is_active ? "Active" : "Inactive"}</span></header><div class="mt-5 min-h-12" data-members></div><footer class="mt-5 flex items-center justify-between border-t border-slate-100 pt-4" data-actions></footer></div>`;
       const mh = card.querySelector("[data-members]");
       if (t.members.length) {
         const members = document.createElement("div");
@@ -289,7 +459,7 @@ window.SharedNavigation.ready.then(() => {
       : "Student assignments are handled separately with Randomize Students after the tribes are created.";
     const sy = form.elements.school_year_id;
     sy.replaceChildren(new Option("Select school year", ""));
-    data.school_years.forEach((y) => sy.add(new Option(`SY ${y.label}`, y.id)));
+    data.school_years.forEach((y) => sy.add(new Option(schoolYearLabel(y.label), y.id)));
     form.elements.name.value = team?.name || "";
     sy.value = team?.school_year_id || data.school_years[0]?.id || "";
     applyColor(team?.color || "#397565");
@@ -424,6 +594,8 @@ window.SharedNavigation.ready.then(() => {
   }
   async function load() {
     const params = Object.fromEntries(new FormData(filters));
+    if (!params.school_year && requestedSchoolYear)
+      params.school_year = requestedSchoolYear;
     params.page = page;
     const r = await axios.get("api/teams.php", { params });
     data = r.data.data;
@@ -462,6 +634,68 @@ window.SharedNavigation.ready.then(() => {
   dialog
     .querySelectorAll("[data-dialog-close]")
     .forEach((b) => (b.onclick = () => dialog.close()));
+  $("[data-unassigned-summary]").onclick = openUnassignedReview;
+  unassignedDialog
+    .querySelectorAll("[data-unassigned-close]")
+    .forEach((button) => (button.onclick = () => unassignedDialog.close()));
+  $("[data-unassigned-search]").oninput = filterUnassignedRows;
+  $("[data-unassigned-year]").onchange = async (event) => {
+    filters.school_year.value = event.target.value;
+    page = 1;
+    unassignedSelection.clear();
+    await load();
+    syncUrl();
+    renderUnassignedReview();
+  };
+  $("[data-unassigned-select-all]").onchange = (event) => {
+    $("[data-unassigned-list]")
+      .querySelectorAll("[data-unassigned-row]:not(.hidden) [data-unassigned-check]")
+      .forEach((check) => {
+        check.checked = event.target.checked;
+        event.target.checked
+          ? unassignedSelection.add(Number(check.value))
+          : unassignedSelection.delete(Number(check.value));
+      });
+    updateUnassignedSelection();
+  };
+  $("[data-unassigned-bulk-team]").onchange = () => {
+    updateUnassignedSelection();
+  };
+  $("[data-assign-selected]").onclick = () =>
+    assignUnassigned(
+      [...unassignedSelection],
+      $("[data-unassigned-bulk-team]").value,
+    );
+  $("[data-randomize-unassigned]").onclick = async () => {
+    const selected = [...unassignedSelection];
+    const available = unassignedForYear(selectedReviewYear());
+    if (!available.length) return;
+    const count = selected.length || available.length;
+    if (
+      !(await confirmAction({
+        title: selected.length
+          ? `Randomize ${count} selected students?`
+          : `Randomize all ${count} unassigned students?`,
+        message:
+          "They will be distributed as evenly as possible among active tribes. Existing tribe assignments will not be changed.",
+        action: "Randomize students",
+      }))
+    )
+      return;
+    try {
+      const response = await api({
+        action: "randomize_unassigned",
+        school_year_id: selectedReviewYear(),
+        student_ids: selected,
+      });
+      toast("success", response.data.message);
+      unassignedSelection.clear();
+      await load();
+      renderUnassignedReview();
+    } catch (error) {
+      toast("error", error.response?.data?.message || "Unable to randomize unassigned students.");
+    }
+  };
   form.elements.name.oninput = () => {
     clearFieldError("name");
     updatePreview();

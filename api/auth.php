@@ -37,13 +37,13 @@ final class UserRepository
         return $statement->fetchAll();
     }
 
-    public function replacePassword(int $userId, string $password): void
+    public function replacePassword(int $userId, string $password, string $role): void
     {
         $statement = $this->database->prepare('SELECT password FROM tbl_users WHERE id = ? LIMIT 1');
         $statement->execute([$userId]);
         $currentHash = $statement->fetchColumn();
         if (!is_string($currentHash)) {
-            throw new InvalidArgumentException('Your SBO Officer account was not found.');
+            throw new InvalidArgumentException('Your account was not found.');
         }
         if (password_verify($password, $currentHash)) {
             throw new InvalidArgumentException('Choose a password different from your temporary password.');
@@ -55,8 +55,8 @@ final class UserRepository
             $update->execute([password_hash($password, PASSWORD_BCRYPT), $userId]);
             $log = $this->database->prepare("INSERT INTO tbl_activity_logs
                 (actor_id, subject_user_id, action, acting_role, description, created_at, updated_at)
-                VALUES (?, ?, 'password_changed', 'SBO Officer', 'SBO Officer completed the required password change.', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)");
-            $log->execute([$userId, $userId]);
+                VALUES (?, ?, 'password_changed', ?, 'User completed the required password change.', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)");
+            $log->execute([$userId, $userId, $role]);
             $this->database->commit();
         } catch (Throwable $error) {
             $this->database->rollBack();
@@ -155,8 +155,8 @@ final class AuthController
 
     public function completeRequiredPasswordChange(array $input, array $user): void
     {
-        if (($user['role'] ?? null) !== 'SBO Officer' || empty($user['must_change_password'])) {
-            throw new InvalidArgumentException('A required SBO Officer password change is not pending.');
+        if (empty($user['must_change_password'])) {
+            throw new InvalidArgumentException('A required password change is not pending.');
         }
 
         $password = (string) ($input['password'] ?? '');
@@ -167,7 +167,7 @@ final class AuthController
             throw new InvalidArgumentException('The password confirmation does not match.');
         }
 
-        $this->users->replacePassword((int) $user['id'], $password);
+        $this->users->replacePassword((int) $user['id'], $password, (string) ($user['role'] ?? 'Account'));
     }
 
     private function guardRateLimit(): void
@@ -189,6 +189,8 @@ final class AuthController
         $_SESSION['login_attempts'] = (int) ($_SESSION['login_attempts'] ?? 0) + 1;
     }
 }
+
+if (realpath((string) ($_SERVER['SCRIPT_FILENAME'] ?? '')) !== __FILE__) return;
 
 $action = (string) ($_GET['action'] ?? 'session');
 

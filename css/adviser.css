@@ -8,6 +8,45 @@
     background: #fff;
 }
 
+/* Team Management: focused review of students without a tribe assignment. */
+.unassigned-review-dialog {
+  width: min(1180px, calc(100% - 2rem));
+  max-height: calc(100dvh - 2rem);
+  box-shadow: 0 30px 90px rgba(18, 16, 23, 0.3);
+}
+
+.unassigned-review-dialog::backdrop {
+  background: rgba(18, 16, 23, 0.6);
+  backdrop-filter: blur(3px);
+}
+
+.unassigned-review-shell {
+  max-height: calc(100dvh - 2rem);
+}
+
+@media (min-width: 64rem) {
+  .unassigned-review-controls {
+    grid-template-columns: minmax(240px, 1fr) 220px auto;
+  }
+
+  .unassigned-review-row {
+    grid-template-columns: minmax(260px, 1fr) minmax(220px, 0.8fr) 300px;
+    align-items: center;
+  }
+}
+
+@media (max-width: 40rem) {
+  .unassigned-review-dialog {
+    width: calc(100% - 1rem);
+    max-height: calc(100dvh - 1rem);
+    border-radius: 1rem;
+  }
+
+  .unassigned-review-shell {
+    max-height: calc(100dvh - 1rem);
+  }
+}
+
 .attendance-scan-list {
   max-height: min(68vh, 720px);
   overflow-y: auto;

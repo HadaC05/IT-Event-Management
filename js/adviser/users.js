@@ -5,6 +5,7 @@ window.SharedNavigation.ready.then(() => {
     let roles = [];
     let yearLevels = [];
     let events = [];
+    let userSavePending = false;
     let searchTimer;
     const initialQuery = new URLSearchParams(location.search);
     let currentPage = Math.max(1, Number(initialQuery.get('page')) || 1);
@@ -19,6 +20,15 @@ window.SharedNavigation.ready.then(() => {
     const mobileList = document.querySelector('.divide-y.divide-slate-100.lg\\:hidden');
     const addDialog = document.querySelector('#add-user-dialog');
     const userForm = addDialog?.querySelector('form');
+    const rosterDialog = document.querySelector('#student-roster-import-dialog');
+    const rosterForm = rosterDialog?.querySelector('[data-roster-import-form]');
+    const rosterApply = rosterDialog?.querySelector('[data-roster-apply]');
+    const rosterStatusFilter = rosterDialog?.querySelector('[data-roster-status-filter]');
+    const rosterPrevious = rosterDialog?.querySelector('[data-roster-page-previous]');
+    const rosterNext = rosterDialog?.querySelector('[data-roster-page-next]');
+    let activeRosterBatchId = null;
+    let activeRosterPage = 1;
+    let rosterImportPending = false;
     const filterForm = document.querySelector('form[method="GET"]');
     const logoutForm = document.querySelector('form[action="api/auth.php?action=logout"]');
     const directoryHeader = document.querySelector('.admin-main > section:nth-of-type(2) > header > div');
@@ -69,13 +79,13 @@ window.SharedNavigation.ready.then(() => {
         const passwordLabel = userForm.elements.password.closest('label')?.querySelector('span:first-child');
         if (passwordLabel) {
             passwordLabel.innerHTML = user
-                ? 'Password <small class="font-medium text-slate-400">Leave blank to keep</small>'
-                : 'Password';
+                ? 'New temporary password <small class="font-medium text-slate-400">Leave blank to keep</small>'
+                : 'Temporary password';
         }
         addDialog.querySelector('h2').textContent = user ? 'Edit User' : 'Add User';
         addDialog.querySelector('header p:last-child').textContent = user
             ? `Update ${user.full_name}'s information and access.`
-            : 'Create an account and assign the correct system access.';
+            : 'Create an account with temporary credentials. The user must choose a new password after signing in.';
         userForm.querySelector('footer button[type="submit"]').textContent = user ? 'Save Changes' : 'Add User';
         refreshRoleFields();
         refreshPasswordStrength();
@@ -90,8 +100,8 @@ window.SharedNavigation.ready.then(() => {
         if (student || !selectedRoleName()) {
             idNumber.maxLength = 14;
             idNumber.inputMode = 'numeric';
-            idNumber.pattern = '02-[0-9]{4}-[0-9]{6}';
-            idNumber.title = 'Use 02-xxxx-xxxxxx (12 digits).';
+            idNumber.pattern = '02-[0-9]{4}-[0-9]{5,6}';
+            idNumber.title = 'Use 02-xxxx-xxxxx or 02-xxxx-xxxxxx.';
         } else {
             ['maxlength', 'inputmode', 'pattern', 'title'].forEach(attribute => idNumber.removeAttribute(attribute));
         }
@@ -514,6 +524,175 @@ window.SharedNavigation.ready.then(() => {
         render(response.data.data);
     };
 
+    const rosterSummary = data => data.summary || {
+        total: data.batch?.total_rows || 0,
+        ready: data.batch?.ready_rows || 0,
+        warning: data.batch?.warning_rows || 0,
+        review: data.batch?.review_rows || 0,
+        blocked: data.batch?.blocked_rows || 0,
+        importable: (data.batch?.ready_rows || 0) + (data.batch?.warning_rows || 0),
+        excluded: (data.batch?.review_rows || 0) + (data.batch?.blocked_rows || 0),
+    };
+
+    const renderRosterImport = data => {
+        const batch = data.batch || null;
+        const summary = rosterSummary(data);
+        activeRosterBatchId = Number(data.batch_id || batch?.id || 0) || null;
+        const results = rosterDialog.querySelector('[data-roster-import-results]');
+        const summaryHost = rosterDialog.querySelector('[data-roster-import-summary]');
+        const flagsHost = rosterDialog.querySelector('[data-roster-flag-counts]');
+        const rowsHost = rosterDialog.querySelector('[data-roster-flagged-rows]');
+        const totalHost = rosterDialog.querySelector('[data-roster-flagged-total]');
+        const note = rosterDialog.querySelector('[data-roster-import-note]');
+        const cards = [
+            ['Total rows', summary.total, '#121017'],
+            ['Ready', summary.ready, '#397565'],
+            ['Warnings', summary.warning, '#806000'],
+            ['Review', summary.review, '#B45309'],
+            ['Blocked', summary.blocked, '#C2410C'],
+        ];
+        summaryHost.replaceChildren(...cards.map(([label, value, color]) => {
+            const card = document.createElement('div');
+            card.className = 'rounded-xl border border-[#121017]/9 bg-white p-3.5';
+            const count = document.createElement('strong');
+            count.className = 'block text-xl font-black';
+            count.style.color = color;
+            count.textContent = Number(value || 0).toLocaleString();
+            const caption = document.createElement('span');
+            caption.className = 'mt-1 block text-[10px] font-black uppercase tracking-[.1em] text-[#121017]/40';
+            caption.textContent = label;
+            card.append(count, caption);
+            return card;
+        }));
+
+        const flagCounts = (data.flag_counts || []).filter(flag => Number(flag.count) > 0);
+        flagsHost.replaceChildren(...flagCounts.map(flag => {
+            const row = document.createElement('div');
+            row.className = 'flex items-start justify-between gap-3 rounded-xl border border-[#121017]/8 bg-white px-3.5 py-3';
+            const copy = document.createElement('div');
+            const title = document.createElement('strong');
+            title.className = 'block text-xs font-black capitalize';
+            title.textContent = String(flag.code || '').replaceAll('_', ' ');
+            const message = document.createElement('p');
+            message.className = 'mt-1 text-[11px] leading-4 text-[#121017]/48';
+            message.textContent = flag.message;
+            copy.append(title, message);
+            const count = document.createElement('span');
+            count.className = `rounded-full px-2.5 py-1 text-[10px] font-black ${flag.severity === 'blocked' ? 'bg-[#FF6B2C]/12 text-[#d9470a]' : flag.severity === 'review' ? 'bg-amber-100 text-amber-800' : 'bg-[#397565]/9 text-[#397565]'}`;
+            count.textContent = Number(flag.count).toLocaleString();
+            row.append(copy, count);
+            return row;
+        }));
+
+        const flagged = data.flagged_rows || { rows: [], pagination: { total: 0 } };
+        activeRosterPage = Number(flagged.pagination?.page || 1);
+        const lastPage = Number(flagged.pagination?.lastPage || 1);
+        totalHost.textContent = `${Number(flagged.pagination?.total || 0).toLocaleString()} flagged`;
+        rosterDialog.querySelector('[data-roster-page-label]').textContent = `${activeRosterPage} / ${lastPage}`;
+        rosterPrevious.disabled = activeRosterPage <= 1;
+        rosterNext.disabled = activeRosterPage >= lastPage;
+        rowsHost.replaceChildren(...flagged.rows.map(item => {
+            const row = document.createElement('tr');
+            const values = [
+                item.source_row,
+                `${item.official_name || 'Name unavailable'}${item.student_id ? ` · ${item.student_id}` : ''}`,
+                item.validation_status,
+                (item.flags || []).map(flag => flag.message).join(' '),
+            ];
+            values.forEach((value, index) => {
+                const cell = document.createElement('td');
+                cell.className = index === 2 ? 'px-3 py-3 font-black capitalize' : 'px-3 py-3 align-top text-[#121017]/65';
+                if (index === 2) cell.style.color = item.validation_status === 'blocked' ? '#d9470a' : item.validation_status === 'review' ? '#B45309' : '#397565';
+                cell.textContent = value;
+                row.append(cell);
+            });
+            return row;
+        }));
+        if (!flagged.rows.length) {
+            const row = document.createElement('tr');
+            const cell = document.createElement('td');
+            cell.colSpan = 4;
+            cell.className = 'px-4 py-8 text-center text-xs text-[#121017]/45';
+            cell.textContent = 'No flagged rows in this preview.';
+            row.append(cell);
+            rowsHost.append(row);
+        }
+
+        const canApply = (batch?.status || 'previewed') === 'previewed' && Number(summary.importable || 0) > 0;
+        rosterApply.disabled = !canApply;
+        note.textContent = batch?.status === 'completed'
+            ? `${Number(batch.imported_rows).toLocaleString()} accounts imported; ${Number(batch.skipped_rows).toLocaleString()} rows remain safely flagged for review.`
+            : `${Number(summary.importable || 0).toLocaleString()} validated rows can be imported; ${Number(summary.excluded || 0).toLocaleString()} review/blocked rows will be excluded and retained.`;
+        results.classList.remove('hidden');
+    };
+
+    const loadLatestRosterImport = async (page = 1) => {
+        try {
+            const response = await axios.get('api/student-roster-imports.php', { params: {
+                batch_id: activeRosterBatchId || undefined,
+                status: rosterStatusFilter?.value || undefined,
+                page,
+            } });
+            if (response.data.data?.batch) renderRosterImport(response.data.data);
+        } catch (error) {
+            if (error.response?.status !== 404) showError(error);
+        }
+    };
+
+    document.querySelector('[data-roster-import-open]')?.addEventListener('click', () => {
+        rosterDialog.showModal();
+        loadLatestRosterImport();
+    });
+    rosterDialog?.querySelectorAll('[data-dialog-close]').forEach(close => close.addEventListener('click', () => rosterDialog.close()));
+    rosterStatusFilter?.addEventListener('change', () => loadLatestRosterImport(1));
+    rosterPrevious?.addEventListener('click', () => loadLatestRosterImport(Math.max(1, activeRosterPage - 1)));
+    rosterNext?.addEventListener('click', () => loadLatestRosterImport(activeRosterPage + 1));
+    rosterForm?.addEventListener('submit', async event => {
+        event.preventDefault();
+        if (rosterImportPending || !rosterForm.reportValidity()) return;
+        const submit = rosterForm.querySelector('[data-roster-preview]');
+        const body = new FormData(rosterForm);
+        body.append('action', 'preview');
+        rosterImportPending = true;
+        window.Notifications?.setLoading(submit, true, 'Validating…');
+        try {
+            const response = await axios.post('api/student-roster-imports.php?action=preview', body, { headers: { 'X-CSRF-Token': csrfToken } });
+            rosterStatusFilter.value = '';
+            renderRosterImport(response.data.data);
+            notify('success', response.data.message || 'Roster preview completed.');
+        } catch (error) {
+            showError(error);
+        } finally {
+            rosterImportPending = false;
+            window.Notifications?.setLoading(submit, false);
+        }
+    });
+    rosterApply?.addEventListener('click', async () => {
+        if (!activeRosterBatchId || rosterImportPending) return;
+        const accepted = window.Notifications?.confirm
+            ? await window.Notifications.confirm({
+                title: 'Replace current operational data?',
+                message: 'This removes current demo users, teams, events, attendance, scores, and posts. The SBO Adviser account, system settings, import audit, and flagged rows are preserved.',
+                action: 'Replace data',
+            })
+            : confirm('Replace current operational data with this validated roster?');
+        if (!accepted) return;
+        rosterImportPending = true;
+        window.Notifications?.setLoading(rosterApply, true, 'Importing…');
+        try {
+            const response = await axios.post('api/student-roster-imports.php', { action: 'apply', batch_id: activeRosterBatchId }, { headers: { 'X-CSRF-Token': csrfToken }, timeout: 600000 });
+            notify('success', response.data.message || 'Roster imported successfully.');
+            await loadLatestRosterImport();
+            currentPage = 1;
+            await loadUsers();
+        } catch (error) {
+            showError(error);
+        } finally {
+            rosterImportPending = false;
+            window.Notifications?.setLoading(rosterApply, false);
+        }
+    });
+
     document.querySelector('[data-dialog-open="add-user-dialog"]')?.addEventListener('click', () => {
         prepareForm();
         addDialog.showModal();
@@ -558,17 +737,25 @@ window.SharedNavigation.ready.then(() => {
     });
     userForm?.addEventListener('submit', async event => {
         event.preventDefault();
-        if (!userForm.reportValidity()) return;
+        if (userSavePending || !userForm.reportValidity()) return;
         const data = Object.fromEntries(new FormData(userForm));
         data.action = userForm.dataset.userId ? 'update' : 'create';
         if (userForm.dataset.userId) data.id = userForm.dataset.userId;
+        const submit = userForm.querySelector('button[type="submit"]');
+        userSavePending = true;
+        window.Notifications?.setLoading(submit, true, 'Saving…');
         try {
             const response = await axios.post('api/users.php', data, { headers: { 'X-CSRF-Token': csrfToken } });
             addDialog.close();
             notify('success', response.data.message || (data.action === 'update' ? 'User updated successfully.' : 'User added successfully.'));
             await loadUsers().catch(() => notify('warning', 'Saved, but the user list could not refresh. Reload the page.'));
         } catch (error) {
-            showError(error);
+            if (error.response?.status >= 500) {
+                notify('error', 'The server could not save this account. Your entries are still here; please try again.');
+            } else showError(error);
+        } finally {
+            userSavePending = false;
+            window.Notifications?.setLoading(submit, false);
         }
     });
     logoutForm?.addEventListener('submit', async event => {

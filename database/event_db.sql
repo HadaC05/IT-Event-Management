@@ -1037,7 +1037,7 @@ CREATE TABLE `tbl_users` (
   `officer_team_id` bigint(20) UNSIGNED DEFAULT NULL,
   `username` varchar(255) NOT NULL,
   `password` varchar(255) NOT NULL,
-  `must_change_password` tinyint(1) NOT NULL DEFAULT 0,
+  `must_change_password` tinyint(1) NOT NULL DEFAULT 1,
   `status` bigint(20) UNSIGNED DEFAULT NULL,
   `email` varchar(255) NOT NULL,
   `email_verified_at` timestamp NULL DEFAULT NULL,

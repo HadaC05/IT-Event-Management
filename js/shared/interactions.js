@@ -4,12 +4,20 @@
     if (!document.querySelector('link[data-adviser-modal-styles]')) {
         const modalStyles = document.createElement('link');
         modalStyles.rel = 'stylesheet';
-        modalStyles.href = 'css/adviser-modals.css?v=20260915-1';
+        modalStyles.href = 'css/adviser-modals.css?v=20260917-3';
         modalStyles.dataset.adviserModalStyles = '';
         document.head.append(modalStyles);
     }
 
     const dialogOpeners = new WeakMap();
+    const modalStack = [];
+    const topModal = () => {
+        const tracked = modalStack.filter(dialog => dialog.isConnected && dialog.matches(':modal'));
+        if (tracked.length) return tracked[tracked.length - 1];
+        const dialogs = document.querySelectorAll('dialog:modal');
+        return dialogs[dialogs.length - 1] || null;
+    };
+    window.AppDialogs = { topModal };
     const nativeShowModal = window.HTMLDialogElement?.prototype.showModal;
     const nativeClose = window.HTMLDialogElement?.prototype.close;
 
@@ -42,8 +50,13 @@
             prepareDialog(this);
             dialogOpeners.set(this, document.activeElement);
             nativeShowModal.call(this);
+            const previous = modalStack.indexOf(this);
+            if (previous !== -1) modalStack.splice(previous, 1);
+            modalStack.push(this);
+            this.dispatchEvent(new CustomEvent('cite:dialog-opened', { bubbles: true }));
             requestAnimationFrame(() => {
-                const target = this.querySelector('[autofocus], input:not([type="hidden"]):not(:disabled), select:not(:disabled), textarea:not(:disabled), button:not(:disabled), [href], [tabindex]:not([tabindex="-1"])');
+                if (topModal() !== this) return;
+                const target = this.matches('[data-confirm-dialog]') ? this.querySelector('[data-confirm-cancel]') : this.querySelector('[autofocus], input:not([type="hidden"]):not(:disabled), select:not(:disabled), textarea:not(:disabled), button:not(:disabled), [href], [tabindex]:not([tabindex="-1"])');
                 target?.focus({ preventScroll: true });
             });
         };
@@ -57,7 +70,7 @@
 
     document.addEventListener('keydown', event => {
         if (event.key !== 'Tab') return;
-        const dialog = document.querySelector('dialog[open]');
+        const dialog = topModal();
         if (!dialog) return;
         const controls = focusable(dialog);
         if (!controls.length) return;
@@ -78,7 +91,9 @@
 
     document.addEventListener('close', event => {
         const dialog = event.target;
-        if (!(dialog instanceof HTMLDialogElement)) return;
+        if (!(dialog instanceof HTMLDialogElement) || dialog.open) return;
+        const index = modalStack.indexOf(dialog);
+        if (index !== -1) modalStack.splice(index, 1);
         const opener = dialogOpeners.get(dialog);
         if (opener instanceof HTMLElement && opener.isConnected) opener.focus({ preventScroll: true });
         dialogOpeners.delete(dialog);

@@ -58,10 +58,10 @@ dialog.app-dialog[data-modal-kind="workflow"] form > footer button[type="submit"
     color: #fff !important;
 }
 
-dialog.app-dialog [data-dialog-close],
-dialog.app-dialog [data-modal-close],
-dialog.app-dialog [data-task-close],
-dialog.app-dialog [data-scoring-close],
+dialog.app-dialog header [data-dialog-close],
+dialog.app-dialog header [data-modal-close],
+dialog.app-dialog header [data-task-close],
+dialog.app-dialog header [data-scoring-close],
 dialog.app-dialog button[aria-label^="Close"] {
     width: 40px;
     height: 40px;
@@ -78,18 +78,43 @@ dialog.app-dialog button[aria-label^="Close"] {
     line-height: 1;
 }
 
-dialog.app-dialog [data-dialog-close]:hover,
-dialog.app-dialog [data-modal-close]:hover,
-dialog.app-dialog [data-task-close]:hover,
-dialog.app-dialog [data-scoring-close]:hover,
+dialog.app-dialog header [data-dialog-close]:hover,
+dialog.app-dialog header [data-modal-close]:hover,
+dialog.app-dialog header [data-task-close]:hover,
+dialog.app-dialog header [data-scoring-close]:hover,
 dialog.app-dialog button[aria-label^="Close"]:hover {
     color: var(--cite-ink);
     background: #ebe7df;
 }
 
+/* Text actions are not icon close buttons, even when they dismiss a dialog. */
+dialog.app-dialog footer button {
+    flex-shrink: 0;
+    min-height: 44px;
+    white-space: nowrap;
+}
+
+/* Reserve a separate notification lane instead of covering form fields. */
+dialog.app-dialog.has-dialog-notifications {
+    margin-top: var(--dialog-notification-space) !important;
+    max-height: min(90vh, calc(100dvh - var(--dialog-notification-space) - 16px)) !important;
+}
+
 dialog.app-dialog [data-modal-primary] {
     background: var(--cite-green) !important;
     color: #fff !important;
+}
+
+.roster-file-input::file-selector-button {
+    margin-right: 0.75rem;
+    padding: 0.5rem 0.75rem;
+    border: 0;
+    border-radius: 0.5rem;
+    background: rgba(57, 117, 101, 0.1);
+    color: var(--cite-green);
+    font-size: 0.75rem;
+    font-weight: 800;
+    cursor: pointer;
 }
 
 dialog.app-dialog[data-modal-kind="confirmation"] [data-confirm-accept] {

@@ -150,8 +150,8 @@ final class UserManagementRepository
         if ($id) {
             $this->requireManageableUser($id);
         }
-        if ($role === 'Student' && !preg_match('/^02-\d{4}-\d{6}$/', (string) ($data['id_number'] ?? ''))) {
-            throw new InvalidArgumentException('Student ID numbers must use 02-xxxx-xxxxxx.');
+        if ($role === 'Student' && !StudentId::isValid((string) ($data['id_number'] ?? ''))) {
+            throw new InvalidArgumentException(StudentId::FORMAT_MESSAGE);
         }
         if (($data['year_level'] ?? '') !== '' && !$this->value('SELECT id FROM tbl_year_levels WHERE id = ?', [(int) $data['year_level']])) {
             throw new InvalidArgumentException('The selected year level is invalid.');
@@ -159,12 +159,13 @@ final class UserManagementRepository
 
         $duplicateSql = 'SELECT id FROM tbl_users
                          WHERE (username = :username OR email = :email
-                            OR (:id_number IS NOT NULL AND id_number = :id_number))'
+                            OR (:id_number_present IS NOT NULL AND id_number = :id_number))'
             .($id ? ' AND id <> :id' : '');
         $duplicate = $this->db->prepare($duplicateSql);
         $params = [
             'username' => trim((string) $data['username']),
             'email' => trim((string) $data['email']),
+            'id_number_present' => trim((string) ($data['id_number'] ?? '')) ?: null,
             'id_number' => trim((string) ($data['id_number'] ?? '')) ?: null,
         ];
         if ($id) $params['id'] = $id;
@@ -192,6 +193,7 @@ final class UserManagementRepository
                 if (!empty($data['password'])) {
                     $values['password'] = password_hash((string) $data['password'], PASSWORD_BCRYPT);
                     $set[] = 'password = :password';
+                    $set[] = 'must_change_password = 1';
                 }
                 $values['id'] = $id;
                 $statement = $this->db->prepare('UPDATE tbl_users SET '.implode(', ', $set).', updated_at = CURRENT_TIMESTAMP WHERE id = :id');
@@ -204,8 +206,8 @@ final class UserManagementRepository
                 $values['password'] = password_hash((string) $data['password'], PASSWORD_BCRYPT);
                 $values['status'] = $this->value("SELECT id FROM tbl_user_statuses WHERE label = 'active'");
                 $statement = $this->db->prepare("INSERT INTO tbl_users
-                    (first_name, middle_name, last_name, id_number, username, email, password, role_id, year_level, status, created_at, updated_at)
-                    VALUES (:first_name, :middle_name, :last_name, :id_number, :username, :email, :password, :role_id, :year_level, :status, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)");
+                    (first_name, middle_name, last_name, id_number, username, email, password, role_id, year_level, status, must_change_password, created_at, updated_at)
+                    VALUES (:first_name, :middle_name, :last_name, :id_number, :username, :email, :password, :role_id, :year_level, :status, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)");
                 $statement->execute($values);
                 $id = (int) $this->db->lastInsertId();
                 $fullName = trim(implode(' ', array_filter([$values['first_name'], $values['middle_name'], $values['last_name']])));
@@ -342,5 +344,5 @@ try {
     if($action==='assign_event'){ $repo->assignEvent((int)($input['id']??0),(int)($input['event_id']??0),(int)$actor['id']); JsonResponse::send(['success'=>true,'message'=>'Event assigned successfully.']); }
     if($action==='unassign_event'){ $repo->unassignEvent((int)($input['id']??0),(int)($input['event_id']??0),(int)$actor['id']); JsonResponse::send(['success'=>true,'message'=>'Event assignment removed.']); }
     if(!in_array($action,['create','update'],true)) JsonResponse::send(['success'=>false,'message'=>'Unknown user-management action.'],422);
-    $id=$repo->save($input,(int)$actor['id'],$action==='update'?(int)($input['id']??0):null); JsonResponse::send(['success'=>true,'id'=>$id,'message'=>$action==='update'?'User updated successfully.':'User added successfully.']);
+    $id=$repo->save($input,(int)$actor['id'],$action==='update'?(int)($input['id']??0):null); JsonResponse::send(['success'=>true,'id'=>$id,'message'=>$action==='update'?'User updated successfully.':'User added. Share the temporary credentials securely; they must create a new password after signing in.']);
 } catch(InvalidArgumentException $e){JsonResponse::send(['success'=>false,'message'=>$e->getMessage()],422);} catch(Throwable $e){error_log($e->getMessage());JsonResponse::send(['success'=>false,'message'=>'User management request failed.'],500);}

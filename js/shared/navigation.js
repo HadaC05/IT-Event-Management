@@ -79,6 +79,7 @@
     const expected = ROLE_LABELS[role];
     if (!session.data.authenticated || session.data.user?.role !== expected) { location.href = './'; throw new Error(`${expected} authentication required.`); }
     const user = session.data.user, csrf = session.data.csrf_token, name = user.full_name || `${user.first_name || ''} ${user.last_name || ''}`.trim(), initials = `${user.first_name?.[0] || ''}${user.last_name?.[0] || ''}`.toUpperCase() || expected.slice(0,2).toUpperCase();
+    await window.RequiredPasswordGate.open(user, csrf);
     const fragment = new DOMParser().parseFromString(fragmentResponse.data,'text/html');
     const sidebar = clone(fragment,'[data-shared-navigation-sidebar]'), header = clone(fragment,'[data-shared-navigation-header]'), active = activePage(role), pages = ROLE_PAGES[role];
     sidebar.querySelector('[data-shared-brand-label]').textContent = role === 'adviser' ? 'CITE ADVISER' : role === 'sbo' ? 'CITE SBO' : 'STUDENT MENU';

@@ -10,38 +10,130 @@
 
     const region = () => document.querySelector('[data-notification-region]');
     const snackbarRegion = () => document.querySelector('[data-snackbar-region]');
-    function visibleToastHost() {
-        const pageHost = region();
-        if (!['adviser', 'sbo'].includes(document.body.dataset.navigationRole)) return pageHost;
+    const layeredNotifications = () => ['adviser', 'sbo'].includes(document.body.dataset.navigationRole);
+    const managedHosts = new Set();
+    const topModal = () => {
+        if (window.AppDialogs) return window.AppDialogs.topModal();
         const dialogs = document.querySelectorAll('dialog:modal');
-        const dialog = dialogs[dialogs.length - 1];
-        if (!dialog) return pageHost;
+        return dialogs[dialogs.length - 1] || null;
+    };
 
-        let host = dialog.querySelector(':scope > [data-dialog-notification-region]');
-        if (!host) {
-            host = document.createElement('div');
-            host.className = 'pointer-events-none fixed z-[200] grid gap-2.5';
-            host.setAttribute('data-dialog-notification-region', '');
-            host.setAttribute('aria-live', 'polite');
-            dialog.append(host);
-            const positionHost = () => {
-                const bounds = dialog.getBoundingClientRect();
-                const width = Math.min(380, Math.max(0, bounds.width - 32));
-                host.style.width = `${width}px`;
-                host.style.left = `${bounds.right - width - 16}px`;
-                host.style.top = `${Math.max(8, bounds.top + 16)}px`;
-            };
-            positionHost();
-            window.addEventListener('resize', positionHost);
-            dialog.addEventListener('close', () => {
-                window.removeEventListener('resize', positionHost);
-                const nextHost = visibleToastHost();
-                if (nextHost && nextHost !== host) nextHost.append(...host.children);
-                host.remove();
-            }, { once: true });
+    function positionHost(host) {
+        const dialog = host.closest('dialog');
+        const viewport = window.visualViewport;
+        const left = viewport?.offsetLeft || 0;
+        const top = viewport?.offsetTop || 0;
+        const width = viewport?.width || innerWidth;
+        const height = viewport?.height || innerHeight;
+        const bounds = dialog?.getBoundingClientRect();
+        const undo = host.dataset.notificationLayer === 'undo';
+        const hostWidth = Math.min(undo ? 470 : 380, bounds ? bounds.width - 32 : width - 32, width - 32);
+        host.style.width = `${Math.max(0, hostWidth)}px`;
+        host.style.left = `${Math.max(left + 16, Math.min(bounds ? bounds.right - hostWidth - 16 : left + width - hostWidth - 16, left + width - hostWidth - 16))}px`;
+        host.style.right = 'auto';
+        host.style.margin = '0';
+        host.style.maxHeight = `${Math.max(72, height - 32)}px`;
+        if (undo) {
+            host.style.top = 'auto';
+            host.style.bottom = `${Math.max(16, innerHeight - top - height + 16)}px`;
+        } else {
+            host.style.bottom = 'auto';
+            const anchorTop = bounds ? top + 16 : top + 88;
+            host.style.top = `${anchorTop}px`;
+            // Leave space for Undo rather than covering it with a long toast stack.
+            host.style.maxHeight = `${bounds ? Math.max(72, Math.min(200, height * 0.25)) : Math.max(72, top + height - anchorTop - 112)}px`;
         }
+    }
+
+    function refreshHost(host) {
+        positionHost(host);
+        const dialog = host.closest('dialog');
+        if (dialog && host.dataset.notificationLayer === 'toast') {
+            dialog.classList.toggle('has-dialog-notifications', !!host.childElementCount);
+            if (host.childElementCount) {
+                const space = host.getBoundingClientRect().height + (window.visualViewport?.offsetTop || 0) + 32;
+                dialog.style.setProperty('--dialog-notification-space', `${space}px`);
+            } else dialog.style.removeProperty('--dialog-notification-space');
+        }
+        if (typeof host.showPopover !== 'function') return;
+        const visible = host.matches(':popover-open');
+        if (host.childElementCount && !visible) host.showPopover();
+        else if (!host.childElementCount && visible) host.hidePopover();
+    }
+
+    function prepareHost(host, kind) {
+        if (managedHosts.has(host)) return host;
+        host.dataset.notificationLayer = kind;
+        // Explicit styles also work with an older compiled Tailwind stylesheet.
+        Object.assign(host.style, {
+            position: 'fixed', zIndex: '1100', padding: '0', border: '0',
+            background: 'transparent', color: 'inherit', overflowY: 'auto',
+            pointerEvents: 'none', display: 'grid', gap: '10px',
+        });
+        if (typeof host.showPopover === 'function') host.setAttribute('popover', 'manual');
+        const changes = new MutationObserver(() => refreshHost(host));
+        changes.observe(host, { childList: true });
+        host.notificationCleanup = () => changes.disconnect();
+        managedHosts.add(host);
+        refreshHost(host);
         return host;
     }
+
+    function visibleHost(kind = 'toast') {
+        let pageHost = kind === 'undo' ? snackbarRegion() : region();
+        if (!layeredNotifications()) return pageHost;
+        if (!pageHost && kind === 'undo') {
+            pageHost = document.createElement('div');
+            pageHost.setAttribute('data-snackbar-region', '');
+            pageHost.setAttribute('aria-live', 'polite');
+            pageHost.setAttribute('aria-atomic', 'true');
+            document.body.append(pageHost);
+        }
+        const dialog = topModal();
+        if (!dialog) return pageHost ? prepareHost(pageHost, kind) : null;
+
+        const attribute = kind === 'undo' ? 'data-dialog-snackbar-region' : 'data-dialog-notification-region';
+        let host = dialog.querySelector(`:scope > [${attribute}]`);
+        if (!host) {
+            host = document.createElement('div');
+            host.setAttribute(attribute, '');
+            host.setAttribute('aria-live', 'polite');
+            host.setAttribute('aria-atomic', 'true');
+            dialog.append(host);
+        }
+        return prepareHost(host, kind);
+    }
+
+    function syncNotificationHosts() {
+        if (!layeredNotifications()) return;
+        for (const kind of ['toast', 'undo']) {
+            const active = visibleHost(kind);
+            if (!active) continue;
+            for (const host of managedHosts) {
+                if (host !== active && host.dataset.notificationLayer === kind) active.append(...host.children);
+            }
+            refreshHost(active);
+        }
+        for (const host of managedHosts) {
+            if (host.closest('dialog') && !host.closest('dialog').matches(':modal')) {
+                host.notificationCleanup();
+                const dialog = host.closest('dialog');
+                dialog.classList.remove('has-dialog-notifications');
+                dialog.style.removeProperty('--dialog-notification-space');
+                host.remove();
+                managedHosts.delete(host);
+            } else refreshHost(host);
+        }
+    }
+
+    document.addEventListener('cite:dialog-opened', syncNotificationHosts);
+    document.addEventListener('close', event => {
+        if (event.target instanceof HTMLDialogElement) syncNotificationHosts();
+    }, true);
+    const repositionHosts = () => managedHosts.forEach(refreshHost);
+    window.addEventListener('resize', repositionHosts);
+    window.visualViewport?.addEventListener('resize', repositionHosts);
+    window.visualViewport?.addEventListener('scroll', repositionHosts);
     const toastTones = {
         success: { border: 'border-l-[#397565]', icon: 'bg-[#C6F24E] text-[#121017]', progress: 'bg-[#397565]', title: 'All set' },
         error: { border: 'border-l-[#FF6B2C]', icon: 'bg-[#FF6B2C]/12 text-[#D64A12]', progress: 'bg-[#FF6B2C]', title: 'Action failed' },
@@ -50,7 +142,7 @@
     };
 
     function toast(type, message, options = {}) {
-        const host = visibleToastHost();
+        const host = visibleHost();
         if (!host || !message) return null;
 
         const kind = icons[type] ? type : 'info';
@@ -75,6 +167,7 @@
             });
         }
         host.appendChild(element);
+        if (layeredNotifications()) refreshHost(host);
 
         const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
         if (!reducedMotion) {
@@ -128,10 +221,12 @@
                 accept.removeEventListener('click', onAccept);
                 cancel.removeEventListener('click', onCancel);
                 dialog.removeEventListener('cancel', onCancel);
+                dialog.removeEventListener('close', onClose);
                 if (dialog.open) dialog.close();
                 resolve(result);
             };
             const onAccept = () => finish(true);
+            const onClose = () => { if (!dialog.open) finish(false); };
             const onCancel = (event) => {
                 event?.preventDefault();
                 finish(false);
@@ -140,14 +235,18 @@
             accept.addEventListener('click', onAccept);
             cancel.addEventListener('click', onCancel);
             dialog.addEventListener('cancel', onCancel);
+            dialog.addEventListener('close', onClose);
             dialog.showModal();
             cancel.focus();
         });
     }
 
     function undo(message, callback, options = {}) {
-        const host = snackbarRegion();
+        const host = visibleHost('undo');
         if (!host) return null;
+        if (layeredNotifications()) managedHosts.forEach(other => {
+            if (other.dataset.notificationLayer === 'undo') other.replaceChildren();
+        });
         host.replaceChildren();
 
         const element = document.createElement('div');
@@ -156,6 +255,7 @@
         element.innerHTML = `<span class="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-emerald-300 text-emerald-950 [&_svg]:h-3.5 [&_svg]:w-3.5 [&_svg]:fill-none [&_svg]:stroke-current [&_svg]:stroke-2" aria-hidden="true">${icons.success}</span><span data-snackbar-message class="flex-1"></span><button class="rounded-lg bg-white/10 px-3 py-2 text-xs font-extrabold uppercase tracking-wider text-emerald-300 hover:bg-white/15" type="button">Undo</button>`;
         element.querySelector('[data-snackbar-message]').textContent = message;
         host.appendChild(element);
+        if (layeredNotifications()) refreshHost(host);
         requestAnimationFrame(() => element.classList.remove('opacity-0', 'translate-y-2'));
 
         let timer;
@@ -256,15 +356,12 @@
                 if (flash?.message) toast(flash.type || 'success', flash.message);
             }
         } catch { /* Notifications still work without session storage. */ }
-        if (['adviser', 'sbo'].includes(document.body.dataset.navigationRole)) {
+        if (layeredNotifications()) {
             const dialogs = new MutationObserver((changes) => {
-                if (!changes.some(({ target }) => target instanceof HTMLDialogElement && target.matches(':modal'))) return;
-                const activeHost = visibleToastHost();
-                document.querySelectorAll('[data-notification-region], [data-dialog-notification-region]').forEach(other => {
-                    if (other !== activeHost) activeHost.append(...other.children);
-                });
+                if (changes.some(({ target }) => target instanceof HTMLDialogElement)) syncNotificationHosts();
             });
             dialogs.observe(document.body, { subtree: true, attributes: true, attributeFilter: ['open'] });
+            syncNotificationHosts();
         }
 
         document.addEventListener('submit', async (event) => {
