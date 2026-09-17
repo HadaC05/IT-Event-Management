@@ -20,7 +20,7 @@ final class StudentHomeRepository
             'student' => $this->student($userId),
             'current_event' => $this->currentEvent($userId),
             'featured_events' => $this->featuredEvents(),
-            'posts' => $this->approvedPosts(),
+            'posts' => $this->approvedPosts($userId),
             'submissions' => $this->submissions($userId),
             'notifications' => $this->notifications($userId),
             'unread_notifications' => $this->unreadNotifications($userId),
@@ -102,6 +102,75 @@ final class StudentHomeRepository
             }
             throw $exception;
         }
+    }
+
+    public function toggleReaction(int $userId, int $postId, string $type): void
+    {
+        $this->approvedPost($postId);
+        if (!in_array($type, ['like', 'love', 'celebrate', 'support'], true)) {
+            throw new InvalidArgumentException('Choose a valid reaction.');
+        }
+        $current = $this->db->prepare('SELECT type FROM tbl_post_reactions WHERE post_id=? AND user_id=?');
+        $current->execute([$postId, $userId]);
+        if ($current->fetchColumn() === $type) {
+            $this->db->prepare('DELETE FROM tbl_post_reactions WHERE post_id=? AND user_id=?')->execute([$postId, $userId]);
+            return;
+        }
+        $this->db->prepare('INSERT INTO tbl_post_reactions(post_id,user_id,type,created_at,updated_at) VALUES(?,?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP) ON DUPLICATE KEY UPDATE type=VALUES(type),updated_at=CURRENT_TIMESTAMP')->execute([$postId, $userId, $type]);
+    }
+
+    public function saveComment(int $userId, int $postId, string $body, ?int $commentId = null): void
+    {
+        $this->approvedPost($postId);
+        $body = trim($body);
+        if ($body === '' || mb_strlen($body) > 1000) throw new InvalidArgumentException('Comment must contain 1 to 1,000 characters.');
+        if ($commentId === null) {
+            $this->db->prepare('INSERT INTO tbl_post_comments(post_id,user_id,body,created_at,updated_at) VALUES(?,?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)')->execute([$postId, $userId, $body]);
+            return;
+        }
+        $this->ownedComment($userId, $postId, $commentId);
+        $this->db->prepare('UPDATE tbl_post_comments SET body=?,updated_at=CURRENT_TIMESTAMP WHERE id=? AND post_id=? AND user_id=?')->execute([$body, $commentId, $postId, $userId]);
+    }
+
+    public function deleteComment(int $userId, int $postId, int $commentId): void
+    {
+        $this->approvedPost($postId);
+        $this->ownedComment($userId, $postId, $commentId);
+        $this->db->prepare('DELETE FROM tbl_post_comments WHERE id=? AND post_id=? AND user_id=?')->execute([$commentId, $postId, $userId]);
+    }
+
+    public function pinComment(int $userId, int $postId, int $commentId, bool $pin): void
+    {
+        $post = $this->approvedPost($postId);
+        if ((int) $post['user_id'] !== $userId) throw new InvalidArgumentException('Only the post author can pin a comment.');
+        $this->ownedComment($userId, $postId, $commentId);
+        $this->db->beginTransaction();
+        try {
+            $lock = $this->db->prepare('SELECT id FROM tbl_posts WHERE id=? FOR UPDATE');
+            $lock->execute([$postId]);
+            if ($pin) $this->db->prepare('UPDATE tbl_post_comments SET is_pinned=0 WHERE post_id=?')->execute([$postId]);
+            $this->db->prepare('UPDATE tbl_post_comments SET is_pinned=? WHERE id=? AND post_id=? AND user_id=?')->execute([$pin ? 1 : 0, $commentId, $postId, $userId]);
+            $this->db->commit();
+        } catch (Throwable $exception) {
+            $this->db->rollBack();
+            throw $exception;
+        }
+    }
+
+    private function approvedPost(int $postId): array
+    {
+        $statement = $this->db->prepare("SELECT id,user_id FROM tbl_posts WHERE id=? AND status='approved' AND deleted_at IS NULL");
+        $statement->execute([$postId]);
+        $post = $statement->fetch();
+        if (!$post) throw new InvalidArgumentException('This post is not available for comments or reactions.');
+        return $post;
+    }
+
+    private function ownedComment(int $userId, int $postId, int $commentId): void
+    {
+        $statement = $this->db->prepare('SELECT id FROM tbl_post_comments WHERE id=? AND post_id=? AND user_id=?');
+        $statement->execute([$commentId, $postId, $userId]);
+        if (!$statement->fetch()) throw new InvalidArgumentException('You can change only your own comments.');
     }
 
     private function student(int $userId): array
@@ -198,12 +267,13 @@ final class StudentHomeRepository
         return $events;
     }
 
-    private function approvedPosts(): array
+    private function approvedPosts(int $viewerId): array
     {
-        $statement = $this->db->query(
-            "SELECT p.id, p.content, p.image_path, p.video_path, p.reviewed_at, p.created_at,
+        $statement = $this->db->prepare(
+            "SELECT p.id, p.user_id, p.content, p.image_path, p.video_path, p.reviewed_at, p.created_at,
                     p.is_official, u.first_name, u.middle_name, u.last_name,
                     u.profile_photo_path, r.name AS author_role,
+                    (SELECT pr.type FROM tbl_post_reactions pr WHERE pr.post_id=p.id AND pr.user_id=? LIMIT 1) viewer_reaction,
                     (SELECT COUNT(*) FROM tbl_post_reactions pr WHERE pr.post_id = p.id) AS reactions_count,
                     (SELECT COUNT(*) FROM tbl_post_comments pc WHERE pc.post_id = p.id) AS comments_count
              FROM tbl_posts p
@@ -213,14 +283,39 @@ final class StudentHomeRepository
              ORDER BY COALESCE(p.reviewed_at, p.created_at) DESC, p.id DESC
              LIMIT 20"
         );
+        $statement->execute([$viewerId]);
         $posts = $statement->fetchAll();
+        if (!$posts) return [];
+        $ids = array_column($posts, 'id');
+        $marks = implode(',', array_fill(0, count($ids), '?'));
+        $reactionRows = $this->db->prepare("SELECT post_id,type,COUNT(*) total FROM tbl_post_reactions WHERE post_id IN ($marks) GROUP BY post_id,type");
+        $reactionRows->execute($ids);
+        $counts = [];
+        foreach ($reactionRows->fetchAll() as $reaction) $counts[(int) $reaction['post_id']][$reaction['type']] = (int) $reaction['total'];
+        $commentRows = $this->db->prepare("SELECT c.id,c.post_id,c.user_id,c.body,c.is_pinned,c.created_at,c.updated_at,u.first_name,u.middle_name,u.last_name,u.profile_photo_path,r.name author_role FROM tbl_post_comments c JOIN tbl_users u ON u.id=c.user_id LEFT JOIN tbl_roles r ON r.id=u.role_id WHERE c.post_id IN ($marks) ORDER BY c.post_id,c.is_pinned DESC,c.created_at,c.id");
+        $commentRows->execute($ids);
+        $comments = [];
+        foreach ($commentRows->fetchAll() as $comment) {
+            $comment['id'] = (int) $comment['id'];
+            $comment['post_id'] = (int) $comment['post_id'];
+            $comment['user_id'] = (int) $comment['user_id'];
+            $comment['is_pinned'] = (bool) $comment['is_pinned'];
+            $comment['author_name'] = $this->fullName($comment);
+            $comment['author_initials'] = $this->initials($comment);
+            foreach (['first_name','middle_name','last_name'] as $field) unset($comment[$field]);
+            $comments[$comment['post_id']][] = $comment;
+        }
         foreach ($posts as &$post) {
             $post['id'] = (int) $post['id'];
+            $post['user_id'] = (int) $post['user_id'];
             $post['is_official'] = (bool) $post['is_official'];
             $post['reactions_count'] = (int) $post['reactions_count'];
             $post['comments_count'] = (int) $post['comments_count'];
             $post['author_name'] = $this->fullName($post);
             $post['author_initials'] = $this->initials($post);
+            $post['reaction_counts'] = $counts[$post['id']] ?? [];
+            $post['comments'] = $comments[$post['id']] ?? [];
+            foreach (['first_name','middle_name','last_name'] as $field) unset($post[$field]);
         }
         unset($post);
         return $posts;
@@ -462,6 +557,8 @@ final class StudentHomeRepository
     }
 }
 
+if (realpath((string) ($_SERVER['SCRIPT_FILENAME'] ?? '')) !== __FILE__) return;
+
 $actor = AuthGuard::requireRole('Student');
 $repository = new StudentHomeRepository((new Database())->connection());
 
@@ -497,6 +594,27 @@ try {
             'message' => 'Notifications marked as read.',
         ]);
     }
+
+    $action = (string) ($input['action'] ?? '');
+    $userId = (int) $actor['id'];
+    $postId = (int) ($input['post_id'] ?? 0);
+    if ($action === 'reaction_toggle') {
+        $repository->toggleReaction($userId, $postId, (string) ($input['type'] ?? ''));
+        JsonResponse::send(['success' => true, 'message' => 'Reaction updated.']);
+    }
+    if ($action === 'comment_create' || $action === 'comment_update') {
+        $repository->saveComment($userId, $postId, (string) ($input['body'] ?? ''), $action === 'comment_update' ? (int) ($input['comment_id'] ?? 0) : null);
+        JsonResponse::send(['success' => true, 'message' => $action === 'comment_create' ? 'Comment added.' : 'Comment updated.']);
+    }
+    if ($action === 'comment_delete') {
+        $repository->deleteComment($userId, $postId, (int) ($input['comment_id'] ?? 0));
+        JsonResponse::send(['success' => true, 'message' => 'Comment deleted.']);
+    }
+    if ($action === 'comment_pin') {
+        $repository->pinComment($userId, $postId, (int) ($input['comment_id'] ?? 0), !empty($input['pin']));
+        JsonResponse::send(['success' => true, 'message' => !empty($input['pin']) ? 'Comment pinned.' : 'Comment unpinned.']);
+    }
+    if ($action !== '' && $action !== 'create') throw new InvalidArgumentException('Unknown feed action.');
 
     $postId = $repository->createPost((int) $actor['id'], $input, $_FILES);
     JsonResponse::send([

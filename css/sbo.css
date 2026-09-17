@@ -40,7 +40,7 @@ body > main form {
 
 body > main section.rounded-2xl,
 body > main section.overflow-hidden {
-  box-shadow: 0 2px 8px rgba(18, 16, 23, .04);
+  box-shadow: none;
 }
 
 body > main button,
@@ -101,7 +101,7 @@ body > main textarea:focus-visible,
   max-width: 500px;
   max-height: calc(100dvh - 1.5rem);
   margin: auto;
-  border-radius: 1.25rem;
+  border-radius: 7px;
   overflow: hidden;
 }
 
@@ -174,7 +174,7 @@ body > main textarea:focus-visible,
 
 .sbo-modal-result {
   min-height: 2.5rem;
-  border-radius: .75rem;
+  border-radius: 5px;
   background: #f3f0e9;
   padding: .65rem .75rem;
   line-height: 1.35;
@@ -240,7 +240,7 @@ body > main textarea:focus-visible,
 
 [data-posts] button {
   min-height: 2.5rem;
-  border-radius: .65rem;
+  border-radius: 5px;
   padding: 0 .65rem;
 }
 
@@ -295,7 +295,7 @@ body > main textarea:focus-visible,
     margin-bottom: .75rem;
     overflow: hidden;
     border: 1px solid rgba(18, 16, 23, .1);
-    border-radius: 1rem;
+    border-radius: 5px;
     background: white;
   }
 

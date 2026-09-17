@@ -35,6 +35,16 @@ final class SboAttendanceRepository {
         $id=filter_var($input['assignment_id']??null,FILTER_VALIDATE_INT);
         if(!$id||$id<1)throw new InvalidArgumentException('Select an active attendance assignment.');
         $a=$this->auth->assignment($officer,$id,'attendance');
+        return $this->scanResolved($officer,$input,$a,false);
+    }
+
+    public function scanFaculty(int $faculty,array $input,array $assignment):array {
+        $this->rateLimit($faculty);
+        return $this->scanResolved($faculty,$input,$assignment,true);
+    }
+
+    private function scanResolved(int $officer,array $input,array $a,bool $faculty):array {
+        $id=$faculty?null:(int)$a['id'];
         $checkpoint=(string)($input['checkpoint']??'in');
         if(!in_array($checkpoint,['in','out'],true))throw new InvalidArgumentException('Choose time in or time out.');
         $nowDate=$this->now();
@@ -44,6 +54,7 @@ final class SboAttendanceRepository {
         $a+=$this->venue((int)$a['event_id']);
         $mode=(string)($input['mode']??'qr');
         if(!in_array($mode,['qr','manual'],true))throw new InvalidArgumentException('Invalid scan mode.');
+        if($faculty && $mode!=='qr')throw new DomainException('Faculty attendance requires a student QR code.');
         $value=trim((string)($input[$mode==='manual'?'student_id':'token']??''));
         if($value===''||strlen($value)>80)throw new InvalidArgumentException($mode==='qr'?'Invalid QR code or student not found.':'Enter a valid Student ID.');
         if($mode==='qr'){
@@ -113,14 +124,15 @@ final class SboAttendanceRepository {
                 $used->execute([$now,$student['qr_id']]);
                 if($used->rowCount()!==1)throw new LogicException('This QR has already been used.');
             }
-            $action=$checkpoint==='in'?'sbo_attendance_scanned':'sbo_attendance_time_out';
-            $this->db->prepare("INSERT INTO tbl_activity_logs(actor_id,event_id,officer_assignment_id,action,acting_role,description,created_at,updated_at) VALUES(?,?,?,?,'SBO Officer',?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)")
-                ->execute([$officer,$a['event_id'],$id,$action,'Recorded time '.$checkpoint.' for '.$student['id_number'].'.']);
+            $action=$faculty?'faculty_attendance_scanned':($checkpoint==='in'?'sbo_attendance_scanned':'sbo_attendance_time_out');
+            $this->db->prepare("INSERT INTO tbl_activity_logs(actor_id,event_id,officer_assignment_id,action,acting_role,description,created_at,updated_at) VALUES(?,?,?,?,?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)")
+                ->execute([$officer,$a['event_id'],$id,$action,$faculty?'Faculty':'SBO Officer','Recorded time '.$checkpoint.' for '.$student['id_number'].'.']);
             $this->db->commit();
         }catch(PDOException $e){if($this->db->inTransaction())$this->db->rollBack();if((string)$e->getCode()==='23000')throw new LogicException('Attendance already recorded for this session.',0,$e);throw $e;}
         catch(Throwable $e){if($this->db->inTransaction())$this->db->rollBack();throw $e;}
         return ['student'=>['id_number'=>$student['id_number'],'full_name'=>$this->name($student),'team_id'=>(int)$membership['id'],'team_name'=>$membership['name']],
-            'session_name'=>$a['session_name'],'checkpoint'=>$checkpoint,'scanned_at'=>$now,'location'=>$location,'recent_scans'=>$this->recent($a),'counts'=>$this->counts($a)];
+            'session_name'=>$a['session_name'],'checkpoint'=>$checkpoint,'scanned_at'=>$now,'location'=>$location,
+            'recent_scans'=>$faculty?[]:$this->recent($a),'counts'=>$faculty?null:$this->counts($a)];
     }
 
     private function rateLimit(int $officer):void {
@@ -229,6 +241,6 @@ catch(DomainException $e){
     $unauthorized=$e->getMessage()==='Unauthorized officer assignment.';
     JsonResponse::send(['success'=>false,'message'=>$unauthorized?'You are not authorized to record attendance for this team.':$e->getMessage(),'code'=>$unauthorized?'unauthorized':'event_unavailable'],403);
 }
-catch(LogicException $e){JsonResponse::send(['success'=>false,'message'=>$e->getMessage(),'code'=>'duplicate'],409);}
 catch(InvalidArgumentException $e){JsonResponse::send(['success'=>false,'message'=>$e->getMessage(),'code'=>'scan_rejected'],422);}
+catch(LogicException $e){JsonResponse::send(['success'=>false,'message'=>$e->getMessage(),'code'=>'duplicate'],409);}
 catch(Throwable $e){error_log($e->getMessage());JsonResponse::send(['success'=>false,'message'=>'Attendance scan failed.'],500);}

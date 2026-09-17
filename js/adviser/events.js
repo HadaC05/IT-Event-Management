@@ -1,12 +1,12 @@
-window.SharedNavigation.ready.then(() => {
+window.SharedNavigation.ready.then((context) => {
   "use strict";
-  let csrf = "",
+  let csrf = context.csrfToken,
     page = 1,
     state = null,
     formController = null,
     initialStatus = "",
     initialEventType = "",
-    currentUserId = 0,
+    currentUserId = Number(context.user.id),
     filterTimer = 0,
     loadRequest = 0,
     shouldOpenCreate = new URLSearchParams(location.search).get("create") === "1";
@@ -76,6 +76,93 @@ window.SharedNavigation.ready.then(() => {
       ),
     );
   }
+
+  const typesDialog = $("[data-event-types-dialog]");
+  const typeForm = $("[data-event-type-form]");
+  typeForm.dataset.axiosForm = "";
+  function resetTypeForm() {
+    typeForm.reset();
+    typeForm.elements.type_id.value = "";
+    $("[data-event-type-form-title]").textContent = "Add event type";
+    $("[data-event-type-save]").textContent = "Add type";
+    $("[data-event-type-cancel]").classList.add("hidden");
+    $("[data-event-type-error]").classList.add("hidden");
+  }
+  function renderEventTypes() {
+    const host = $("[data-event-types-list]");
+    host.replaceChildren();
+    const types = state?.metadata.event_types || [];
+    if (!types.length) {
+      host.innerHTML = '<p class="py-6 text-center text-xs text-slate-500">No event types yet. Add one below.</p>';
+      return;
+    }
+    types.forEach((type) => {
+      const row = document.createElement("div");
+      row.className = "flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 py-3 last:border-b-0";
+      row.innerHTML = `<div class="min-w-0"><strong class="block truncate text-sm">${EventForm.escapeHtml(type.label)}</strong><span class="text-[10px] text-slate-500">${type.events_count} ${type.events_count === 1 ? "event" : "events"}</span></div><div class="flex gap-1"><button class="min-h-9 rounded-lg px-3 text-xs font-bold text-[#397565] hover:bg-[#397565]/10" type="button" data-type-edit>Edit</button><button class="min-h-9 rounded-lg px-3 text-xs font-bold text-red-600 hover:bg-red-50 disabled:cursor-not-allowed disabled:text-slate-300" type="button" data-type-delete ${type.events_count ? 'disabled title="Used by an event"' : ''}>Delete</button></div>`;
+      row.querySelector("[data-type-edit]").onclick = () => {
+        typeForm.elements.type_id.value = type.id;
+        typeForm.elements.label.value = type.label;
+        $("[data-event-type-form-title]").textContent = "Rename event type";
+        $("[data-event-type-save]").textContent = "Save changes";
+        $("[data-event-type-cancel]").classList.remove("hidden");
+        $("[data-event-type-error]").classList.add("hidden");
+        typeForm.elements.label.focus();
+      };
+      row.querySelector("[data-type-delete]").onclick = async () => {
+        if (!(await confirmAction({ title: "Delete event type?", message: `Delete ${type.label}? This type is not used by any event.`, action: "Delete" }))) return;
+        try {
+          await post({ action: "event_type_delete", type_id: type.id });
+          await refreshEventTypes();
+          toast("success", "Event type deleted.");
+        } catch (error) {
+          toast("error", error.response?.data?.message || "Unable to delete event type.");
+        }
+      };
+      host.append(row);
+    });
+  }
+  async function refreshEventTypes(preferredId = "") {
+    const response = await axios.get("api/adviser-events.php", { params: { action: "event_types" } });
+    const currentFormType = $("[data-event-form]").elements.event_type_id.value;
+    const currentFilterType = filters.event_type.value;
+    state.metadata.event_types = response.data.data;
+    const select = $("[data-event-form]").elements.event_type_id;
+    select.replaceChildren(new Option("Select event type", ""));
+    state.metadata.event_types.forEach((type) => select.add(new Option(type.label, type.id)));
+    const desired = String(preferredId || currentFormType);
+    select.value = state.metadata.event_types.some((type) => String(type.id) === desired) ? desired : "";
+    fillFilters(filters.status.value, currentFilterType);
+    renderEventTypes();
+  }
+  $("[data-manage-event-types]").onclick = () => {
+    resetTypeForm();
+    renderEventTypes();
+    typesDialog.showModal();
+  };
+  $("[data-close-event-types]").onclick = () => typesDialog.close();
+  $("[data-event-type-cancel]").onclick = resetTypeForm;
+  typesDialog.addEventListener("close", resetTypeForm);
+  typeForm.onsubmit = async (event) => {
+    event.preventDefault();
+    const typeId = Number(typeForm.elements.type_id.value);
+    const save = $("[data-event-type-save]");
+    const errorHost = $("[data-event-type-error]");
+    errorHost.classList.add("hidden");
+    save.disabled = true;
+    try {
+      const result = await post({ action: typeId ? "event_type_update" : "event_type_create", type_id: typeId, label: typeForm.elements.label.value.trim() });
+      await refreshEventTypes(result.data.id);
+      toast("success", result.data.message);
+      if (!typeId) typesDialog.close();
+      else resetTypeForm();
+    } catch (error) {
+      errorHost.textContent = error.response?.data?.errors?.label?.[0] || error.response?.data?.message || "Unable to save event type.";
+      errorHost.classList.remove("hidden");
+    } finally {
+      save.disabled = false;
+    }
+  };
 
   function closeActionMenu() {
     actionMenu.classList.add("hidden");
@@ -366,54 +453,9 @@ window.SharedNavigation.ready.then(() => {
     filters.event_type.value = "";
     await applyFilters();
   };
-  const sidebar = $("#sidebar"),
-    scrim = $("[data-sidebar-scrim]");
-  document.querySelectorAll("[data-sidebar-toggle]").forEach(
-    (button) =>
-      (button.onclick = () => {
-        const open = sidebar.classList.contains("-translate-x-full");
-        sidebar.classList.toggle("-translate-x-full", !open);
-        sidebar.classList.toggle("translate-x-0", open);
-        scrim.classList.toggle("hidden", !open);
-      }),
-  );
-  $('form[action="api/auth.php?action=logout"]').onsubmit = async (event) => {
-    event.preventDefault();
-    try {
-      await axios.post(
-        "api/auth.php?action=logout",
-        {},
-        { headers: { "X-CSRF-Token": csrf } },
-      );
-    } finally {
-      location.replace("./");
-    }
-  };
   initializeQuery();
-  axios
-    .get("api/auth.php?action=session")
-    .then((response) => {
-      const user = response.data.user;
-      if (user?.role !== "SBO Adviser") {
-        location.replace("./");
-        return;
-      }
-      csrf = response.data.csrf_token;
-      currentUserId = Number(user.id);
-      const account = $("[data-account-menu]");
-      account.querySelector("[data-account-initials]").textContent =
-        EventForm.initials(user.full_name);
-      account.querySelector("summary strong").textContent = user.full_name;
-      account.querySelector("summary small").textContent = user.role;
-      account.querySelector("div>div strong").textContent = user.full_name;
-      account.querySelector("div>div span").textContent = user.email;
-      return load();
-    })
+  load()
     .catch((error) => {
-      if ([401, 403].includes(Number(error.response?.status))) {
-        location.replace("./");
-        return;
-      }
       console.error("Event Management failed to initialize.", error);
       toast(
         "error",

@@ -100,7 +100,7 @@ final class LeaderboardRepository
 
         $whereSql = $where ? ' WHERE '.implode(' AND ', $where) : '';
         $sql = "SELECT t.id,t.name,t.color,t.is_active,sy.label school_year_label,
-            (SELECT COUNT(*) FROM tbl_team_user tu WHERE tu.team_id=t.id) members_count,
+            (SELECT COUNT(*) FROM tbl_team_user tu JOIN tbl_users u ON u.id=tu.user_id JOIN tbl_roles r ON r.id=u.role_id AND r.name='Student' WHERE tu.team_id=t.id) members_count,
             COUNT(s.id) score_entries_count,COUNT(DISTINCT s.event_id) scored_events_count,
             COALESCE(SUM(s.points),0) total_score,MAX(s.updated_at) last_scored_at,
             GROUP_CONCAT(DISTINCT s.event_id) event_ids

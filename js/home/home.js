@@ -6,7 +6,12 @@
     const agendaList = document.querySelector('#agenda-list');
     const eventList = document.querySelector('#event-list');
     const agendaEmpty = document.querySelector('#agenda-empty');
-    const dashboardUrl = user => user?.role === 'SBO Adviser' ? 'pages/adviser/dashboard.html' : 'pages/dashboard.html';
+    const dashboardUrl = user => ({
+        'SBO Adviser': 'pages/adviser/dashboard.html',
+        'SBO Officer': 'pages/sbo/attendance.html',
+        'Faculty': 'pages/faculty/students.html',
+        'Student': 'pages/student/home.html'
+    })[user?.role] || './';
 
     const parseDate = value => new Date(String(value).replace(' ', 'T'));
     const month = value => new Intl.DateTimeFormat('en-US', { month: 'short' }).format(parseDate(value));
@@ -176,6 +181,10 @@
     };
     document.querySelectorAll('[data-login-open]').forEach(button => button.addEventListener('click', () => {
         if (state.user) {
+            if (state.user.must_change_password) {
+                window.RequiredPasswordGate.open(state.user, state.csrfToken);
+                return;
+            }
             window.location.assign(dashboardUrl(state.user));
             return;
         }
@@ -211,6 +220,11 @@
             }, { headers: { 'X-CSRF-Token': state.csrfToken } });
             state.user = response.data.user;
             state.csrfToken = response.data.csrf_token;
+            if (state.user.must_change_password) {
+                loginModal?.close();
+                window.RequiredPasswordGate.open(state.user, state.csrfToken);
+                return;
+            }
             showAuthResult('success', response.data.message);
             window.setTimeout(() => window.location.assign(response.data.redirect_url), 1500);
         } catch (error) {
@@ -234,6 +248,7 @@
             document.querySelectorAll('[data-login-open]').forEach(button => {
                 button.firstChild.textContent = 'Dashboard ';
             });
+            if (state.user.must_change_password) window.RequiredPasswordGate.open(state.user, state.csrfToken);
         }
     }).catch(error => console.error('Unable to initialize the session:', error));
 

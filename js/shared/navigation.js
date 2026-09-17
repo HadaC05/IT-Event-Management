@@ -1,9 +1,17 @@
 (() => {
   'use strict';
 
-  const ROLE_LABELS = {student: 'Student', sbo: 'SBO Officer', adviser: 'SBO Adviser'};
-  const ROLE_HOME = {student: 'pages/student/home.html', sbo: 'pages/sbo/attendance.html', adviser: 'pages/adviser/dashboard.html'};
+  const ROLE_LABELS = {student: 'Student', sbo: 'SBO Officer', adviser: 'SBO Adviser', faculty: 'Faculty'};
+  const ROLE_HOME = {student: 'pages/student/home.html', sbo: 'pages/sbo/attendance.html', adviser: 'pages/adviser/dashboard.html', faculty: 'pages/faculty/students.html'};
   const ROLE_PAGES = {
+    faculty: [
+      ['students','Students','pages/faculty/students.html','M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8'],
+      ['leaderboard','Leaderboard','pages/faculty/leaderboard.html','M8 21h8M12 17v4M7 4h10v4a5 5 0 0 1-10 0V4Z'],
+      ['team','Assigned Team','pages/faculty/team.html','M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8'],
+      ['attendance','Team Attendance','pages/faculty/attendance.html','M5 4h14v16H5V4Zm4 4h6m-6 4h6'],
+      ['posts','Posts','pages/faculty/posts.html','M4 5h16v12H8l-4 4V5Zm4 4h8m-8 4h5'],
+      ['profile','Profile','pages/faculty/profile.html','M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8ZM4 21a8 8 0 0 1 16 0'],
+    ],
     student: [
       ['home','Home','pages/student/home.html','M3 11 12 3l9 8M5 10v10h14V10M9 20v-6h6v6'],
       ['events','Events','pages/student/events.html','M6 3v3m12-3v3M4 9h16M5 5h14a2 2 0 0 1 2 2v13H3V7a2 2 0 0 1 2-2Z'],
@@ -44,7 +52,7 @@
   };
   const ensureStyles = () => {
     if (document.querySelector('link[href^="css/navigation.css"]')) return;
-    const link = document.createElement('link'); link.rel = 'stylesheet'; link.href = 'css/navigation.css?v=20260917-7'; document.head.append(link);
+    const link = document.createElement('link'); link.rel = 'stylesheet'; link.href = 'css/navigation.css?v=20260917-portal-flat-1'; document.head.append(link);
   };
   const clone = (documentFragment, selector) => documentFragment.querySelector(selector).content.firstElementChild.cloneNode(true);
   const linkMarkup = (item, active, mobile = false) => {
@@ -82,7 +90,7 @@
     await window.RequiredPasswordGate.open(user, csrf);
     const fragment = new DOMParser().parseFromString(fragmentResponse.data,'text/html');
     const sidebar = clone(fragment,'[data-shared-navigation-sidebar]'), header = clone(fragment,'[data-shared-navigation-header]'), active = activePage(role), pages = ROLE_PAGES[role];
-    sidebar.querySelector('[data-shared-brand-label]').textContent = role === 'adviser' ? 'CITE ADVISER' : role === 'sbo' ? 'CITE SBO' : 'STUDENT MENU';
+    sidebar.querySelector('[data-shared-brand-label]').textContent = role === 'adviser' ? 'CITE ADVISER' : role === 'sbo' ? 'CITE SBO' : role === 'faculty' ? 'CITE FACULTY' : 'STUDENT MENU';
     sidebar.querySelector('[data-shared-navigation-links]').innerHTML = pages.map(item => linkMarkup(item,active)).join('');
     sidebar.querySelector('[data-shared-sidebar-name]').textContent = name;
     sidebar.querySelector('[data-shared-sidebar-account]').textContent = user.username ? `@${user.username}` : user.email || '';
@@ -116,7 +124,7 @@
       if (persist) localStorage.setItem(sidebarStateKey,expanded ? '1' : '0');
     };
     setDesktopExpanded(localStorage.getItem(sidebarStateKey) === '1',false);
-    if (role === 'adviser') {
+    if (role === 'adviser' || role === 'faculty') {
       const mobileToggle = header.querySelector('[data-shared-mobile-toggle]'), scrim = clone(fragment,'[data-shared-navigation-scrim]');
       mobileToggle.classList.remove('hidden'); mobileToggle.classList.add('grid'); document.body.append(scrim);
       const setMobileOpen = open => {
@@ -126,6 +134,7 @@
       mobileToggle.onclick = () => setMobileOpen(true); scrim.onclick = () => setMobileOpen(false);
       toggle.onclick = () => innerWidth < 1024 ? setMobileOpen(false) : setDesktopExpanded(toggle.getAttribute('aria-expanded') !== 'true');
       addEventListener('resize',() => { if (innerWidth >= 1024 && sidebar.classList.contains('is-open')) setMobileOpen(false); });
+      if (innerWidth >= 1024) setMobileOpen(false);
     } else {
       sidebar.classList.add('hidden','lg:flex');
       toggle.onclick = () => setDesktopExpanded(toggle.getAttribute('aria-expanded') !== 'true');

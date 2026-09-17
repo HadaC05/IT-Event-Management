@@ -4,6 +4,7 @@ window.SharedNavigation.ready.then(() => {
     let csrfToken = '';
     let roles = [];
     let yearLevels = [];
+    let teams = [];
     let events = [];
     let userSavePending = false;
     let searchTimer;
@@ -74,6 +75,7 @@ window.SharedNavigation.ready.then(() => {
         else delete userForm.dataset.userId;
         fillSelect(userForm.elements.role_id, roles, user?.role_id ?? '', user ? null : creatableRoles);
         fillSelect(userForm.elements.year_level, yearLevels, user?.year_level ?? '');
+        fillSelect(userForm.elements.faculty_team_id, teams.map(team => ({id:team.id,label:team.name})), user?.faculty_team_id ?? '');
         userForm.elements.password.required = !user;
         userForm.elements.password_confirmation.required = !user;
         const passwordLabel = userForm.elements.password.closest('label')?.querySelector('span:first-child');
@@ -94,6 +96,7 @@ window.SharedNavigation.ready.then(() => {
     const selectedRoleName = () => roles.find(role => String(role.id) === userForm.elements.role_id.value)?.name || '';
 
     const refreshRoleFields = () => {
+        userForm.querySelector('[data-faculty-team-field]')?.classList.toggle('hidden', selectedRoleName() !== 'Faculty');
         const idNumber = userForm.elements.id_number;
         const student = selectedRoleName() === 'Student';
         idNumber.required = student;
@@ -484,6 +487,7 @@ window.SharedNavigation.ready.then(() => {
     const render = data => {
         roles = data.roles;
         yearLevels = data.year_levels;
+        teams = data.teams || [];
         events = data.events;
         const roleFilter = filterForm?.querySelector('select[name="role"]');
         if (roleFilter) {

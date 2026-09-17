@@ -58,6 +58,7 @@ final class UserManagementRepository
 
         $sql = 'SELECT u.id, u.id_number, u.first_name, u.middle_name, u.last_name,
                     u.username, u.email, u.role_id, u.year_level, u.status AS status_id,
+                    (SELECT tu.team_id FROM tbl_team_user tu WHERE tu.user_id=u.id ORDER BY tu.id DESC LIMIT 1) faculty_team_id,
                     r.name AS role, s.label AS status, yl.label AS year_level_label'
             .$from.' ORDER BY u.last_name, u.first_name LIMIT :limit OFFSET :offset';
         $statement = $this->db->prepare($sql);
@@ -98,6 +99,7 @@ final class UserManagementRepository
             'roles' => $this->db->query('SELECT id, name FROM tbl_roles ORDER BY name')->fetchAll(),
             'filter_roles' => $this->db->query('SELECT r.id, r.name FROM tbl_roles r WHERE EXISTS (SELECT 1 FROM tbl_users u WHERE u.role_id = r.id) ORDER BY r.name')->fetchAll(),
             'year_levels' => $this->db->query('SELECT id, label FROM tbl_year_levels ORDER BY id')->fetchAll(),
+            'teams' => $this->db->query('SELECT id,name FROM tbl_teams WHERE is_active=1 ORDER BY name')->fetchAll(),
             'events' => $this->db->query("SELECT e.id, e.title, e.start_at
                 FROM tbl_events e
                 LEFT JOIN tbl_event_statuses s ON s.id = e.event_status_id
@@ -150,12 +152,15 @@ final class UserManagementRepository
         if ($id) {
             $this->requireManageableUser($id);
         }
+        $previousRole = $id ? $this->value('SELECT r.name FROM tbl_users u JOIN tbl_roles r ON r.id=u.role_id WHERE u.id=?', [$id]) : null;
         if ($role === 'Student' && !StudentId::isValid((string) ($data['id_number'] ?? ''))) {
             throw new InvalidArgumentException(StudentId::FORMAT_MESSAGE);
         }
         if (($data['year_level'] ?? '') !== '' && !$this->value('SELECT id FROM tbl_year_levels WHERE id = ?', [(int) $data['year_level']])) {
             throw new InvalidArgumentException('The selected year level is invalid.');
         }
+        $facultyTeamId = $role === 'Faculty' && ($data['faculty_team_id'] ?? '') !== '' ? (int)$data['faculty_team_id'] : null;
+        if ($facultyTeamId && !$this->value('SELECT id FROM tbl_teams WHERE id=? AND is_active=1', [$facultyTeamId])) throw new InvalidArgumentException('Select an active team.');
 
         $duplicateSql = 'SELECT id FROM tbl_users
                          WHERE (username = :username OR email = :email
@@ -212,6 +217,10 @@ final class UserManagementRepository
                 $id = (int) $this->db->lastInsertId();
                 $fullName = trim(implode(' ', array_filter([$values['first_name'], $values['middle_name'], $values['last_name']])));
                 $this->log($actorId, $id, 'user_created', "$fullName was added as $role.");
+            }
+            if ($role === 'Faculty' || $previousRole === 'Faculty') {
+                $this->db->prepare('DELETE FROM tbl_team_user WHERE user_id=?')->execute([$id]);
+                if ($role === 'Faculty' && $facultyTeamId) $this->db->prepare('INSERT INTO tbl_team_user(team_id,user_id,created_at,updated_at) VALUES(?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)')->execute([$facultyTeamId,$id]);
             }
             $this->db->commit();
             return $id;

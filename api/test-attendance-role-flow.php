@@ -54,6 +54,7 @@ try {
     $db->exec("INSERT INTO tbl_event_activities(event_id,name,status,created_by,created_at,updated_at)
         VALUES(1,'Role Flow Attendance','active',14,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)");
     $activity = (int) $db->lastInsertId();
+    $db->exec("UPDATE tbl_sbo_officer_assignments SET scanner_mode='general' WHERE id=1");
     $db->prepare("INSERT INTO tbl_sbo_event_assignments(officer_assignment_id,event_schedule_id,session_code,activity_id,team_id,responsibility,status,assigned_by,created_at,updated_at)
         VALUES(1,1,'whole_day',?,1,'attendance','active',14,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)")->execute([$activity]);
     $assignment = (int) $db->lastInsertId();

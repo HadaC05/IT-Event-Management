@@ -1,10 +1,10 @@
-window.SharedNavigation.ready.then(() => {
+window.SharedNavigation.ready.then((context) => {
   "use strict";
   const id = Number(new URLSearchParams(location.search).get("id")),
     toast = (type, message) =>
       window.Notifications?.[type]?.(message) ||
       (type === "error" && alert(message));
-  let csrf = "",
+  let csrf = context.csrfToken,
     data;
   const $ = (selector) => document.querySelector(selector),
     format = (value, options) =>
@@ -17,63 +17,6 @@ window.SharedNavigation.ready.then(() => {
       axios.post("api/adviser-events.php", payload, {
         headers: { "X-CSRF-Token": csrf },
       });
-  function initializeShell() {
-    const sidebar = $("#sidebar"),
-      scrim = $("[data-sidebar-scrim]"),
-      trigger = $('[aria-controls="sidebar"]');
-    document.querySelectorAll("[data-sidebar-toggle]").forEach(
-      (button) =>
-        (button.onclick = () => {
-          const opening = sidebar.classList.contains("-translate-x-full");
-          sidebar.classList.toggle("-translate-x-full", !opening);
-          sidebar.classList.toggle("translate-x-0", opening);
-          scrim.classList.toggle("hidden", !opening);
-          trigger?.setAttribute("aria-expanded", String(opening));
-        }),
-    );
-    const menu = $("[data-account-menu]");
-    document.addEventListener("click", (event) => {
-      if (menu?.open && !menu.contains(event.target))
-        menu.removeAttribute("open");
-    });
-  }
-  function applyAccount(user) {
-    const account = $("[data-account-menu]"),
-      name = user.full_name || user.username,
-      avatar = account.querySelector("summary > span:first-child");
-    avatar.childNodes[0].textContent = EventForm.initials(name);
-    account.querySelector("summary strong").textContent = name;
-    account.querySelector("summary small").textContent = user.role;
-    account.querySelector("div > div strong").textContent = name;
-    account.querySelector("div > div span").textContent =
-      user.email || user.username;
-  }
-  async function authenticate() {
-    const response = await axios.get("api/auth.php?action=session");
-    if (
-      !response.data.authenticated ||
-      response.data.user?.role !== "SBO Adviser"
-    ) {
-      location.replace("./");
-      throw new Error("Unauthorized");
-    }
-    csrf = response.data.csrf_token;
-    applyAccount(response.data.user);
-    const logout = $('form[action="api/auth.php?action=logout"]');
-    logout.onsubmit = async (event) => {
-      event.preventDefault();
-      try {
-        await axios.post(
-          "api/auth.php?action=logout",
-          {},
-          { headers: { "X-CSRF-Token": csrf } },
-        );
-      } finally {
-        location.replace("./");
-      }
-    };
-    return response.data;
-  }
   const statusClass = (label) =>
     ({
       upcoming: "bg-[#2F3AE0]/8 text-[#2F3AE0]",
@@ -256,6 +199,82 @@ window.SharedNavigation.ready.then(() => {
         !data.metadata.available_users.length,
     );
   }
+  function resetActivityForm() {
+    const form = $("[data-activity-form]");
+    form.reset();
+    form.elements.activity_id.value = "";
+    $("[data-activity-form-title]").textContent = "Add activity";
+    $("[data-activity-save]").textContent = "Add activity";
+    $("[data-activity-error]").classList.add("hidden");
+  }
+  function openActivityDialog(activity = null) {
+    resetActivityForm();
+    if (activity) {
+      activityForm.elements.activity_id.value = activity.id;
+      activityForm.elements.name.value = activity.name;
+      activityForm.elements.description.value = activity.description || "";
+      $("[data-activity-form-title]").textContent = "Edit activity";
+      $("[data-activity-save]").textContent = "Save changes";
+    }
+    $("[data-activity-dialog]").showModal();
+    activityForm.elements.name.focus();
+  }
+  function renderActivities() {
+    const host = $("[data-activity-list]");
+    host.replaceChildren();
+    const activities = data.event.activities || [];
+    $("[data-activity-count]").textContent = `(${activities.length})`;
+    if (!activities.length) {
+      host.innerHTML = '<div class="py-9 text-center"><strong class="text-sm text-[#121017]">No activities yet</strong><p class="mt-1 text-xs text-slate-500">Use Add activity to start this event’s program.</p></div>';
+      return;
+    }
+    activities.forEach((activity) => {
+      const item = document.createElement("article");
+      item.className = "flex flex-col gap-3 py-4 sm:flex-row sm:items-center sm:justify-between";
+      item.innerHTML = `<div class="min-w-0"><div class="flex flex-wrap items-center gap-2"><h3 class="font-bold text-[#121017]">${EventForm.escapeHtml(activity.name)}</h3><span class="rounded px-2 py-0.5 text-[10px] font-bold ${activity.status === "active" ? "bg-[#C6F24E]/35 text-[#397565]" : "bg-slate-100 text-slate-500"}">${activity.status === "active" ? "Active" : "Inactive"}</span></div>${activity.description ? `<p class="mt-1 whitespace-pre-wrap text-xs text-slate-500">${EventForm.escapeHtml(activity.description)}</p>` : ""}</div><div class="flex shrink-0 gap-2"><button class="min-h-9 rounded-lg border border-slate-300 px-3 text-xs font-bold text-slate-700" type="button" data-edit>Edit</button><button class="min-h-9 rounded-lg border border-slate-300 px-3 text-xs font-bold text-slate-700" type="button" data-toggle>${activity.status === "active" ? "Deactivate" : "Activate"}</button></div>`;
+      item.querySelector("[data-edit]").onclick = () => openActivityDialog(activity);
+      item.querySelector("[data-toggle]").onclick = async (event) => {
+        event.currentTarget.disabled = true;
+        try {
+          await post({ action: "activity_status", id, activity_id: activity.id, status: activity.status === "active" ? "inactive" : "active" });
+          toast("success", "Activity status updated.");
+          await load();
+        } catch (error) {
+          event.currentTarget.disabled = false;
+          toast("error", error.response?.data?.message || "Unable to update activity.");
+        }
+      };
+      host.append(item);
+    });
+  }
+  const activityForm = $("[data-activity-form]");
+  activityForm.dataset.axiosForm = "";
+  const activityDialog = $("[data-activity-dialog]");
+  $("[data-activity-add]").onclick = () => openActivityDialog();
+  document.querySelectorAll("[data-activity-cancel]").forEach((button) => {
+    button.onclick = () => activityDialog.close();
+  });
+  activityDialog.addEventListener("close", resetActivityForm);
+  activityForm.onsubmit = async (event) => {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const activityId = Number(form.elements.activity_id.value);
+    const errorHost = $("[data-activity-error]");
+    const saveButton = $("[data-activity-save]");
+    errorHost.classList.add("hidden");
+    saveButton.disabled = true;
+    try {
+      await post({ action: activityId ? "activity_update" : "activity_create", id, activity_id: activityId, name: form.elements.name.value.trim(), description: form.elements.description.value.trim() });
+      toast("success", activityId ? "Activity updated." : "Activity added.");
+      activityDialog.close();
+      await load();
+    } catch (error) {
+      errorHost.textContent = error.response?.data?.errors?.name?.[0] || error.response?.data?.errors?.description?.[0] || error.response?.data?.message || "Unable to save activity.";
+      errorHost.classList.remove("hidden");
+    } finally {
+      saveButton.disabled = false;
+    }
+  };
   async function load() {
     if (!id) {
       location.replace("pages/adviser/events.html");
@@ -267,18 +286,13 @@ window.SharedNavigation.ready.then(() => {
       });
       data = response.data.data;
       render();
+      renderActivities();
     } catch (error) {
       toast("error", error.response?.data?.message || "Event not found.");
       setTimeout(() => location.replace("pages/adviser/events.html"), 800);
     }
   }
-  initializeShell();
-  authenticate()
-    .then(load)
-    .catch((error) => {
-      if (error.message !== "Unauthorized")
-        toast("error", "Unable to verify your session.");
-    });
+  load();
   $("[data-status-form]").onsubmit = async (eventObject) => {
     eventObject.preventDefault();
     try {

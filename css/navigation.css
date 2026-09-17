@@ -18,6 +18,37 @@
   white-space: nowrap;
 }
 .shared-navigation-sidebar:is(.is-expanded, .is-open) [data-shared-sidebar-toggle] { width: 2.75rem; height: 2.75rem; }
+
+/* Keep navigation and page surfaces consistent across all signed-in roles. */
+body[data-navigation-role] .shared-navigation-sidebar [data-shared-navigation-links] {
+  gap: .4rem;
+}
+body[data-navigation-role] .shared-navigation-sidebar [data-shared-navigation-links] a {
+  min-height: 3rem;
+  border-radius: 5px;
+  box-shadow: none;
+}
+body[data-navigation-role] .shared-navigation-sidebar [data-shared-navigation-links] a[aria-current="page"] {
+  border-color: rgba(198, 242, 78, .45);
+  background: #263f35;
+  color: #c6f24e;
+}
+body[data-navigation-role] .shared-navigation-sidebar :is([data-shared-sidebar-toggle], [data-shared-brand], [data-shared-sidebar-label]),
+body[data-navigation-role] :is([data-shared-mobile-toggle], [data-shared-mobile-links] a) {
+  border-radius: 5px;
+}
+
+body[data-navigation-role]:not([data-navigation-role="adviser"]) {
+  background: #f7f4ed;
+}
+body[data-navigation-role]:not([data-navigation-role="adviser"]) main :is(.rounded-xl, .rounded-2xl, .rounded-3xl),
+body[data-navigation-role]:not([data-navigation-role="adviser"]) dialog:is(.rounded-xl, .rounded-2xl, .rounded-3xl),
+body[data-navigation-role]:not([data-navigation-role="adviser"]) dialog :is(.rounded-xl, .rounded-2xl, .rounded-3xl) {
+  border-radius: 5px;
+}
+body[data-navigation-role]:not([data-navigation-role="adviser"]) main :is(section, article, aside, form, div).bg-white:is(.rounded-xl, .rounded-2xl, .rounded-3xl) {
+  box-shadow: none;
+}
 .shared-navigation-mobile { padding-bottom: max(.375rem, env(safe-area-inset-bottom)); }
 .shared-navigation-account-panel { width: min(17rem, calc(100vw - 1rem)); }
 .shared-navigation-account-panel [data-shared-account-menu-name],
@@ -71,6 +102,14 @@ body[data-navigation-role="student"] [data-student-qr] svg { display: block; max
 @media (min-width: 1024px) {
   .shared-navigation-sidebar { display: flex; width: 5rem; transform: translateX(0); }
   .shared-navigation-sidebar.is-expanded { width: 16rem; }
+  .shared-navigation-sidebar:not(.is-expanded) [data-shared-sidebar-header] {
+    display: flex;
+    grid-template-columns: none;
+  }
+  .shared-navigation-sidebar:not(.is-expanded) [data-shared-brand] { display: none; }
+  .shared-navigation-sidebar:not(.is-expanded) [data-shared-sidebar-toggle] { width: 2.75rem; }
+  body[data-navigation-role="adviser"] [data-shared-mobile-toggle],
+  body[data-navigation-role="faculty"] [data-shared-mobile-toggle] { display: none !important; }
   .shared-navigation-header,
   [data-shared-content] { margin-left: 5rem !important; }
   .shared-navigation-header.is-expanded,

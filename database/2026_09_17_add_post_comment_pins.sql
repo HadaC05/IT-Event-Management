@@ -1,0 +1,2 @@
+ALTER TABLE tbl_post_comments
+    ADD COLUMN IF NOT EXISTS is_pinned TINYINT(1) NOT NULL DEFAULT 0 AFTER body;

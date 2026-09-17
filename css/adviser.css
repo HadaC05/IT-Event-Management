@@ -1,4 +1,41 @@
-/* Match the active adviser sidebar item without a translucent or glowing finish. */
+/* Adviser workspace surfaces use the dashboard's flatter visual style. */
+[data-admin-shell] {
+  background: #f7f4ed;
+}
+
+/* Use the same restrained corners throughout the adviser workspace. */
+[data-admin-shell] .admin-main :is(.rounded-xl, .rounded-2xl, .rounded-3xl),
+[data-admin-shell] .admin-main :is(input, select, textarea, button).rounded-lg {
+  border-radius: 5px;
+}
+
+[data-admin-shell] .admin-main :is(section, article, div).bg-white:is(.rounded-xl, .rounded-2xl, .rounded-3xl) {
+  box-shadow: none;
+}
+
+[data-admin-shell] .admin-main :is(input, select, textarea, button).rounded-xl,
+[data-admin-shell] .admin-main a.rounded-xl,
+[data-admin-shell] dialog :is(input, select, textarea, button).rounded-xl,
+[data-admin-shell] dialog a.rounded-xl {
+  border-radius: 5px;
+  box-shadow: none;
+}
+
+[data-admin-shell] dialog:is(.rounded-xl, .rounded-2xl, .rounded-3xl) {
+  border-radius: 7px;
+}
+
+dialog[data-activity-dialog] {
+  width: min(520px, calc(100% - 2rem));
+  max-height: calc(100vh - 2rem);
+  max-height: calc(100dvh - 2rem);
+  border-radius: 7px;
+}
+
+dialog[data-activity-dialog]::backdrop {
+  background: rgb(18 16 23 / 60%);
+}
+
 [data-page-loading-cloak] {
     position: fixed;
     inset: 0;
@@ -39,7 +76,7 @@
   .unassigned-review-dialog {
     width: calc(100% - 1rem);
     max-height: calc(100dvh - 1rem);
-    border-radius: 1rem;
+    border-radius: 5px;
   }
 
   .unassigned-review-shell {
@@ -200,6 +237,193 @@ details[open] > .attendance-scan-summary .attendance-scan-chevron {
   top: calc(72px + 1rem);
   margin-top: 0;
   z-index: 100;
+}
+
+/* Keep the Location form's actions visible while its fields scroll. */
+dialog[data-location-dialog] {
+  max-height: calc(100dvh - 2rem);
+  overflow: hidden;
+}
+
+dialog[data-location-dialog] [data-location-form] {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  max-height: calc(100dvh - 2rem);
+  min-height: 0;
+}
+
+dialog[data-location-dialog] [data-location-form] > header,
+dialog[data-location-dialog] [data-location-form] > footer {
+  position: static;
+  flex-shrink: 0;
+}
+
+dialog[data-location-dialog] [data-location-form] > div {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+@media (max-width: 640px) {
+  dialog[data-location-dialog] {
+    max-height: calc(100dvh - 1rem);
+  }
+
+  dialog[data-location-dialog] [data-location-form] {
+    max-height: calc(100dvh - 1rem);
+  }
+
+  dialog[data-location-dialog] [data-location-form] > footer {
+    gap: .5rem;
+  }
+
+  dialog[data-location-dialog] [data-location-form] > footer button {
+    flex: 1;
+    padding-inline: .5rem;
+  }
+}
+
+/* Adviser dashboard: compact panels and clear table-style rows. */
+[data-adviser-dashboard] .admin-main {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+[data-adviser-dashboard] .admin-main > header {
+  order: 0;
+  margin-bottom: .25rem;
+}
+
+[data-adviser-dashboard] .dashboard-overview { order: 1; }
+[data-adviser-dashboard] .dashboard-main { order: 2; }
+[data-adviser-dashboard] .dashboard-secondary { order: 3; }
+
+[data-adviser-dashboard] .dashboard-overview,
+[data-adviser-dashboard] .dashboard-main,
+[data-adviser-dashboard] .dashboard-secondary {
+  margin-bottom: 0;
+  gap: 1rem;
+}
+
+[data-adviser-dashboard] .dashboard-overview,
+[data-adviser-dashboard] .dashboard-main > article,
+[data-adviser-dashboard] .dashboard-secondary > article {
+  border: 1px solid #deded5;
+  border-radius: 5px;
+  box-shadow: none;
+}
+
+[data-adviser-dashboard] .dashboard-overview > div {
+  gap: 0;
+}
+
+[data-adviser-dashboard] .dashboard-overview > div > div {
+  display: block;
+  min-height: 108px;
+  padding: 1rem 1.25rem;
+  border-right: 1px solid #deded5;
+}
+
+[data-adviser-dashboard] .dashboard-overview > div > div:last-child {
+  border-right: 0;
+  background: #17231c;
+}
+
+[data-adviser-dashboard] .dashboard-overview > div > div > span,
+[data-adviser-dashboard] .dashboard-overview > div > div > p {
+  display: block;
+  color: #667168;
+  font-size: .68rem;
+  font-weight: 800;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+[data-adviser-dashboard] .dashboard-overview > div > div > strong,
+[data-adviser-dashboard] .dashboard-overview > div > div > div strong {
+  display: block;
+  margin-top: .4rem;
+  color: #121017;
+  font-size: 2rem;
+  line-height: 1;
+  font-weight: 900;
+}
+
+[data-adviser-dashboard] .dashboard-overview > div > div:last-child > span,
+[data-adviser-dashboard] .dashboard-overview > div > div:last-child > strong {
+  color: #c6f24e;
+}
+
+[data-adviser-dashboard] .dashboard-main > article > header,
+[data-adviser-dashboard] .dashboard-secondary > article > header {
+  padding: 1rem 1.25rem;
+  background: #fff;
+  border-bottom: 1px solid #e6e6df;
+}
+
+[data-adviser-dashboard] .dashboard-main > article > header h2,
+[data-adviser-dashboard] .dashboard-secondary > article > header h2 {
+  font-size: .95rem;
+  letter-spacing: 0;
+}
+
+[data-adviser-dashboard] [data-activity-list] > div:not(.text-center) {
+  display: grid;
+  grid-template-columns: 9px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: .85rem;
+  padding: .85rem 1.25rem;
+}
+
+[data-adviser-dashboard] [data-activity-list] > div > span:first-child {
+  width: 8px;
+  height: 8px;
+  margin: 0;
+  border-radius: 2px;
+  background: #a7d550;
+  box-shadow: none;
+}
+
+[data-adviser-dashboard] [data-activity-list] strong {
+  font-size: .8rem;
+}
+
+[data-adviser-dashboard] [data-standings-panel] {
+  background: #17231c;
+  border-color: #17231c;
+  color: #f7f4ed;
+}
+
+[data-adviser-dashboard] [data-standings-panel] > header {
+  background: #17231c;
+  border-bottom-color: #3d4b39;
+}
+
+[data-adviser-dashboard] [data-standings-panel] :is(h2, strong, small) { color: #f7f4ed; }
+[data-adviser-dashboard] [data-standings-panel] p { color: #b4c0af; }
+[data-adviser-dashboard] [data-standings-panel] a { color: #c6f24e; }
+[data-adviser-dashboard] .dashboard-standings-lead { padding: 1.25rem; border-bottom: 1px solid #3d4b39; }
+[data-adviser-dashboard] .dashboard-standings-lead > span,
+[data-adviser-dashboard] .dashboard-standings-lead strong { color: #c6f24e; }
+[data-adviser-dashboard] [data-standings-list] > div { border-bottom-color: #3d4b39; padding: .85rem 1.25rem; }
+[data-adviser-dashboard] [data-standings-list] > .dashboard-standings-lead { padding: 1.25rem; }
+[data-adviser-dashboard] [data-standings-list] > div > span:first-child { border-radius: 3px; }
+
+[data-adviser-dashboard] .admin-main > header a,
+[data-adviser-dashboard] .admin-main > header button,
+[data-adviser-dashboard] .dashboard-secondary a,
+[data-adviser-dashboard] .dashboard-secondary span.rounded-full {
+  border-radius: 5px;
+  box-shadow: none;
+}
+
+@media (max-width: 639px) {
+  [data-adviser-dashboard] .dashboard-overview > div { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  [data-adviser-dashboard] .dashboard-overview > div > div:nth-child(2) { border-right: 0; }
+  [data-adviser-dashboard] .dashboard-overview > div > div { min-height: 92px; border-bottom: 1px solid #deded5; }
+  [data-adviser-dashboard] .dashboard-overview > div > div:nth-child(n+3) { border-bottom: 0; }
+  [data-adviser-dashboard] [data-activity-list] time { display: none; }
 }
 
 @media (min-width: 1280px) {

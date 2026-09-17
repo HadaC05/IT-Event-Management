@@ -1,4 +1,4 @@
-window.SharedNavigation.ready.then(() => {
+window.SharedNavigation.ready.then((context) => {
     'use strict';
 
     const API = 'api/adviser-locations.php';
@@ -12,6 +12,7 @@ window.SharedNavigation.ready.then(() => {
     const gpsButton = document.querySelector('[data-gps-toggle]');
     const refreshGpsButton = document.querySelector('[data-gps-refresh]');
     const applyButton = document.querySelector('[data-apply-coordinates]');
+    const manualButton = document.querySelector('[data-manual-coordinates]');
     const saveButton = document.querySelector('[data-save-location]');
     const gpsMessage = document.querySelector('[data-gps-message]');
     const liveLatitude = document.querySelector('[data-live-latitude]');
@@ -25,12 +26,13 @@ window.SharedNavigation.ready.then(() => {
     const rangeDetails = document.querySelector('[data-range-details]');
     const parentLocationWrap = document.querySelector('[data-parent-location-wrap]');
     const parentLocationSelect = form.elements.parent_location_id;
-    let csrfToken = '';
+    let csrfToken = context.csrfToken;
     let locations = [];
     let generalLocations = [];
     let currentPage = Math.max(1, Number(new URLSearchParams(location.search).get('page')) || 1);
     let watchId = null;
     let currentPosition = null;
+    let manualCoordinates = false;
 
     form.dataset.axiosForm = '';
     filters.dataset.axiosForm = '';
@@ -103,7 +105,7 @@ window.SharedNavigation.ready.then(() => {
     };
 
     const positionFailed = error => {
-        const messages = { 1: 'Location permission was denied. Allow location access in your browser settings.', 2: 'Your device could not determine its location.', 3: 'The GPS request timed out. Move to an open area and try again.' };
+        const messages = { 1: 'Location access was denied. Allow it in browser and device settings, or enter coordinates manually.', 2: 'Your device could not determine its location. You can enter coordinates manually.', 3: 'The GPS request timed out. Try again or enter coordinates manually.' };
         gpsMessage.textContent = messages[error.code] || 'Live GPS is unavailable.';
         notify('error', gpsMessage.textContent);
     };
@@ -133,7 +135,8 @@ window.SharedNavigation.ready.then(() => {
 
     const toggleGps = () => {
         if (watchId !== null) { stopGps(); return; }
-        if (!('geolocation' in navigator)) { notify('error', 'This browser does not support GPS location.'); return; }
+        if (!window.isSecureContext) { gpsMessage.textContent = 'Browser GPS requires HTTPS or localhost. Use a trusted HTTPS address or enter coordinates manually.'; notify('error', gpsMessage.textContent); return; }
+        if (!('geolocation' in navigator)) { gpsMessage.textContent = 'This browser does not offer device location. Enter coordinates manually.'; notify('error', gpsMessage.textContent); return; }
         gpsMessage.textContent = 'Waiting for a live GPS reading...';
         gpsButton.textContent = 'Turn Off GPS';
         gpsButton.classList.remove('bg-[#397565]');
@@ -156,7 +159,7 @@ window.SharedNavigation.ready.then(() => {
                     gpsMessage.textContent = currentPosition
                         ? 'No newer reading arrived. Continuing with the latest live GPS position.'
                         : 'A fresh reading is taking longer than expected. Live GPS is still running.';
-                    notify('warning', gpsMessage.textContent);
+                    // This status is already visible beside the GPS controls.
                 }
                 refreshGpsButton.disabled = watchId === null;
             },
@@ -222,6 +225,7 @@ window.SharedNavigation.ready.then(() => {
         saveButton.textContent = 'Create Location';
         preview.classList.add('hidden');
         resetGps();
+        setManualCoordinates(false);
         dialog.showModal();
         form.elements.name.focus();
     };
@@ -240,6 +244,7 @@ window.SharedNavigation.ready.then(() => {
         document.querySelector('[data-dialog-title]').textContent = 'Edit Location';
         saveButton.textContent = 'Save Changes';
         resetGps();
+        setManualCoordinates(false);
         renderRangePreview();
         dialog.showModal();
         form.elements.name.focus();
@@ -289,6 +294,27 @@ window.SharedNavigation.ready.then(() => {
         renderRangePreview();
         notify('success', 'The current live coordinates were applied.');
     });
+    const setManualCoordinates = enabled => {
+        manualCoordinates = enabled;
+        form.elements.latitude.readOnly = !enabled;
+        form.elements.longitude.readOnly = !enabled;
+        for (const input of [form.elements.latitude, form.elements.longitude]) {
+            input.classList.toggle('bg-white', enabled);
+            input.classList.toggle('bg-[#F3F0E9]/45', !enabled);
+        }
+        manualButton.textContent = enabled ? 'Use device GPS instead' : 'Enter coordinates manually';
+        if (enabled) {
+            resetGps();
+            gpsMessage.textContent = 'Manual coordinates enabled. Use the latitude and longitude of your test location.';
+        }
+    };
+    manualButton.addEventListener('click', () => {
+        setManualCoordinates(!manualCoordinates);
+        if (manualCoordinates) form.elements.latitude.focus();
+        renderRangePreview();
+    });
+    form.elements.latitude.addEventListener('input', renderRangePreview);
+    form.elements.longitude.addEventListener('input', renderRangePreview);
     form.elements.radius.addEventListener('input', renderRangePreview);
     form.elements.type.addEventListener('change', () => syncParentLocation());
 
@@ -311,39 +337,10 @@ window.SharedNavigation.ready.then(() => {
         }
     });
 
-    const initializeShell = () => {
-        const sidebar = document.querySelector('#sidebar');
-        const scrim = document.querySelector('[data-sidebar-scrim]');
-        document.querySelectorAll('[data-sidebar-toggle]').forEach(button => button.addEventListener('click', () => {
-            const opening = sidebar.classList.contains('-translate-x-full');
-            sidebar.classList.toggle('-translate-x-full', !opening);
-            sidebar.classList.toggle('translate-x-0', opening);
-            scrim.classList.toggle('hidden', !opening);
-        }));
-    };
-
-    const authenticate = async () => {
-        const response = await axios.get('api/auth.php?action=session');
-        if (!response.data.authenticated || response.data.user?.role !== 'SBO Adviser') { location.replace('./'); throw new Error('SBO Adviser authentication required.'); }
-        csrfToken = response.data.csrf_token;
-        const user = response.data.user;
-        const name = user.full_name || user.username;
-        const account = document.querySelector('[data-account-menu]');
-        account.querySelector('summary strong').textContent = name;
-        account.querySelector('summary small').textContent = user.role;
-        account.querySelector(':scope > div > div strong').textContent = name;
-        account.querySelector(':scope > div > div span').textContent = user.email || user.username;
-        document.querySelector('[data-logout-form]').addEventListener('submit', async event => {
-            event.preventDefault();
-            try { await axios.post('api/auth.php?action=logout', {}, { headers: { 'X-CSRF-Token': csrfToken } }); } finally { location.replace('./'); }
-        });
-    };
-
     window.addEventListener('beforeunload', stopGps);
     const initialQuery = new URLSearchParams(location.search);
     filters.search.value = initialQuery.get('search') || '';
     filters.type.value = initialQuery.get('type') || '';
     filters.status.value = initialQuery.get('status') || '';
-    initializeShell();
-    authenticate().then(loadLocations).catch(error => notify('error', error.response?.data?.message || error.message));
+    loadLocations().catch(error => notify('error', error.response?.data?.message || error.message));
 });

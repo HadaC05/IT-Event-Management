@@ -13,10 +13,10 @@
     href="assets/images/cite_favicon.png"
 >
 <link rel="stylesheet" href="css/tailwind.css" />
-<link rel="stylesheet" href="css/adviser.css" />    <script src="js/shared/notifications.js?v=20260917-7" defer></script>
-    <script src="js/shared/interactions.js?v=20260917-3" defer></script>
+<link rel="stylesheet" href="css/adviser.css?v=20260917-flat-2" />    <script src="js/shared/notifications.js?v=20260917-7" defer></script>
+    <script src="js/shared/interactions.js?v=20260917-flat-1" defer></script>
 </head>
-<body class="app-shell min-h-screen bg-white font-sans text-[#121017] antialiased" data-admin-shell data-navigation-role="adviser">
+<body class="app-shell min-h-screen bg-[#F7F4ED] font-sans text-[#121017] antialiased" data-admin-shell data-navigation-role="adviser" data-adviser-dashboard>
     <span class="route-progress" data-route-progress data-active="false" aria-hidden="true"></span>
 
     <div data-shared-navigation-host></div>
@@ -35,7 +35,7 @@
                 </div>
             </header>
 
-            <section class="mb-6 grid items-start gap-6 xl:grid-cols-[minmax(0,1.35fr)_minmax(340px,.65fr)]" aria-label="Today and attention">
+            <section class="dashboard-secondary mb-6 grid items-start gap-6 lg:grid-cols-[minmax(0,1.35fr)_minmax(320px,.65fr)]" aria-label="Today and attention">
                 <article class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm" data-today-panel>
                     <header class="flex items-center justify-between gap-4 border-b border-slate-100 px-6 py-5">
                         <div><p class="text-xs font-extrabold uppercase tracking-[.14em] text-[#397565]">Today</p><h2 class="mt-1 text-lg font-extrabold tracking-tight text-[#121017]">Today’s focus</h2></div>
@@ -53,16 +53,16 @@
                 </article>
             </section>
 
-            <section class="mb-6 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm" aria-label="Quick overview">
+            <section class="dashboard-overview mb-6 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm" aria-label="Quick overview">
                 <div class="grid divide-y divide-slate-100 sm:grid-cols-4 sm:divide-x sm:divide-y-0">
-                    <div class="p-5 sm:p-6"><p class="text-xs font-extrabold uppercase tracking-[.14em] text-[#397565]">Quick overview</p><div class="mt-2 flex items-baseline gap-2"><strong class="text-3xl font-black text-[#121017]" data-overview="students">0</strong><span class="text-xs font-semibold text-slate-400">Students</span></div></div>
+                    <div class="p-5 sm:p-6"><p class="text-xs font-extrabold uppercase tracking-[.14em] text-[#397565]">Students</p><div class="mt-2 flex items-baseline gap-2"><strong class="text-3xl font-black text-[#121017]" data-overview="students">0</strong></div></div>
                     <div class="flex items-center justify-between gap-4 px-5 py-4 sm:block sm:p-6"><span class="text-sm font-semibold text-slate-500">Active tribes</span><strong class="text-2xl font-extrabold text-[#121017] sm:mt-2 sm:block" data-overview="teams">0</strong></div>
                     <div class="flex items-center justify-between gap-4 px-5 py-4 sm:block sm:p-6"><span class="text-sm font-semibold text-slate-500">SBO officers</span><strong class="text-2xl font-extrabold text-[#121017] sm:mt-2 sm:block" data-overview="officers">0</strong></div>
                     <div class="flex items-center justify-between gap-4 px-5 py-4 sm:block sm:p-6"><span class="text-sm font-semibold text-slate-500">Upcoming events</span><strong class="text-2xl font-extrabold text-[#121017] sm:mt-2 sm:block" data-overview="upcoming">0</strong></div>
                 </div>
             </section>
 
-            <section class="grid gap-6 xl:grid-cols-[minmax(0,1.35fr)_minmax(340px,.65fr)]">
+            <section class="dashboard-main grid gap-6 lg:grid-cols-[minmax(0,1.35fr)_minmax(320px,.65fr)]">
                 <article class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm" data-activity-panel>
                     <header class="border-b border-slate-100 px-6 py-5"><h2 class="text-lg font-extrabold tracking-tight text-[#121017]">Recent activity</h2><p class="mt-1 text-xs text-slate-500">The latest operational updates across the system</p></header>
                     <div data-activity-list></div>
@@ -90,7 +90,7 @@
 </dialog>
     <script src="js/vendor/axios.min.js"></script>
     <script src="js/shared/password-gate.js?v=20260917-1"></script>
-    <script src="js/shared/navigation.js?v=20260917-8"></script>
-    <script src="js/adviser/dashboard.js?v=20260915-2"></script>
+    <script src="js/shared/navigation.js?v=20260917-portal-flat-1"></script>
+    <script src="js/adviser/dashboard.js?v=20260917-flat-1"></script>
 </body>
 </html>

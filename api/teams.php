@@ -41,14 +41,23 @@ final class TeamManagementRepository
               FROM tbl_teams t JOIN tbl_school_years sy ON sy.id=t.school_year_id
               $whereSql ORDER BY t.is_active DESC,t.name LIMIT :limit OFFSET :offset";
         $st=$this->db->prepare($sql);foreach($params as $k=>$v)$st->bindValue(':'.$k,$v);$st->bindValue(':limit',$perPage,PDO::PARAM_INT);$st->bindValue(':offset',($page-1)*$perPage,PDO::PARAM_INT);$st->execute();$teams=$st->fetchAll();
-        foreach($teams as &$team){$team['id']=(int)$team['id'];$team['school_year_id']=(int)$team['school_year_id'];$team['is_active']=(bool)$team['is_active'];$team['members_count']=(int)$team['members_count'];$m=$this->db->prepare("SELECT u.id,u.first_name,u.middle_name,u.last_name,u.id_number,yl.label year_level_label FROM tbl_team_user tu JOIN tbl_users u ON u.id=tu.user_id LEFT JOIN tbl_year_levels yl ON yl.id=u.year_level WHERE tu.team_id=? ORDER BY u.last_name,u.first_name");$m->execute([$team['id']]);$team['members']=$m->fetchAll();foreach($team['members'] as &$member)$member['full_name']=$this->fullName($member);unset($member);}unset($team);
+        foreach($teams as &$team){$team['id']=(int)$team['id'];$team['school_year_id']=(int)$team['school_year_id'];$team['is_active']=(bool)$team['is_active'];$m=$this->db->prepare("SELECT u.id,u.first_name,u.middle_name,u.last_name,u.id_number,yl.label year_level_label FROM tbl_team_user tu JOIN tbl_users u ON u.id=tu.user_id JOIN tbl_roles r ON r.id=u.role_id AND r.name='Student' LEFT JOIN tbl_year_levels yl ON yl.id=u.year_level WHERE tu.team_id=? ORDER BY u.last_name,u.first_name");$m->execute([$team['id']]);$team['members']=$m->fetchAll();$team['members_count']=count($team['members']);foreach($team['members'] as &$member)$member['full_name']=$this->fullName($member);unset($member);}unset($team);
         $studentRole=(int)$this->value("SELECT id FROM tbl_roles WHERE name='Student'");$active=(int)$this->value("SELECT id FROM tbl_user_statuses WHERE label='active'");
+        $hasImportRows=(bool)$this->value("SELECT 1 FROM information_schema.tables WHERE table_schema=DATABASE() AND table_name='tbl_student_import_rows' LIMIT 1");
+        $importMissingTribe=$hasImportRows
+          ? "EXISTS(SELECT 1 FROM tbl_student_import_rows sir WHERE sir.user_id=u.id AND sir.flags_json LIKE '%\"code\":\"missing_tribe\"%')"
+          : '0';
+        $hasStudentProfiles=(bool)$this->value("SELECT 1 FROM information_schema.tables WHERE table_schema=DATABASE() AND table_name='tbl_student_profiles' LIMIT 1");
+        $profileColumns=$hasStudentProfiles
+          ? 'sp.program,sp.section_name,sp.school_year_label profile_school_year'
+          : 'NULL program,NULL section_name,NULL profile_school_year';
+        $profileJoin=$hasStudentProfiles?'LEFT JOIN tbl_student_profiles sp ON sp.user_id=u.id':'';
         $studentsSt=$this->db->prepare("SELECT u.id,u.id_number,u.first_name,u.middle_name,u.last_name,u.year_level,
-          yl.label year_level_label,sp.program,sp.section_name,sp.school_year_label profile_school_year,
-          EXISTS(SELECT 1 FROM tbl_student_import_rows sir WHERE sir.user_id=u.id AND sir.flags_json LIKE '%\"code\":\"missing_tribe\"%') import_missing_tribe
+          yl.label year_level_label,{$profileColumns},
+          {$importMissingTribe} import_missing_tribe
           FROM tbl_users u
           LEFT JOIN tbl_year_levels yl ON yl.id=u.year_level
-          LEFT JOIN tbl_student_profiles sp ON sp.user_id=u.id
+          {$profileJoin}
           WHERE u.role_id=? AND u.status=? ORDER BY u.last_name,u.first_name");
         $studentsSt->execute([$studentRole,$active]);$students=$studentsSt->fetchAll();
         $memberships=[];
@@ -86,7 +95,7 @@ final class TeamManagementRepository
         $members=array_values(array_unique(array_map('intval',(array)($data['member_ids']??[]))));
         if($members)$this->validateMembers($members,$year,$id);
         $this->db->beginTransaction();try{
-            if($id){if(!$this->value('SELECT id FROM tbl_teams WHERE id=?',[$id]))throw new InvalidArgumentException('Tribe not found.');$st=$this->db->prepare('UPDATE tbl_teams SET name=?,school_year_id=?,color=?,updated_at=CURRENT_TIMESTAMP WHERE id=?');$st->execute([$name,$year,$color,$id]);$this->db->prepare('DELETE FROM tbl_team_user WHERE team_id=?')->execute([$id]);$attach=$this->db->prepare('INSERT INTO tbl_team_user(team_id,user_id,created_at,updated_at) VALUES(?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)');foreach($members as $member)$attach->execute([$id,$member]);$action='team_updated';$description="$name was updated with ".count($members).' members.';
+            if($id){if(!$this->value('SELECT id FROM tbl_teams WHERE id=?',[$id]))throw new InvalidArgumentException('Tribe not found.');$st=$this->db->prepare('UPDATE tbl_teams SET name=?,school_year_id=?,color=?,updated_at=CURRENT_TIMESTAMP WHERE id=?');$st->execute([$name,$year,$color,$id]);$this->db->prepare("DELETE tu FROM tbl_team_user tu JOIN tbl_users u ON u.id=tu.user_id JOIN tbl_roles r ON r.id=u.role_id AND r.name='Student' WHERE tu.team_id=?")->execute([$id]);$attach=$this->db->prepare('INSERT INTO tbl_team_user(team_id,user_id,created_at,updated_at) VALUES(?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)');foreach($members as $member)$attach->execute([$id,$member]);$action='team_updated';$description="$name was updated with ".count($members).' members.';
             }else{$st=$this->db->prepare('INSERT INTO tbl_teams(school_year_id,name,color,is_active,created_at,updated_at) VALUES(?,?,?,1,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)');$st->execute([$year,$name,$color]);$id=(int)$this->db->lastInsertId();$action='team_created';$description="$name was created without assigned members.";}
             $this->log($actorId,$action,$description);$this->db->commit();return $id;
         }catch(Throwable $e){$this->db->rollBack();throw $e;}

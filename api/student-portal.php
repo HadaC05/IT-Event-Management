@@ -105,7 +105,7 @@ final class StudentPortalRepository
              FROM tbl_team_user mine
              JOIN tbl_teams t ON t.id = mine.team_id
              JOIN tbl_school_years sy ON sy.id = t.school_year_id
-             LEFT JOIN tbl_team_user members ON members.team_id = t.id
+             LEFT JOIN tbl_team_user members ON members.team_id = t.id AND EXISTS(SELECT 1 FROM tbl_users mu JOIN tbl_roles mr ON mr.id=mu.role_id WHERE mu.id=members.user_id AND mr.name='Student')
              LEFT JOIN (
                  SELECT team_id, SUM(points) AS total
                  FROM tbl_scores
@@ -133,6 +133,7 @@ final class StudentPortalRepository
                     u.profile_photo_path, yl.label AS year_level
              FROM tbl_team_user tu
              JOIN tbl_users u ON u.id = tu.user_id
+             JOIN tbl_roles r ON r.id=u.role_id AND r.name='Student'
              LEFT JOIN tbl_year_levels yl ON yl.id = u.year_level
              WHERE tu.team_id = ?
              ORDER BY yl.id, u.last_name, u.first_name"

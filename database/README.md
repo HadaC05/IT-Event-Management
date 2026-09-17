@@ -51,13 +51,23 @@ no duplicate `(attendance_id,event_schedule_id,session_code)` groups. Existing
 QR-token, assignment, team, schedule, location, and attendance tables are reused.
 
 The attendance QR belongs to each student and is scoped to that student's event
-and session. The same code is scanned by the assigned SBO officer for both time
+and session. The same code is scanned by an assigned SBO officer or a Faculty
+member assigned to that student's team and event for both time
 in and time out; the officer chooses the checkpoint before scanning. Time out
 requires a prior time in, and both timestamps appear in the student's attendance
 history. Time in opens 30 minutes before the session and closes at session end;
 time out opens 30 minutes before session end and closes 30 minutes after. The
 adviser manages event dates and times but does not issue an event attendance QR.
 Editing an event schedule retains attendance records and student QR tokens.
+
+For Faculty scanning, import
+`database/2026_09_17_allow_faculty_scans_in_attendance_entries.sql` once after
+the SBO attendance migrations. Faculty scans reuse `tbl_attendances` and
+`tbl_attendance_entries`; only the SBO assignment and activity references are
+nullable for these entries. Assign the Faculty member to a team in User
+Management and to the event through the existing event assignment control.
+Faculty receive no attendance QR and can scan only Student QRs for their team.
+Run `php api/test-faculty-scanner.php` to verify this in a temporary database.
 
 For mobile event scanning, serve the XAMPP site through Apache HTTPS using a
 certificate trusted by each officer's device and open the HTTPS URL using a

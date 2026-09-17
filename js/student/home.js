@@ -8,6 +8,7 @@
 
     const state = {
         csrfToken: '',
+        userId: 0,
         previewUrl: null,
         activeFeature: 0,
         featureTimer: null,
@@ -431,10 +432,30 @@
         }
     };
 
+    const feedIcon = name => {
+        const paths = {
+            like: '<path d="M7 10v11H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3Zm0 0 4-8a3 3 0 0 1 2 3v4h6a3 3 0 0 1 2.9 3.7l-1.7 7A3 3 0 0 1 17.3 22H7"/>',
+            love: '<path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1.1-1.1a5.5 5.5 0 0 0-7.8 7.8L12 21l8.8-8.6a5.5 5.5 0 0 0 0-7.8Z"/>',
+            celebrate: '<path d="m4 20 6-2-4-4-2 6Zm2-6 3-3m5-7 1-2m4 8 3-1m-7 5 1 3M9 3l2 2m7 1 2-2M11 9l4-2 2 4-4 2-2-4Z"/>',
+            support: '<path d="M12 21s-8-4.7-8-10a4 4 0 0 1 7-2.5L12 10l1-1.5A4 4 0 0 1 20 11c0 5.3-8 10-8 10Z"/><path d="M8 15h8m-4-4v8"/>',
+            comment: '<path d="M20 11.5a8.5 8.5 0 0 1-8.5 8.5 9 9 0 0 1-4-.9L3 21l1.3-4.3A8.5 8.5 0 1 1 20 11.5Z"/><path d="M8 11h8m-8 3h5"/>',
+            pin: '<path d="m8 3 8 8m-7-7 3-1 6 6-1 3-3 1-3 6-2-2 6-3M5 21l5-5"/>'
+        };
+        return `<svg class="h-4 w-4 shrink-0 fill-none stroke-current stroke-[1.8]" viewBox="0 0 24 24" aria-hidden="true">${paths[name]}</svg>`;
+    };
+    const feedAction = async (payload, failure) => {
+        try {
+            await axios.post(API_URL, payload, { headers: { 'X-CSRF-Token': state.csrfToken } });
+            await loadPage();
+        } catch (error) {
+            showToast(error.response?.data?.message || failure, 'error');
+        }
+    };
+
     const feedPost = post => {
         const article = createElement(
             'article',
-            'overflow-hidden rounded-xl border border-[#397565]/15 bg-white shadow-[0_14px_38px_rgba(18,16,23,.07)]'
+            'rounded-xl border border-[#397565]/15 bg-white shadow-[0_14px_38px_rgba(18,16,23,.07)]'
         );
         const header = createElement('header', 'flex items-center gap-3 p-4');
         header.appendChild(createElement(
@@ -453,6 +474,7 @@
                 'Official announcement'
             ));
         }
+        if (post.author_role === 'Faculty') authorRow.appendChild(createElement('span', 'rounded bg-[#397565]/10 px-2 py-0.5 text-[10px] font-black text-[#397565]', 'Faculty'));
         identity.appendChild(authorRow);
         identity.appendChild(createElement(
             'time',
@@ -484,13 +506,125 @@
             article.appendChild(frame);
         }
 
-        const footer = createElement(
-            'footer',
-            'flex items-center justify-between border-t border-[#397565]/10 px-4 py-3 text-xs font-bold text-[#121017]/50'
-        );
-        footer.appendChild(createElement('span', '', `${post.reactions_count} reactions`));
-        footer.appendChild(createElement('span', '', `${post.comments_count} comments`));
-        article.appendChild(footer);
+        const engagement = createElement('div', 'px-4 pb-4');
+        const counts = createElement('div', 'flex items-center justify-between border-t border-[#397565]/10 py-3 text-xs text-[#121017]/55');
+        const reactions = createElement('span', 'flex items-center gap-2');
+        const reactionNames = { like: 'Like', love: 'Love', celebrate: 'Celebrate', support: 'Support' };
+        for (const [type, total] of Object.entries(post.reaction_counts || {})) {
+            const badge = createElement('span', 'inline-flex items-center gap-1 font-semibold text-[#397565]');
+            badge.innerHTML = feedIcon(type);
+            badge.appendChild(createElement('span', '', String(total)));
+            badge.title = reactionNames[type] || type;
+            reactions.appendChild(badge);
+        }
+        if (!post.reactions_count) reactions.textContent = 'No reactions yet';
+        counts.append(reactions, createElement('span', '', `${post.comments_count} ${post.comments_count === 1 ? 'comment' : 'comments'}`));
+        engagement.appendChild(counts);
+
+        const actions = createElement('div', 'flex flex-wrap items-center gap-2 border-y border-[#397565]/10 py-2');
+        const picker = createElement('div', 'relative');
+        const react = createElement('button', `inline-flex min-h-9 items-center rounded-lg px-3 text-xs font-bold ${post.viewer_reaction ? 'bg-[#397565]/10 text-[#397565]' : 'text-[#121017]/60 hover:bg-slate-100'}`, reactionNames[post.viewer_reaction] || 'React');
+        react.type = 'button';
+        react.setAttribute('aria-haspopup', 'true');
+        react.setAttribute('aria-expanded', 'false');
+        react.setAttribute('aria-label', post.viewer_reaction ? `${reactionNames[post.viewer_reaction]} reaction. Choose another reaction.` : 'React to this post');
+        const choices = createElement('div', 'absolute bottom-full left-0 z-20 hidden gap-1 rounded-lg border border-slate-200 bg-white p-2 shadow-xl');
+        const showChoices = (visible) => {
+            choices.classList.toggle('hidden', !visible);
+            choices.classList.toggle('flex', visible);
+            react.setAttribute('aria-expanded', String(visible));
+        };
+        picker.addEventListener('mouseenter', () => {
+            if (window.matchMedia('(hover: hover)').matches) showChoices(true);
+        });
+        picker.addEventListener('mouseleave', () => showChoices(false));
+        picker.addEventListener('focusin', () => {
+            if (window.matchMedia('(hover: hover)').matches) showChoices(true);
+        });
+        picker.addEventListener('focusout', (event) => {
+            if (!picker.contains(event.relatedTarget)) showChoices(false);
+        });
+        picker.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape') {
+                showChoices(false);
+                react.focus();
+            }
+        });
+        react.onclick = () => {
+            if (!window.matchMedia('(hover: hover)').matches) {
+                showChoices(choices.classList.contains('hidden'));
+                return;
+            }
+            feedAction({ action: 'reaction_toggle', post_id: post.id, type: 'like' }, 'Could not update your reaction.');
+        };
+        Object.entries(reactionNames).forEach(([type, label]) => {
+            const button = createElement('button', `grid min-h-10 min-w-12 place-items-center gap-0.5 rounded-lg px-2 text-[10px] font-bold ${post.viewer_reaction === type ? 'bg-[#397565]/10 text-[#397565]' : 'text-[#121017]/65 hover:bg-slate-100'}`);
+            button.type = 'button';
+            button.innerHTML = feedIcon(type);
+            button.appendChild(createElement('span', '', label));
+            button.setAttribute('aria-label', label);
+            button.setAttribute('aria-pressed', String(post.viewer_reaction === type));
+            button.onclick = () => feedAction({ action: 'reaction_toggle', post_id: post.id, type }, 'Could not update your reaction.');
+            choices.appendChild(button);
+        });
+        picker.append(react, choices);
+        actions.appendChild(picker);
+        const commentButton = createElement('button', 'inline-flex min-h-9 items-center gap-2 rounded-lg px-3 text-xs font-bold text-[#121017]/60 hover:bg-slate-100', 'Comment');
+        commentButton.type = 'button';
+        commentButton.insertAdjacentHTML('afterbegin', feedIcon('comment'));
+        actions.appendChild(commentButton);
+        engagement.appendChild(actions);
+
+        const comments = createElement('div', 'grid gap-3 pt-4');
+        (post.comments || []).forEach(comment => {
+            const item = createElement('div', 'flex gap-2');
+            item.appendChild(createElement('span', 'grid h-8 w-8 shrink-0 place-items-center rounded-full bg-[#397565]/10 text-[10px] font-black text-[#397565]', comment.author_initials));
+            const content = createElement('div', 'min-w-0 flex-1');
+            const bubble = createElement('div', 'rounded-lg bg-[#F7F4ED] px-3 py-2');
+            const name = createElement('div', 'flex flex-wrap items-center gap-2');
+            name.appendChild(createElement('strong', 'text-xs', comment.author_name));
+            if (comment.user_id === post.user_id) name.appendChild(createElement('span', 'rounded bg-[#C6F24E]/45 px-1.5 py-0.5 text-[9px] font-black text-[#397565]', 'Author'));
+            if (comment.is_pinned) { const pin = createElement('span', 'inline-flex items-center gap-1 text-[10px] font-bold text-[#397565]', 'Pinned'); pin.insertAdjacentHTML('afterbegin', feedIcon('pin')); name.appendChild(pin); }
+            bubble.append(name, createElement('p', 'mt-1 whitespace-pre-wrap break-words text-xs leading-5', comment.body));
+            content.appendChild(bubble);
+            const tools = createElement('div', 'mt-1 flex flex-wrap items-center gap-3 px-2 text-[10px] font-semibold text-[#121017]/50');
+            tools.appendChild(createElement('span', '', timeAgo(comment.created_at)));
+            if (comment.user_id === state.userId) {
+                const edit = createElement('button', 'hover:text-[#397565]', 'Edit'); edit.type = 'button';
+                const remove = createElement('button', 'hover:text-red-600', 'Delete'); remove.type = 'button';
+                edit.onclick = () => { commentForm.elements.body.value = comment.body; commentForm.dataset.commentId = comment.id; submit.textContent = 'Save comment'; cancel.classList.remove('hidden'); commentForm.elements.body.focus(); };
+                remove.onclick = async () => { if (confirm('Delete this comment?')) await feedAction({ action: 'comment_delete', post_id: post.id, comment_id: comment.id }, 'Could not delete your comment.'); };
+                tools.append(edit, remove);
+                if (post.user_id === state.userId) {
+                    const pin = createElement('button', 'hover:text-[#397565]', comment.is_pinned ? 'Unpin' : 'Pin'); pin.type = 'button';
+                    pin.onclick = () => feedAction({ action: 'comment_pin', post_id: post.id, comment_id: comment.id, pin: !comment.is_pinned }, 'Could not change the pinned comment.');
+                    tools.appendChild(pin);
+                }
+            }
+            content.appendChild(tools);
+            item.appendChild(content);
+            comments.appendChild(item);
+        });
+        engagement.appendChild(comments);
+        const commentForm = createElement('form', 'mt-4 flex items-start gap-2');
+        commentForm.dataset.axiosForm = '';
+        const input = createElement('textarea', 'min-h-10 min-w-0 flex-1 resize-y rounded-lg border border-[#121017]/15 bg-white px-3 py-2 text-xs outline-none focus:border-[#397565]');
+        input.name = 'body'; input.rows = 1; input.maxLength = 1000; input.required = true; input.placeholder = 'Write a comment…';
+        const submit = createElement('button', 'min-h-10 rounded-lg bg-[#397565] px-3 text-xs font-bold text-white', 'Post'); submit.type = 'submit';
+        const cancel = createElement('button', 'hidden min-h-10 rounded-lg border px-3 text-xs font-bold', 'Cancel'); cancel.type = 'button';
+        cancel.onclick = () => { commentForm.reset(); delete commentForm.dataset.commentId; submit.textContent = 'Post'; cancel.classList.add('hidden'); };
+        commentForm.append(input, submit, cancel);
+        commentForm.onsubmit = async event => {
+            event.preventDefault();
+            if (!commentForm.reportValidity()) return;
+            const commentId = Number(commentForm.dataset.commentId || 0);
+            submit.disabled = true;
+            await feedAction({ action: commentId ? 'comment_update' : 'comment_create', post_id: post.id, comment_id: commentId, body: input.value.trim() }, 'Could not save your comment.');
+            submit.disabled = false;
+        };
+        commentButton.onclick = () => input.focus();
+        engagement.appendChild(commentForm);
+        article.appendChild(engagement);
         return article;
     };
 
@@ -502,6 +636,7 @@
     const loadPage = async () => {
         const response = await axios.get(API_URL);
         const data = response.data.data;
+        state.userId = Number(data.student.id);
         renderStudent(data.student);
         renderSubmissions(data.submissions);
         renderCurrentEvent(data.current_event);

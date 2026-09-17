@@ -57,7 +57,7 @@
     const hasVenueBoundary=freshPosition()&&selected?.venue_latitude!==null&&selected?.venue_latitude!==undefined&&selected?.venue_longitude!==null&&selected?.venue_longitude!==undefined&&selected?.venue_radius_m!==null&&selected?.venue_radius_m!==undefined;
     const proximity=hasVenueBoundary?boxProximity(position.latitude,position.longitude,Number(selected.venue_latitude),Number(selected.venue_longitude),Number(selected.venue_radius_m)):null;
     const venueDistance=proximity?(proximity.inside?' (At venue)':` (${Math.max(1,Math.round(proximity.outsideMeters)).toLocaleString('en-US')} m outside venue)`):'';
-    let status=locationReason==='checking'?'Checking GPS…':'GPS required';
+    let status=!window.isSecureContext?'HTTPS required for GPS':locationReason==='checking'?'Checking GPS…':'GPS required';
     if(freshPosition()){
       if(selected?.venue_latitude===null||selected?.venue_longitude===null||selected?.venue_radius_m===null)
         status='Venue boundary not configured';
@@ -70,9 +70,9 @@
     const statusGuidance=isInside?'Your current GPS position is within the permitted location box.':isOutside
       ?selected?.location_policy==='strict'?'You are outside the permitted location box. Move inside before scanning attendance.':'You are outside the location box. Warning mode allows scanning, but the location will be recorded as outside.'
       :'';
-    const reason=locationReason==='location_timeout'?'No fresh GPS reading arrived before the request timed out.':locationReason==='permission_denied'?'Location permission was denied.':locationReason==='stale_location'?'The device returned only an outdated GPS reading.':locationReason==='not_provided'?'Location has not been checked.':'Location is unavailable.';
+    const reason=!window.isSecureContext?'This HTTP address cannot access phone GPS or camera. Open the system through a trusted HTTPS address.':locationReason==='location_timeout'?'No fresh GPS reading arrived before the request timed out.':locationReason==='permission_denied'?'Location permission was denied. Allow location for this site in Safari and iPhone settings.':locationReason==='stale_location'?'The device returned only an outdated GPS reading.':locationReason==='not_provided'?'Location has not been checked.':'Location is unavailable.';
     const note=locationReason==='checking'?'Checking location in the background.':
-      freshPosition()?'Live GPS is active. Accuracy depends on your device.':`${reason} Turn on or refresh GPS to enable attendance scanning.`;
+      freshPosition()?'Live GPS is active. Accuracy depends on your device.':window.isSecureContext?`${reason} Turn on or refresh GPS to enable attendance scanning.`:reason;
     locationCard.innerHTML=`<div class="rounded-xl border p-3 ${statusStyle}"><p><strong>Status:</strong> ${esc(status)}</p>${statusGuidance?`<p class="mt-1 leading-5">${esc(statusGuidance)}</p>`:''}</div>
       <p class="text-[#121017]/60">${esc(note)}</p>
       <details class="mt-2 rounded-xl border border-[#121017]/10 p-3" ${detailsOpen?'open':''}><summary class="cursor-pointer font-bold text-[#397565]">View location details</summary>
@@ -94,7 +94,7 @@
     cameraButton.disabled=openButton.disabled;
     manualButton.disabled=!active||locationBlocked;
     gpsToggle.hidden=false;
-    gpsToggle.textContent=gpsEnabled?'Turn Off GPS':'Turn On GPS';
+    gpsToggle.textContent=gpsEnabled?'Turn Off GPS':window.isSecureContext?'Turn On GPS':'GPS needs HTTPS';
     gpsToggle.classList.toggle('bg-[#397565]',!gpsEnabled);
     gpsToggle.classList.toggle('bg-[#FF6B2C]',gpsEnabled);
     locationRefresh.hidden=!gpsEnabled;
@@ -107,6 +107,7 @@
   }
   function getLocation(force=false){
     if(!gpsEnabled)return Promise.resolve(null);
+    if(!window.isSecureContext){position=null;locationReason='insecure_context';renderLocation();return Promise.resolve(null);}
     if(!force&&freshPosition())return Promise.resolve(position);
     if(locationRequest)return locationRequest;
     if(!navigator.geolocation){position=null;locationReason='geolocation_unavailable';renderLocation();return Promise.resolve(null);}
@@ -159,6 +160,13 @@
   }
   function toggleGps(){
     if(gpsEnabled){turnOffGps(true);return;}
+    if(!window.isSecureContext){
+      locationReason='insecure_context';renderLocation();
+      $('[data-gps-policy-title]').textContent='HTTPS is required for phone GPS';
+      $('[data-gps-policy-message]').textContent='This phone is opening the scanner over HTTP. Browsers cannot share its GPS or camera with an HTTP IP address. Open this same system through a trusted HTTPS address, then allow location and camera access. The manually entered event location is only the boundary used to compare your phone’s live position.';
+      if(!gpsPolicyDialog.open)gpsPolicyDialog.showModal();
+      return;
+    }
     gpsManuallyDisabled=false;gpsGeneration++;gpsEnabled=true;locationReason='checking';renderLocation();getLocation(true).catch(()=>{});
   }
   async function autoStartGps(){

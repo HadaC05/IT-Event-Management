@@ -4,7 +4,7 @@
     if (!document.querySelector('link[data-adviser-modal-styles]')) {
         const modalStyles = document.createElement('link');
         modalStyles.rel = 'stylesheet';
-        modalStyles.href = 'css/adviser-modals.css?v=20260917-3';
+        modalStyles.href = 'css/adviser-modals.css?v=20260917-flat-1';
         modalStyles.dataset.adviserModalStyles = '';
         document.head.append(modalStyles);
     }

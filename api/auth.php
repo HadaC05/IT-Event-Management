@@ -125,7 +125,8 @@ final class AuthController
             'SBO Adviser' => 'pages/adviser/dashboard.html',
             'SBO Officer' => 'pages/sbo/attendance.html',
             'Student' => 'pages/student/home.html',
-            default => 'pages/dashboard.html',
+            'Faculty' => 'pages/faculty/students.html',
+            default => './',
         };
 
         return [

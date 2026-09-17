@@ -126,6 +126,7 @@ final class EventManagementRepository
         $event = $this->normalizeEvent($event);
         $event['creator_name'] = $this->fullName($event, 'creator_') ?: 'System';
         $event['assigned_users'] = $this->assignedUsers($id);
+        $event['activities'] = $this->activities($id);
         $event['attendance_schedules'] = $this->schedules($id);
         $event['audience_year_level_ids'] = $this->pivotIds('tbl_event_year_level', 'year_level_id', $id);
         $event['audience_team_ids'] = $this->pivotIds('tbl_event_team', 'team_id', $id);
@@ -138,6 +139,55 @@ final class EventManagementRepository
             static fn (array $user): bool => !in_array($user['id'], $assigned, true)
         ));
         return ['event' => $event, 'metadata' => $metadata];
+    }
+
+    private function activities(int $eventId): array
+    {
+        $statement = $this->db->prepare('SELECT id,name,description,status FROM tbl_event_activities WHERE event_id=? ORDER BY id');
+        $statement->execute([$eventId]);
+        $activities = $statement->fetchAll();
+        foreach ($activities as &$activity) $activity['id'] = (int) $activity['id'];
+        unset($activity);
+        return $activities;
+    }
+
+    public function saveActivity(int $eventId, array $input, int $actorId, ?int $activityId = null): void
+    {
+        $event = $this->eventRow($eventId);
+        $name = trim((string) ($input['name'] ?? ''));
+        $description = trim((string) ($input['description'] ?? ''));
+        $errors = [];
+        if ($name === '' || mb_strlen($name) > 120) $errors['name'] = ['Activity name is required and may not exceed 120 characters.'];
+        if (mb_strlen($description) > 2000) $errors['description'] = ['Description may not exceed 2,000 characters.'];
+        if ($errors) throw new EventValidationException($errors);
+        if ($activityId !== null) {
+            $activity = $this->db->prepare('SELECT id FROM tbl_event_activities WHERE id=? AND event_id=?');
+            $activity->execute([$activityId, $eventId]);
+            if (!$activity->fetch()) throw new EventValidationException(['activity' => ['Activity not found for this event.']]);
+        }
+        $duplicate = $this->db->prepare('SELECT id FROM tbl_event_activities WHERE event_id=? AND LOWER(name)=LOWER(?)'.($activityId === null ? '' : ' AND id<>?'));
+        $duplicate->execute($activityId === null ? [$eventId, $name] : [$eventId, $name, $activityId]);
+        if ($duplicate->fetch()) throw new EventValidationException(['name' => ['An activity with this name already exists for this event.']]);
+        if ($activityId === null) {
+            $statement = $this->db->prepare("INSERT INTO tbl_event_activities(event_id,name,description,status,created_by,created_at,updated_at) VALUES(?,?,?,'active',?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)");
+            $statement->execute([$eventId, $name, $description ?: null, $actorId]);
+        } else {
+            $statement = $this->db->prepare('UPDATE tbl_event_activities SET name=?,description=?,updated_at=CURRENT_TIMESTAMP WHERE id=? AND event_id=?');
+            $statement->execute([$name, $description ?: null, $activityId, $eventId]);
+        }
+        $this->log($actorId, $eventId, $activityId === null ? 'event_activity_created' : 'event_activity_updated', $name.' was '.($activityId === null ? 'added to ' : 'updated for ').$event['title'].'.');
+    }
+
+    public function setActivityStatus(int $eventId, int $activityId, string $status, int $actorId): void
+    {
+        $event = $this->eventRow($eventId);
+        if (!in_array($status, ['active', 'inactive'], true)) throw new EventValidationException(['status' => ['Invalid activity status.']]);
+        $statement = $this->db->prepare('SELECT name FROM tbl_event_activities WHERE id=? AND event_id=?');
+        $statement->execute([$activityId, $eventId]);
+        $activity = $statement->fetch();
+        if (!$activity) throw new EventValidationException(['activity' => ['Activity not found for this event.']]);
+        $this->db->prepare('UPDATE tbl_event_activities SET status=?,updated_at=CURRENT_TIMESTAMP WHERE id=? AND event_id=?')->execute([$status, $activityId, $eventId]);
+        $this->log($actorId, $eventId, 'event_activity_status_updated', $activity['name'].' was marked '.$status.' for '.$event['title'].'.');
     }
 
     public function metadata(): array
@@ -198,7 +248,7 @@ final class EventManagementRepository
 
         return [
             'statuses' => $this->db->query('SELECT id,label FROM tbl_event_statuses ORDER BY id')->fetchAll(),
-            'event_types' => $this->db->query('SELECT id,label FROM tbl_event_types ORDER BY label')->fetchAll(),
+            'event_types' => $this->eventTypes(),
             'attendance_modes' => $this->db->query('SELECT id,code,name FROM tbl_attendance_session_modes ORDER BY id')->fetchAll(),
             'locations' => $locations,
             'assignable_users' => $assignableRows,
@@ -206,6 +256,47 @@ final class EventManagementRepository
             'audience_year_levels' => $levels,
             'active_students' => $studentRows,
         ];
+    }
+
+    public function eventTypes(): array
+    {
+        $rows = $this->db->query('SELECT t.id,t.label,COUNT(e.id) events_count FROM tbl_event_types t LEFT JOIN tbl_events e ON e.event_type_id=t.id GROUP BY t.id,t.label ORDER BY t.label')->fetchAll();
+        foreach ($rows as &$row) {
+            $row['id'] = (int) $row['id'];
+            $row['events_count'] = (int) $row['events_count'];
+        }
+        unset($row);
+        return $rows;
+    }
+
+    public function saveEventType(array $input, ?int $typeId = null): int
+    {
+        $label = trim((string) ($input['label'] ?? ''));
+        if ($label === '' || mb_strlen($label) > 255) throw new EventValidationException(['label' => ['Event type is required and may not exceed 255 characters.']]);
+        if ($typeId !== null && !$this->exists('tbl_event_types', $typeId)) throw new EventValidationException(['event_type' => ['Event type not found.']]);
+        $duplicate = $this->db->prepare('SELECT id FROM tbl_event_types WHERE LOWER(label)=LOWER(?)'.($typeId === null ? '' : ' AND id<>?'));
+        $duplicate->execute($typeId === null ? [$label] : [$label, $typeId]);
+        if ($duplicate->fetch()) throw new EventValidationException(['label' => ['That event type already exists.']]);
+        try {
+            if ($typeId === null) {
+                $this->db->prepare('INSERT INTO tbl_event_types(label,created_at,updated_at) VALUES(?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)')->execute([$label]);
+                return (int) $this->db->lastInsertId();
+            }
+            $this->db->prepare('UPDATE tbl_event_types SET label=?,updated_at=CURRENT_TIMESTAMP WHERE id=?')->execute([$label, $typeId]);
+            return $typeId;
+        } catch (PDOException $exception) {
+            if ((string) $exception->getCode() === '23000') throw new EventValidationException(['label' => ['That event type already exists.']]);
+            throw $exception;
+        }
+    }
+
+    public function deleteEventType(int $typeId): void
+    {
+        if (!$this->exists('tbl_event_types', $typeId)) throw new EventValidationException(['event_type' => ['Event type not found.']]);
+        if ((int) $this->scalar('SELECT COUNT(*) FROM tbl_events WHERE event_type_id=?', [$typeId]) > 0) {
+            throw new EventValidationException(['event_type' => ['This type is used by an event and cannot be deleted. Rename it instead.']]);
+        }
+        $this->db->prepare('DELETE FROM tbl_event_types WHERE id=?')->execute([$typeId]);
     }
 
     public function save(array $input, array $files, int $actorId, ?int $id = null): int
@@ -826,7 +917,9 @@ $repository = new EventManagementRepository((new Database())->connection());
 
 try {
     if ($_SERVER['REQUEST_METHOD'] === 'GET') {
-        $data = isset($_GET['id']) ? $repository->details((int) $_GET['id']) : $repository->index($_GET);
+        $data = ($_GET['action'] ?? '') === 'event_types'
+            ? $repository->eventTypes()
+            : (isset($_GET['id']) ? $repository->details((int) $_GET['id']) : $repository->index($_GET));
         JsonResponse::send(['success' => true, 'data' => $data]);
     }
     if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
@@ -872,6 +965,24 @@ try {
         case 'unassign':
             $repository->unassign((int) ($input['id'] ?? 0), (int) ($input['user_id'] ?? 0), $actorId);
             JsonResponse::send(['success' => true, 'message' => 'Assignment removed successfully.']);
+        case 'event_type_create':
+            $id = $repository->saveEventType($input);
+            JsonResponse::send(['success' => true, 'id' => $id, 'message' => 'Event type added.']);
+        case 'event_type_update':
+            $id = $repository->saveEventType($input, (int) ($input['type_id'] ?? 0));
+            JsonResponse::send(['success' => true, 'id' => $id, 'message' => 'Event type updated.']);
+        case 'event_type_delete':
+            $repository->deleteEventType((int) ($input['type_id'] ?? 0));
+            JsonResponse::send(['success' => true, 'message' => 'Event type deleted.']);
+        case 'activity_create':
+            $repository->saveActivity((int) ($input['id'] ?? 0), $input, $actorId);
+            JsonResponse::send(['success' => true, 'message' => 'Activity added successfully.']);
+        case 'activity_update':
+            $repository->saveActivity((int) ($input['id'] ?? 0), $input, $actorId, (int) ($input['activity_id'] ?? 0));
+            JsonResponse::send(['success' => true, 'message' => 'Activity updated successfully.']);
+        case 'activity_status':
+            $repository->setActivityStatus((int) ($input['id'] ?? 0), (int) ($input['activity_id'] ?? 0), (string) ($input['status'] ?? ''), $actorId);
+            JsonResponse::send(['success' => true, 'message' => 'Activity status updated successfully.']);
         default:
             throw new EventValidationException(['action' => ['Unknown event-management action.']]);
     }

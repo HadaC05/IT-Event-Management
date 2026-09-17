@@ -1,6 +1,6 @@
-window.SharedNavigation.ready.then(() => {
+window.SharedNavigation.ready.then((context) => {
   "use strict";
-  let csrf = "",
+  let csrf = context.csrfToken,
     page = 1,
     data = null,
     editing = null,
@@ -33,7 +33,7 @@ window.SharedNavigation.ready.then(() => {
   const schoolYearLabel = (label) =>
     /^SY\b/i.test(String(label || "")) ? String(label) : `SY ${label}`;
   const api = async (payload) =>
-    axios.post("api/teams.php", payload, { headers: { "X-CSRF-Token": csrf } });
+    axios.post("api/teams.", payload, { headers: { "X-CSRF-Token": csrf } });
   const confirmAction = (o) =>
     window.Notifications?.confirm
       ? window.Notifications.confirm(o)
@@ -808,47 +808,8 @@ window.SharedNavigation.ready.then(() => {
   });
   addEventListener("resize", closeTeamMenu);
   addEventListener("scroll", closeTeamMenu, true);
-  $('form[action="api/auth.php?action=logout"]').onsubmit = async (e) => {
-    e.preventDefault();
-    try {
-      await axios.post(
-        "api/auth.php?action=logout",
-        {},
-        { headers: { "X-CSRF-Token": csrf } },
-      );
-    } finally {
-      location.replace("./");
-    }
-  };
-  const sidebar = $("#sidebar"),
-    scrim = $("[data-sidebar-scrim]");
-  document.querySelectorAll("[data-sidebar-toggle]").forEach(
-    (b) =>
-      (b.onclick = () => {
-        const open = sidebar.classList.contains("-translate-x-full");
-        sidebar.classList.toggle("-translate-x-full", !open);
-        sidebar.classList.toggle("translate-x-0", open);
-        scrim.classList.toggle("hidden", !open);
-      }),
-  );
-  axios
-    .get("api/auth.php?action=session")
-    .then((r) => {
-      if (r.data.user?.role !== "SBO Adviser") {
-        location.replace("./");
-        return;
-      }
-      csrf = r.data.csrf_token;
-      const a = $("[data-account-menu]"),
-        u = r.data.user;
-      a.querySelector("[data-account-initials]").textContent = initials(
-        u.full_name,
-      );
-      a.querySelector("summary strong").textContent = u.full_name;
-      a.querySelector("summary small").textContent = u.role;
-      a.querySelector("div>div strong").textContent = u.full_name;
-      a.querySelector("div>div span").textContent = u.email;
-      return load();
-    })
-    .catch(() => location.replace("./"));
+  load().catch((error) => {
+    console.error("Unable to load teams.", error);
+    toast("error", error.response?.data?.message || "Unable to load teams.");
+  });
 });

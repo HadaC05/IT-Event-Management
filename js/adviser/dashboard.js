@@ -26,17 +26,9 @@ window.SharedNavigation.ready.then(() => {
     };
 
     const applyAccount = user => {
-        const displayName = user.full_name || user.username;
-        const initials = `${user.first_name?.[0] || ''}${user.last_name?.[0] || ''}`.toUpperCase();
         const hour = new Date().getHours();
         document.querySelector('.admin-main > header h1').textContent = `Good ${hour < 12 ? 'morning' : hour < 18 ? 'afternoon' : 'evening'}, ${user.first_name}.`;
         document.querySelector('[data-current-date]').textContent = format(new Date(), { weekday: 'long', month: 'long', day: 'numeric' });
-        const account = document.querySelector('[data-account-menu]');
-        account.querySelector('summary > span:first-child').childNodes[0].textContent = initials;
-        account.querySelector('summary strong').textContent = displayName;
-        account.querySelector('summary small').textContent = user.role;
-        account.querySelector('div > div strong').textContent = displayName;
-        account.querySelector('div > div span').textContent = user.email || user.username;
     };
 
     const renderOverview = data => {
@@ -133,6 +125,13 @@ window.SharedNavigation.ready.then(() => {
             list.append(emptyState('No rankings yet', 'Standings will appear after a tribe receives its first score.', 'pages/adviser/scores.html', 'Manage scores'));
             return;
         }
+        const leader = data.leaderboard[0];
+        const lead = document.createElement('div');
+        lead.className = 'dashboard-standings-lead';
+        lead.innerHTML = '<span class="block text-[10px] font-black uppercase tracking-wider">Leading team</span><div class="mt-2 flex items-end justify-between gap-3"><strong class="text-3xl font-black"></strong><span class="text-xs font-bold">Rank #1</span></div><p class="mt-1 text-xs"></p><div class="mt-4 h-1 bg-[#4b5a43]"><span class="block h-full w-3/4 bg-[#C6F24E]"></span></div>';
+        lead.querySelector('strong').textContent = Number(leader.total_score).toLocaleString('en-US', { maximumFractionDigits: 2 });
+        lead.querySelector('p').textContent = `${leader.name} · points`;
+        list.append(lead);
         data.leaderboard.forEach(team => {
             const row = document.createElement('div');
             row.className = 'flex items-center gap-4 border-b border-slate-100 px-6 py-4 last:border-b-0';

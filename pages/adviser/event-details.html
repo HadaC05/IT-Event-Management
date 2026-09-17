@@ -13,9 +13,9 @@
       href="assets/images/cite_favicon.png"
     />
     <link rel="stylesheet" href="css/tailwind.css" />
-    <link rel="stylesheet" href="css/adviser.css" />
+    <link rel="stylesheet" href="css/adviser.css?v=20260917-flat-3" />
     <script src="js/shared/notifications.js?v=20260917-7" defer></script>
-    <script src="js/shared/interactions.js?v=20260917-3" defer></script>
+    <script src="js/shared/interactions.js?v=20260917-flat-1" defer></script>
   </head>
   <body
     class="app-shell min-h-screen bg-white font-sans text-[#121017] antialiased"
@@ -84,6 +84,7 @@
               data-event-description
             ></p>
             <div class="mt-6 flex flex-wrap gap-2">
+              <a class="inline-flex min-h-11 items-center rounded-lg bg-[#397565] px-5 text-sm font-bold text-white" href="#event-activities">Activities</a>
               <a
                 class="inline-flex min-h-11 items-center rounded-xl border px-5 text-sm font-bold text-slate-600"
                 href="#"
@@ -280,8 +281,41 @@
             </form>
           </section>
         </div>
+        <section class="mt-5 overflow-hidden rounded-lg border border-slate-200 bg-white" id="event-activities" aria-labelledby="event-activities-title">
+          <div class="flex flex-col gap-4 border-b border-slate-200 px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+            <div>
+              <p class="text-[10px] font-extrabold uppercase tracking-wider text-[#397565]">Event program</p>
+              <h2 class="mt-1 text-lg font-extrabold" id="event-activities-title">Activities and contests <span class="ml-1 text-sm font-semibold text-slate-400" data-activity-count></span></h2>
+              <p class="mt-1 text-xs text-slate-500">Manage the contests and activities for this event.</p>
+            </div>
+            <button class="min-h-10 shrink-0 rounded-lg bg-[#397565] px-4 text-sm font-bold text-white hover:bg-[#2d5e51]" type="button" data-activity-add>+ Add activity</button>
+          </div>
+          <div class="divide-y divide-slate-100 px-5 sm:px-6" data-activity-list></div>
+        </section>
       </main>
     </div>
+    <dialog class="m-auto w-[min(520px,calc(100%_-_2rem))] max-h-[calc(100dvh_-_2rem)] overflow-y-auto rounded-lg border border-slate-200 bg-white p-0 text-[#121017] shadow-2xl backdrop:bg-[#121017]/60" data-activity-dialog aria-labelledby="activity-dialog-title">
+      <form data-activity-form>
+        <input type="hidden" name="activity_id" value="" />
+        <div class="flex items-start justify-between gap-4 border-b border-slate-200 px-5 py-4 sm:px-6">
+          <div><p class="text-[10px] font-extrabold uppercase tracking-wider text-[#397565]">Event program</p><h2 class="mt-1 text-xl font-extrabold" id="activity-dialog-title" data-activity-form-title>Add activity</h2></div>
+          <button class="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-slate-200 text-xl text-slate-500 hover:bg-slate-50" type="button" data-activity-cancel aria-label="Close activity form">×</button>
+        </div>
+        <div class="grid gap-4 px-5 py-5 sm:px-6">
+          <label class="grid gap-1.5 text-xs font-bold">Activity name
+            <input class="h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm font-medium outline-none focus:border-[#397565]" name="name" maxlength="120" placeholder="e.g. Programming Contest" required />
+          </label>
+          <label class="grid gap-1.5 text-xs font-bold">Description <span class="font-normal text-slate-400">Optional</span>
+            <textarea class="min-h-28 w-full resize-y rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm font-medium outline-none focus:border-[#397565]" name="description" maxlength="2000" placeholder="What will happen in this activity?"></textarea>
+          </label>
+          <p class="hidden text-xs font-semibold text-red-600" data-activity-error role="alert"></p>
+        </div>
+        <div class="flex justify-end gap-2 border-t border-slate-200 px-5 py-4 sm:px-6">
+          <button class="min-h-10 rounded-lg border border-slate-300 bg-white px-4 text-xs font-bold text-slate-600" type="button" data-activity-cancel>Cancel</button>
+          <button class="min-h-10 rounded-lg bg-[#397565] px-5 text-xs font-bold text-white disabled:opacity-50" type="submit" data-activity-save>Add activity</button>
+        </div>
+      </form>
+    </dialog>
     <div
       class="pointer-events-none fixed right-4 top-4 z-[80] grid w-[min(380px,calc(100%_-_2rem))] gap-2.5 sm:right-6 sm:top-6"
       data-notification-region
@@ -350,8 +384,8 @@
     </dialog>
     <script src="js/vendor/axios.min.js"></script>
     <script src="js/shared/password-gate.js?v=20260917-1"></script>
-    <script src="js/shared/navigation.js?v=20260917-8"></script>
+    <script src="js/shared/navigation.js?v=20260917-portal-flat-1"></script>
     <script src="js/adviser/event-form.js?v=20260916-2"></script>
-    <script src="js/adviser/event-details.js?v=20260917-5"></script>
+    <script src="js/adviser/event-details.js?v=20260917-7"></script>
   </body>
 </html>

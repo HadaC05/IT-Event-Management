@@ -7,9 +7,9 @@
     <title>Event Management | CITE Events</title>
     <link rel="icon" href="assets/images/cite_favicon.png" />
     <link rel="stylesheet" href="css/tailwind.css" />
-    <link rel="stylesheet" href="css/adviser.css?v=20260916-2" />
+    <link rel="stylesheet" href="css/adviser.css?v=20260917-flat-2" />
     <script src="js/shared/notifications.js?v=20260917-7" defer></script>
-    <script src="js/shared/interactions.js?v=20260917-3" defer></script>
+    <script src="js/shared/interactions.js?v=20260917-flat-1" defer></script>
   </head>
   <body
     class="app-shell min-h-screen bg-white font-sans text-[#121017] antialiased"
@@ -147,11 +147,11 @@
               </p>
             </header>
             <div class="grid gap-5 sm:grid-cols-2">
-              <label class="grid gap-2"
-                ><span class="text-xs font-bold text-slate-700"
-                  >Event type <i class="font-normal text-rose-500">*</i></span
-                ><select
+              <div class="grid gap-2">
+                <div class="flex items-center justify-between gap-2"><label class="text-xs font-bold text-slate-700" for="new-event-type">Event type <i class="font-normal text-rose-500">*</i></label><button class="text-xs font-extrabold text-[#397565] hover:underline" type="button" data-manage-event-types>Manage types</button></div>
+                <select
                   class="h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm"
+                  id="new-event-type"
                   name="event_type_id"
                   required
                 >
@@ -160,8 +160,9 @@
                 <p
                   class="hidden text-xs font-semibold text-red-600"
                   data-error-for="event_type_id"
-                ></p></label
-              ><label class="grid gap-2"
+                ></p>
+              </div>
+              <label class="grid gap-2"
                 ><span class="text-xs font-bold text-slate-700"
                   >Event name <i class="font-normal text-rose-500">*</i></span
                 ><input
@@ -436,6 +437,16 @@
         </footer>
       </form>
     </dialog>
+    <dialog class="m-auto w-[min(520px,calc(100%_-_2rem))] max-h-[calc(100vh_-_2rem)] overflow-y-auto rounded-lg border border-slate-200 bg-white p-0 shadow-2xl backdrop:bg-[#121017]/60" data-event-types-dialog aria-labelledby="event-types-title">
+      <div class="flex items-start justify-between gap-3 border-b border-slate-200 px-5 py-4 sm:px-6"><div><p class="text-[10px] font-extrabold uppercase tracking-wider text-[#397565]">Event lookup</p><h2 class="mt-1 text-xl font-extrabold" id="event-types-title">Event types</h2><p class="mt-1 text-xs text-slate-500">Types appear in the event form and filter.</p></div><button class="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-slate-200 text-xl text-slate-500" type="button" data-close-event-types aria-label="Close event types">×</button></div>
+      <div class="max-h-64 overflow-y-auto px-5 sm:px-6" data-event-types-list></div>
+      <form class="grid gap-3 border-t border-slate-200 bg-slate-50 p-5 sm:p-6" data-event-type-form>
+        <input type="hidden" name="type_id" value="" />
+        <label class="grid gap-1.5 text-xs font-bold"><span data-event-type-form-title>Add event type</span><input class="h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm font-medium outline-none focus:border-[#397565]" name="label" maxlength="255" placeholder="e.g. Programming Competition" required /></label>
+        <p class="hidden text-xs font-semibold text-red-600" data-event-type-error role="alert"></p>
+        <div class="flex justify-end gap-2"><button class="hidden min-h-10 rounded-lg border border-slate-300 bg-white px-4 text-xs font-bold text-slate-600" type="button" data-event-type-cancel>Cancel edit</button><button class="min-h-10 rounded-lg bg-[#397565] px-5 text-xs font-bold text-white disabled:opacity-50" type="submit" data-event-type-save>Add type</button></div>
+      </form>
+    </dialog>
     <dialog
       class="m-auto w-[min(460px,calc(100%_-_2rem))] rounded-2xl border-0 bg-white p-0 shadow-2xl backdrop:bg-black/60"
       data-confirm-dialog
@@ -463,8 +474,8 @@
     ></div>
     <script src="js/vendor/axios.min.js"></script>
     <script src="js/shared/password-gate.js?v=20260917-1"></script>
-    <script src="js/shared/navigation.js?v=20260917-8"></script>
+    <script src="js/shared/navigation.js?v=20260917-portal-flat-1"></script>
     <script src="js/adviser/event-form.js?v=20260916-2"></script>
-    <script src="js/adviser/events.js?v=20260917-1"></script>
+    <script src="js/adviser/events.js?v=20260917-2"></script>
   </body>
 </html>
