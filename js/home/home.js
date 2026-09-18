@@ -10,7 +10,7 @@
         'SBO Adviser': 'pages/adviser/dashboard.html',
         'SBO Officer': 'pages/sbo/attendance.html',
         'Faculty': 'pages/faculty/students.html',
-        'Student': 'pages/student/home.html'
+        'Student': 'pages/student/events.html'
     })[user?.role] || './';
 
     const parseDate = value => new Date(String(value).replace(' ', 'T'));

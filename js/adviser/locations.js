@@ -60,6 +60,11 @@ window.SharedNavigation.ready.then((context) => {
         };
     };
 
+    const lockBackgroundScroll = locked => {
+        document.documentElement.classList.toggle('overflow-hidden', locked);
+        document.body.classList.toggle('overflow-hidden', locked);
+    };
+
     const renderRangePreview = () => {
         const latitude = Number(form.elements.latitude.value);
         const longitude = Number(form.elements.longitude.value);
@@ -227,6 +232,7 @@ window.SharedNavigation.ready.then((context) => {
         resetGps();
         setManualCoordinates(false);
         dialog.showModal();
+        lockBackgroundScroll(true);
         form.elements.name.focus();
     };
 
@@ -245,12 +251,17 @@ window.SharedNavigation.ready.then((context) => {
         saveButton.textContent = 'Save Changes';
         resetGps();
         setManualCoordinates(false);
-        renderRangePreview();
         dialog.showModal();
+        lockBackgroundScroll(true);
+        renderRangePreview();
         form.elements.name.focus();
     };
 
-    const closeDialog = () => { stopGps(); dialog.close(); };
+    const closeDialog = () => {
+        stopGps();
+        dialog.close();
+        lockBackgroundScroll(false);
+    };
 
     document.querySelector('[data-open-location]').addEventListener('click', openCreate);
     document.querySelectorAll('[data-close-location]').forEach(button => button.addEventListener('click', closeDialog));

@@ -3,9 +3,10 @@ window.SharedNavigation.ready.then(() => {
   const form=document.querySelector('[data-scan-filters]'),list=document.querySelector('[data-scan-locations]'),pagination=document.querySelector('[data-scan-pagination]');
   const mapCanvas=document.querySelector('[data-latest-map-canvas]'),mapEmpty=document.querySelector('[data-latest-map-empty]');
   const mapEmptyMessage=document.querySelector('[data-latest-map-empty-message]'),mapDetails=document.querySelector('[data-latest-map-details]');
-  const mapUpdated=document.querySelector('[data-latest-map-updated]');
+  const mapUpdated=document.querySelector('[data-latest-map-updated]'),teamLegend=document.querySelector('[data-team-map-legend]');
   const scanDetails=document.querySelector('[data-scan-details]');
   const mapReset=document.querySelector('[data-map-reset]');
+  const distanceFilter=document.querySelector('[data-distance-filter]'),distanceAll=distanceFilter.querySelector('[data-distance-all]'),distanceOptions=[...distanceFilter.querySelectorAll('[name="distance_group[]"]')],distanceLabel=distanceFilter.querySelector('[data-distance-filter-label]');
   const esc=value=>String(value??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
   const when=value=>new Intl.DateTimeFormat('en-PH',{dateStyle:'medium',timeStyle:'short'}).format(new Date(String(value).replace(' ','T')));
   const accuracyMeta=value=>{
@@ -16,17 +17,37 @@ window.SharedNavigation.ready.then(() => {
     if(meters<=100)return {label:'Poor',className:'gps-accuracy-poor',text:`±${Math.round(meters)} m`};
     return {label:'Low confidence',className:'gps-accuracy-low',text:`±${Math.round(meters)} m`};
   };
-  const accuracyBadge=scan=>{const accuracy=accuracyMeta(scan.location_accuracy_m);return `<span class="gps-accuracy-badge ${accuracy.className}">${esc(accuracy.text)} &middot; ${accuracy.label}</span>`;};
-  let optionsReady=false,optionData={events:[],teams:[],officers:[]},request=0,pollTimer=0,lastScans=[],lastMapScans=[],focusedScanId=null;
+  const accuracyBadge=scan=>{const accuracy=accuracyMeta(scan.location_accuracy_m);return `<span class="gps-accuracy-badge ${accuracy.className}">GPS quality: ${esc(accuracy.text)} &middot; ${accuracy.label}</span>`;};
+  const stableNumber=value=>{
+    const numeric=Number(value);
+    if(Number.isFinite(numeric)&&numeric>0)return numeric;
+    return [...String(value||'Unassigned')].reduce((hash,character)=>((hash*31)+character.charCodeAt(0))>>>0,7);
+  };
+  const teamColor=scan=>`hsl(${Math.round((stableNumber(scan.team_id||scan.team_name)*137.508)%360)} 68% 38%)`;
+  const officerInitials=name=>String(name||'SBO').trim().split(/\s+/).filter(Boolean).slice(0,2).map(part=>part[0]).join('').toUpperCase()||'S';
+  const teamMarkerIcon=scan=>L.divIcon({
+    className:'attendance-team-marker-icon',
+    html:`<span class="attendance-team-marker" style="--team-marker-color:${teamColor(scan)}"><b>${esc(officerInitials(scan.officer_name))}</b></span>`,
+    iconSize:[38,42],iconAnchor:[19,40],popupAnchor:[0,-39],tooltipAnchor:[0,-36]
+  });
+  const renderTeamLegend=scans=>{
+    const teams=new Map();
+    scans.forEach(scan=>{const key=String(scan.team_id||scan.team_name||'unassigned');if(!teams.has(key))teams.set(key,scan);});
+    teamLegend.classList.toggle('hidden',teams.size===0);
+    teamLegend.classList.toggle('flex',teams.size>0);
+    teamLegend.innerHTML=[...teams.values()].map(scan=>`<span class="inline-flex items-center gap-1.5 whitespace-nowrap"><i class="h-2.5 w-2.5 rounded-full ring-2 ring-white shadow-sm" style="background:${teamColor(scan)}"></i>${esc(scan.team_name||'Unassigned')}</span>`).join('');
+  };
+  let optionsReady=false,optionData={events:[],event_locations:[],teams:[],officers:[]},request=0,pollTimer=0,lastScans=[],lastMapScans=[],focusedScanId=null;
   const expandedScans=new Set();
   const officerMarkers=new Map();
   const eventBoundaries=new Map();
-  const scanMap=L.map(mapCanvas,{zoomControl:true}).setView([8.4702,124.6344],16);
+  const scanMap=L.map(mapCanvas,{zoomControl:true,maxZoom:22}).setView([8.4702,124.6344],16);
   scanDetails?.addEventListener('toggle',event=>{
     if(event.target.open){requestAnimationFrame(()=>scanMap.invalidateSize());load();}
   });
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
-    maxZoom:19,
+    maxNativeZoom:19,
+    maxZoom:22,
     attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
   }).addTo(scanMap);
   const liveLayer=L.layerGroup().addTo(scanMap);
@@ -88,7 +109,7 @@ window.SharedNavigation.ready.then(() => {
         </summary>
         <div class="border-t border-[#121017]/8 bg-[#F3F0E9]/25 p-4">
           <div class="grid gap-2 text-xs sm:grid-cols-2 xl:grid-cols-3">
-            <p><b>SBO officer:</b> ${esc(row.officer_name)}</p><p><b>Venue:</b> ${esc(row.venue_name_snapshot||'Not configured')}</p>
+            <p><b>SBO officer:</b> ${esc(row.officer_name)}</p><p><b>${row.location_status==='outside'?'Nearest venue':'Detected venue'}:</b> ${esc(row.venue_name_snapshot||'Not configured')}</p>
             <p><b>Coordinates:</b> ${esc(location)}</p><p><b>Accuracy:</b> ${accuracy}</p>
             <p><b>Distance from venue:</b> ${distance}</p><p><b>Location captured:</b> ${row.location_captured_at?esc(when(row.location_captured_at)):'&mdash;'}</p>
             <p><b>Unavailable reason:</b> ${esc(row.location_unavailable_reason||'—')}</p>
@@ -112,6 +133,7 @@ window.SharedNavigation.ready.then(() => {
       if(!latestByOfficer.has(key))latestByOfficer.set(key,scan);
     });
     const latest=[...latestByOfficer.entries()];
+    renderTeamLegend(latest.map(([,scan])=>scan));
     const activeKeys=new Set(latest.map(([key])=>key));
     let changed=false;
     officerMarkers.forEach((entry,key)=>{
@@ -125,18 +147,20 @@ window.SharedNavigation.ready.then(() => {
       const existing=officerMarkers.get(key);
       if(existing?.scanId===scan.id)return;
       if(existing)liveLayer.removeLayer(existing.marker);
-      const popup=`<strong>${esc(scan.officer_name)}</strong><br>${esc(scan.student_name)} &middot; ${scan.phase==='out'?'Time Out':'Time In'}<br>${esc(scan.event_name)}<br>${esc(when(scan.scanned_at))}<br>${accuracyBadge(scan)}`;
-      const marker=L.marker([latitude,longitude]).bindPopup(popup).addTo(liveLayer);
-      marker.bindTooltip(`<strong>${esc(scan.officer_name)}</strong>${accuracyBadge(scan)}`,{direction:'top',offset:[0,-12],className:'attendance-map-tooltip'});
+      const popup=`<strong>${esc(scan.officer_name)}</strong><br>Team: ${esc(scan.team_name||'Unassigned')}<br>${esc(scan.student_name)} &middot; ${scan.phase==='out'?'Time Out':'Time In'}<br>${esc(scan.event_name)}<br>Venue: ${esc(scan.venue_name_snapshot||'Not configured')}<br>${esc(when(scan.scanned_at))}<br>${accuracyBadge(scan)}`;
+      const marker=L.marker([latitude,longitude],{icon:teamMarkerIcon(scan)}).bindPopup(popup).addTo(liveLayer);
+      marker.bindTooltip(`<strong>${esc(scan.officer_name)}</strong><span class="attendance-map-team"><i style="background:${teamColor(scan)}"></i>${esc(scan.team_name||'Unassigned')}</span>${accuracyBadge(scan)}`,{direction:'top',offset:[0,-12],className:'attendance-map-tooltip'});
       officerMarkers.set(key,{marker,scanId:scan.id});
       changed=true;
     });
     const desiredBoundaries=new Map();
     const scheduledEvents=eventsForSelectedDate();
-    scheduledEvents.forEach(event=>{
-      if(event.location_id===null||event.venue_latitude===null||event.venue_longitude===null||event.venue_radius===null)return;
-      const key=`event-${event.id}-location-${event.location_id}`;
-      if(!desiredBoundaries.has(key))desiredBoundaries.set(key,event);
+    const scheduledEventIds=new Set(scheduledEvents.map(event=>Number(event.id)));
+    (optionData.event_locations||[]).filter(venue=>venue.schedule_date===dateInput.value&&scheduledEventIds.has(Number(venue.event_id))).forEach(venue=>{
+      if(venue.location_id===null||venue.venue_latitude===null||venue.venue_longitude===null||venue.venue_radius===null)return;
+      const event=scheduledEvents.find(item=>Number(item.id)===Number(venue.event_id));
+      const key=`event-${venue.event_id}-location-${venue.location_id}`;
+      if(!desiredBoundaries.has(key))desiredBoundaries.set(key,{...venue,id:venue.event_id,title:event?.title||'Event'});
     });
     eventBoundaries.forEach((entry,key)=>{
       if(!desiredBoundaries.has(key)){liveLayer.removeLayer(entry.rectangle);eventBoundaries.delete(key);changed=true;}
@@ -174,12 +198,19 @@ window.SharedNavigation.ready.then(() => {
     mapDetails.innerHTML=latest.map(([,scan])=>{
       const coordinates=scan.scan_latitude!==null&&scan.scan_longitude!==null;
       const statusClass=scan.location_status==='inside'?'text-[#397565]':scan.location_status==='outside'?'text-[#D64A12]':'text-[#121017]/50';
-      return `<article class="w-64 shrink-0 rounded-xl border border-[#121017]/8 bg-[#F3F0E9]/45 p-3"><b class="block truncate text-xs">${esc(scan.officer_name)}</b><span class="mt-1 block truncate text-[10px] text-[#121017]/50">Latest: ${esc(scan.student_name)} · ${esc(when(scan.scanned_at))}</span><span class="mt-1 block text-[10px] font-black ${statusClass}">${coordinates?esc(scan.location_status):'GPS unavailable'}</span></article>`;
+      const distanceFromVenue=Number(scan.distance_from_venue_m);
+      const outsideDistance=scan.location_status==='outside'&&scan.distance_from_venue_m!==null&&scan.distance_from_venue_m!==undefined&&Number.isFinite(distanceFromVenue)
+        ? `<span class="ml-1 font-black text-[#D64A12]">(${distanceFromVenue.toFixed(1)} m away)</span>`
+        : '';
+      const locate=coordinates
+        ? `<button class="shrink-0 text-[10px] font-black text-[#397565] hover:underline" type="button" data-locate-map-scan="${esc(scan.id)}" aria-label="View ${esc(scan.officer_name)} on the map">View Location &rarr;</button>`
+        : '<span class="shrink-0 text-[10px] text-[#121017]/35">No GPS</span>';
+      return `<article class="w-72 shrink-0 rounded-xl border border-[#121017]/8 bg-[#F3F0E9]/45 px-3 py-2.5" style="border-left:4px solid ${teamColor(scan)}"><div class="flex items-center justify-between gap-3"><b class="min-w-0 truncate text-xs">${esc(scan.officer_name)}</b>${locate}</div><div class="mt-1 flex items-center justify-between gap-3"><span class="inline-flex min-w-0 items-center gap-1.5 truncate text-[10px] font-bold text-[#121017]/65"><i class="h-2 w-2 shrink-0 rounded-full" style="background:${teamColor(scan)}"></i>${esc(scan.team_name||'Unassigned')}</span><span class="shrink-0 text-[10px] font-black ${statusClass}">${coordinates?esc(scan.location_status):'GPS unavailable'}</span></div><span class="mt-1 block truncate text-[10px] text-[#121017]/50">Latest: ${esc(scan.student_name)} &middot; ${esc(when(scan.scanned_at))}</span><span class="mt-0.5 block truncate text-[10px] text-[#121017]/50">Venue: ${esc(scan.venue_name_snapshot||'Not configured')}${outsideDistance}</span></article>`;
     }).join('');
     if(changed&&hasMapContent){
       const layers=[...officerMarkers.values()].map(entry=>entry.marker).concat([...eventBoundaries.values()].map(entry=>entry.rectangle));
       const bounds=L.featureGroup(layers).getBounds();
-      scanMap.fitBounds(bounds,{padding:[35,35],maxZoom:18});
+      scanMap.fitBounds(bounds,{padding:[35,35],maxZoom:21});
     }
     setTimeout(()=>scanMap.invalidateSize(),0);
   }
@@ -193,13 +224,13 @@ window.SharedNavigation.ready.then(() => {
   function focusScan(scan){
     if(!scan||scan.scan_latitude===null||scan.scan_longitude===null)return;
     focusedScanId=String(scan.id);
-    if(scanMap.hasLayer(liveLayer))scanMap.removeLayer(liveLayer);
+    if(!scanMap.hasLayer(liveLayer))liveLayer.addTo(scanMap);
     focusLayer.clearLayers();
     if(!scanMap.hasLayer(focusLayer))focusLayer.addTo(scanMap);
     const latitude=Number(scan.scan_latitude),longitude=Number(scan.scan_longitude);
-    const popup=`<strong>${esc(scan.officer_name)}</strong><br>${esc(scan.student_name)} &middot; ${scan.phase==='out'?'Time Out':'Time In'}<br>${esc(scan.event_name)}<br>${esc(when(scan.scanned_at))}<br>${accuracyBadge(scan)}`;
-    const marker=L.marker([latitude,longitude]).bindPopup(popup).addTo(focusLayer);
-    marker.bindTooltip(`<strong>${esc(scan.officer_name)}</strong>${accuracyBadge(scan)}`,{direction:'top',offset:[0,-12],className:'attendance-map-tooltip'});
+    const popup=`<strong>${esc(scan.officer_name)}</strong><br>Team: ${esc(scan.team_name||'Unassigned')}<br>${esc(scan.student_name)} &middot; ${scan.phase==='out'?'Time Out':'Time In'}<br>${esc(scan.event_name)}<br>Venue: ${esc(scan.venue_name_snapshot||'Not configured')}<br>${esc(when(scan.scanned_at))}<br>${accuracyBadge(scan)}`;
+    const marker=L.marker([latitude,longitude],{icon:teamMarkerIcon(scan)}).bindPopup(popup).addTo(focusLayer);
+    marker.bindTooltip(`<strong>${esc(scan.officer_name)}</strong><span class="attendance-map-team"><i style="background:${teamColor(scan)}"></i>${esc(scan.team_name||'Unassigned')}</span>${accuracyBadge(scan)}`,{direction:'top',offset:[0,-12],className:'attendance-map-tooltip'});
     const boundary=scanBoundary(scan);
     if(boundary){
       L.rectangle(boundary.bounds,{color:'#397565',weight:2,opacity:.9,dashArray:'8 6',fillColor:'#C6F24E',fillOpacity:.13})
@@ -207,16 +238,14 @@ window.SharedNavigation.ready.then(() => {
         .addTo(focusLayer);
     }
     const bounds=L.featureGroup(focusLayer.getLayers()).getBounds();
-    if(bounds.isValid())scanMap.fitBounds(bounds,{padding:[45,45],maxZoom:18});
-    else scanMap.setView([latitude,longitude],18);
+    if(bounds.isValid())scanMap.fitBounds(bounds,{padding:[45,45],maxZoom:21});
+    else scanMap.setView([latitude,longitude],21);
     marker.openPopup();
     mapReset.classList.remove('hidden');
     mapEmpty.classList.add('hidden');
     mapDetails.classList.remove('hidden');
     mapDetails.classList.add('flex');
     mapUpdated.textContent=`Focused scan by ${scan.officer_name}`;
-    mapDetails.innerHTML=`<article class="rounded-xl border border-[#397565]/20 bg-[#C6F24E]/10 p-3"><b class="block text-xs">${esc(scan.officer_name)}</b><span class="mt-1 block text-[10px] text-[#121017]/55">${esc(scan.student_name)} &middot; ${esc(when(scan.scanned_at))}</span><span class="mt-1 block text-[10px] font-black text-[#397565]">Showing this scan only</span></article>`;
-    render(lastScans);
     setTimeout(()=>scanMap.invalidateSize(),0);
   }
   function resetMapFocus(){
@@ -229,14 +258,16 @@ window.SharedNavigation.ready.then(() => {
     const layers=[...officerMarkers.values()].map(entry=>entry.marker).concat([...eventBoundaries.values()].map(entry=>entry.rectangle));
     if(layers.length){
       const bounds=L.featureGroup(layers).getBounds();
-      if(bounds.isValid())scanMap.fitBounds(bounds,{padding:[35,35],maxZoom:18});
+      if(bounds.isValid())scanMap.fitBounds(bounds,{padding:[35,35],maxZoom:21});
     }
     render(lastScans);
   }
   async function load(){
     const id=++request;
     try{
-      const filters=Object.fromEntries(new FormData(form));const response=await axios.get('api/adviser-attendance-scans.php',{params:filters});
+      const filters=Object.fromEntries(new FormData(form));
+      filters.distance_group=distanceOptions.filter(input=>input.checked).map(input=>input.value);
+      const response=await axios.get('api/adviser-attendance-scans.php',{params:filters});
       if(id!==request)return;
       if(!optionsReady)fill(response.data.data.options);
       const scans=response.data.data.scans;
@@ -250,6 +281,14 @@ window.SharedNavigation.ready.then(() => {
     }catch(error){if(id===request)list.textContent=error.response?.data?.message||'Scan locations could not be loaded.';}
   }
   const schedulePoll=()=>{clearInterval(pollTimer);pollTimer=setInterval(()=>{if(!document.hidden&&scanDetails?.open)load();},5000);};
+  const syncDistanceFilter=changed=>{
+    if(changed===distanceAll&&distanceAll.checked)distanceOptions.forEach(input=>input.checked=false);
+    if(distanceOptions.includes(changed)&&changed.checked)distanceAll.checked=false;
+    const selected=distanceOptions.filter(input=>input.checked);
+    distanceLabel.textContent=!selected.length||distanceAll.checked?'All distance groups':selected.length===1?selected[0].closest('label').childNodes[1].textContent.trim():`${selected.length} distance groups`;
+  };
+  distanceFilter.addEventListener('change',event=>syncDistanceFilter(event.target));
+  document.addEventListener('click',event=>{if(distanceFilter.open&&!distanceFilter.contains(event.target))distanceFilter.removeAttribute('open');});
   form.addEventListener('change',event=>{if(event.target===dateInput||event.target===form.elements.event_type_id)syncEventOptions();if(event.target.name!=='page')form.elements.page.value='1';load();});
   document.querySelector('[data-date-previous]').addEventListener('click',()=>shiftDate(-1));
   document.querySelector('[data-date-next]').addEventListener('click',()=>shiftDate(1));
@@ -266,6 +305,12 @@ window.SharedNavigation.ready.then(() => {
     focusScan(lastScans.find(scan=>String(scan.id)===button.dataset.focusScan));
   });
   mapReset.addEventListener('click',resetMapFocus);
+  mapDetails.addEventListener('click',event=>{
+    const button=event.target.closest('[data-locate-map-scan]');
+    if(!button)return;
+    const scan=lastMapScans.find(item=>String(item.id)===button.dataset.locateMapScan);
+    if(scan)focusScan(scan);
+  });
   pagination.addEventListener('click',event=>{
     const button=event.target.closest('[data-scan-page]');
     if(!button||button.disabled)return;

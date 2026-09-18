@@ -27,6 +27,9 @@
     const type = form.elements.event_type_id,
       generalLocation = form.elements.general_location_id,
       specificLocation = form.elements.specific_location_id,
+      locationHost = form.querySelector("[data-event-locations]"),
+      locationSection = form.querySelector("[data-event-locations-section]"),
+      locationCount = form.querySelector("[data-location-count]"),
       audience = form.elements.audience_type,
       save = form.querySelector("[data-save-event]");
     let conflictTimer;
@@ -34,6 +37,7 @@
       type.add(option(item.label, item.id)),
     );
     const locations = metadata.locations || [];
+    const locationNames = new Map(locations.map((item) => [Number(item.id), item.name]));
     locations
       .filter((item) => item.type === "general")
       .forEach((item) => generalLocation.add(option(item.name, item.id)));
@@ -64,6 +68,70 @@
         : "";
     };
     fillSpecificLocations();
+    let previousPrimaryLocationId = 0;
+    const selectedLocationIds = new Set(
+      (event?.location_ids || (event?.location_id ? [event.location_id] : [])).map(Number),
+    );
+    const rememberAdditionalLocations = () => {
+      locationHost.querySelectorAll("[data-event-location]").forEach((input) => {
+        const id = Number(input.value);
+        if (input.checked) selectedLocationIds.add(id);
+        else selectedLocationIds.delete(id);
+      });
+    };
+    const renderEventLocations = (primaryId = Number(specificLocation.value || generalLocation.value || 0)) => {
+      locationHost.replaceChildren();
+      locationSection.classList.toggle("hidden", !primaryId);
+      if (!primaryId) {
+        locationCount.textContent = "0 additional selected";
+        return;
+      }
+      const additionalLocations = locations.filter((item) => Number(item.id) !== primaryId);
+      additionalLocations.forEach((item) => {
+        const row = document.createElement("label");
+        row.className = "flex min-h-14 cursor-pointer items-center gap-3 rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs transition hover:border-emerald-300 has-[:checked]:border-emerald-400 has-[:checked]:bg-emerald-50";
+        const input = document.createElement("input");
+        input.type = "checkbox";
+        input.name = "location_ids[]";
+        input.value = item.id;
+        input.checked = selectedLocationIds.has(Number(item.id));
+        input.className = "h-4 w-4 shrink-0 accent-emerald-600";
+        input.dataset.eventLocation = "";
+        const parentName = item.parent_location_id ? locationNames.get(Number(item.parent_location_id)) : "";
+        const text = document.createElement("span");
+        text.className = "min-w-0 flex-1";
+        text.innerHTML = `<strong class="block text-slate-700">${escapeHtml(item.name)}</strong><small class="text-slate-400">${item.type === "specific" ? `Specific venue${parentName ? ` · ${escapeHtml(parentName)}` : ""}` : "General location"}</small>`;
+        row.append(input, text);
+        locationHost.append(row);
+      });
+      if (!additionalLocations.length) {
+        const empty = document.createElement("p");
+        empty.className = "sm:col-span-2 rounded-lg bg-slate-50 p-4 text-center text-xs text-slate-500";
+        empty.textContent = "No other saved locations are available.";
+        locationHost.append(empty);
+      }
+    };
+    const updateLocationCount = () => {
+      const count = locationHost.querySelectorAll('[data-event-location]:checked').length;
+      locationCount.textContent = `${count} additional selected`;
+    };
+    const syncPrimaryLocation = () => {
+      rememberAdditionalLocations();
+      const primaryId = Number(specificLocation.value || generalLocation.value || 0);
+      if (previousPrimaryLocationId && previousPrimaryLocationId !== primaryId) {
+        selectedLocationIds.delete(previousPrimaryLocationId);
+      }
+      if (primaryId) selectedLocationIds.add(primaryId);
+      previousPrimaryLocationId = primaryId;
+      renderEventLocations(primaryId);
+      updateLocationCount();
+    };
+    locationHost.addEventListener("change", () => {
+      rememberAdditionalLocations();
+      clearError("location_ids");
+      updateLocationCount();
+      checkConflicts();
+    });
     const fillChecks = (host, items, name, label, selected = []) => {
       host.replaceChildren();
       items.forEach((item) => {
@@ -364,6 +432,7 @@
         generalLocation.value = savedLocation?.id || "";
         fillSpecificLocations();
       }
+      syncPrimaryLocation();
       audience.value = event.audience_type || "all_students";
       form.elements.description.value = event.description || "";
       form.elements.attendance_location_policy.value = event.attendance_location_policy === "strict" ? "strict" : "warning";
@@ -384,6 +453,7 @@
         form
           .querySelector(`[name="assigned_user_ids[]"][value="${me.id}"]`)
           ?.click();
+      syncPrimaryLocation();
     }
     const poster = form.elements.poster;
     poster?.addEventListener("change", () => {
@@ -423,12 +493,18 @@
               (field) => field.value,
             ),
           );
-      save.disabled =
+      const ready = !(
         !type.value ||
         !form.elements.title.value.trim() ||
         !generalLocation.value ||
         !audienceReady ||
-        !scheduleReady;
+        !scheduleReady
+      );
+      // Keep the action clickable so validation can explain what is missing.
+      save.disabled = false;
+      save.setAttribute("aria-disabled", String(!ready));
+      save.title = ready ? "" : "Click to review the required event information.";
+      return { ready, audienceReady, scheduleReady };
     }
     function clearError(field) {
       const error = form.querySelector(
@@ -518,6 +594,9 @@
         ].forEach((name) =>
           payload.append(name, form.elements[name].value || ""),
         );
+        locationHost
+          .querySelectorAll('[data-event-location]:checked')
+          .forEach((input) => payload.append("location_ids[]", input.value));
         if (event) payload.append("event_id", event.id);
         form
           .querySelectorAll('[name="assigned_user_ids[]"]:checked')
@@ -559,12 +638,14 @@
     });
     generalLocation.addEventListener("change", () => {
       fillSpecificLocations();
+      syncPrimaryLocation();
       clearError("general_location_id");
       clearError("specific_location_id");
       readiness();
       checkConflicts();
     });
     specificLocation.addEventListener("change", () => {
+      syncPrimaryLocation();
       clearError("specific_location_id");
       checkConflicts();
     });
@@ -582,7 +663,23 @@
         showError("poster", posterError);
         return;
       }
-      if (!form.reportValidity()) return;
+      const readinessState = readiness();
+      let customInvalid = false;
+      if (!readinessState.audienceReady) {
+        showError("audience_type", "Select at least one participant group or student.");
+        customInvalid = true;
+      }
+      if (!readinessState.scheduleReady) {
+        showError("attendance_days", "Complete the schedule date and all required attendance times.");
+        customInvalid = true;
+      }
+      const nativeValid = form.reportValidity();
+      if (!nativeValid || customInvalid) {
+        form
+          .querySelector("[data-error-for]:not(.hidden)")
+          ?.scrollIntoView({ behavior: "smooth", block: "center" });
+        return;
+      }
       save.disabled = true;
       const body = new FormData(form);
       body.append("action", event ? "update" : "create");

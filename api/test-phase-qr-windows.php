@@ -19,7 +19,7 @@ $exists=$live->prepare('SELECT COUNT(*) FROM information_schema.SCHEMATA WHERE S
 $exists->execute([$scratch]);
 if ($exists->fetchColumn()) throw new RuntimeException('Test database name already exists.');
 $tables=['tbl_roles','tbl_user_statuses','tbl_users','tbl_teams','tbl_team_user','tbl_locations',
-    'tbl_events','tbl_event_statuses','tbl_event_types','tbl_attendance_session_modes','tbl_event_attendance_schedules',
+    'tbl_events','tbl_event_locations','tbl_event_statuses','tbl_event_types','tbl_attendance_session_modes','tbl_event_attendance_schedules',
     'tbl_event_activities','tbl_event_user','tbl_event_team','tbl_event_year_level','tbl_event_participants','tbl_sbo_officer_assignments',
     'tbl_sbo_event_assignments','tbl_attendances','tbl_attendance_entries','tbl_attendance_qr_tokens',
     'tbl_activity_logs','tbl_sbo_scan_rate_limits'];
@@ -73,6 +73,21 @@ try {
     };
     $inside=['latitude'=>8.4699237,'longitude'=>124.6342058,'accuracy_m'=>15,'timestamp_ms'=>time()*1000];
     $outside=['latitude'=>8.4799237,'longitude'=>124.6342058,'accuracy_m'=>15,'timestamp_ms'=>time()*1000];
+    $locationMethod=new ReflectionMethod(SboAttendanceRepository::class,'location');
+    $multiVenueContext=$scanner->dashboard(15,$assignment)['selected_assignment'];
+    $multiVenueContext['venues']=[
+        ['id'=>1,'name'=>'Primary Venue','latitude'=>8.4699237,'longitude'=>124.6342058,'radius'=>100.0,'is_primary'=>true],
+        ['id'=>2,'name'=>'Second Venue','latitude'=>8.4800000,'longitude'=>124.6400000,'radius'=>80.0,'is_primary'=>false],
+    ];
+    $insideSecond=['latitude'=>8.4800000,'longitude'=>124.6400000,'accuracy_m'=>10,'timestamp_ms'=>time()*1000];
+    $secondMatch=$locationMethod->invoke($scanner,$multiVenueContext,$insideSecond);
+    $assert($secondMatch['status']==='inside'&&$secondMatch['venue_id']===2&&$secondMatch['venue_match']==='matched',
+        'Strict GPS accepts and identifies a secondary event venue');
+    $multiVenueContext['location_policy']='warning';
+    $nearSecond=['latitude'=>8.4820000,'longitude'=>124.6400000,'accuracy_m'=>10,'timestamp_ms'=>time()*1000];
+    $nearestMatch=$locationMethod->invoke($scanner,$multiVenueContext,$nearSecond);
+    $assert($nearestMatch['status']==='outside'&&$nearestMatch['venue_id']===2&&$nearestMatch['venue_match']==='nearest',
+        'Warning GPS records the nearest venue when outside every event venue');
     $scan=static fn(string $token,string $phase,array $location):array =>
         ['assignment_id'=>$assignment,'mode'=>'qr','token'=>$token,'checkpoint'=>$phase,'location'=>$location];
     $in=$card((int)$team1[0]['id']);
@@ -136,22 +151,29 @@ try {
     $outResult=$scanner->scan(15,$scan($out['token'],'out',$outside));
     $assert($outResult['checkpoint']==='out'&&$outResult['location']['status']==='outside','Time Out scan saves separate location');
     $reject(fn()=>$scanner->scan(15,$scan($out['token'],'out',$inside)),LogicException::class,'duplicate/replayed Time Out QR rejected');
-    $saved=$db->prepare('SELECT ae.phase,ae.recorded_by,ae.scan_latitude,ae.location_status FROM tbl_attendance_entries ae
+    $saved=$db->prepare('SELECT ae.phase,ae.recorded_by,ae.scan_latitude,ae.location_status,ae.venue_location_id,ae.venue_name_snapshot,ae.venue_latitude_snapshot FROM tbl_attendance_entries ae
         JOIN tbl_attendances atd ON atd.id=ae.attendance_id WHERE atd.event_id=1 AND atd.user_id=? ORDER BY ae.phase');
     $saved->execute([$team1[0]['id']]);$entries=$saved->fetchAll();
     $assert(count($entries)===2&&$entries[0]['phase']==='in'&&$entries[1]['phase']==='out'&&
         $entries[0]['scan_latitude']!==$entries[1]['scan_latitude']&&
-        (int)$entries[0]['recorded_by']===15&&(int)$entries[1]['recorded_by']===15,
-        'unique phase rows retain separate officer and scan locations');
+        (int)$entries[0]['recorded_by']===15&&(int)$entries[1]['recorded_by']===15&&
+        (int)$entries[0]['venue_location_id']===1&&$entries[0]['venue_name_snapshot']==='PHINMA COC Carmen Campus'&&$entries[0]['venue_latitude_snapshot']!==null,
+        'unique phase rows retain separate officer, scan location, and detected venue snapshots');
+    $db->prepare('UPDATE tbl_locations SET latitude=?,longitude=?,radius=? WHERE id=2')->execute([8.4705000,124.6350000,40]);
     $form=[
         'title'=>'Long-window phase QA','description'=>'Separated Time In and Time Out',
-        'general_location_id'=>1,'specific_location_id'=>0,'attendance_location_policy'=>'warning',
+        'general_location_id'=>1,'specific_location_id'=>0,'location_ids'=>[1,2],'attendance_location_policy'=>'warning',
         'audience_type'=>'all_students','event_type_id'=>1,'acknowledge_conflicts'=>true,
         'attendance_days'=>[ ['date'=>$today,'attendance_session_mode_id'=>2,
             'morning_in'=>'08:00','morning_in_close'=>'10:00','morning_out_open'=>'19:00','morning_out'=>'21:00',
             'afternoon_in'=>'','afternoon_in_close'=>'','afternoon_out_open'=>'','afternoon_out'=>''] ],
     ];
     $created=(new EventManagementRepository($db))->save($form,[],14);
+    $createdLocations=$db->prepare('SELECT location_id,is_primary FROM tbl_event_locations WHERE event_id=? ORDER BY location_id');
+    $createdLocations->execute([$created]);
+    $savedLocations=array_map(static fn(array $row):array=>array_map('intval',$row),$createdLocations->fetchAll());
+    $assert($savedLocations===[['location_id'=>1,'is_primary'=>1],['location_id'=>2,'is_primary'=>0]],
+        'event form saves one primary venue and additional event locations');
     $createdRow=$db->prepare('SELECT s.* FROM tbl_event_attendance_schedules s WHERE s.event_id=?');
     $createdRow->execute([$created]);$longDay=$createdRow->fetch();
     $longWindows=AttendanceScanWindows::forSession($longDay,'whole_day');

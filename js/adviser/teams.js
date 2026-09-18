@@ -33,7 +33,7 @@ window.SharedNavigation.ready.then((context) => {
   const schoolYearLabel = (label) =>
     /^SY\b/i.test(String(label || "")) ? String(label) : `SY ${label}`;
   const api = async (payload) =>
-    axios.post("api/teams.", payload, { headers: { "X-CSRF-Token": csrf } });
+    axios.post("api/teams.php", payload, { headers: { "X-CSRF-Token": csrf } });
   const confirmAction = (o) =>
     window.Notifications?.confirm
       ? window.Notifications.confirm(o)

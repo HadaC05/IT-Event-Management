@@ -67,6 +67,12 @@ window.SharedNavigation.ready.then((context) => {
           specific_students: "Specific students",
           all_students: "All active students",
         }[event.audience_type] || "All active students";
+    const eventLocations = event.event_locations?.length
+      ? event.event_locations
+      : [{ name: event.location, is_primary: true }];
+    const locationList = eventLocations
+      .map((location) => `${EventForm.escapeHtml(location.name)}${location.is_primary ? ' <small class="font-bold text-[#397565]">(Primary)</small>' : ""}`)
+      .join('<span class="text-slate-300"> · </span>');
     $("[data-stat-cards]").innerHTML = `${[
       ["Starts", date(event.start_at), time(event.start_at)],
       ["Ends", date(event.end_at), time(event.end_at)],
@@ -109,7 +115,7 @@ window.SharedNavigation.ready.then((context) => {
         `${format(event.end_at, { weekday: "long", month: "long", day: "numeric", year: "numeric" })}<span class="block font-medium text-slate-400">${time(event.end_at)}</span>`,
       ) +
       row("Daily scans", `<div class="grid gap-2">${schedules}</div>`) +
-      row("Location", EventForm.escapeHtml(event.location)) +
+      row("Locations", locationList) +
       row(
         "Participants",
         `${event.expected_participants} expected<span class="block font-medium text-slate-400">${audienceLabel}</span>`,

@@ -43,6 +43,13 @@ Then import `database/2026_09_15_link_event_locations.sql` once to relate
 specific locations to a general location and link events to `tbl_locations`
 without removing the existing event location text.
 
+Import `database/2026_09_18_add_event_locations.sql` once to allow an event
+to contain multiple saved locations. The existing `tbl_events.location_id`
+continues to identify the primary venue used by attendance GPS.
+
+Then import `database/2026_09_18_add_scan_detected_venue.sql` so attendance
+scans can save the matched or nearest event venue and its boundary snapshot.
+
 For SBO QR attendance, import `database/2026_09_15_add_sbo_qr_attendance.sql`
 once. It adds an event-level Off/Warning/Strict location policy, scan-specific
 GPS audit fields, a student/event-day/session unique scan key, and per-officer

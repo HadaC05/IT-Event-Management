@@ -155,7 +155,11 @@ CREATE TABLE `tbl_attendance_entries` (
   `location_status` enum('inside','outside','unavailable') NOT NULL DEFAULT 'unavailable',
   `location_captured_at` datetime DEFAULT NULL,
   `location_unavailable_reason` varchar(120) DEFAULT NULL,
+  `venue_location_id` bigint(20) UNSIGNED DEFAULT NULL,
   `venue_name_snapshot` varchar(255) DEFAULT NULL,
+  `venue_latitude_snapshot` decimal(10,7) DEFAULT NULL,
+  `venue_longitude_snapshot` decimal(10,7) DEFAULT NULL,
+  `venue_radius_snapshot_m` decimal(10,2) DEFAULT NULL,
   `status` varchar(20) NOT NULL DEFAULT 'present',
   `created_at` timestamp NULL DEFAULT current_timestamp(),
   `updated_at` timestamp NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
@@ -165,8 +169,8 @@ CREATE TABLE `tbl_attendance_entries` (
 -- Dumping data for table `tbl_attendance_entries`
 --
 
-INSERT INTO `tbl_attendance_entries` (`id`, `attendance_id`, `event_schedule_id`, `sbo_event_assignment_id`, `session_code`, `phase`, `activity_id`, `team_id`, `recorded_by`, `scanned_at`, `scan_latitude`, `scan_longitude`, `location_accuracy_m`, `distance_from_venue_m`, `location_status`, `location_captured_at`, `location_unavailable_reason`, `venue_name_snapshot`, `status`, `created_at`, `updated_at`) VALUES
-(1, 1, 2, 3, 'whole_day', 'in', 1, 6, 19, '2026-09-16 15:23:56', 8.4819630, 124.6361358, 10.63, 33.90, 'inside', '2026-09-16 15:23:56', NULL, 'PHINMA COC Carmen Campus', 'present', '2026-09-16 07:23:56', '2026-09-16 07:23:56');
+INSERT INTO `tbl_attendance_entries` (`id`, `attendance_id`, `event_schedule_id`, `sbo_event_assignment_id`, `session_code`, `phase`, `activity_id`, `team_id`, `recorded_by`, `scanned_at`, `scan_latitude`, `scan_longitude`, `location_accuracy_m`, `distance_from_venue_m`, `location_status`, `location_captured_at`, `location_unavailable_reason`, `venue_location_id`, `venue_name_snapshot`, `venue_latitude_snapshot`, `venue_longitude_snapshot`, `venue_radius_snapshot_m`, `status`, `created_at`, `updated_at`) VALUES
+(1, 1, 2, 3, 'whole_day', 'in', 1, 6, 19, '2026-09-16 15:23:56', 8.4819630, 124.6361358, 10.63, 33.90, 'inside', '2026-09-16 15:23:56', NULL, 1, 'PHINMA COC Carmen Campus', 8.4822620, 124.6361958, 50.00, 'present', '2026-09-16 07:23:56', '2026-09-16 07:23:56');
 
 -- --------------------------------------------------------
 
@@ -288,6 +292,28 @@ CREATE TABLE `tbl_events` (
 INSERT INTO `tbl_events` (`id`, `title`, `description`, `location`, `location_id`, `attendance_location_policy`, `audience_type`, `poster_path`, `is_featured`, `featured_order`, `featured_until`, `start_at`, `end_at`, `event_type_id`, `event_status_id`, `created_by`, `created_at`, `updated_at`, `deleted_at`) VALUES
 (1, 'IT Days 2026', 'test', 'PHINMA COC Carmen Campus', 1, 'off', 'selected_year_levels', 'assets/uploads/event-posters/W70sh2mMP9zsCz9YO3UPVGVwrOIHFGGbNVLF268j.png', 0, NULL, NULL, '2026-09-12 08:00:00', '2026-09-12 18:00:00', 1, 3, 14, '2026-09-11 15:48:49', '2026-09-16 03:05:50', NULL),
 (2, 'IT Days 2026', NULL, 'PHINMA COC Carmen Campus', 1, 'off', 'all_students', NULL, 0, NULL, NULL, '2026-09-16 15:08:00', '2026-09-16 22:00:00', 1, 2, 14, '2026-09-15 16:56:32', '2026-09-16 07:35:32', NULL);
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `tbl_event_locations`
+--
+
+CREATE TABLE `tbl_event_locations` (
+  `event_id` bigint(20) UNSIGNED NOT NULL,
+  `location_id` bigint(20) UNSIGNED NOT NULL,
+  `is_primary` tinyint(1) NOT NULL DEFAULT 0,
+  `created_at` timestamp NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+--
+-- Dumping data for table `tbl_event_locations`
+--
+
+INSERT INTO `tbl_event_locations` (`event_id`, `location_id`, `is_primary`, `created_at`, `updated_at`) VALUES
+(1, 1, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+(2, 1, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
 
 -- --------------------------------------------------------
 
@@ -1163,7 +1189,8 @@ ALTER TABLE `tbl_attendance_entries`
   ADD KEY `attendance_entries_activity_foreign` (`activity_id`),
   ADD KEY `attendance_entries_team_foreign` (`team_id`),
   ADD KEY `attendance_entries_recent_event_index` (`event_schedule_id`,`session_code`,`scanned_at`),
-  ADD KEY `attendance_entries_location_status_index` (`location_status`,`scanned_at`);
+  ADD KEY `attendance_entries_location_status_index` (`location_status`,`scanned_at`),
+  ADD KEY `attendance_entries_venue_location_index` (`venue_location_id`);
 
 --
 -- Indexes for table `tbl_attendance_qr_tokens`
@@ -1205,6 +1232,14 @@ ALTER TABLE `tbl_events`
   ADD KEY `events_created_by_foreign` (`created_by`),
   ADD KEY `events_is_featured_featured_order_index` (`is_featured`,`featured_order`),
   ADD KEY `events_location_id_index` (`location_id`);
+
+--
+-- Indexes for table `tbl_event_locations`
+--
+ALTER TABLE `tbl_event_locations`
+  ADD PRIMARY KEY (`event_id`,`location_id`),
+  ADD KEY `event_locations_location_id_index` (`location_id`),
+  ADD KEY `event_locations_primary_index` (`event_id`,`is_primary`);
 
 --
 -- Indexes for table `tbl_event_activities`
@@ -1724,7 +1759,8 @@ ALTER TABLE `tbl_attendance_entries`
   ADD CONSTRAINT `attendance_entries_attendance_foreign` FOREIGN KEY (`attendance_id`) REFERENCES `tbl_attendances` (`id`) ON DELETE CASCADE,
   ADD CONSTRAINT `attendance_entries_recorded_by_foreign` FOREIGN KEY (`recorded_by`) REFERENCES `tbl_users` (`id`) ON DELETE SET NULL,
   ADD CONSTRAINT `attendance_entries_schedule_foreign` FOREIGN KEY (`event_schedule_id`) REFERENCES `tbl_event_attendance_schedules` (`id`) ON DELETE CASCADE,
-  ADD CONSTRAINT `attendance_entries_team_foreign` FOREIGN KEY (`team_id`) REFERENCES `tbl_teams` (`id`) ON DELETE CASCADE;
+  ADD CONSTRAINT `attendance_entries_team_foreign` FOREIGN KEY (`team_id`) REFERENCES `tbl_teams` (`id`) ON DELETE CASCADE,
+  ADD CONSTRAINT `attendance_entries_venue_location_foreign` FOREIGN KEY (`venue_location_id`) REFERENCES `tbl_locations` (`id`) ON DELETE SET NULL;
 
 --
 -- Constraints for table `tbl_attendance_qr_tokens`
@@ -1741,6 +1777,13 @@ ALTER TABLE `tbl_events`
   ADD CONSTRAINT `events_event_status_id_foreign` FOREIGN KEY (`event_status_id`) REFERENCES `tbl_event_statuses` (`id`) ON DELETE SET NULL,
   ADD CONSTRAINT `events_event_type_id_foreign` FOREIGN KEY (`event_type_id`) REFERENCES `tbl_event_types` (`id`) ON DELETE SET NULL,
   ADD CONSTRAINT `events_location_id_foreign` FOREIGN KEY (`location_id`) REFERENCES `tbl_locations` (`id`) ON DELETE SET NULL;
+
+--
+-- Constraints for table `tbl_event_locations`
+--
+ALTER TABLE `tbl_event_locations`
+  ADD CONSTRAINT `event_locations_event_id_foreign` FOREIGN KEY (`event_id`) REFERENCES `tbl_events` (`id`) ON DELETE CASCADE,
+  ADD CONSTRAINT `event_locations_location_id_foreign` FOREIGN KEY (`location_id`) REFERENCES `tbl_locations` (`id`) ON DELETE RESTRICT;
 
 --
 -- Constraints for table `tbl_event_activities`

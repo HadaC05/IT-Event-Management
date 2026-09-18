@@ -17,7 +17,7 @@ final class SboAuthorization
         }
 
         $dateClause = $todayOnly ? ' AND s.schedule_date = CURDATE()' : '';
-        $statement = $this->db->prepare("SELECT sea.id,sea.session_code,sea.responsibility,
+        $statement = $this->db->prepare("SELECT sea.id,sea.officer_assignment_id,sea.session_code,sea.responsibility,
             s.id event_schedule_id,s.schedule_date,s.attendance_session_mode_id,
             s.whole_day_in_time,s.whole_day_in_close_time,s.whole_day_out_open_time,s.whole_day_out_time,
             s.morning_in_time,s.morning_in_close_time,s.morning_out_open_time,s.morning_out_time,
@@ -42,7 +42,7 @@ final class SboAuthorization
         $rows = $statement->fetchAll();
         $now = new DateTimeImmutable('now', new DateTimeZone('Asia/Manila'));
         foreach ($rows as &$row) {
-            foreach (['id','event_schedule_id','event_id','activity_id','team_id','scanner_team_id','day_number'] as $key) $row[$key] = (int) $row[$key];
+            foreach (['id','officer_assignment_id','event_schedule_id','event_id','activity_id','team_id','scanner_team_id','day_number'] as $key) $row[$key] = (int) $row[$key];
             $row['session_name'] = match ($row['session_code']) {'morning' => 'Morning Session', 'afternoon' => 'Afternoon Session', default => 'Whole Day Session'};
             $start = new DateTimeImmutable($row['schedule_date'].' '.$row['session_start'], new DateTimeZone('Asia/Manila'));
             $end = new DateTimeImmutable($row['schedule_date'].' '.$row['session_end'], new DateTimeZone('Asia/Manila'));

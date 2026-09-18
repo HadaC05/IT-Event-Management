@@ -102,17 +102,38 @@ window.SharedNavigation.ready.then(() => {
   function attendancePresentation(event) {
     const expected = event.expected_count;
     const recorded = event.attendances_count;
+    const scheduleState = event.schedule_state;
     if (!expected) return {
       label: "No roster",
       tone: "bg-[#FF6B2C]/10 text-[#D64A12]",
       title: "Participant roster needed",
       detail: "Define the event audience before recording attendance.",
     };
-    if (!recorded) return {
+    if (recorded >= expected) return {
+      label: "Complete",
+      tone: "bg-[#C6F24E]/40 text-[#397565]",
+      title: "Attendance complete",
+      detail: "Every expected participant has a recorded status.",
+    };
+    if (scheduleState === "completed") return {
+      label: "Incomplete",
+      tone: "bg-[#FF6B2C]/10 text-[#D64A12]",
+      title: "Attendance incomplete",
+      detail: `${expected - recorded} ${expected - recorded === 1 ? "student is" : "students are"} still missing an attendance status after the event ended.`,
+    };
+    if (scheduleState === "upcoming") return {
       label: "Not started",
       tone: "bg-[#FF6B2C]/10 text-[#D64A12]",
-      title: "Attendance not recorded",
-      detail: "Open the roster to begin marking participant attendance.",
+      title: "Event has not started",
+      detail: recorded
+        ? `${recorded} attendance ${recorded === 1 ? "record exists" : "records exist"}, but the event schedule has not started.`
+        : "Attendance will begin when the event schedule starts.",
+    };
+    if (!recorded) return {
+      label: "Waiting",
+      tone: "bg-[#397565]/10 text-[#397565]",
+      title: "Waiting for attendance",
+      detail: "The event is ongoing, but no attendance has been recorded yet.",
     };
     if (recorded < expected) return {
       label: "In progress",
@@ -121,10 +142,10 @@ window.SharedNavigation.ready.then(() => {
       detail: `${expected - recorded} ${expected - recorded === 1 ? "student still needs" : "students still need"} a status.`,
     };
     return {
-      label: "Complete",
-      tone: "bg-[#C6F24E]/40 text-[#397565]",
-      title: "Attendance complete",
-      detail: "Every expected participant has a recorded status.",
+      label: "Not started",
+      tone: "bg-[#FF6B2C]/10 text-[#D64A12]",
+      title: "Attendance not started",
+      detail: "Attendance has not started.",
     };
   }
 

@@ -89,6 +89,8 @@ final class EventManagementRepository
         $events = $query->fetchAll();
         foreach ($events as &$event) {
             $event = $this->normalizeEvent($event);
+            $event['event_locations'] = $this->eventLocations((int) $event['id']);
+            $event['location_ids'] = array_column($event['event_locations'], 'id');
             $event['assigned_users'] = $this->assignedUsers((int) $event['id']);
         }
         unset($event);
@@ -128,6 +130,8 @@ final class EventManagementRepository
         $event['assigned_users'] = $this->assignedUsers($id);
         $event['activities'] = $this->activities($id);
         $event['attendance_schedules'] = $this->schedules($id);
+        $event['event_locations'] = $this->eventLocations($id);
+        $event['location_ids'] = array_column($event['event_locations'], 'id');
         $event['audience_year_level_ids'] = $this->pivotIds('tbl_event_year_level', 'year_level_id', $id);
         $event['audience_team_ids'] = $this->pivotIds('tbl_event_team', 'team_id', $id);
         $event['participant_ids'] = $this->pivotIds('tbl_event_participants', 'user_id', $id);
@@ -333,6 +337,7 @@ final class EventManagementRepository
                 $id = (int) $this->db->lastInsertId();
             }
             $this->replaceSchedules($id, $data['schedules']);
+            $this->replaceEventLocations($id, $data['location_ids'], $data['location_id']);
             $this->replacePivot('tbl_event_user', 'user_id', $id, $data['assigned_user_ids']);
             $this->replacePivot('tbl_event_team', 'team_id', $id, $data['audience_type'] === 'selected_tribes' ? $data['tribe_ids'] : []);
             $this->replacePivot('tbl_event_year_level', 'year_level_id', $id, $data['audience_type'] === 'selected_year_levels' ? $data['year_level_ids'] : []);
@@ -362,6 +367,10 @@ final class EventManagementRepository
         $generalLocationId = (int) ($input['general_location_id'] ?? 0);
         $specificLocationId = (int) ($input['specific_location_id'] ?? 0);
         $locationId = $specificLocationId ?: $generalLocationId;
+        $locationIds = array_values(array_unique(array_merge(
+            $this->integerList($input['location_ids'] ?? []),
+            $locationId > 0 ? [$locationId] : []
+        )));
         $locationName = '';
         if ($locationId) {
             $locationName = (string) ($this->scalar('SELECT name FROM tbl_locations WHERE id=?', [$locationId]) ?: '');
@@ -380,10 +389,25 @@ final class EventManagementRepository
         $peopleConflicts = [];
         foreach ($statement->fetchAll() as $event) {
             $schedule = $this->scheduleLabel($event['start_at'], $event['end_at']);
-            $sameLocation = $locationId > 0 && (int) ($event['location_id'] ?? 0) === $locationId;
+            $savedLocationIds = [(int) ($event['location_id'] ?? 0)];
+            if ($event['id']) {
+                $savedLocationIds = array_values(array_unique(array_merge($savedLocationIds, array_map(
+                    'intval',
+                    array_column($this->eventLocations((int) $event['id']), 'id')
+                ))));
+            }
+            $sharedLocationIds = array_values(array_intersect($locationIds, $savedLocationIds));
+            $sameLocation = $sharedLocationIds !== [];
             $sameLegacyLocation = !$event['location_id'] && $locationName !== '' && mb_strtolower(trim((string) $event['location'])) === mb_strtolower($locationName);
             if ($sameLocation || $sameLegacyLocation) {
-                $locationConflicts[] = ['id' => (int) $event['id'], 'title' => $event['title'], 'location' => $locationName, 'schedule' => $schedule];
+                $conflictLocation = $locationName;
+                if ($sharedLocationIds) {
+                    $marks = implode(',', array_fill(0, count($sharedLocationIds), '?'));
+                    $locationNames = $this->db->prepare("SELECT name FROM tbl_locations WHERE id IN ($marks) ORDER BY name");
+                    $locationNames->execute($sharedLocationIds);
+                    $conflictLocation = implode(', ', $locationNames->fetchAll(PDO::FETCH_COLUMN));
+                }
+                $locationConflicts[] = ['id' => (int) $event['id'], 'title' => $event['title'], 'location' => $conflictLocation, 'schedule' => $schedule];
             }
             if ($users) {
                 $marks = implode(',', array_fill(0, count($users), '?'));
@@ -533,14 +557,27 @@ final class EventManagementRepository
         }
         $location = (string) ($locationRow['name'] ?? '');
         $locationId = isset($locationRow['id']) ? (int) $locationRow['id'] : 0;
+        $locationIds = array_values(array_unique(array_merge(
+            $this->integerList($input['location_ids'] ?? []),
+            $locationId > 0 ? [$locationId] : []
+        )));
+        if ($locationIds) {
+            $marks = implode(',', array_fill(0, count($locationIds), '?'));
+            $statement = $this->db->prepare("SELECT id FROM tbl_locations WHERE id IN ($marks)");
+            $statement->execute($locationIds);
+            $validLocationIds = array_map('intval', $statement->fetchAll(PDO::FETCH_COLUMN));
+            if (count($validLocationIds) !== count($locationIds)) {
+                $errors['location_ids'][] = 'Select only valid saved event locations.';
+            }
+        }
         $locationPolicy = (string) ($input['attendance_location_policy'] ?? 'warning');
         if (!in_array($locationPolicy, ['warning','strict'], true)) $errors['attendance_location_policy'][] = 'Choose a valid scan location policy.';
         if (in_array($locationPolicy, ['warning','strict'], true) && $locationId > 0) {
-            $venue = $this->db->prepare('SELECT latitude,longitude,radius FROM tbl_locations WHERE id=?');
-            $venue->execute([$locationId]);
-            $coordinates = $venue->fetch();
-            if (!$coordinates || $coordinates['latitude'] === null || $coordinates['longitude'] === null || $coordinates['radius'] === null)
-                $errors['attendance_location_policy'][] = 'Attendance scanning requires coordinates and a box radius for the selected venue.';
+            $marks = implode(',', array_fill(0, count($locationIds), '?'));
+            $venue = $this->db->prepare("SELECT COUNT(*) FROM tbl_locations WHERE id IN ($marks) AND (latitude IS NULL OR longitude IS NULL OR radius IS NULL)");
+            $venue->execute($locationIds);
+            if ((int) $venue->fetchColumn() > 0)
+                $errors['attendance_location_policy'][] = 'Every selected event location requires coordinates and a box radius for attendance scanning.';
         }
         $typeId = (int) ($input['event_type_id'] ?? 0);
         $statusId = (int) ($input['event_status_id'] ?? 0);
@@ -565,6 +602,7 @@ final class EventManagementRepository
                 'start_date' => substr($startAt, 0, 10), 'start_time' => substr($startAt, 11, 5),
                 'end_date' => substr($endAt, 0, 10), 'end_time' => substr($endAt, 11, 5),
                 'general_location_id' => $generalLocationId, 'specific_location_id' => $specificLocationId,
+                'location_ids' => $locationIds,
                 'assigned_user_ids' => $assigned, 'event_id' => $id,
             ]);
             if ($conflicts['conflicts']['location']) $errors['general_location_id'][] = 'Possible scheduling conflict at this location. Review and confirm the warning to continue.';
@@ -576,7 +614,8 @@ final class EventManagementRepository
         }
         if ($errors) throw new EventValidationException($errors);
         return [
-            'title' => $title, 'description' => $description, 'location' => $location, 'location_id' => $locationId, 'attendance_location_policy' => $locationPolicy, 'event_type_id' => $typeId,
+            'title' => $title, 'description' => $description, 'location' => $location, 'location_id' => $locationId, 'location_ids' => $locationIds,
+            'attendance_location_policy' => $locationPolicy, 'event_type_id' => $typeId,
             'event_status_id' => $statusId, 'audience_type' => $audienceType, 'start_at' => $startAt, 'end_at' => $endAt,
             'schedules' => $schedules, 'assigned_user_ids' => $assigned, 'tribe_ids' => $tribes,
             'year_level_ids' => $yearLevels, 'participant_ids' => $participants,
@@ -755,6 +794,18 @@ final class EventManagementRepository
         foreach ($ids as $id) $statement->execute([$eventId, $id]);
     }
 
+    private function replaceEventLocations(int $eventId, array $locationIds, int $primaryLocationId): void
+    {
+        if ($primaryLocationId < 1 || !in_array($primaryLocationId, $locationIds, true)) {
+            throw new EventValidationException(['general_location_id' => ['Choose a primary venue before saving the event.']]);
+        }
+        $this->db->prepare('DELETE FROM tbl_event_locations WHERE event_id=?')->execute([$eventId]);
+        $statement = $this->db->prepare('INSERT INTO tbl_event_locations(event_id,location_id,is_primary,created_at,updated_at) VALUES(?,?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)');
+        foreach ($locationIds as $locationId) {
+            $statement->execute([$eventId, $locationId, $locationId === $primaryLocationId ? 1 : 0]);
+        }
+    }
+
     private function assignedUsers(int $eventId): array
     {
         $statement = $this->db->prepare('SELECT u.id,u.first_name,u.middle_name,u.last_name,r.name role FROM tbl_event_user eu JOIN tbl_users u ON u.id=eu.user_id LEFT JOIN tbl_roles r ON r.id=u.role_id WHERE eu.event_id=? ORDER BY u.last_name,u.first_name');
@@ -773,6 +824,20 @@ final class EventManagementRepository
         $statement = $this->db->prepare('SELECT eas.*,asm.code mode_code,asm.name mode_name FROM tbl_event_attendance_schedules eas LEFT JOIN tbl_attendance_session_modes asm ON asm.id=eas.attendance_session_mode_id WHERE eas.event_id=? ORDER BY eas.schedule_date');
         $statement->execute([$eventId]);
         return $statement->fetchAll();
+    }
+
+    private function eventLocations(int $eventId): array
+    {
+        $statement = $this->db->prepare('SELECT l.id,l.name,l.type,l.parent_location_id,el.is_primary FROM tbl_event_locations el JOIN tbl_locations l ON l.id=el.location_id WHERE el.event_id=? ORDER BY el.is_primary DESC,l.type,l.name');
+        $statement->execute([$eventId]);
+        $locations = $statement->fetchAll();
+        foreach ($locations as &$location) {
+            $location['id'] = (int) $location['id'];
+            $location['parent_location_id'] = $location['parent_location_id'] === null ? null : (int) $location['parent_location_id'];
+            $location['is_primary'] = (bool) $location['is_primary'];
+        }
+        unset($location);
+        return $locations;
     }
 
     private function expectedParticipants(array $event): int

@@ -119,6 +119,65 @@ dialog[data-activity-dialog]::backdrop {
   color: #121017;
 }
 
+.attendance-team-marker-icon {
+  border: 0 !important;
+  background: transparent !important;
+  pointer-events: none !important;
+}
+
+.attendance-team-marker {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  transform: rotate(-45deg);
+  border: 3px solid #fff;
+  border-radius: 50% 50% 50% 0;
+  background: var(--team-marker-color);
+  color: #fff;
+  box-shadow: 0 5px 13px rgb(18 16 23 / 30%);
+  pointer-events: auto;
+}
+
+.attendance-team-marker b {
+  transform: rotate(45deg);
+  font-size: 0.62rem;
+  font-weight: 900;
+  letter-spacing: -0.02em;
+  pointer-events: none;
+}
+
+.attendance-map-team {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-bottom: 0.2rem;
+  color: #5f5b63;
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+
+.attendance-map-team i {
+  width: 0.55rem;
+  height: 0.55rem;
+  flex: none;
+  border-radius: 9999px;
+}
+
+.attendance-distance-filter[open] {
+  z-index: 1000;
+}
+
+.attendance-distance-menu {
+  z-index: 1001;
+}
+
+@media (min-width: 1024px) {
+  .attendance-secondary-filters {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+}
+
 .gps-accuracy-badge {
   display: inline-block;
   margin-top: 0.35rem;
@@ -240,15 +299,17 @@ details[open] > .attendance-scan-summary .attendance-scan-chevron {
 }
 
 /* Keep the Location form's actions visible while its fields scroll. */
-dialog[data-location-dialog] {
-  max-height: calc(100dvh - 2rem);
-  overflow: hidden;
+dialog.app-dialog[data-location-dialog] {
+  height: min(90dvh, 900px);
+  max-height: calc(100dvh - 2rem) !important;
+  overflow: hidden !important;
 }
 
 dialog[data-location-dialog] [data-location-form] {
   display: grid;
   grid-template-rows: auto minmax(0, 1fr) auto;
-  max-height: calc(100dvh - 2rem);
+  height: 100%;
+  max-height: none;
   min-height: 0;
 }
 
@@ -265,12 +326,14 @@ dialog[data-location-dialog] [data-location-form] > div {
 }
 
 @media (max-width: 640px) {
-  dialog[data-location-dialog] {
-    max-height: calc(100dvh - 1rem);
+  dialog.app-dialog[data-location-dialog] {
+    height: calc(100dvh - 1rem);
+    max-height: calc(100dvh - 1rem) !important;
   }
 
   dialog[data-location-dialog] [data-location-form] {
-    max-height: calc(100dvh - 1rem);
+    height: 100%;
+    max-height: none;
   }
 
   dialog[data-location-dialog] [data-location-form] > footer {

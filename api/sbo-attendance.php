@@ -115,20 +115,28 @@ final class SboAttendanceRepository {
             }
             $this->db->prepare("INSERT INTO tbl_attendance_entries
                 (attendance_id,event_schedule_id,sbo_event_assignment_id,session_code,phase,activity_id,team_id,recorded_by,scanned_at,status,
-                scan_latitude,scan_longitude,location_accuracy_m,distance_from_venue_m,location_status,location_captured_at,location_unavailable_reason,venue_name_snapshot,created_at,updated_at)
-                VALUES(?,?,?,?,?,?,?,?,?,'present',?,?,?,?,?,?,?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)")
+                scan_latitude,scan_longitude,location_accuracy_m,distance_from_venue_m,location_status,location_captured_at,location_unavailable_reason,
+                venue_location_id,venue_name_snapshot,venue_latitude_snapshot,venue_longitude_snapshot,venue_radius_snapshot_m,created_at,updated_at)
+                VALUES(?,?,?,?,?,?,?,?,?,'present',?,?,?,?,?,?,?,?,?,?,?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)")
                 ->execute([$attendanceId,$a['event_schedule_id'],$id,$a['session_code'],$checkpoint,$a['activity_id'],$membership['id'],$officer,$now,
-                    $location['latitude'],$location['longitude'],$location['accuracy_m'],$location['distance_m'],$location['status'],$location['captured_at'],$location['reason'],$a['venue_name']]);
+                    $location['latitude'],$location['longitude'],$location['accuracy_m'],$location['distance_m'],$location['status'],$location['captured_at'],$location['reason'],
+                    $location['venue_id'],$location['venue_name'],$location['venue_latitude'],$location['venue_longitude'],$location['venue_radius_m']]);
             if($mode==='qr'){
                 $used=$this->db->prepare('UPDATE tbl_attendance_qr_tokens SET used_at=?,updated_at=CURRENT_TIMESTAMP WHERE id=? AND used_at IS NULL');
                 $used->execute([$now,$student['qr_id']]);
                 if($used->rowCount()!==1)throw new LogicException('This QR has already been used.');
             }
             $action=$faculty?'faculty_attendance_scanned':($checkpoint==='in'?'sbo_attendance_scanned':'sbo_attendance_time_out');
+            $officerAssignmentId=$faculty?null:(int)$a['officer_assignment_id'];
             $this->db->prepare("INSERT INTO tbl_activity_logs(actor_id,event_id,officer_assignment_id,action,acting_role,description,created_at,updated_at) VALUES(?,?,?,?,?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)")
-                ->execute([$officer,$a['event_id'],$id,$action,$faculty?'Faculty':'SBO Officer','Recorded time '.$checkpoint.' for '.$student['id_number'].'.']);
+                ->execute([$officer,$a['event_id'],$officerAssignmentId,$action,$faculty?'Faculty':'SBO Officer','Recorded time '.$checkpoint.' for '.$student['id_number'].'.']);
             $this->db->commit();
-        }catch(PDOException $e){if($this->db->inTransaction())$this->db->rollBack();if((string)$e->getCode()==='23000')throw new LogicException('Attendance already recorded for this session.',0,$e);throw $e;}
+        }catch(PDOException $e){
+            if($this->db->inTransaction())$this->db->rollBack();
+            $driverCode=(int)($e->errorInfo[1]??0);
+            if($driverCode===1062)throw new LogicException('Attendance already recorded for this session.',0,$e);
+            throw $e;
+        }
         catch(Throwable $e){if($this->db->inTransaction())$this->db->rollBack();throw $e;}
         return ['student'=>['id_number'=>$student['id_number'],'full_name'=>$this->name($student),'team_id'=>(int)$membership['id'],'team_name'=>$membership['name']],
             'session_name'=>$a['session_name'],'checkpoint'=>$checkpoint,'scanned_at'=>$now,'location'=>$location,
@@ -149,18 +157,26 @@ final class SboAttendanceRepository {
     }
 
     private function venue(int $event):array {
-        $r=$this->row('SELECT e.attendance_location_policy,l.name venue_name,l.latitude venue_latitude,l.longitude venue_longitude,l.radius venue_radius FROM tbl_events e LEFT JOIN tbl_locations l ON l.id=e.location_id WHERE e.id=?',[$event]);
+        $r=$this->row('SELECT e.attendance_location_policy,e.location_id,l.name venue_name,l.latitude venue_latitude,l.longitude venue_longitude,l.radius venue_radius FROM tbl_events e LEFT JOIN tbl_locations l ON l.id=e.location_id WHERE e.id=?',[$event]);
         if(!$r)throw new DomainException('Event venue was not found.');
-        return ['location_policy'=>$r['attendance_location_policy']==='strict'?'strict':'warning','venue_name'=>$r['venue_name'],
-            'venue_latitude'=>$r['venue_latitude']===null?null:(float)$r['venue_latitude'],
-            'venue_longitude'=>$r['venue_longitude']===null?null:(float)$r['venue_longitude'],
-            'venue_radius_m'=>$r['venue_radius']===null?null:(float)$r['venue_radius']];
+        $q=$this->db->prepare('SELECT l.id,l.name,l.latitude,l.longitude,l.radius,el.is_primary FROM tbl_event_locations el JOIN tbl_locations l ON l.id=el.location_id WHERE el.event_id=? ORDER BY el.is_primary DESC,l.name');
+        $q->execute([$event]);$venues=$q->fetchAll();
+        if(!$venues&&$r['location_id']!==null)$venues=[['id'=>$r['location_id'],'name'=>$r['venue_name'],'latitude'=>$r['venue_latitude'],'longitude'=>$r['venue_longitude'],'radius'=>$r['venue_radius'],'is_primary'=>1]];
+        foreach($venues as &$venue){
+            $venue['id']=(int)$venue['id'];$venue['is_primary']=(bool)$venue['is_primary'];
+            foreach(['latitude','longitude','radius'] as $key)$venue[$key]=$venue[$key]===null?null:(float)$venue[$key];
+        }unset($venue);
+        $primary=current(array_filter($venues,static fn(array $venue):bool=>$venue['is_primary']))?:($venues[0]??null);
+        return ['location_policy'=>$r['attendance_location_policy']==='strict'?'strict':'warning','venues'=>$venues,
+            'venue_name'=>$primary['name']??null,'venue_latitude'=>$primary['latitude']??null,
+            'venue_longitude'=>$primary['longitude']??null,'venue_radius_m'=>$primary['radius']??null];
     }
     private function location(array $a,mixed $raw):array {
         $reason=is_array($raw)?trim((string)($raw['unavailable_reason']??'')):'not_provided';
         if(!in_array($reason,['','not_provided','permission_denied','location_timeout','geolocation_unavailable','location_unavailable','stale_location','insecure_context'],true))
             $reason='invalid_location';
-        $r=['latitude'=>null,'longitude'=>null,'accuracy_m'=>null,'distance_m'=>null,'status'=>'unavailable','captured_at'=>null,'reason'=>$reason?:'not_provided'];
+        $r=['latitude'=>null,'longitude'=>null,'accuracy_m'=>null,'distance_m'=>null,'status'=>'unavailable','captured_at'=>null,'reason'=>$reason?:'not_provided',
+            'venue_id'=>null,'venue_name'=>null,'venue_latitude'=>null,'venue_longitude'=>null,'venue_radius_m'=>null,'venue_match'=>null];
         if(is_array($raw)&&isset($raw['latitude'],$raw['longitude'],$raw['accuracy_m'],$raw['timestamp_ms'])){
             $lat=filter_var($raw['latitude'],FILTER_VALIDATE_FLOAT);$lon=filter_var($raw['longitude'],FILTER_VALIDATE_FLOAT);
             $accuracy=filter_var($raw['accuracy_m'],FILTER_VALIDATE_FLOAT);$timestamp=filter_var($raw['timestamp_ms'],FILTER_VALIDATE_INT);
@@ -170,18 +186,29 @@ final class SboAttendanceRepository {
                     $r['latitude']=$lat;$r['longitude']=$lon;$r['accuracy_m']=$accuracy;
                     $r['captured_at']=(new DateTimeImmutable('@'.intdiv($timestamp,1000)))->setTimezone(new DateTimeZone(self::ZONE))->format('Y-m-d H:i:s');
                     $r['reason']=null;
-                    if($a['venue_latitude']!==null&&$a['venue_longitude']!==null&&$a['venue_radius_m']!==null){
-                        $distance=$this->distance($lat,$lon,$a['venue_latitude'],$a['venue_longitude']);
-                        $r['distance_m']=round($distance,2);
-                        $r['status']=$this->insideBox($lat,$lon,$a['venue_latitude'],$a['venue_longitude'],$a['venue_radius_m'])?'inside':'outside';
+                    $inside=[];$nearest=[];
+                    foreach(($a['venues']??[]) as $venue){
+                        if($venue['latitude']===null||$venue['longitude']===null||$venue['radius']===null)continue;
+                        $distance=$this->distance($lat,$lon,$venue['latitude'],$venue['longitude']);
+                        $candidate=['venue'=>$venue,'distance'=>$distance];$nearest[]=$candidate;
+                        if($this->insideBox($lat,$lon,$venue['latitude'],$venue['longitude'],$venue['radius']))$inside[]=$candidate;
+                    }
+                    $candidates=$inside?:$nearest;
+                    usort($candidates,static fn(array $left,array $right):int=>$left['distance']<=>$right['distance']);
+                    $matched=$candidates[0]??null;
+                    if($matched){
+                        $venue=$matched['venue'];$r['distance_m']=round($matched['distance'],2);$r['status']=$inside?'inside':'outside';
+                        $r['venue_id']=$venue['id'];$r['venue_name']=$venue['name'];$r['venue_latitude']=$venue['latitude'];
+                        $r['venue_longitude']=$venue['longitude'];$r['venue_radius_m']=$venue['radius'];$r['venue_match']=$inside?'matched':'nearest';
                     }else $r['reason']='venue_not_configured';
                 }else $r['reason']='stale_location';
             }else $r['reason']='invalid_location';
         }
         if(in_array($a['location_policy'],['warning','strict'],true)){
-            if($a['venue_latitude']===null||$a['venue_longitude']===null||$a['venue_radius_m']===null)throw new DomainException('Scan location is not configured for this event.');
+            $configured=array_filter($a['venues']??[],static fn(array $venue):bool=>$venue['latitude']!==null&&$venue['longitude']!==null&&$venue['radius']!==null);
+            if(!$configured)throw new DomainException('Scan locations are not configured for this event.');
             if($r['status']==='unavailable')throw new InvalidArgumentException('Your location could not be verified. Check your location permission and try again.');
-            if($a['location_policy']==='strict'&&$r['status']==='outside')throw new InvalidArgumentException('Scan location is outside the allowed event venue.');
+            if($a['location_policy']==='strict'&&$r['status']==='outside')throw new InvalidArgumentException('Scan location is outside all allowed event venues.');
         }
         return $r;
     }
@@ -198,7 +225,7 @@ final class SboAttendanceRepository {
         return 6371000*2*asin(min(1,sqrt($h)));
     }
     private function recent(array $a):array {
-        $q=$this->db->prepare('SELECT ae.id,ae.phase,ae.scanned_at,ae.status,ae.location_status,u.id_number,u.first_name,u.middle_name,u.last_name,t.name team_name
+        $q=$this->db->prepare('SELECT ae.id,ae.phase,ae.scanned_at,ae.status,ae.location_status,ae.venue_name_snapshot,u.id_number,u.first_name,u.middle_name,u.last_name,t.name team_name
             FROM tbl_attendance_entries ae JOIN tbl_attendances atd ON atd.id=ae.attendance_id JOIN tbl_users u ON u.id=atd.user_id JOIN tbl_teams t ON t.id=ae.team_id
             WHERE ae.sbo_event_assignment_id=? AND ae.event_schedule_id=? AND ae.session_code=? ORDER BY ae.scanned_at DESC,ae.id DESC LIMIT 12');
         $q->execute([$a['id'],$a['event_schedule_id'],$a['session_code']]);$rows=$q->fetchAll();

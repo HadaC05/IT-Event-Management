@@ -16,7 +16,7 @@ $exists=$live->prepare('SELECT COUNT(*) FROM information_schema.SCHEMATA WHERE S
 $exists->execute([$scratch]);
 if($exists->fetchColumn())throw new RuntimeException('Test database name already exists.');
 $tables=['tbl_roles','tbl_user_statuses','tbl_users','tbl_teams','tbl_team_user','tbl_locations',
-    'tbl_events','tbl_attendance_session_modes','tbl_event_attendance_schedules','tbl_event_activities',
+    'tbl_events','tbl_event_locations','tbl_attendance_session_modes','tbl_event_attendance_schedules','tbl_event_activities',
     'tbl_event_team','tbl_event_year_level','tbl_event_participants','tbl_sbo_officer_assignments',
     'tbl_sbo_event_assignments','tbl_attendances','tbl_attendance_entries','tbl_attendance_qr_tokens',
     'tbl_activity_logs','tbl_sbo_scan_rate_limits'];

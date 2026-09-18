@@ -35,6 +35,7 @@
     return {
       inside:latitudeOutside===0&&longitudeOutside===0,
       outsideMeters:Math.hypot(latitudeOutside,longitudeOutside),
+      centerMeters:Math.hypot(latitudeMeters,longitudeMeters),
     };
   };
   const freshPosition=()=>{
@@ -42,8 +43,18 @@
     const age=Date.now()-position.timestamp;
     return age>=-10000&&age<=30000;
   };
-  const insideSelectedVenue=()=>freshPosition()&&selected?.venue_latitude!==null&&selected?.venue_latitude!==undefined&&selected?.venue_longitude!==null&&selected?.venue_longitude!==undefined&&selected?.venue_radius_m!==null&&selected?.venue_radius_m!==undefined&&
-    insideBox(position.latitude,position.longitude,Number(selected.venue_latitude),Number(selected.venue_longitude),Number(selected.venue_radius_m));
+  const configuredVenues=()=>{
+    const venues=Array.isArray(selected?.venues)&&selected.venues.length?selected.venues:[{id:selected?.location_id,name:selected?.venue_name,latitude:selected?.venue_latitude,longitude:selected?.venue_longitude,radius:selected?.venue_radius_m,is_primary:true}];
+    return venues.filter(venue=>venue.latitude!==null&&venue.latitude!==undefined&&venue.longitude!==null&&venue.longitude!==undefined&&venue.radius!==null&&venue.radius!==undefined);
+  };
+  const detectedVenue=()=>{
+    if(!freshPosition())return null;
+    const matches=configuredVenues().map(venue=>({venue,proximity:boxProximity(position.latitude,position.longitude,Number(venue.latitude),Number(venue.longitude),Number(venue.radius))}));
+    const inside=matches.filter(match=>match.proximity.inside).sort((left,right)=>left.proximity.centerMeters-right.proximity.centerMeters);
+    matches.sort((left,right)=>left.proximity.centerMeters-right.proximity.centerMeters);
+    return inside[0]||matches[0]||null;
+  };
+  const insideSelectedVenue=()=>Boolean(detectedVenue()?.proximity.inside);
   const loadQrModule=()=>{
     if(!qrModulePromise)qrModulePromise=import(new URL('js/vendor/qr-scanner/qr-scanner.min.js',document.baseURI))
       .then(module=>module.default).catch(error=>{qrModulePromise=null;throw error;});
@@ -53,22 +64,22 @@
   function renderLocation(){
     const locationCard=$('[data-location-card]');
     const detailsOpen=Boolean(locationCard.querySelector('details')?.open);
-    const venue=selected?.venue_name||selected?.location||'Not configured';
-    const hasVenueBoundary=freshPosition()&&selected?.venue_latitude!==null&&selected?.venue_latitude!==undefined&&selected?.venue_longitude!==null&&selected?.venue_longitude!==undefined&&selected?.venue_radius_m!==null&&selected?.venue_radius_m!==undefined;
-    const proximity=hasVenueBoundary?boxProximity(position.latitude,position.longitude,Number(selected.venue_latitude),Number(selected.venue_longitude),Number(selected.venue_radius_m)):null;
+    const match=detectedVenue();
+    const venue=match?.venue.name||selected?.venue_name||selected?.location||'Not configured';
+    const hasVenueBoundary=Boolean(match);
+    const proximity=match?.proximity||null;
     const venueDistance=proximity?(proximity.inside?' (At venue)':` (${Math.max(1,Math.round(proximity.outsideMeters)).toLocaleString('en-US')} m outside venue)`):'';
     let status=!window.isSecureContext?'HTTPS required for GPS':locationReason==='checking'?'Checking GPS…':'GPS required';
     if(freshPosition()){
-      if(selected?.venue_latitude===null||selected?.venue_longitude===null||selected?.venue_radius_m===null)
+      if(!configuredVenues().length)
         status='Venue boundary not configured';
-      else status=insideBox(position.latitude,position.longitude,selected.venue_latitude,selected.venue_longitude,selected.venue_radius_m)?
-        'Inside event location boundary':'Outside event location boundary';
+      else status=match?.proximity.inside?'Inside an event location boundary':'Outside all event location boundaries';
     }
-    const isInside=status==='Inside event location boundary';
-    const isOutside=status==='Outside event location boundary';
+    const isInside=status==='Inside an event location boundary';
+    const isOutside=status==='Outside all event location boundaries';
     const statusStyle=isInside?'border-[#397565]/30 bg-[#397565]/10 text-[#397565]':isOutside?'border-[#FF6B2C]/30 bg-[#FF6B2C]/10 text-[#D64A12]':'border-[#121017]/10 bg-[#F3F0E9] text-[#121017]/70';
-    const statusGuidance=isInside?'Your current GPS position is within the permitted location box.':isOutside
-      ?selected?.location_policy==='strict'?'You are outside the permitted location box. Move inside before scanning attendance.':'You are outside the location box. Warning mode allows scanning, but the location will be recorded as outside.'
+    const statusGuidance=isInside?`Your GPS position is inside ${venue}.`:isOutside
+      ?selected?.location_policy==='strict'?'You are outside every event venue. Move inside one before scanning attendance.':`You are outside all event venues. Warning mode allows scanning and ${venue} will be recorded as the nearest venue.`
       :'';
     const reason=!window.isSecureContext?'This HTTP address cannot access phone GPS or camera. Open the system through a trusted HTTPS address.':locationReason==='location_timeout'?'No fresh GPS reading arrived before the request timed out.':locationReason==='permission_denied'?'Location permission was denied. Allow location for this site in Safari and iPhone settings.':locationReason==='stale_location'?'The device returned only an outdated GPS reading.':locationReason==='not_provided'?'Location has not been checked.':'Location is unavailable.';
     const note=locationReason==='checking'?'Checking location in the background.':
@@ -76,7 +87,7 @@
     locationCard.innerHTML=`<div class="rounded-xl border p-3 ${statusStyle}"><p><strong>Status:</strong> ${esc(status)}</p>${statusGuidance?`<p class="mt-1 leading-5">${esc(statusGuidance)}</p>`:''}</div>
       <p class="text-[#121017]/60">${esc(note)}</p>
       <details class="mt-2 rounded-xl border border-[#121017]/10 p-3" ${detailsOpen?'open':''}><summary class="cursor-pointer font-bold text-[#397565]">View location details</summary>
-        <div class="mt-2 grid gap-1 text-[#121017]/70"><p><strong>Venue:</strong> ${esc(venue+venueDistance)}</p>
+        <div class="mt-2 grid gap-1 text-[#121017]/70"><p><strong>${isInside?'Detected':'Nearest'} venue:</strong> ${esc(venue+venueDistance)}</p>
         <p><strong>Latitude:</strong> ${position?coords(position.latitude):'—'}</p>
         <p><strong>Longitude:</strong> ${position?coords(position.longitude):'—'}</p>
         <p><strong>Accuracy:</strong> ${position?'±'+Number(position.accuracy).toFixed(0)+' meters':'—'}</p>
@@ -86,7 +97,7 @@
   }
   function updateControls(){
     const active=Boolean(selected?.[`${checkpoint}_window_open`]);
-    const boundaryConfigured=selected?.venue_latitude!==null&&selected?.venue_latitude!==undefined&&selected?.venue_longitude!==null&&selected?.venue_longitude!==undefined&&selected?.venue_radius_m!==null&&selected?.venue_radius_m!==undefined;
+    const boundaryConfigured=configuredVenues().length>0;
     const gpsBlocked=!freshPosition()||!boundaryConfigured;
     const strictBlocked=selected?.location_policy==='strict'&&!insideSelectedVenue();
     const locationBlocked=gpsBlocked||strictBlocked;
@@ -103,7 +114,7 @@
       ?'Turn on GPS and wait for a current location before attendance scanning.'
       :!boundaryConfigured
         ?'The event location boundary is not configured.'
-        :'Move inside the event location box before strict attendance scanning.';
+        :'Move inside one of the event location boxes before strict attendance scanning.';
   }
   function getLocation(force=false){
     if(!gpsEnabled)return Promise.resolve(null);
@@ -186,8 +197,8 @@
     if(!['strict','warning'].includes(policy))return;
     $('[data-gps-policy-title]').textContent='GPS is required for this event';
     $('[data-gps-policy-message]').textContent=policy==='strict'
-      ?'Turn on GPS and remain inside the event location box. Attendance scanning stays disabled when GPS is off, unavailable, or outside the boundary.'
-      :'Turn on GPS before scanning attendance. Warning mode permits attendance outside the venue box, but GPS must remain available and the outside location will be recorded.';
+      ?'Turn on GPS and remain inside any event location box. Attendance scanning stays disabled when GPS is off, unavailable, or outside every boundary.'
+      :'Turn on GPS before scanning attendance. Warning mode permits attendance outside all venue boxes, but GPS must remain available and the nearest venue will be recorded.';
     gpsPolicyDialog.showModal();
   }
   function locationPayload(){
@@ -198,7 +209,7 @@
     $('[data-recent-scans]').innerHTML=rows.length?rows.map(row=>`<article class="flex flex-wrap items-center gap-3 p-4">
       <span class="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#C6F24E]/35 text-xs font-black text-[#397565]">✓</span>
       <div class="min-w-0 flex-1"><strong class="block truncate text-sm">${esc(row.full_name)}</strong>
-        <span class="block text-xs text-[#121017]/45">${esc(row.id_number)} · ${esc(row.team_name)} · ${esc(row.status)}</span></div>
+        <span class="block text-xs text-[#121017]/45">${esc(row.id_number)} · ${esc(row.team_name)} · ${esc(row.venue_name_snapshot||'Venue unavailable')}</span></div>
       <div class="text-right"><time class="block text-xs font-bold text-[#397565]">${row.phase==='out'?'Out':'In'} ${clock(row.scanned_at)}</time>
         <small class="text-xs text-[#121017]/50">${esc(row.location_status)}</small></div></article>`).join(''):'<p class="p-8 text-center text-sm text-[#121017]/45">No attendance scans yet.</p>';
   }
@@ -236,7 +247,7 @@
       ['Event day',`Day ${selected.day_number} · ${date(selected.schedule_date)}`],
       ['Session',`${selected.session_name} · ${time(selected.session_start)}–${time(selected.session_end)}`],
     ].map(([label,value])=>`<article><span class="text-[10px] font-black uppercase tracking-wider text-[#397565]">${label}</span><strong class="mt-1 block text-sm">${esc(value)}</strong></article>`).join('')+
-      `<details class="sbo-assignment-details" ${detailsOpen?'open':''}><summary>Venue and location policy</summary><p class="mt-2 text-sm">${esc(selected.venue_name||'Venue not configured')} · ${esc(selected.location_policy)} location policy</p></details>`;
+      `<details class="sbo-assignment-details" ${detailsOpen?'open':''}><summary>Venues and location policy</summary><p class="mt-2 text-sm">${esc((selected.venues||[]).map(venue=>venue.name).join(', ')||selected.venue_name||'Venue not configured')} · ${esc(selected.location_policy)} location policy</p></details>`;
     renderPhaseStatus();
     $('[data-next-session]').textContent=next?`Next scheduled session: ${next.event} · ${next.name} · ${date(next.starts_at)} ${clock(next.starts_at)}`:'No later attendance session is scheduled for today.';
     renderLocation();updateControls();
@@ -279,7 +290,7 @@
       }
       const response=await axios.post(API,{...payload,assignment_id:selected.id,checkpoint,location:locationPayload()},{headers:{'X-CSRF-Token':csrf}});
       const result=response.data.data;renderRecent(result.recent_scans);renderCounts(result.counts);
-      const location=result.location.status==='unavailable'?'unavailable':result.location.status+(result.location.distance_m===null?'':' · '+result.location.distance_m+' meters from venue');
+      const location=result.location.status==='unavailable'?'unavailable':`${result.location.status} · ${result.location.venue_name||'Venue unavailable'}${result.location.distance_m===null?'':' · '+result.location.distance_m+' meters from venue center'}`;
       const label=result.checkpoint==='out'?'Time out':'Time in';
       $('[data-scan-result]').innerHTML=`<strong class="text-[#397565]">${label} recorded successfully.</strong><br>${esc(result.student.full_name)} · ${esc(result.student.id_number)} · ${esc(result.student.team_name)}<br>${esc(result.session_name)} · ${clock(result.scanned_at)}<br>Location: ${esc(location)}`;
       $('[data-modal-scan-result]').dataset.state='success';
@@ -288,6 +299,7 @@
         {label:'Name',value:result.student.full_name},
         {label:'Student ID',value:result.student.id_number},
         {label:'Team',value:result.student.team_name},
+        {label:result.location.venue_match==='matched'?'Detected venue':'Nearest venue',value:result.location.venue_name||'Unavailable'},
         {label:'Time',value:clock(result.scanned_at)},
       ]});
       if(payload.mode==='qr'){lastToken=payload.token;lastTokenAt=Date.now();lastTokenIgnoreMs=30000;}

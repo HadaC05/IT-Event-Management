@@ -9,7 +9,7 @@ require_once __DIR__.'/student-attendance-qr.php';
 $live=(new Database())->connection();
 $source=(string)$live->query('SELECT DATABASE()')->fetchColumn();
 $scratch='faculty_scan_test_'.bin2hex(random_bytes(4));
-$tables=['tbl_roles','tbl_user_statuses','tbl_users','tbl_teams','tbl_team_user','tbl_locations','tbl_events','tbl_event_user',
+$tables=['tbl_roles','tbl_user_statuses','tbl_users','tbl_teams','tbl_team_user','tbl_locations','tbl_events','tbl_event_locations','tbl_event_user',
     'tbl_event_team','tbl_event_year_level','tbl_event_participants','tbl_attendance_session_modes','tbl_event_attendance_schedules',
     'tbl_attendances','tbl_attendance_entries','tbl_attendance_qr_tokens','tbl_activity_logs','tbl_sbo_scan_rate_limits'];
 $empty=['tbl_attendances','tbl_attendance_entries','tbl_attendance_qr_tokens','tbl_sbo_scan_rate_limits'];

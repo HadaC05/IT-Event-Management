@@ -13,8 +13,8 @@
     href="assets/images/cite_favicon.png"
 >
 <link rel="stylesheet" href="css/tailwind.css" />
-<link rel="stylesheet" href="css/adviser.css?v=20260917-flat-2" />
-<link rel="stylesheet" href="js/vendor/leaflet.css" />    <script src="js/shared/notifications.js?v=20260917-7" defer></script>
+<link rel="stylesheet" href="css/adviser.css?v=20260918-filter-layout" />
+<script src="js/shared/notifications.js?v=20260917-7" defer></script>
     <script src="js/shared/interactions.js?v=20260917-flat-1" defer></script>
 </head>
 <body class="app-shell min-h-screen bg-white font-sans text-[#121017] antialiased" data-admin-shell data-navigation-role="adviser">
@@ -28,7 +28,7 @@
 <section class="py-8" aria-labelledby="attendance-directory-heading"><header class="mb-5"><div class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between"><div><p class="text-[10px] font-black uppercase tracking-[.16em] text-[#397565]">Attendance workspace</p><h2 id="attendance-directory-heading" class="mt-1 text-xl font-black tracking-[-.025em] text-[#121017]">Choose an event</h2><p class="mt-1 text-[10px] font-semibold text-[#121017]/40" data-result-count>Loading events…</p></div><button class="hidden text-[10px] font-black text-[#FF6B2C] transition hover:text-[#c94414]" type="button" data-clear-filters>Clear all filters</button></div>
 <form class="mt-5 hidden gap-2 md:grid-cols-[minmax(260px,1fr)_190px_auto]" data-attendance-filters><label class="relative"><svg class="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 fill-none stroke-[#121017]/35 stroke-2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg><span class="sr-only">Search events</span><input class="h-11 w-full rounded-xl border border-[#121017]/10 bg-white/65 pl-10 pr-3 text-sm text-[#121017] outline-none transition placeholder:text-[#121017]/30 focus:border-[#397565] focus:bg-white focus:ring-4 focus:ring-[#397565]/10" name="search" maxlength="100" placeholder="Search event or venue…"></label><label class="relative"><span class="sr-only">Filter by schedule</span><select class="h-11 w-full appearance-none rounded-xl border border-[#121017]/10 bg-white/65 px-3 pr-9 text-xs font-bold text-[#121017]/60 outline-none transition focus:border-[#397565] focus:bg-white focus:ring-4 focus:ring-[#397565]/10" name="timing"><option value="">Any schedule</option><option value="upcoming">Upcoming</option><option value="ongoing">Ongoing</option><option value="completed">Ended</option></select><svg class="pointer-events-none absolute right-3.5 top-1/2 h-4 w-4 -translate-y-1/2 fill-none stroke-[#397565] stroke-2" viewBox="0 0 24 24"><path d="m7 10 5 5 5-5"/></svg></label></form></header>
 <nav class="mb-4 hidden flex-wrap items-center justify-between gap-3 border-y border-[#121017]/8 py-3 text-xs" data-pagination aria-label="Event pages"></nav><div class="grid gap-4 md:grid-cols-2 xl:grid-cols-3" data-event-list></div><nav class="mt-5 hidden flex-wrap items-center justify-between gap-3 border-t border-[#121017]/8 pt-4 text-xs" data-pagination aria-label="Event pages"></nav></section>
-<details class="group border-t border-[#121017]/10 py-6" data-scan-details>
+<details class="hidden" data-scan-details aria-hidden="true">
   <summary class="flex min-h-14 cursor-pointer list-none items-center justify-between rounded-2xl border border-[#121017]/10 bg-white px-5 text-sm font-black text-[#397565] marker:hidden">Scan locations <span class="text-xs text-[#121017]/50 group-open:rotate-180" aria-hidden="true">⌄</span></summary>
 <section class="border-t border-[#121017]/10 py-8" aria-labelledby="scan-locations-heading">
   <header class="mb-5"><p class="text-[10px] font-black uppercase tracking-[.16em] text-[#397565]">SBO QR attendance</p>
@@ -41,17 +41,18 @@
       <label class="grid gap-1 text-xs font-bold">Event type<select class="h-11 rounded-xl border border-[#121017]/10 bg-white px-3" name="event_type_id"><option value="">All event types</option></select></label>
       <label class="grid gap-1 text-xs font-bold">Specific event<select class="h-11 rounded-xl border border-[#121017]/10 bg-white px-3" name="event_id"><option value="">All events matching date and type</option></select></label>
     </div>
-    <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+    <div class="attendance-secondary-filters grid gap-3 sm:grid-cols-2">
       <label class="grid gap-1 text-xs font-bold">Session<select class="h-11 rounded-xl border border-[#121017]/10 bg-white px-3" name="session"><option value="">All recorded sessions</option><option value="morning">Morning session</option><option value="afternoon">Afternoon session</option><option value="whole_day">Whole-day session</option></select></label>
       <label class="grid gap-1 text-xs font-bold">Team / tribe<select class="h-11 rounded-xl border border-[#121017]/10 bg-white px-3" name="team_id"><option value="">All teams</option></select></label>
       <label class="grid gap-1 text-xs font-bold">SBO officer<select class="h-11 rounded-xl border border-[#121017]/10 bg-white px-3" name="officer_id"><option value="">All officers</option></select></label>
       <label class="grid gap-1 text-xs font-bold">Location status<select class="h-11 rounded-xl border border-[#121017]/10 bg-white px-3" name="location_status"><option value="">All statuses</option><option value="inside">Inside</option><option value="outside">Outside</option><option value="unavailable">Unavailable</option></select></label>
+      <div class="grid gap-1 text-xs font-bold"><span>Distance group</span><details class="attendance-distance-filter relative" data-distance-filter><summary class="flex h-11 cursor-pointer list-none items-center justify-between rounded-xl border border-[#121017]/10 bg-white px-3"><span data-distance-filter-label>All distance groups</span><span class="text-[#397565]" aria-hidden="true">⌄</span></summary><div class="attendance-distance-menu absolute right-0 top-[calc(100%+.4rem)] grid w-64 gap-1 rounded-xl border border-[#121017]/10 bg-white p-2 shadow-xl"><label class="flex min-h-10 cursor-pointer items-center gap-2 rounded-lg px-2 hover:bg-[#F3F0E9]"><input class="h-4 w-4 accent-[#397565]" type="checkbox" data-distance-all>All distance groups</label><label class="flex min-h-10 cursor-pointer items-center gap-2 rounded-lg px-2 hover:bg-[#F3F0E9]"><input class="h-4 w-4 accent-[#397565]" type="checkbox" name="distance_group[]" value="nearby">All nearby outside scans <small class="ml-auto text-[#121017]/40">≤250 m</small></label><label class="flex min-h-10 cursor-pointer items-center gap-2 rounded-lg px-2 hover:bg-[#F3F0E9]"><input class="h-4 w-4 accent-[#397565]" type="checkbox" name="distance_group[]" value="far">All far-from-venue scans <small class="ml-auto text-[#121017]/40">&gt;250 m</small></label><label class="flex min-h-10 cursor-pointer items-center gap-2 rounded-lg px-2 hover:bg-[#F3F0E9]"><input class="h-4 w-4 accent-[#397565]" type="checkbox" name="distance_group[]" value="inside">All in-venue scans</label></div></details></div>
     </div>
   </form>
   <section class="mt-5 overflow-hidden rounded-2xl border border-[#121017]/10 bg-white shadow-sm" data-latest-scan-map aria-labelledby="latest-scan-map-heading">
     <header class="flex flex-col gap-2 border-b border-[#121017]/8 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
       <div><p class="text-[9px] font-black uppercase tracking-[.16em] text-[#397565]">Live scan positions</p><h3 class="mt-1 text-base font-black" id="latest-scan-map-heading">Latest position per SBO officer</h3></div>
-      <div class="flex flex-wrap items-center gap-3 sm:justify-end"><div class="grid gap-1 text-left sm:text-right"><span class="text-[10px] font-bold text-[#121017]/45" data-latest-map-updated>Waiting for scan data...</span><span class="text-[9px] font-black uppercase tracking-wider text-[#397565]"><i class="mr-1 inline-block h-2 w-4 border border-dashed border-[#397565] bg-[#C6F24E]/20"></i>Venue box boundary</span></div><button class="hidden min-h-9 rounded-xl border border-[#397565]/25 bg-[#397565]/8 px-3 text-[10px] font-black text-[#397565] hover:bg-[#397565] hover:text-white" type="button" data-map-reset>Reset map</button></div>
+      <div class="flex flex-wrap items-center gap-3 sm:justify-end"><div class="grid gap-1 text-left sm:text-right"><span class="text-[10px] font-bold text-[#121017]/45" data-latest-map-updated>Waiting for scan data...</span><span class="text-[9px] font-black uppercase tracking-wider text-[#397565]"><i class="mr-1 inline-block h-2 w-4 border border-dashed border-[#397565] bg-[#C6F24E]/20"></i>Venue box boundary</span><span class="hidden flex-wrap items-center gap-x-3 gap-y-1 text-[9px] font-black text-[#121017]/55 sm:justify-end" data-team-map-legend></span></div><button class="hidden min-h-9 rounded-xl border border-[#397565]/25 bg-[#397565]/8 px-3 text-[10px] font-black text-[#397565] hover:bg-[#397565] hover:text-white" type="button" data-map-reset>Reset map</button></div>
     </header>
     <div class="relative min-h-80 bg-[#F3F0E9] sm:min-h-96">
       <div class="absolute inset-0 z-0" data-latest-map-canvas aria-label="Latest SBO attendance scan locations"></div>
@@ -86,8 +87,6 @@
     <script src="js/vendor/axios.min.js"></script>
     <script src="js/shared/password-gate.js?v=20260917-1"></script>
     <script src="js/shared/navigation.js?v=20260917-portal-flat-1"></script>
-    <script src="js/vendor/leaflet.js"></script>
-    <script src="js/adviser/attendance.js?v=20260917-1"></script>
-    <script src="js/adviser/attendance-scans.js?v=20260916-13"></script>
+    <script src="js/adviser/attendance.js?v=20260918-event-status"></script>
 </body>
 </html>

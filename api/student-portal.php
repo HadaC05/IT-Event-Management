@@ -235,7 +235,7 @@ final class StudentPortalRepository
              LEFT JOIN tbl_scores s ON s.team_id = t.id AND s.event_id = ?
              WHERE t.is_active = 1
              GROUP BY t.id, t.name, t.color
-             ORDER BY score_entries > 0 DESC, total_score DESC, t.name"
+             ORDER BY COUNT(s.id) > 0 DESC, COALESCE(SUM(s.points), 0) DESC, t.name"
         );
         $teams->execute([$eventId]);
         $teamRows = $teams->fetchAll();
