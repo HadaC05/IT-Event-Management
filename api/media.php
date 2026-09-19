@@ -1,0 +1,45 @@
+<?php
+
+declare(strict_types=1);
+
+require_once __DIR__.'/db_connect.php';
+require_once __DIR__.'/ApiSupport.php';
+require_once __DIR__.'/MediaRepository.php';
+
+$actor = AuthGuard::requireAnyRole(MediaPermissions::roles());
+$repository = new MediaRepository((new Database())->connection());
+
+try {
+    if ($_SERVER['REQUEST_METHOD'] === 'GET') {
+        $eventId = filter_var($_GET['event_id'] ?? null, FILTER_VALIDATE_INT) ?: null;
+        JsonResponse::send(['success'=>true,'data'=>$repository->pageData($actor, $eventId)]);
+    }
+    if ($_SERVER['REQUEST_METHOD'] !== 'POST') JsonResponse::send(['success'=>false,'message'=>'Method not allowed.'], 405);
+    if (!SessionManager::validateCsrf($_SERVER['HTTP_X_CSRF_TOKEN'] ?? null)) JsonResponse::send(['success'=>false,'message'=>'Your session expired. Refresh and try again.'], 403);
+    $input = $_POST;
+    if (!$input) { $decoded = json_decode(file_get_contents('php://input'), true); $input = is_array($decoded) ? $decoded : []; }
+    $action = (string) ($input['action'] ?? 'create');
+    $userId = (int) $actor['id'];
+    $postId = (int) ($input['post_id'] ?? $input['id'] ?? 0);
+    $message = match ($action) {
+        'create' => (function () use ($repository,$actor,$input) { $repository->create($actor,$input,$_FILES); return (new MediaPermissions((string)$actor['role']))->isStudent() ? 'Post submitted for adviser approval.' : 'Post published.'; })(),
+        'update' => (function () use ($repository,$actor,$input) { $repository->update($actor,$input,$_FILES); return (new MediaPermissions((string)$actor['role']))->isStudent() ? 'Post updated and sent for review.' : 'Post updated.'; })(),
+        'delete' => (function () use ($repository,$actor,$postId) { $repository->delete($actor,$postId); return 'Post deleted.'; })(),
+        'approve','reject' => (function () use ($repository,$actor,$postId,$action,$input) { $repository->review($actor,$postId,$action === 'approve' ? 'approved' : 'rejected',(string)($input['reason'] ?? '')); return $action === 'approve' ? 'Post approved.' : 'Post rejected.'; })(),
+        'hide' => (function () use ($repository,$actor,$postId,$input) { $repository->hide($actor,$postId,(string)($input['reason'] ?? '')); return 'Post hidden from the public feed.'; })(),
+        'reaction_toggle' => (function () use ($repository,$userId,$postId,$input) { $repository->toggleReaction($userId,$postId,(string)($input['type'] ?? '')); return 'Reaction updated.'; })(),
+        'comment_create','comment_update' => (function () use ($repository,$userId,$postId,$input,$action) { $repository->saveComment($userId,$postId,(string)($input['body'] ?? ''),$action === 'comment_update' ? (int)($input['comment_id'] ?? 0) : null); return $action === 'comment_create' ? 'Comment added.' : 'Comment updated.'; })(),
+        'comment_delete' => (function () use ($repository,$userId,$postId,$input) { $repository->deleteComment($userId,$postId,(int)($input['comment_id'] ?? 0)); return 'Comment deleted.'; })(),
+        'comment_pin' => (function () use ($repository,$userId,$postId,$input) { $repository->pinComment($userId,$postId,(int)($input['comment_id'] ?? 0),!empty($input['pin'])); return !empty($input['pin']) ? 'Comment pinned.' : 'Comment unpinned.'; })(),
+        'carousel_update' => (function () use ($repository,$actor,$input) { $repository->updateCarousel($actor,$input,$_FILES); return 'Event carousel updated.'; })(),
+        default => throw new InvalidArgumentException('Unknown media action.'),
+    };
+    JsonResponse::send(['success'=>true,'message'=>$message]);
+} catch (MediaForbiddenException $exception) {
+    JsonResponse::send(['success'=>false,'message'=>$exception->getMessage()], 403);
+} catch (InvalidArgumentException $exception) {
+    JsonResponse::send(['success'=>false,'message'=>$exception->getMessage()], 422);
+} catch (Throwable $exception) {
+    error_log($exception->getMessage());
+    JsonResponse::send(['success'=>false,'message'=>'The media request failed.'], 500);
+}

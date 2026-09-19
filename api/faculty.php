@@ -132,43 +132,6 @@ final class FacultyRepository
         return (new SboAttendanceRepository($this->db,new SboAuthorization($this->db)))->scanFaculty($userId,$input,$assignment);
     }
 
-    public function posts(int $userId): array
-    {
-        $posts = $this->rows("SELECT p.id,p.user_id,p.event_id,p.content,p.image_path,p.created_at,e.title event_title,e.end_at,u.first_name,u.last_name,r.name author_role FROM tbl_posts p JOIN tbl_users u ON u.id=p.user_id JOIN tbl_roles r ON r.id=u.role_id LEFT JOIN tbl_events e ON e.id=p.event_id WHERE p.status='approved' AND p.deleted_at IS NULL ORDER BY p.created_at DESC LIMIT 100");
-        return ['posts'=>$posts, 'user_id'=>$userId, 'events'=>$this->rows('SELECT id,title,end_at FROM tbl_events WHERE deleted_at IS NULL ORDER BY start_at DESC')];
-    }
-
-    public function savePost(int $userId, array $input, array $files): void
-    {
-        $action = (string)($input['action'] ?? 'create');
-        if (!in_array($action, ['create','update','delete'], true)) throw new InvalidArgumentException('Unknown post action.');
-        $id = (int)($input['id'] ?? 0);
-        if ($action !== 'create' && !$this->rows("SELECT id FROM tbl_posts WHERE id=? AND user_id=? AND deleted_at IS NULL", [$id,$userId])) throw new DomainException('You can change only your own posts.');
-        if ($action === 'delete') { $this->db->prepare('UPDATE tbl_posts SET deleted_at=CURRENT_TIMESTAMP WHERE id=? AND user_id=?')->execute([$id,$userId]); return; }
-        $content = trim((string)($input['content'] ?? ''));
-        if ($content==='' || mb_strlen($content)>3000) throw new InvalidArgumentException('Write a post of up to 3,000 characters.');
-        $eventId = filter_var($input['event_id'] ?? null, FILTER_VALIDATE_INT) ?: null;
-        if ($eventId && !$this->rows('SELECT id FROM tbl_events WHERE id=? AND deleted_at IS NULL', [$eventId])) throw new InvalidArgumentException('Choose a valid event.');
-        $imagePath = null;
-        $file = $files['image'] ?? null;
-        if (is_array($file) && ($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_NO_FILE) {
-            if ($file['error'] !== UPLOAD_ERR_OK || $file['size'] > 5*1024*1024) throw new InvalidArgumentException('Choose an image no larger than 5 MB.');
-            $mime = (new finfo(FILEINFO_MIME_TYPE))->file($file['tmp_name']);
-            $ext = ['image/jpeg'=>'jpg','image/png'=>'png','image/webp'=>'webp'][$mime] ?? null;
-            if (!$ext || !getimagesize($file['tmp_name'])) throw new InvalidArgumentException('Use a valid JPG, PNG, or WebP image.');
-            $dir = dirname(__DIR__).'/assets/uploads/posts';
-            if (!is_dir($dir)) mkdir($dir, 0775, true);
-            $imagePath = 'assets/uploads/posts/'.bin2hex(random_bytes(16)).'.'.$ext;
-            if (!move_uploaded_file($file['tmp_name'], dirname(__DIR__).'/'.$imagePath)) throw new RuntimeException('Image upload failed.');
-        }
-        if ($action === 'create') $this->db->prepare("INSERT INTO tbl_posts(user_id,event_id,category,content,image_path,status,is_official,created_at,updated_at) VALUES(?,?,'general',?,?,'approved',0,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)")->execute([$userId,$eventId,$content,$imagePath]);
-        else {
-            $sql = 'UPDATE tbl_posts SET content=?,event_id=?,updated_at=CURRENT_TIMESTAMP'.($imagePath ? ',image_path=?' : '').' WHERE id=? AND user_id=?';
-            $params = [$content,$eventId]; if ($imagePath) $params[]=$imagePath; array_push($params,$id,$userId);
-            $this->db->prepare($sql)->execute($params);
-        }
-    }
-
     public function profile(int $userId): array
     {
         return $this->rows('SELECT first_name,middle_name,last_name,username,email,bio,profile_photo_path FROM tbl_users WHERE id=?', [$userId])[0];
@@ -204,7 +167,7 @@ try {
         $data=match($page) {
             'students'=>$repo->students((int)$actor['id']), 'team'=>$repo->team((int)$actor['id']),
             'leaderboard'=>$repo->leaderboard((int)$actor['id'],$_GET), 'attendance'=>$repo->attendance((int)$actor['id']),
-            'posts'=>$repo->posts((int)$actor['id']), 'profile'=>$repo->profile((int)$actor['id']), default=>null,
+            'profile'=>$repo->profile((int)$actor['id']), default=>null,
         };
         if ($data===null) JsonResponse::send(['success'=>false,'message'=>'Unknown Faculty page.'],404);
         JsonResponse::send(['success'=>true,'data'=>$data]);
@@ -215,7 +178,6 @@ try {
         $input=json_decode(file_get_contents('php://input'),true);
         $data=$repo->scan((int)$actor['id'],is_array($input)?$input:[]);
     }
-    elseif ($page==='posts') { $repo->savePost((int)$actor['id'],$_POST,$_FILES); $data=[]; }
     elseif ($page==='profile') $data=$repo->saveProfile((int)$actor['id'],$_POST,$_FILES);
     else JsonResponse::send(['success'=>false,'message'=>'This page is view only.'],405);
     JsonResponse::send(['success'=>true,'data'=>$data]);

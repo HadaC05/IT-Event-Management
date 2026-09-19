@@ -4,7 +4,8 @@ body {
 }
 
 body > main {
-  max-width: 1080px;
+  width: auto;
+  max-width: none;
   min-width: 0;
 }
 
@@ -21,16 +22,6 @@ body > main > header + section,
 body > main > header + div,
 body > main > header + label {
   margin-top: 1.25rem;
-}
-
-@media (min-width: 1024px) {
-  body > main {
-    margin-left: max(5rem, calc(50vw - 540px + 2.5rem));
-  }
-
-  body:has([data-sbo-sidebar-toggle][aria-expanded="true"]) > main {
-    margin-left: max(16rem, calc(50vw - 540px + 8rem));
-  }
 }
 
 body > main section,

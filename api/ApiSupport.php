@@ -98,7 +98,7 @@ final class SessionManager
 
 final class AuthGuard
 {
-    public static function requireRole(string $role): array
+    public static function requireAnyRole(array $roles): array
     {
         SessionManager::start();
         $user = $_SESSION['user'] ?? null;
@@ -107,7 +107,7 @@ final class AuthGuard
             JsonResponse::send(['success' => false, 'message' => 'Authentication required.'], 401);
         }
 
-        if (($user['role'] ?? null) !== $role) {
+        if (!in_array($user['role'] ?? null, $roles, true)) {
             JsonResponse::send(['success' => false, 'message' => 'You are not authorized to access this resource.'], 403);
         }
 
@@ -120,6 +120,11 @@ final class AuthGuard
         }
 
         return $user;
+    }
+
+    public static function requireRole(string $role): array
+    {
+        return self::requireAnyRole([$role]);
     }
 }
 

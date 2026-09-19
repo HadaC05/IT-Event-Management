@@ -1,15 +1,19 @@
 (() => {
   'use strict';
 
-  const ROLE_LABELS = {student: 'Student', sbo: 'SBO Officer', adviser: 'SBO Adviser', faculty: 'Faculty'};
-  const ROLE_HOME = {student: 'pages/student/home.html', sbo: 'pages/sbo/attendance.html', adviser: 'pages/adviser/dashboard.html', faculty: 'pages/faculty/students.html'};
+  const ROLE_LABELS = {admin: 'Admin', student: 'Student', sbo: 'SBO Officer', adviser: 'SBO Adviser', faculty: 'Faculty'};
+  const ROLE_SESSION_ROLES = {admin: ['Admin', 'SBO'], student: ['Student'], sbo: ['SBO Officer'], adviser: ['SBO Adviser'], faculty: ['Faculty']};
+  const ROLE_HOME = {admin: 'pages/admin/media.html', student: 'pages/student/home.html', sbo: 'pages/sbo/attendance.html', adviser: 'pages/adviser/dashboard.html', faculty: 'pages/faculty/students.html'};
   const ROLE_PAGES = {
+    admin: [
+      ['media','Media Feed','pages/admin/media.html','M4 5h16v14H4V5Zm3 10 3-3 2 2 3-4 3 5M8 9h.01'],
+    ],
     faculty: [
       ['students','Students','pages/faculty/students.html','M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8'],
       ['leaderboard','Leaderboard','pages/faculty/leaderboard.html','M8 21h8M12 17v4M7 4h10v4a5 5 0 0 1-10 0V4Z'],
       ['team','Assigned Team','pages/faculty/team.html','M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8'],
       ['attendance','Team Attendance','pages/faculty/attendance.html','M5 4h14v16H5V4Zm4 4h6m-6 4h6'],
-      ['posts','Posts','pages/faculty/posts.html','M4 5h16v12H8l-4 4V5Zm4 4h8m-8 4h5'],
+      ['posts','Media Feed','pages/faculty/posts.html','M4 5h16v12H8l-4 4V5Zm4 4h8m-8 4h5'],
       ['profile','Profile','pages/faculty/profile.html','M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8ZM4 21a8 8 0 0 1 16 0'],
     ],
     student: [
@@ -23,7 +27,7 @@
       ['attendance','Attendance','pages/sbo/attendance.html','M9 11l2 2 4-4m6 3a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z'],
       ['students','Students','pages/sbo/students.html','M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm13 10v-2a4 4 0 0 0-3-3.87'],
       ['scores','Scores','pages/sbo/scores.html','M8 21h8M12 17v4M7 4h10v4a5 5 0 0 1-10 0V4Zm0 2H4v1a4 4 0 0 0 4 4m9-5h3v1a4 4 0 0 1-4 4'],
-      ['media','Media','pages/sbo/media.html','M4 5h16v14H4V5Zm3 10 3-3 2 2 3-4 3 5M8 9h.01'],
+      ['media','Media Feed','pages/sbo/media.html','M4 5h16v14H4V5Zm3 10 3-3 2 2 3-4 3 5M8 9h.01'],
     ],
     adviser: [
       ['dashboard','Dashboard','pages/adviser/dashboard.html','M4 13h6V4H4v9Zm0 7h6v-4H4v4Zm10 0h6v-9h-6v9Zm0-16v4h6V4h-6Z'],
@@ -37,7 +41,7 @@
       ['leaderboard','Leaderboard','pages/adviser/leaderboard.html','M4 20V10h4v10H4Zm6 0V4h4v16h-4Zm6 0v-7h4v7h-4Z'],
       ['announcements','Announcements','pages/adviser/announcements.html','M4 13V9l11-5v14L4 13Zm0 0v5h4v-3'],
       ['reports','Reports','pages/adviser/reports.html','M5 3h10l4 4v14H5V3Zm10 0v5h4M8 12h8M8 16h8'],
-      ['posts','Post Review','pages/adviser/posts.html','M4 5h16v12H8l-4 4V5Zm4 4h8m-8 4h5'],
+      ['posts','Media Feed','pages/adviser/posts.html','M4 5h16v12H8l-4 4V5Zm4 4h8m-8 4h5'],
     ],
   };
 
@@ -52,7 +56,7 @@
   };
   const ensureStyles = () => {
     if (document.querySelector('link[href^="css/navigation.css"]')) return;
-    const link = document.createElement('link'); link.rel = 'stylesheet'; link.href = 'css/navigation.css?v=20260917-portal-flat-1'; document.head.append(link);
+    const link = document.createElement('link'); link.rel = 'stylesheet'; link.href = 'css/navigation.css?v=20260919-notifications-2'; document.head.append(link);
   };
   const clone = (documentFragment, selector) => documentFragment.querySelector(selector).content.firstElementChild.cloneNode(true);
   const linkMarkup = (item, active, mobile = false) => {
@@ -67,6 +71,7 @@
     const load = async () => {
       const response = await axios.get('api/student-home.php'), data = response.data.data, count = Number(data.unread_notifications || 0);
       const badge = slot.querySelector('[data-notification-count]'); badge.textContent = count > 9 ? '9+' : count; badge.classList.toggle('hidden', !count); badge.classList.toggle('grid', !!count);
+      slot.querySelector('[data-notification-summary]').textContent = count ? `${count} unread notification${count === 1 ? '' : 's'}` : 'No unread notifications';
       slot.querySelector('[data-mark-all-notifications]').classList.toggle('hidden', !count);
       slot.querySelector('[data-notification-list]').innerHTML = data.notifications?.length ? data.notifications.map(item => `<article class="flex gap-3 border-b px-4 py-3 ${item.is_read ? '' : 'bg-[#C6F24E]/10'}"><p class="min-w-0 flex-1 text-xs font-bold leading-5">${esc(item.message)}</p>${item.is_read ? '' : `<button class="shrink-0 text-[10px] font-black text-[#397565]" data-mark-notification="${esc(item.id)}">Mark read</button>`}</article>`).join('') : '<p class="px-6 py-10 text-center text-xs text-[#121017]/45">No notifications yet.</p>';
     };
@@ -85,7 +90,7 @@
     ensureStyles();
     const [session, fragmentResponse] = await Promise.all([axios.get('api/auth.php?action=session'), axios.get('pages/shared/navigation.html?v=20260917-6',{responseType:'text'})]);
     const expected = ROLE_LABELS[role];
-    if (!session.data.authenticated || session.data.user?.role !== expected) { location.href = './'; throw new Error(`${expected} authentication required.`); }
+    if (!session.data.authenticated || !ROLE_SESSION_ROLES[role].includes(session.data.user?.role)) { location.href = './'; throw new Error(`${expected} authentication required.`); }
     const user = session.data.user, csrf = session.data.csrf_token, name = user.full_name || `${user.first_name || ''} ${user.last_name || ''}`.trim(), initials = `${user.first_name?.[0] || ''}${user.last_name?.[0] || ''}`.toUpperCase() || expected.slice(0,2).toUpperCase();
     await window.RequiredPasswordGate.open(user, csrf);
     const fragment = new DOMParser().parseFromString(fragmentResponse.data,'text/html');
@@ -124,7 +129,7 @@
       if (persist) localStorage.setItem(sidebarStateKey,expanded ? '1' : '0');
     };
     setDesktopExpanded(localStorage.getItem(sidebarStateKey) === '1',false);
-    if (role === 'adviser' || role === 'faculty') {
+    if (role === 'admin' || role === 'adviser' || role === 'faculty') {
       const mobileToggle = header.querySelector('[data-shared-mobile-toggle]'), scrim = clone(fragment,'[data-shared-navigation-scrim]');
       mobileToggle.classList.remove('hidden'); mobileToggle.classList.add('grid'); document.body.append(scrim);
       const setMobileOpen = open => {

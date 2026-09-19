@@ -1,0 +1,542 @@
+<?php
+
+declare(strict_types=1);
+
+final class MediaForbiddenException extends DomainException {}
+
+final class MediaPermissions
+{
+    private const ALLOWED_ROLES = ['Admin', 'SBO', 'SBO Adviser', 'SBO Officer', 'Faculty', 'Student'];
+
+    public function __construct(private readonly string $role) {}
+
+    public static function roles(): array { return self::ALLOWED_ROLES; }
+    public function role(): string { return $this->role; }
+    public function isStudent(): bool { return $this->role === 'Student'; }
+    public function isOfficer(): bool { return $this->role === 'SBO Officer'; }
+    public function isAdmin(): bool { return in_array($this->role, ['Admin', 'SBO'], true); }
+    public function canModerate(): bool { return $this->isAdmin() || $this->role === 'SBO Adviser'; }
+    public function canManageCarousel(): bool { return $this->canModerate() || $this->isOfficer(); }
+    public function automaticStatus(): string { return $this->isStudent() ? 'pending' : 'approved'; }
+
+    public function values(): array
+    {
+        return [
+            'create' => true,
+            'moderate' => $this->canModerate(),
+            'hide' => $this->canModerate(),
+            'manage_carousel' => $this->canManageCarousel(),
+            'automatic_approval' => !$this->isStudent(),
+        ];
+    }
+}
+
+final class MediaRepository
+{
+    private const IMAGE_DIRECTORY = 'assets/uploads/posts';
+    private const VIDEO_DIRECTORY = 'assets/uploads/post-videos';
+    private const CAROUSEL_DIRECTORY = 'assets/uploads/event-posters';
+
+    public function __construct(private readonly PDO $db) {}
+
+    public function pageData(array $actor, ?int $eventId = null): array
+    {
+        $userId = (int) $actor['id'];
+        $permissions = new MediaPermissions((string) $actor['role']);
+        $activeEvents = $this->activeEvents(4);
+        return [
+            'viewer' => [
+                'id' => $userId,
+                'role' => $permissions->role(),
+                'full_name' => trim((string) ($actor['full_name'] ?? ($actor['first_name'] ?? '').' '.($actor['last_name'] ?? ''))),
+            ],
+            'permissions' => $permissions->values(),
+            'active_events' => $activeEvents,
+            'post_events' => $permissions->isOfficer() ? $this->officerEvents($userId) : $this->activeEvents(null),
+            'posts' => $this->approvedPosts($userId, $eventId),
+            'own_posts' => $this->ownPosts($userId),
+            'moderation' => $permissions->canModerate() ? $this->moderationQueue() : [],
+            'moderation_counts' => $permissions->canModerate() ? $this->moderationCounts() : [],
+            'event_program' => $this->eventProgram(),
+            'carousel_events' => $permissions->canManageCarousel()
+                ? ($permissions->isOfficer() ? $this->officerEvents($userId) : $this->activeEvents(null))
+                : [],
+            'featured_events' => $this->carouselEvents(),
+        ];
+    }
+
+    public function create(array $actor, array $input, array $files): int
+    {
+        $permissions = new MediaPermissions((string) $actor['role']);
+        $userId = (int) $actor['id'];
+        $content = $this->content($input);
+        $eventId = $this->eventId($input, $userId, $permissions);
+        [$imagePath, $videoPath] = $this->storeMedia($files);
+        $status = $permissions->automaticStatus();
+        $this->db->beginTransaction();
+        try {
+            $statement = $this->db->prepare("INSERT INTO tbl_posts(user_id,event_id,category,content,image_path,video_path,status,is_official,reviewed_by,reviewed_at,created_at,updated_at) VALUES(?,?,'general',?,?,?,?,0,?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)");
+            $reviewer = $status === 'approved' ? $userId : null;
+            $reviewedAt = $status === 'approved' ? date('Y-m-d H:i:s') : null;
+            $statement->execute([$userId, $eventId, $content, $imagePath, $videoPath, $status, $reviewer, $reviewedAt]);
+            $postId = (int) $this->db->lastInsertId();
+            $this->audit($postId, $userId, 'submitted', null, $status);
+            if ($permissions->isStudent()) $this->notifyModerators($postId, $actor);
+            $this->db->commit();
+            return $postId;
+        } catch (Throwable $exception) {
+            if ($this->db->inTransaction()) $this->db->rollBack();
+            $this->removeUpload($imagePath);
+            $this->removeUpload($videoPath);
+            throw $exception;
+        }
+    }
+
+    public function update(array $actor, array $input, array $files): void
+    {
+        $userId = (int) $actor['id'];
+        $permissions = new MediaPermissions((string) $actor['role']);
+        $post = $this->ownedPost((int) ($input['id'] ?? 0), $userId);
+        if ($permissions->isStudent() && !in_array($post['status'], ['pending', 'approved', 'rejected'], true)) {
+            throw new MediaForbiddenException('This post can no longer be edited.');
+        }
+        if (!$permissions->isStudent() && $post['status'] === 'hidden') {
+            throw new MediaForbiddenException('A hidden post cannot be edited by its author.');
+        }
+        $content = $this->content($input);
+        $eventId = $this->eventId($input, $userId, $permissions);
+        [$newImage, $newVideo] = $this->storeMedia($files);
+        $removeMedia = !empty($input['remove_media']);
+        $imagePath = $removeMedia ? null : $post['image_path'];
+        $videoPath = $removeMedia ? null : $post['video_path'];
+        if ($newImage !== null) { $imagePath = $newImage; $videoPath = null; }
+        if ($newVideo !== null) { $videoPath = $newVideo; $imagePath = null; }
+        $status = $permissions->isStudent() ? 'pending' : 'approved';
+        $this->db->beginTransaction();
+        try {
+            $statement = $this->db->prepare('UPDATE tbl_posts SET event_id=?,content=?,image_path=?,video_path=?,status=?,rejection_reason=NULL,reviewed_by=?,reviewed_at=?,updated_at=CURRENT_TIMESTAMP WHERE id=? AND user_id=? AND deleted_at IS NULL');
+            $statement->execute([$eventId, $content, $imagePath, $videoPath, $status, $status === 'approved' ? $userId : null, $status === 'approved' ? date('Y-m-d H:i:s') : null, (int) $post['id'], $userId]);
+            $this->audit((int) $post['id'], $userId, 'edited', (string) $post['status'], $status, $permissions->isStudent() ? 'Student edit requires a new review.' : null);
+            if ($permissions->isStudent()) $this->notifyModerators((int) $post['id'], $actor);
+            $this->db->commit();
+        } catch (Throwable $exception) {
+            if ($this->db->inTransaction()) $this->db->rollBack();
+            $this->removeUpload($newImage);
+            $this->removeUpload($newVideo);
+            throw $exception;
+        }
+        if ($imagePath !== $post['image_path']) $this->removeUpload($post['image_path']);
+        if ($videoPath !== $post['video_path']) $this->removeUpload($post['video_path']);
+    }
+
+    public function delete(array $actor, int $postId): void
+    {
+        $userId = (int) $actor['id'];
+        $post = $this->ownedPost($postId, $userId);
+        if ($post['status'] === 'hidden') throw new MediaForbiddenException('A hidden post cannot be deleted by its author.');
+        $this->db->beginTransaction();
+        try {
+            $statement = $this->db->prepare('UPDATE tbl_posts SET deleted_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP WHERE id=? AND user_id=? AND deleted_at IS NULL');
+            $statement->execute([$postId, $userId]);
+            $this->audit($postId, $userId, 'deleted', (string) $post['status'], null, 'Soft deleted by the author.');
+            $this->db->commit();
+        } catch (Throwable $exception) {
+            if ($this->db->inTransaction()) $this->db->rollBack();
+            throw $exception;
+        }
+    }
+
+    public function review(array $actor, int $postId, string $status, string $reason): void
+    {
+        $permissions = new MediaPermissions((string) $actor['role']);
+        if (!$permissions->canModerate()) throw new MediaForbiddenException('Only an Admin or SBO Adviser may review student posts.');
+        if (!in_array($status, ['approved', 'rejected'], true)) throw new InvalidArgumentException('Choose approve or reject.');
+        $reason = trim($reason);
+        if ($status === 'rejected' && $reason === '') throw new InvalidArgumentException('Enter a rejection reason for the student.');
+        if (mb_strlen($reason) > 1000) throw new InvalidArgumentException('The rejection reason may not exceed 1,000 characters.');
+        $statement = $this->db->prepare("SELECT p.*,r.name author_role FROM tbl_posts p JOIN tbl_users u ON u.id=p.user_id JOIN tbl_roles r ON r.id=u.role_id WHERE p.id=? AND p.deleted_at IS NULL");
+        $statement->execute([$postId]);
+        $post = $statement->fetch();
+        if (!$post) throw new InvalidArgumentException('Post not found.');
+        if ($post['author_role'] !== 'Student') throw new MediaForbiddenException('Only student posts enter the approval queue.');
+        if ($post['status'] !== 'pending') throw new InvalidArgumentException('This post is no longer pending.');
+        $actorId = (int) $actor['id'];
+        $this->db->beginTransaction();
+        try {
+            $update = $this->db->prepare("UPDATE tbl_posts SET status=?,rejection_reason=?,reviewed_by=?,reviewed_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP WHERE id=? AND status='pending'");
+            $update->execute([$status, $status === 'rejected' ? $reason : null, $actorId, $postId]);
+            if ($update->rowCount() !== 1) throw new InvalidArgumentException('This post has already been reviewed.');
+            $this->audit($postId, $actorId, $status, 'pending', $status, $status === 'rejected' ? $reason : null);
+            $this->notifyPostOwner((int) $post['user_id'], $postId, $status, $status === 'rejected' ? $reason : null);
+            $this->db->commit();
+        } catch (Throwable $exception) {
+            if ($this->db->inTransaction()) $this->db->rollBack();
+            throw $exception;
+        }
+    }
+
+    public function hide(array $actor, int $postId, string $reason): void
+    {
+        $permissions = new MediaPermissions((string) $actor['role']);
+        if (!$permissions->canModerate()) throw new MediaForbiddenException('Only an Admin or SBO Adviser may hide posts.');
+        $reason = trim($reason);
+        if ($reason === '') throw new InvalidArgumentException('Enter a reason for hiding this post.');
+        if (mb_strlen($reason) > 1000) throw new InvalidArgumentException('The reason may not exceed 1,000 characters.');
+        $statement = $this->db->prepare("SELECT id,user_id,status FROM tbl_posts WHERE id=? AND status='approved' AND deleted_at IS NULL");
+        $statement->execute([$postId]);
+        $post = $statement->fetch();
+        if (!$post) throw new InvalidArgumentException('Only an approved public post can be hidden.');
+        $actorId = (int) $actor['id'];
+        $this->db->beginTransaction();
+        try {
+            $this->db->prepare("UPDATE tbl_posts SET status='hidden',rejection_reason=?,reviewed_by=?,reviewed_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP WHERE id=? AND status='approved'")->execute([$reason, $actorId, $postId]);
+            $this->audit($postId, $actorId, 'hidden', 'approved', 'hidden', $reason);
+            $this->notifyPostOwner((int) $post['user_id'], $postId, 'hidden', $reason);
+            $this->db->commit();
+        } catch (Throwable $exception) {
+            if ($this->db->inTransaction()) $this->db->rollBack();
+            throw $exception;
+        }
+    }
+
+    public function toggleReaction(int $userId, int $postId, string $type): void
+    {
+        $this->publicPost($postId);
+        if ($type !== 'like') throw new InvalidArgumentException('Only the Like reaction is available.');
+        $statement = $this->db->prepare('SELECT type FROM tbl_post_reactions WHERE post_id=? AND user_id=?');
+        $statement->execute([$postId, $userId]);
+        if ($statement->fetchColumn() === $type) {
+            $this->db->prepare('DELETE FROM tbl_post_reactions WHERE post_id=? AND user_id=?')->execute([$postId, $userId]);
+            return;
+        }
+        $this->db->prepare('INSERT INTO tbl_post_reactions(post_id,user_id,type,created_at,updated_at) VALUES(?,?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP) ON DUPLICATE KEY UPDATE type=VALUES(type),updated_at=CURRENT_TIMESTAMP')->execute([$postId, $userId, $type]);
+    }
+
+    public function saveComment(int $userId, int $postId, string $body, ?int $commentId): void
+    {
+        $this->publicPost($postId);
+        $body = trim($body);
+        if ($body === '' || mb_strlen($body) > 1000) throw new InvalidArgumentException('Comment must contain 1 to 1,000 characters.');
+        if ($commentId === null) {
+            $this->db->prepare('INSERT INTO tbl_post_comments(post_id,user_id,body,created_at,updated_at) VALUES(?,?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)')->execute([$postId, $userId, $body]);
+            return;
+        }
+        $this->ownedComment($userId, $postId, $commentId);
+        $this->db->prepare('UPDATE tbl_post_comments SET body=?,updated_at=CURRENT_TIMESTAMP WHERE id=? AND post_id=? AND user_id=?')->execute([$body, $commentId, $postId, $userId]);
+    }
+
+    public function deleteComment(int $userId, int $postId, int $commentId): void
+    {
+        $this->publicPost($postId);
+        $this->ownedComment($userId, $postId, $commentId);
+        $this->db->prepare('DELETE FROM tbl_post_comments WHERE id=? AND post_id=? AND user_id=?')->execute([$commentId, $postId, $userId]);
+    }
+
+    public function pinComment(int $userId, int $postId, int $commentId, bool $pin): void
+    {
+        $post = $this->publicPost($postId);
+        if ((int) $post['user_id'] !== $userId) throw new MediaForbiddenException('Only the post author can pin a comment.');
+        $statement = $this->db->prepare('SELECT id FROM tbl_post_comments WHERE id=? AND post_id=?');
+        $statement->execute([$commentId, $postId]);
+        if (!$statement->fetchColumn()) throw new InvalidArgumentException('Comment not found.');
+        $this->db->beginTransaction();
+        try {
+            if ($pin) $this->db->prepare('UPDATE tbl_post_comments SET is_pinned=0 WHERE post_id=?')->execute([$postId]);
+            $this->db->prepare('UPDATE tbl_post_comments SET is_pinned=?,updated_at=CURRENT_TIMESTAMP WHERE id=? AND post_id=?')->execute([$pin ? 1 : 0, $commentId, $postId]);
+            $this->db->commit();
+        } catch (Throwable $exception) {
+            if ($this->db->inTransaction()) $this->db->rollBack();
+            throw $exception;
+        }
+    }
+
+    public function updateCarousel(array $actor, array $input, array $files): void
+    {
+        $permissions = new MediaPermissions((string) $actor['role']);
+        if (!$permissions->canManageCarousel()) throw new MediaForbiddenException('You cannot manage event carousel content.');
+        $eventId = (int) ($input['event_id'] ?? 0);
+        if ($permissions->isOfficer()) $this->assertOfficerEvent((int) $actor['id'], $eventId);
+        $statement = $this->db->prepare('SELECT id,poster_path,end_at FROM tbl_events WHERE id=? AND deleted_at IS NULL');
+        $statement->execute([$eventId]);
+        $event = $statement->fetch();
+        if (!$event) throw new InvalidArgumentException('Choose a valid event.');
+        $featured = filter_var($input['is_featured'] ?? false, FILTER_VALIDATE_BOOLEAN);
+        if ($featured && strtotime((string) $event['end_at']) < time()) throw new InvalidArgumentException('Completed events cannot be added to the active carousel.');
+        $file = $files['carousel_image'] ?? null;
+        $newPath = $this->storeImage($file, self::CAROUSEL_DIRECTORY, 8 * 1024 * 1024);
+        $posterPath = $newPath ?? $event['poster_path'];
+        if ($featured && !$posterPath) throw new InvalidArgumentException('Add an event carousel image before featuring this event.');
+        $this->db->prepare('UPDATE tbl_events SET poster_path=?,is_featured=?,featured_until=CASE WHEN ?=1 THEN end_at ELSE NULL END,updated_at=CURRENT_TIMESTAMP WHERE id=?')->execute([$posterPath, $featured ? 1 : 0, $featured ? 1 : 0, $eventId]);
+        if ($newPath && $event['poster_path'] && $newPath !== $event['poster_path']) $this->removeUpload($event['poster_path']);
+    }
+
+    private function approvedPosts(int $viewerId, ?int $eventId): array
+    {
+        $where = "p.status='approved' AND p.deleted_at IS NULL";
+        $params = [$viewerId];
+        if ($eventId !== null && $eventId > 0) { $where .= ' AND p.event_id=?'; $params[] = $eventId; }
+        $statement = $this->db->prepare("SELECT p.id,p.user_id,p.event_id,p.content,p.image_path,p.video_path,p.created_at,p.updated_at,p.reviewed_at,p.is_official,e.title event_title,e.end_at,u.first_name,u.middle_name,u.last_name,u.profile_photo_path,r.name author_role,(SELECT pr.type FROM tbl_post_reactions pr WHERE pr.post_id=p.id AND pr.user_id=? LIMIT 1) viewer_reaction,(SELECT COUNT(*) FROM tbl_post_reactions pr WHERE pr.post_id=p.id) reactions_count,(SELECT COUNT(*) FROM tbl_post_comments pc WHERE pc.post_id=p.id) comments_count FROM tbl_posts p JOIN tbl_users u ON u.id=p.user_id JOIN tbl_roles r ON r.id=u.role_id LEFT JOIN tbl_events e ON e.id=p.event_id WHERE $where ORDER BY COALESCE(p.reviewed_at,p.created_at) DESC,p.id DESC LIMIT 100");
+        $statement->execute($params);
+        return $this->hydratePosts($statement->fetchAll());
+    }
+
+    private function hydratePosts(array $posts): array
+    {
+        if (!$posts) return [];
+        $ids = array_map('intval', array_column($posts, 'id'));
+        $marks = implode(',', array_fill(0, count($ids), '?'));
+        $reactions = $this->db->prepare("SELECT post_id,type,COUNT(*) total FROM tbl_post_reactions WHERE post_id IN ($marks) GROUP BY post_id,type");
+        $reactions->execute($ids);
+        $reactionCounts = [];
+        foreach ($reactions->fetchAll() as $row) $reactionCounts[(int) $row['post_id']][$row['type']] = (int) $row['total'];
+        $commentsStatement = $this->db->prepare("SELECT c.id,c.post_id,c.user_id,c.body,c.is_pinned,c.created_at,c.updated_at,u.first_name,u.middle_name,u.last_name,r.name author_role FROM tbl_post_comments c JOIN tbl_users u ON u.id=c.user_id JOIN tbl_roles r ON r.id=u.role_id WHERE c.post_id IN ($marks) ORDER BY c.post_id,c.is_pinned DESC,c.created_at,c.id");
+        $commentsStatement->execute($ids);
+        $comments = [];
+        foreach ($commentsStatement->fetchAll() as $comment) {
+            foreach (['id','post_id','user_id'] as $field) $comment[$field] = (int) $comment[$field];
+            $comment['is_pinned'] = (bool) $comment['is_pinned'];
+            $comment['author_name'] = $this->name($comment);
+            $comment['author_initials'] = $this->initials($comment);
+            foreach (['first_name','middle_name','last_name'] as $field) unset($comment[$field]);
+            $comments[$comment['post_id']][] = $comment;
+        }
+        foreach ($posts as &$post) {
+            foreach (['id','user_id','event_id'] as $field) $post[$field] = $post[$field] === null ? null : (int) $post[$field];
+            $post['is_official'] = (bool) $post['is_official'];
+            $post['reactions_count'] = (int) $post['reactions_count'];
+            $post['comments_count'] = (int) $post['comments_count'];
+            $post['author_name'] = $this->name($post);
+            $post['author_initials'] = $this->initials($post);
+            $post['reaction_counts'] = $reactionCounts[$post['id']] ?? [];
+            $post['comments'] = $comments[$post['id']] ?? [];
+            foreach (['first_name','middle_name','last_name'] as $field) unset($post[$field]);
+        }
+        unset($post);
+        return $posts;
+    }
+
+    private function ownPosts(int $userId): array
+    {
+        $statement = $this->db->prepare("SELECT p.id,p.event_id,p.content,p.image_path,p.video_path,p.status,p.rejection_reason,p.created_at,p.updated_at,e.title event_title FROM tbl_posts p LEFT JOIN tbl_events e ON e.id=p.event_id WHERE p.user_id=? AND p.deleted_at IS NULL AND p.status<>'approved' ORDER BY p.created_at DESC LIMIT 50");
+        $statement->execute([$userId]);
+        $posts = $statement->fetchAll();
+        foreach ($posts as &$post) { $post['id'] = (int) $post['id']; $post['event_id'] = $post['event_id'] === null ? null : (int) $post['event_id']; }
+        unset($post);
+        return $posts;
+    }
+
+    private function moderationQueue(): array
+    {
+        $statement = $this->db->query("SELECT p.id,p.user_id,p.event_id,p.content,p.image_path,p.video_path,p.status,p.rejection_reason,p.created_at,p.updated_at,e.title event_title,u.first_name,u.middle_name,u.last_name,r.name author_role FROM tbl_posts p JOIN tbl_users u ON u.id=p.user_id JOIN tbl_roles r ON r.id=u.role_id AND r.name='Student' LEFT JOIN tbl_events e ON e.id=p.event_id WHERE p.deleted_at IS NULL AND p.status IN ('pending','rejected','hidden') ORDER BY FIELD(p.status,'pending','rejected','hidden'),p.created_at ASC LIMIT 100");
+        $posts = $statement->fetchAll();
+        foreach ($posts as &$post) { foreach (['id','user_id','event_id'] as $field) $post[$field] = $post[$field] === null ? null : (int) $post[$field]; $post['author_name'] = $this->name($post); $post['author_initials'] = $this->initials($post); foreach (['first_name','middle_name','last_name'] as $field) unset($post[$field]); }
+        unset($post);
+        return $posts;
+    }
+
+    private function moderationCounts(): array
+    {
+        $counts = ['pending'=>0,'rejected'=>0,'hidden'=>0];
+        $rows = $this->db->query("SELECT p.status,COUNT(*) total FROM tbl_posts p JOIN tbl_users u ON u.id=p.user_id JOIN tbl_roles r ON r.id=u.role_id AND r.name='Student' WHERE p.deleted_at IS NULL AND p.status IN ('pending','rejected','hidden') GROUP BY p.status")->fetchAll();
+        foreach ($rows as $row) $counts[$row['status']] = (int) $row['total'];
+        return $counts;
+    }
+
+    private function activeEvents(?int $limit): array
+    {
+        $sql = "SELECT id,title,start_at,end_at,poster_path,is_featured FROM tbl_events WHERE deleted_at IS NULL AND end_at>=CURRENT_TIMESTAMP ORDER BY CASE WHEN start_at<=CURRENT_TIMESTAMP THEN 0 ELSE 1 END,start_at,id".($limit ? ' LIMIT '.(int) $limit : '');
+        return $this->normalizeEvents($this->db->query($sql)->fetchAll());
+    }
+
+    private function featuredEvents(): array
+    {
+        return $this->normalizeEvents($this->db->query("SELECT id,title,start_at,end_at,location,description,poster_path,is_featured FROM tbl_events WHERE deleted_at IS NULL AND is_featured=1 AND end_at>=CURRENT_TIMESTAMP AND (featured_until IS NULL OR featured_until>=CURRENT_TIMESTAMP) ORDER BY featured_order IS NULL,featured_order,start_at LIMIT 6")->fetchAll());
+    }
+
+    private function carouselEvents(): array
+    {
+        $featured = $this->featuredEvents();
+        if ($featured) return $featured;
+        return $this->normalizeEvents($this->db->query("SELECT id,title,start_at,end_at,location,description,poster_path,is_featured FROM tbl_events WHERE deleted_at IS NULL ORDER BY (end_at>=CURRENT_TIMESTAMP) DESC,CASE WHEN start_at<=CURRENT_TIMESTAMP AND end_at>=CURRENT_TIMESTAMP THEN 0 ELSE 1 END,start_at DESC,id DESC LIMIT 6")->fetchAll());
+    }
+
+    private function eventProgram(): array
+    {
+        $events = $this->db->query("SELECT id,title,start_at,end_at,location FROM tbl_events WHERE deleted_at IS NULL AND end_at>=CURRENT_TIMESTAMP ORDER BY CASE WHEN start_at<=CURRENT_TIMESTAMP THEN 0 ELSE 1 END,start_at,id LIMIT 6")->fetchAll();
+        if (!$events) $events = $this->db->query("SELECT id,title,start_at,end_at,location FROM tbl_events WHERE deleted_at IS NULL ORDER BY end_at DESC,id DESC LIMIT 4")->fetchAll();
+        if (!$events) return [];
+        $eventIds = array_map('intval', array_column($events, 'id'));
+        $marks = implode(',', array_fill(0, count($eventIds), '?'));
+        $statement = $this->db->prepare("SELECT id,event_id,name,description FROM tbl_event_activities WHERE status='active' AND event_id IN ($marks) ORDER BY event_id,id");
+        $statement->execute($eventIds);
+        $activities = [];
+        foreach ($statement->fetchAll() as $activity) {
+            $activity['id'] = (int) $activity['id'];
+            $activity['event_id'] = (int) $activity['event_id'];
+            $activities[$activity['event_id']][] = $activity;
+        }
+        foreach ($events as &$event) {
+            $event['id'] = (int) $event['id'];
+            $event['activities'] = $activities[$event['id']] ?? [];
+        }
+        unset($event);
+        return $events;
+    }
+
+    private function officerEvents(int $userId): array
+    {
+        $statement = $this->db->prepare("SELECT DISTINCT e.id,e.title,e.start_at,e.end_at,e.poster_path,e.is_featured FROM tbl_sbo_event_assignments sea JOIN tbl_sbo_officer_assignments oa ON oa.id=sea.officer_assignment_id AND oa.status='Active' JOIN tbl_event_attendance_schedules s ON s.id=sea.event_schedule_id JOIN tbl_events e ON e.id=s.event_id AND e.deleted_at IS NULL WHERE oa.officer_user_id=? AND sea.status='active' AND sea.responsibility='media' AND e.end_at>=CURRENT_TIMESTAMP ORDER BY e.start_at,e.id");
+        $statement->execute([$userId]);
+        return $this->normalizeEvents($statement->fetchAll());
+    }
+
+    private function normalizeEvents(array $events): array
+    {
+        foreach ($events as &$event) { $event['id'] = (int) $event['id']; $event['is_featured'] = (bool) ($event['is_featured'] ?? false); }
+        unset($event);
+        return $events;
+    }
+
+    private function eventId(array $input, int $userId, MediaPermissions $permissions): ?int
+    {
+        $eventId = filter_var($input['event_id'] ?? null, FILTER_VALIDATE_INT) ?: null;
+        if ($eventId === null) return null;
+        $statement = $this->db->prepare('SELECT id FROM tbl_events WHERE id=? AND deleted_at IS NULL AND end_at>=CURRENT_TIMESTAMP');
+        $statement->execute([$eventId]);
+        if (!$statement->fetchColumn()) throw new InvalidArgumentException('Choose an active event.');
+        if ($permissions->isOfficer()) $this->assertOfficerEvent($userId, $eventId);
+        return $eventId;
+    }
+
+    private function assertOfficerEvent(int $userId, int $eventId): void
+    {
+        $statement = $this->db->prepare("SELECT 1 FROM tbl_sbo_event_assignments sea JOIN tbl_sbo_officer_assignments oa ON oa.id=sea.officer_assignment_id AND oa.status='Active' JOIN tbl_event_attendance_schedules s ON s.id=sea.event_schedule_id WHERE oa.officer_user_id=? AND s.event_id=? AND sea.status='active' AND sea.responsibility='media' LIMIT 1");
+        $statement->execute([$userId, $eventId]);
+        if (!$statement->fetchColumn()) throw new MediaForbiddenException('You may manage media only for an event assigned to you.');
+    }
+
+    private function content(array $input): string
+    {
+        $content = trim((string) ($input['content'] ?? ''));
+        if ($content === '' || mb_strlen($content) > 3000) throw new InvalidArgumentException('Write a post of up to 3,000 characters.');
+        return $content;
+    }
+
+    private function ownedPost(int $postId, int $userId): array
+    {
+        $statement = $this->db->prepare('SELECT * FROM tbl_posts WHERE id=? AND user_id=? AND deleted_at IS NULL');
+        $statement->execute([$postId, $userId]);
+        $post = $statement->fetch();
+        if (!$post) throw new MediaForbiddenException('You can change only your own posts.');
+        return $post;
+    }
+
+    private function publicPost(int $postId): array
+    {
+        $statement = $this->db->prepare("SELECT id,user_id FROM tbl_posts WHERE id=? AND status='approved' AND deleted_at IS NULL");
+        $statement->execute([$postId]);
+        $post = $statement->fetch();
+        if (!$post) throw new InvalidArgumentException('This post is not publicly available.');
+        return $post;
+    }
+
+    private function ownedComment(int $userId, int $postId, int $commentId): void
+    {
+        $statement = $this->db->prepare('SELECT id FROM tbl_post_comments WHERE id=? AND post_id=? AND user_id=?');
+        $statement->execute([$commentId, $postId, $userId]);
+        if (!$statement->fetchColumn()) throw new MediaForbiddenException('You can change only your own comments.');
+    }
+
+    private function storeMedia(array $files): array
+    {
+        $image = $files['image'] ?? null;
+        $video = $files['video'] ?? null;
+        if ($this->hasUpload($image) && $this->hasUpload($video)) throw new InvalidArgumentException('Attach either one photo or one video, not both.');
+        return [$this->storeImage($image, self::IMAGE_DIRECTORY, 5 * 1024 * 1024), $this->storeVideo($video)];
+    }
+
+    private function storeImage(mixed $file, string $directory, int $maxBytes): ?string
+    {
+        if (!$this->hasUpload($file)) return null;
+        if (($file['error'] ?? UPLOAD_ERR_OK) !== UPLOAD_ERR_OK || ($file['size'] ?? 0) > $maxBytes) throw new InvalidArgumentException('The image upload failed or exceeds the allowed size.');
+        $mime = (new finfo(FILEINFO_MIME_TYPE))->file((string) $file['tmp_name']);
+        $extension = ['image/jpeg'=>'jpg','image/png'=>'png','image/webp'=>'webp'][$mime] ?? null;
+        $dimensions = @getimagesize((string) $file['tmp_name']);
+        if (!$extension || !$dimensions || $dimensions[0] > 4096 || $dimensions[1] > 4096) throw new InvalidArgumentException('Use a JPG, PNG, or WebP image up to 4096 × 4096 pixels.');
+        return $this->moveUpload($file, $directory, $extension);
+    }
+
+    private function storeVideo(mixed $file): ?string
+    {
+        if (!$this->hasUpload($file)) return null;
+        if (($file['error'] ?? UPLOAD_ERR_OK) !== UPLOAD_ERR_OK || ($file['size'] ?? 0) > 25 * 1024 * 1024) throw new InvalidArgumentException('Choose a video no larger than 25 MB.');
+        $mime = (new finfo(FILEINFO_MIME_TYPE))->file((string) $file['tmp_name']);
+        $extension = ['video/mp4'=>'mp4','video/webm'=>'webm','video/quicktime'=>'mov'][$mime] ?? null;
+        if (!$extension) throw new InvalidArgumentException('Use an MP4, WebM, or MOV video.');
+        return $this->moveUpload($file, self::VIDEO_DIRECTORY, $extension);
+    }
+
+    private function moveUpload(array $file, string $relativeDirectory, string $extension): string
+    {
+        $directory = dirname(__DIR__).DIRECTORY_SEPARATOR.str_replace('/', DIRECTORY_SEPARATOR, $relativeDirectory);
+        if (!is_dir($directory) && !mkdir($directory, 0775, true) && !is_dir($directory)) throw new RuntimeException('The media directory could not be created.');
+        $filename = bin2hex(random_bytes(20)).'.'.$extension;
+        if (!move_uploaded_file((string) $file['tmp_name'], $directory.DIRECTORY_SEPARATOR.$filename)) throw new RuntimeException('The media file could not be stored.');
+        return $relativeDirectory.'/'.$filename;
+    }
+
+    private function removeUpload(?string $path): void
+    {
+        if (!$path || !str_starts_with($path, 'assets/uploads/')) return;
+        $root = realpath(dirname(__DIR__).DIRECTORY_SEPARATOR.'assets'.DIRECTORY_SEPARATOR.'uploads');
+        $file = realpath(dirname(__DIR__).DIRECTORY_SEPARATOR.str_replace('/', DIRECTORY_SEPARATOR, $path));
+        if ($root && $file && str_starts_with($file, $root.DIRECTORY_SEPARATOR) && is_file($file)) @unlink($file);
+    }
+
+    private function hasUpload(mixed $file): bool
+    {
+        return is_array($file) && ($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_NO_FILE;
+    }
+
+    private function audit(int $postId, int $actorId, string $action, ?string $from, ?string $to, ?string $notes = null): void
+    {
+        $statement = $this->db->prepare('INSERT INTO tbl_post_audits(post_id,actor_id,action,from_status,to_status,notes,created_at,updated_at) VALUES(?,?,?,?,?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)');
+        $statement->execute([$postId, $actorId, $action, $from, $to, $notes]);
+    }
+
+    private function notifyModerators(int $postId, array $actor): void
+    {
+        $moderators = $this->db->query("SELECT u.id FROM tbl_users u JOIN tbl_roles r ON r.id=u.role_id JOIN tbl_user_statuses s ON s.id=u.status WHERE r.name IN ('Admin','SBO','SBO Adviser') AND s.label='active'")->fetchAll(PDO::FETCH_COLUMN);
+        $name = trim((string) ($actor['full_name'] ?? ($actor['first_name'] ?? '').' '.($actor['last_name'] ?? ''))) ?: 'A student';
+        foreach ($moderators as $moderatorId) $this->notification((int) $moderatorId, ['post_id'=>$postId,'message'=>$name.' submitted a post for review.']);
+    }
+
+    private function notifyPostOwner(int $userId, int $postId, string $status, ?string $reason): void
+    {
+        $message = $status === 'hidden' ? 'Your post was hidden by a moderator.' : 'Your post was '.$status.'.';
+        $this->notification($userId, ['post_id'=>$postId,'status'=>$status,'reason'=>$reason,'message'=>$message]);
+    }
+
+    private function notification(int $userId, array $data): void
+    {
+        $statement = $this->db->prepare("INSERT INTO tbl_notifications(id,type,notifiable_type,notifiable_id,data,created_at,updated_at) VALUES(?,'App\\Notifications\\PostReviewed','App\\Models\\User',?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)");
+        $statement->execute([$this->uuid(), $userId, json_encode($data, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR)]);
+    }
+
+    private function name(array $row): string
+    {
+        return trim(implode(' ', array_filter([$row['first_name'] ?? null,$row['middle_name'] ?? null,$row['last_name'] ?? null]))) ?: 'CITE user';
+    }
+
+    private function initials(array $row): string
+    {
+        return mb_strtoupper(mb_substr((string) ($row['first_name'] ?? ''),0,1).mb_substr((string) ($row['last_name'] ?? ''),0,1));
+    }
+
+    private function uuid(): string
+    {
+        $bytes = random_bytes(16); $bytes[6] = chr((ord($bytes[6]) & 0x0f) | 0x40); $bytes[8] = chr((ord($bytes[8]) & 0x3f) | 0x80);
+        $hex = bin2hex($bytes);
+        return substr($hex,0,8).'-'.substr($hex,8,4).'-'.substr($hex,12,4).'-'.substr($hex,16,4).'-'.substr($hex,20);
+    }
+}

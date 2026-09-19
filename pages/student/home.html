@@ -8,11 +8,11 @@
     <title>Home | CITE Events</title>
     <link rel="icon" type="image/png" href="assets/images/cite_favicon.png">
     <link rel="stylesheet" href="css/tailwind.css">
+    <link rel="stylesheet" href="css/media-feed.css?v=20260919-2">
     <script src="js/vendor/axios.min.js" defer></script>
     <script src="js/shared/password-gate.js?v=20260917-1"></script>
-    <script src="js/shared/navigation.js?v=20260917-portal-flat-1" defer></script>
+    <script src="js/shared/navigation.js?v=20260919-notifications-2" defer></script>
     <script src="js/shared/interactions.js" defer></script>
-    <script src="js/student/home.js?v=20260917-feed-2" defer></script>
 </head>
 <body class="student-shell app-shell min-h-screen bg-[#F7F4ED] font-sans text-[#121017] antialiased" data-student-shell data-navigation-role="student">
     <span
@@ -31,185 +31,7 @@
         data-page-content
         data-student-sidebar-content
     >
-        <div class="mx-auto grid w-full max-w-[994px] items-start gap-6 lg:grid-cols-[minmax(0,1fr)_300px] xl:grid-cols-[minmax(0,650px)_320px]">
-            <div class="min-w-0 space-y-5">
-                <section class="rounded-xl border border-[#121017]/8 bg-white p-5 shadow-[0_12px_35px_rgba(18,16,23,.05)]">
-                    <div class="flex gap-3">
-                        <span
-                            class="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-[#C6F24E] text-xs font-black text-[#121017] ring-2 ring-[#397565]/10"
-                            data-student-initials
-                        >ST</span>
-                        <div>
-                            <h1 class="text-lg font-black">Share with CITE</h1>
-                            <p class="text-xs text-[#121017]/45">Posts are reviewed by an SBO Adviser before everyone can see them.</p>
-                        </div>
-                    </div>
-
-                    <form class="mt-4" enctype="multipart/form-data" data-post-form>
-                        <label class="sr-only" for="post-content">Post caption</label>
-                        <textarea
-                            class="min-h-28 w-full resize-y rounded-2xl border border-[#121017]/10 bg-[#F7F4ED]/70 p-4 text-sm outline-none placeholder:text-[#121017]/35 focus:border-[#397565]/50 focus:bg-white focus:ring-4 focus:ring-[#397565]/8"
-                            id="post-content"
-                            name="content"
-                            placeholder="What would you like the CITE community to know?"
-                            maxlength="3000"
-                            required
-                        ></textarea>
-
-                        <section
-                            class="mx-auto mt-4 hidden w-full max-w-[470px] overflow-hidden rounded-xl border border-[#121017]/10"
-                            data-post-media-preview
-                        >
-                            <header class="flex items-center justify-between gap-3 bg-[#F7F4ED] px-4 py-3">
-                                <div>
-                                    <strong class="block text-xs" data-media-preview-title>Post preview</strong>
-                                    <span class="text-[10px] text-[#121017]/45" data-media-preview-help></span>
-                                </div>
-                                <button
-                                    class="min-h-9 rounded-lg px-3 text-[10px] font-black text-[#FF6B2C] hover:bg-[#FF6B2C]/10"
-                                    type="button"
-                                    data-post-media-remove
-                                >Remove</button>
-                            </header>
-                            <div class="aspect-[4/5] max-h-[590px] w-full bg-[#121017]">
-                                <img
-                                    class="hidden h-full w-full object-contain"
-                                    src=""
-                                    alt="Selected post image preview"
-                                    data-media-preview-image
-                                >
-                                <video
-                                    class="hidden h-full w-full object-contain"
-                                    controls
-                                    playsinline
-                                    data-media-preview-video
-                                ></video>
-                            </div>
-                        </section>
-
-                        <p class="mt-2 hidden text-xs font-bold text-[#c84510]" data-post-media-error></p>
-
-                        <div class="mt-4 flex flex-wrap items-center gap-3">
-                            <div class="flex items-center gap-2" aria-label="Attach media">
-                                <label class="grid h-11 w-11 cursor-pointer place-items-center rounded-xl text-[#397565] transition hover:bg-[#397565]/10" title="Add a photo">
-                                    <span class="sr-only">Add a photo</span>
-                                    <svg class="h-7 w-7 fill-current" viewBox="0 0 24 24" aria-hidden="true">
-                                        <path d="M19 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2Zm0 16H5l3.5-4.5 2.5 3 3.5-4.5L19 19ZM8.5 10.5A2.5 2.5 0 1 1 8.5 5a2.5 2.5 0 0 1 0 5.5Z"></path>
-                                    </svg>
-                                    <input
-                                        class="sr-only"
-                                        type="file"
-                                        name="image"
-                                        accept="image/jpeg,image/png,image/webp"
-                                        data-image-input
-                                    >
-                                </label>
-                                <label class="grid h-11 w-11 cursor-pointer place-items-center rounded-xl text-[#FF6B2C] transition hover:bg-[#FF6B2C]/10" title="Add a video">
-                                    <span class="sr-only">Add a video</span>
-                                    <svg class="h-7 w-7 fill-current" viewBox="0 0 24 24" aria-hidden="true">
-                                        <path d="M20 5h-3.2l1.6-2H15l-1.6 2h-2.2l1.6-2H9.4L7.8 5H5.6l1.6-2H5a3 3 0 0 0-3 3v12a3 3 0 0 0 3 3h15a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2Zm-5.5 9.4-4 2.4a1 1 0 0 1-1.5-.86v-4.8a1 1 0 0 1 1.5-.86l4 2.4a1 1 0 0 1 0 1.72Z"></path>
-                                    </svg>
-                                    <input
-                                        class="sr-only"
-                                        type="file"
-                                        name="video"
-                                        accept="video/mp4,video/webm,video/quicktime"
-                                        data-video-input
-                                    >
-                                </label>
-                            </div>
-                            <span class="min-w-0 flex-1 truncate text-xs text-[#121017]/40" data-file-name>
-                                Add a photo or video
-                            </span>
-                            <button
-                                class="min-h-11 rounded-xl bg-[#397565] px-6 text-xs font-black text-white shadow-lg shadow-[#397565]/15 hover:bg-[#2f6658] disabled:opacity-50"
-                                type="submit"
-                                data-submit-post
-                            >Submit post</button>
-                        </div>
-                    </form>
-                </section>
-
-                <section
-                    class="overflow-hidden rounded-xl border border-[#397565]/25 bg-[#121017] text-white shadow-[0_16px_45px_rgba(18,16,23,.14)]"
-                    id="events"
-                    data-featured-events
-                    aria-labelledby="featured-events-heading"
-                >
-                    <header class="flex items-center justify-between gap-4 border-b border-white/10 px-5 py-4">
-                        <div>
-                            <p class="text-[9px] font-black uppercase tracking-[.17em] text-[#C6F24E]">Featured in CITE</p>
-                            <h2 class="mt-1 text-lg font-black" id="featured-events-heading">Event spotlight</h2>
-                        </div>
-                        <span class="rounded-full bg-white/10 px-3 py-1 text-[10px] font-bold text-white/65" data-featured-count>
-                            0 featured
-                        </span>
-                    </header>
-                    <div data-featured-content>
-                        <div class="grid min-h-52 place-items-center px-6 py-9 text-center">
-                            <div>
-                                <span class="mx-auto grid h-12 w-12 place-items-center rounded-full bg-[#C6F24E] text-xl text-[#121017]">✦</span>
-                                <h3 class="mt-4 text-xl font-black">Event spotlight is ready</h3>
-                                <p class="mt-1 text-sm text-white/55">Featured upcoming events will appear in this carousel.</p>
-                            </div>
-                        </div>
-                    </div>
-                </section>
-
-                <section
-                    class="mx-auto w-full max-w-[470px] space-y-4"
-                    aria-labelledby="community-feed-heading"
-                    data-social-feed
-                >
-                    <header class="flex items-end justify-between gap-4">
-                        <div>
-                            <p class="text-[10px] font-black uppercase tracking-[.15em] text-[#397565]">Community feed</p>
-                            <h2 class="mt-1 text-2xl font-black tracking-tight" id="community-feed-heading">What’s happening</h2>
-                        </div>
-                        <span class="shrink-0 text-xs text-[#121017]/40">Approved posts only</span>
-                    </header>
-                    <div class="space-y-4" data-feed-posts>
-                        <div class="rounded-xl border border-dashed border-[#397565]/25 bg-[#397565]/5 px-6 py-16 text-center">
-                            <span class="text-3xl" aria-hidden="true">🌿</span>
-                            <h3 class="mt-3 font-black">The feed is ready for its first story</h3>
-                            <p class="mt-1 text-sm text-[#121017]/45">Approved student posts will appear here.</p>
-                        </div>
-                    </div>
-                </section>
-            </div>
-
-            <aside class="space-y-5 lg:sticky lg:top-24">
-                <section
-                    class="hidden rounded-xl border border-[#397565]/15 bg-[#397565]/8 p-5 shadow-[0_12px_35px_rgba(18,16,23,.05)]"
-                    data-submissions-card
-                >
-                    <div class="flex items-start gap-3">
-                        <span class="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-[#397565] text-white">
-                            <svg class="h-5 w-5 fill-none stroke-current stroke-2" viewBox="0 0 24 24" aria-hidden="true">
-                                <path d="M5 4h14v16H5V4Zm3 4h8m-8 4h8m-8 4h5"></path>
-                            </svg>
-                        </span>
-                        <div class="min-w-0 flex-1">
-                            <div class="flex items-center justify-between gap-2">
-                                <h2 class="font-black">Your submissions</h2>
-                                <span class="rounded-full bg-[#C6F24E] px-2.5 py-1 text-[10px] font-black text-[#121017]" data-submission-count>0</span>
-                            </div>
-                            <p class="mt-1 text-xs leading-5 text-[#121017]/50" data-submission-summary></p>
-                        </div>
-                    </div>
-                </section>
-
-                <section
-                    class="rounded-xl border border-dashed border-[#397565]/25 bg-white p-6"
-                    data-current-event
-                >
-                    <h2 class="font-black">No active event</h2>
-                    <p class="mt-2 text-xs leading-5 text-[#121017]/45">
-                        Your next assigned event will appear here when it is scheduled.
-                    </p>
-                </section>
-            </aside>
-        </div>
+        <div data-media-feed-root aria-live="polite">Loading media feed…</div>
     </main>
 
     <div
@@ -217,5 +39,11 @@
         role="status"
         data-toast
     ></div>
+    <script src="js/shared/media-api.js?v=20260919-1"></script>
+    <script src="js/shared/media-permissions.js?v=20260919-2"></script>
+    <script src="js/shared/media-post-form.js?v=20260919-4"></script>
+    <script src="js/shared/media-post-card.js?v=20260919-8"></script>
+    <script src="js/shared/media-feed.js?v=20260919-4"></script>
+    <script src="js/shared/media-page.js?v=20260919-1"></script>
 </body>
 </html>

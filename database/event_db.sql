@@ -793,7 +793,8 @@ INSERT INTO `tbl_roles` (`id`, `name`, `created_at`, `updated_at`) VALUES
 (2, 'SBO Adviser', '2026-09-11 15:45:47', '2026-09-11 15:45:47'),
 (3, 'SBO', '2026-09-11 15:45:47', '2026-09-11 15:45:47'),
 (4, 'Faculty', '2026-09-11 15:45:47', '2026-09-11 15:45:47'),
-(5, 'Student', '2026-09-11 15:45:47', '2026-09-11 15:45:47');
+(5, 'Student', '2026-09-11 15:45:47', '2026-09-11 15:45:47'),
+(6, 'Admin', '2026-09-19 21:30:00', '2026-09-19 21:30:00');
 
 -- --------------------------------------------------------
 
@@ -1446,7 +1447,7 @@ ALTER TABLE `tbl_scores`
 --
 ALTER TABLE `tbl_score_categories`
   ADD PRIMARY KEY (`id`),
-  ADD UNIQUE KEY `score_categories_event_id_name_unique` (`event_id`,`name`),
+  ADD UNIQUE KEY `score_categories_event_activity_name_unique` (`event_id`,`activity_id`,`name`),
   ADD KEY `score_categories_event_id_sort_order_index` (`event_id`,`sort_order`),
   ADD KEY `score_categories_activity_foreign` (`activity_id`);
 
@@ -1655,7 +1656,7 @@ ALTER TABLE `tbl_post_reactions`
 -- AUTO_INCREMENT for table `tbl_roles`
 --
 ALTER TABLE `tbl_roles`
-  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=6;
+  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=7;
 
 --
 -- AUTO_INCREMENT for table `tbl_sbo_event_assignments`

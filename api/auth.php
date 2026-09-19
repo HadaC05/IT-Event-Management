@@ -122,6 +122,7 @@ final class AuthController
         }
 
         $redirectUrl = match ($account['role']) {
+            'Admin', 'SBO' => 'pages/admin/media.html',
             'SBO Adviser' => 'pages/adviser/dashboard.html',
             'SBO Officer' => 'pages/sbo/attendance.html',
             'Student' => 'pages/student/home.html',

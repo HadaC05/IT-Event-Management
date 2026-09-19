@@ -6,6 +6,7 @@ window.SharedNavigation.ready.then(() => {
     ...root.querySelectorAll(selector),
   ];
   const eventId = Number(new URLSearchParams(location.search).get("event_id"));
+  let activityId = Number(new URLSearchParams(location.search).get("activity_id")) || null;
   const criteriaSection = $("[data-criteria-section]");
   const matrixSection = $("[data-matrix-section]");
   const PAGE_SIZE = 10;
@@ -94,7 +95,7 @@ window.SharedNavigation.ready.then(() => {
   async function post(action, payload) {
     return axios.post(
       `api/scores.php?action=${action}`,
-      { event_id: eventId, ...payload },
+      { event_id: eventId, activity_id: activityId, ...payload },
       { headers: { "X-CSRF-Token": csrfToken } },
     );
   }
@@ -168,6 +169,31 @@ window.SharedNavigation.ready.then(() => {
       location.assign(
         `pages/adviser/scoreboard.html?event_id=${switcher.value}`,
       );
+    const activitySwitcher = $("[data-activity-switch]");
+    $("[data-manage-activities]").href =
+      `pages/adviser/event-details.html?id=${event.id}#event-activities`;
+    if (!state.activities.length) {
+      activitySwitcher.innerHTML = '<option value="">No activities yet</option>';
+      activitySwitcher.disabled = true;
+      $("[data-activity-description]").textContent =
+        "Add an activity to this event before configuring criteria and team scores.";
+    } else {
+      activityId = state.selected_activity.id;
+      activitySwitcher.disabled = false;
+      activitySwitcher.innerHTML = state.activities
+        .map(
+          (activity) =>
+            `<option value="${activity.id}" ${activity.id === activityId ? "selected" : ""}>${escapeHtml(activity.name)}${activity.status === "inactive" ? " · Inactive" : ""}</option>`,
+        )
+        .join("");
+      activitySwitcher.onchange = () =>
+        location.assign(
+          `pages/adviser/scoreboard.html?event_id=${event.id}&activity_id=${activitySwitcher.value}`,
+        );
+      $("[data-activity-description]").textContent =
+        state.selected_activity.description ||
+        "Criteria and scores below apply only to this activity.";
+    }
     $("[data-summary-categories]").textContent = state.summary.categories;
     $("[data-summary-teams]").textContent = state.summary.teams;
     $("[data-completion]").textContent =
@@ -224,8 +250,12 @@ window.SharedNavigation.ready.then(() => {
   }
 
   function renderCriteria() {
+    if (!state.selected_activity) {
+      criteriaSection.innerHTML = `<div class="rounded-2xl border border-[#FF6B2C]/20 bg-[#FF6B2C]/[.06] p-7"><p class="text-[10px] font-black uppercase tracking-[.16em] text-[#FF6B2C]">Activity required</p><h2 class="mt-2 text-xl font-black">Add the event's first activity.</h2><p class="mt-2 text-sm text-[#121017]/55">Activities organize separate judging criteria and team scores.</p><a class="mt-5 inline-flex min-h-11 items-center rounded-xl bg-[#397565] px-5 text-xs font-black text-white" href="pages/adviser/event-details.html?id=${eventId}#event-activities">Add activity</a></div>`;
+      return;
+    }
     if (!state.categories.length) {
-      criteriaSection.innerHTML = `<div class="grid overflow-hidden rounded-2xl border border-[#121017]/10 bg-white/70 lg:grid-cols-[minmax(0,.8fr)_minmax(420px,1.2fr)]"><div class="border-b border-[#121017]/8 p-6 sm:p-8 lg:border-b-0 lg:border-r"><p class="text-[10px] font-black uppercase tracking-[.16em] text-[#FF6B2C]">Start here</p><h2 class="mt-3 text-2xl font-black">Define how this event is judged.</h2><p class="mt-3 text-sm leading-6 text-[#121017]/55">Add the first criterion and its highest possible score. You can add more criteria before entering tribe results.</p><p class="mt-5 text-[10px] font-bold text-[#397565]">Examples: Performance, Creativity, Sportsmanship</p></div><form class="p-6 sm:p-8" data-create-category><div class="grid gap-4 sm:grid-cols-[minmax(0,1fr)_150px]">${categoryFields()}</div><button class="mt-5 min-h-12 w-full rounded-xl bg-[#397565] px-5 text-sm font-black text-white" type="submit">Add First Criterion →</button></form></div>`;
+      criteriaSection.innerHTML = `<div class="grid overflow-hidden rounded-2xl border border-[#121017]/10 bg-white/70 lg:grid-cols-[minmax(0,.8fr)_minmax(420px,1.2fr)]"><div class="border-b border-[#121017]/8 p-6 sm:p-8 lg:border-b-0 lg:border-r"><p class="text-[10px] font-black uppercase tracking-[.16em] text-[#FF6B2C]">Start here</p><h2 class="mt-3 text-2xl font-black">Define how ${escapeHtml(state.selected_activity.name)} is judged.</h2><p class="mt-3 text-sm leading-6 text-[#121017]/55">Add the first criterion and its highest possible score. You can add more criteria before entering tribe results.</p><p class="mt-5 text-[10px] font-bold text-[#397565]">Examples: Performance, Creativity, Sportsmanship</p></div><form class="p-6 sm:p-8" data-create-category><div class="grid gap-4 sm:grid-cols-[minmax(0,1fr)_150px]">${categoryFields()}</div><button class="mt-5 min-h-12 w-full rounded-xl bg-[#397565] px-5 text-sm font-black text-white" type="submit">Add First Criterion →</button></form></div>`;
     } else {
       const lastPage = Math.ceil(state.categories.length / PAGE_SIZE);
       criteriaPage = Math.min(Math.max(1, criteriaPage), lastPage);
@@ -301,6 +331,10 @@ window.SharedNavigation.ready.then(() => {
   }
 
   function renderMatrix() {
+    if (!state.selected_activity) {
+      matrixSection.innerHTML = "";
+      return;
+    }
     if (!state.categories.length) {
       matrixSection.innerHTML =
         '<div class="flex items-center gap-4 border-y border-[#121017]/10 py-5 text-[#121017]/45"><span class="grid h-9 w-9 place-items-center rounded-full bg-[#121017]/6 text-xs font-black">2</span><div><h2 class="text-sm font-black">Score entry unlocks after criteria are configured</h2><p class="text-[10px]">Use the form above to add the first judging criterion.</p></div></div>';
@@ -443,7 +477,7 @@ window.SharedNavigation.ready.then(() => {
 
   async function load() {
     const response = await axios.get("api/scores.php", {
-      params: { event_id: eventId },
+      params: { event_id: eventId, ...(activityId ? { activity_id: activityId } : {}) },
     });
     state = response.data.data;
     renderHeader();

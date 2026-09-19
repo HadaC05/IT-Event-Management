@@ -1,0 +1,44 @@
+.cite-media-shell {
+  max-width: 1180px;
+}
+
+.cite-media-layout {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.cite-carousel-overlay {
+  background: linear-gradient(90deg, rgba(18, 16, 23, 0.98) 0%, rgba(18, 16, 23, 0.76) 58%, rgba(18, 16, 23, 0.24) 100%);
+}
+
+@media (min-width: 640px) {
+  .cite-carousel-stage,
+  .cite-carousel-content {
+    min-height: 20rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .cite-media-layout {
+    grid-template-columns: minmax(0, 820px) 320px;
+  }
+}
+
+.cite-post-menu > summary {
+  list-style: none;
+}
+
+.cite-post-menu > summary::-webkit-details-marker {
+  display: none;
+}
+
+.cite-post-menu > div {
+  min-width: 10rem;
+}
+
+@media (max-width: 639px) {
+  .cite-post-menu > div {
+    position: fixed;
+    inset: auto 1rem 5rem;
+    z-index: 90;
+  }
+}

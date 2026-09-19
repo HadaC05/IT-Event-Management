@@ -15,6 +15,24 @@ Override any default with the `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, and
 Application tables use the `tbl_` prefix, such as `tbl_users`, `tbl_roles`, and
 `tbl_posts`.
 
+Import `database/2026_09_19_add_admin_role.sql` once to add the explicit Admin
+role used by the shared media feed. Existing legacy `SBO` administrator accounts
+remain supported. The feed reuses `tbl_posts`, `tbl_post_audits`,
+`tbl_post_comments`, `tbl_post_reactions`, and the carousel fields on
+`tbl_events`; no role-specific media tables are created.
+
+Import `database/2026_09_19_link_legacy_score_categories_to_activities.sql`
+once to attach legacy event-level scoring criteria to an event's sole activity
+and allow criterion names to be reused across different activities. Adviser
+activity scoring continues to reuse `tbl_event_activities`,
+`tbl_score_categories`, `tbl_scores`, and `tbl_teams`. Run
+`php api/test-activity-scoring.php` to verify activity isolation; the test uses
+a transaction and rolls its temporary records back.
+
+Import `database/2026_09_19_simplify_post_reactions.sql` once to preserve older
+reaction records while converting them to the feed's single heart-based Like
+reaction.
+
 To rename an existing database without removing its records, import
 `2026_09_14_prefix_tables.sql` once through phpMyAdmin.
 
