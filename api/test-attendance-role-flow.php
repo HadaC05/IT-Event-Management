@@ -18,7 +18,7 @@ if (!preg_match('/^attendance_flow_test_[0-9a-f]{8}$/', $scratch)) throw new Run
 $tables = [
     'tbl_roles','tbl_user_statuses','tbl_users','tbl_teams','tbl_team_user','tbl_locations','tbl_event_types','tbl_events','tbl_event_locations',
     'tbl_attendance_session_modes','tbl_event_attendance_schedules','tbl_event_activities','tbl_event_team',
-    'tbl_event_year_level','tbl_event_participants','tbl_sbo_officer_assignments','tbl_sbo_event_assignments',
+    'tbl_event_year_level','tbl_event_participants','tbl_sbo_officer_assignments','tbl_officer_responsibilities','tbl_sbo_event_assignments',
     'tbl_attendances','tbl_attendance_entries','tbl_attendance_qr_tokens','tbl_activity_logs','tbl_sbo_scan_rate_limits',
 ];
 $empty = ['tbl_sbo_event_assignments','tbl_attendances','tbl_attendance_entries','tbl_attendance_qr_tokens','tbl_sbo_scan_rate_limits'];
@@ -58,8 +58,8 @@ try {
     $activity = (int) $db->lastInsertId();
     $db->exec("UPDATE tbl_sbo_officer_assignments SET scanner_mode='general' WHERE id=1");
     $db->exec('ALTER TABLE tbl_sbo_event_assignments AUTO_INCREMENT=100');
-    $db->prepare("INSERT INTO tbl_sbo_event_assignments(officer_assignment_id,event_schedule_id,session_code,activity_id,team_id,responsibility,status,assigned_by,created_at,updated_at)
-        VALUES(1,1,'whole_day',?,1,'attendance','active',14,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)")->execute([$activity]);
+    $db->prepare("INSERT INTO tbl_sbo_event_assignments(officer_assignment_id,event_schedule_id,session_code,activity_id,team_id,responsibility_id,status,assigned_by,created_at,updated_at)
+        VALUES(1,1,'whole_day',?,1,(SELECT id FROM tbl_officer_responsibilities WHERE code='attendance'),'active',14,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)")->execute([$activity]);
     $assignment = (int) $db->lastInsertId();
 
     $students = $db->query("SELECT u.id,u.id_number FROM tbl_team_user tu JOIN tbl_users u ON u.id=tu.user_id

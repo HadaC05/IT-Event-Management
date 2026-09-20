@@ -12,7 +12,7 @@ $source = (string) $live->query('SELECT DATABASE()')->fetchColumn();
 $scratch = 'media_feed_test_'.bin2hex(random_bytes(4));
 if (!preg_match('/^media_feed_test_[0-9a-f]{8}$/', $scratch)) throw new RuntimeException('Invalid test database name.');
 $tables = ['tbl_roles','tbl_user_statuses','tbl_users','tbl_events','tbl_event_attendance_schedules','tbl_event_activities','tbl_teams',
-    'tbl_sbo_officer_assignments','tbl_sbo_event_assignments','tbl_posts','tbl_post_audits','tbl_post_comments','tbl_post_reactions','tbl_notifications'];
+    'tbl_sbo_officer_assignments','tbl_officer_responsibilities','tbl_sbo_event_assignments','tbl_posts','tbl_post_audits','tbl_post_comments','tbl_post_reactions','tbl_notifications'];
 $empty = ['tbl_sbo_event_assignments','tbl_posts','tbl_post_audits','tbl_post_comments','tbl_post_reactions','tbl_notifications'];
 $assert = static function (bool $ok, string $label): void { if (!$ok) throw new RuntimeException('FAIL: '.$label); echo 'PASS: '.$label.PHP_EOL; };
 $expect = static function (callable $action, string $class, string $label) use ($assert): void {
@@ -47,7 +47,7 @@ try {
     $activity = (int) $db->query("SELECT id FROM tbl_event_activities WHERE event_id=$assignedEvent ORDER BY id LIMIT 1")->fetchColumn();
     $team = (int) $db->query('SELECT id FROM tbl_teams ORDER BY id LIMIT 1')->fetchColumn();
     if (!$schedule || !$activity || !$team) throw new RuntimeException('Officer media fixtures are unavailable.');
-    $db->prepare("INSERT INTO tbl_sbo_event_assignments(officer_assignment_id,event_schedule_id,session_code,activity_id,team_id,responsibility,status,assigned_by,created_at,updated_at) VALUES(?,?,'whole_day',?,?,'media','active',?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)")->execute([(int)$officerRow['assignment_id'],$schedule,$activity,$team,(int)$adviser['id']]);
+    $db->prepare("INSERT INTO tbl_sbo_event_assignments(officer_assignment_id,event_schedule_id,session_code,activity_id,team_id,responsibility_id,status,assigned_by,created_at,updated_at) VALUES(?,?,'whole_day',?,?,(SELECT id FROM tbl_officer_responsibilities WHERE code='media'),'active',?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)")->execute([(int)$officerRow['assignment_id'],$schedule,$activity,$team,(int)$adviser['id']]);
     $repo = new MediaRepository($db);
     $assert((new MediaPermissions('Admin'))->canModerate(), 'Admin receives moderation permission');
 

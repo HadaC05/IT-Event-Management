@@ -9,16 +9,11 @@ window.SharedNavigation.ready.then(() => {
     const pendingUnassign = new Set();
 
     const list = document.querySelector('[data-officer-list]');
-    const listForm = document.querySelector('[data-officer-list-form]');
-    const selectAll = document.querySelector('[data-select-all-officers]');
-    const selectionBar = document.querySelector('[data-officer-selection-bar]');
-    const selectionCount = document.querySelector('[data-officer-selection-count]');
     const filters = document.querySelector('[data-officer-filters]');
     const pagination = document.querySelector('[data-officer-pagination]');
     const dialog = document.querySelector('#assign-officer-dialog');
     const assignForm = document.querySelector('[data-assign-officer-form]');
     const detailsDialog = document.querySelector('#officer-details-dialog');
-    const scannerForm = detailsDialog.querySelector('[data-scanner-config-form]');
     const passwordDialog = document.querySelector('#change-officer-password-dialog');
     const passwordForm = document.querySelector('[data-change-officer-password-form]');
     const credentialsDialog = document.querySelector('#officer-credentials-dialog');
@@ -26,6 +21,7 @@ window.SharedNavigation.ready.then(() => {
     const studentSearch = document.querySelector('[data-officer-student-search]');
     const studentYear = document.querySelector('[data-officer-year-filter]');
     const selectedStudentLabel = document.querySelector('[data-selected-student-label]');
+    const selectFilteredStudents = document.querySelector('[data-select-filtered-students]');
     const logoutForm = document.querySelector('form[action="api/auth.php?action=logout"]');
 
     const initials = person => `${person.first_name?.[0] || ''}${person.last_name?.[0] || ''}`.toUpperCase();
@@ -45,35 +41,6 @@ window.SharedNavigation.ready.then(() => {
         ? window.Notifications.confirm(options)
         : confirm(options.message);
 
-    const syncAssignmentPeriod = () => {
-        const team = assignForm.elements.team_id;
-        const selected = team.options[team.selectedIndex];
-        assignForm.elements.term.value = selected?.dataset.schoolYear || '';
-        const scannerTeam = assignForm.elements.scanner_team_id;
-        [...scannerTeam.options].forEach(option => {
-            option.hidden = !!option.value && option.dataset.schoolYearId !== selected?.dataset.schoolYearId;
-        });
-        if (scannerTeam.selectedOptions[0]?.hidden || !scannerTeam.value) scannerTeam.value = team.value;
-    };
-
-    const syncAssignScannerScopeFields = () => {
-        const general = assignForm.elements.scanner_mode.value === 'general';
-        assignForm.querySelector('[data-assign-scanner-team-field]').classList.toggle('hidden', general);
-        assignForm.querySelector('[data-assign-scanner-general-note]').classList.toggle('hidden', !general);
-        assignForm.elements.scanner_team_id.disabled = general;
-        assignForm.elements.scanner_team_id.required = !general;
-    };
-
-    const syncScannerScopeFields = () => {
-        const general = scannerForm.elements.scanner_mode.value === 'general';
-        const field = scannerForm.querySelector('[data-scanner-team-field]');
-        const note = scannerForm.querySelector('[data-scanner-general-note]');
-        field.classList.toggle('hidden', general);
-        note.classList.toggle('hidden', !general);
-        scannerForm.elements.scanner_team_id.disabled = general;
-        scannerForm.elements.scanner_team_id.required = !general;
-    };
-
     const credentialSlip = credentials => [
         'CITE Events — SBO Officer Access',
         '',
@@ -92,13 +59,26 @@ window.SharedNavigation.ready.then(() => {
         feedback.classList.remove('hidden');
     };
 
-    const showOfficerCredentials = credentials => {
-        currentCredentials = { ...credentials };
-        credentialsDialog.querySelector('[data-credential-name]').textContent = credentials.officer_name;
-        credentialsDialog.querySelector('[data-credential-initials]').textContent = credentials.officer_name
+    const showOfficerCredentials = created => {
+        const credentials = Array.isArray(created) ? created : [created];
+        const first = credentials[0];
+        currentCredentials = credentials.map(item => ({ ...item }));
+        credentialsDialog.querySelector('[data-credential-name]').textContent = credentials.length === 1 ? first.officer_name : `${credentials.length} SBO Officer accounts`;
+        credentialsDialog.querySelector('[data-credential-initials]').textContent = first.officer_name
             .split(/\s+/).filter(Boolean).slice(0, 2).map(part => part[0]).join('').toUpperCase() || 'SO';
-        credentialsDialog.querySelector('[data-credential-username]').textContent = credentials.username;
-        credentialsDialog.querySelector('[data-credential-password]').textContent = credentials.temporary_password;
+        credentialsDialog.querySelector('[data-credential-username]').textContent = first.username;
+        credentialsDialog.querySelector('[data-credential-password]').textContent = first.temporary_password;
+        const list = credentialsDialog.querySelector('[data-credential-list]');
+        list.replaceChildren();
+        list.classList.toggle('hidden', credentials.length === 1);
+        credentials.slice(1).forEach(item => {
+            const row = document.createElement('div');
+            row.className = 'rounded-xl bg-[#F3F0E9]/55 p-4 text-xs';
+            row.innerHTML = '<strong class="block text-sm"></strong><span class="mt-2 block">Username: <code class="font-black"></code></span><span class="mt-1 block">One-time password: <code class="font-black"></code></span>';
+            row.querySelector('strong').textContent = item.officer_name;
+            const codes = row.querySelectorAll('code'); codes[0].textContent = item.username; codes[1].textContent = item.temporary_password;
+            list.append(row);
+        });
         credentialsDialog.querySelector('[data-credential-feedback]').classList.add('hidden');
         credentialsDialog.showModal();
     };
@@ -129,14 +109,6 @@ window.SharedNavigation.ready.then(() => {
         history.replaceState(null, '', url);
     };
 
-    const syncSelection = () => {
-        const checks = [...list.querySelectorAll('[data-officer-checkbox]:not(:disabled)')];
-        const selected = checks.filter(input => input.checked).length;
-        selectAll.checked = checks.length > 0 && selected === checks.length;
-        selectAll.indeterminate = selected > 0 && selected < checks.length;
-        selectionCount.textContent = `${selected} ${selected === 1 ? 'officer' : 'officers'} selected`;
-        selectionBar.style.display = selected ? 'flex' : 'none';
-    };
 
     const closeOfficerMenu = () => document.querySelector('[data-officer-actions-menu]')?.remove();
 
@@ -234,17 +206,6 @@ window.SharedNavigation.ready.then(() => {
         detailsDialog.querySelector('[data-details-password-state]').textContent = assignment.must_change_password
             ? 'A temporary password is active. The officer must replace it after signing in.'
             : 'The officer has completed their required password change.';
-        detailsDialog.querySelector('[data-details-position]').textContent = `Position: ${assignment.position}`;
-        detailsDialog.querySelector('[data-details-term]').textContent = `Assignment period: ${assignment.school_year_label || assignment.term}`;
-        detailsDialog.querySelector('[data-details-team]').textContent = `Home tribe: ${assignment.team_name || 'No tribe'}`;
-        scannerForm.hidden = assignment.status !== 'Active';
-        scannerForm.elements.assignment_id.value = assignment.id;
-        scannerForm.elements.scanner_mode.value = assignment.scanner_mode || 'specific';
-        [...scannerForm.elements.scanner_team_id.options].forEach(option => {
-            option.hidden = !!option.value && option.dataset.schoolYearId !== String(assignment.home_school_year_id || '');
-        });
-        scannerForm.elements.scanner_team_id.value = String(assignment.scanner_team_id || '');
-        syncScannerScopeFields();
         const responsibilityHost = detailsDialog.querySelector('[data-details-event-responsibilities]');
         responsibilityHost.replaceChildren();
         if (!assignment.event_responsibilities.length) {
@@ -283,101 +244,29 @@ window.SharedNavigation.ready.then(() => {
         list.replaceChildren();
         document.querySelector('[data-officer-result-count]').textContent = `${data.pagination.total} ${data.pagination.total === 1 ? 'officer' : 'officers'} found`;
         if (!data.assignments.length) {
-            const empty = document.createElement('div');
-            empty.className = 'px-6 py-14 text-center';
-            const filtered = [...new FormData(filters).values()].some(Boolean);
-            empty.innerHTML = `<strong class="text-base font-black">${filtered ? 'No officers match these filters' : 'No officer assignments yet'}</strong><p class="mt-1 text-sm text-[#121017]/45">${filtered ? 'Try another search or assignment status.' : 'Assign an existing student to create their separate officer login.'}</p>`;
-            list.append(empty);
-            syncSelection();
+            const row = document.createElement('tr');
+            row.innerHTML = `<td class="px-5 py-12 text-center text-sm text-[#121017]/45" colspan="6">${[...new FormData(filters).values()].some(Boolean) ? 'No officers match these filters.' : 'No SBO Officer accounts have been created yet.'}</td>`;
+            list.append(row);
             return;
         }
-
         data.assignments.forEach(assignment => {
             const active = assignment.status === 'Active';
-            const article = document.createElement('article');
-            article.className = 'flex items-start gap-3 px-5 py-4';
-            const details = document.createElement('details');
-            details.className = 'group min-w-0';
-            const summary = document.createElement('summary');
-            summary.className = 'flex cursor-pointer list-none items-center gap-3 rounded-xl py-1 outline-none focus-visible:ring-4 focus-visible:ring-[#397565]/15';
-
-            const check = document.createElement('input');
-            check.className = 'h-4 w-4 accent-[#397565] disabled:opacity-25';
-            check.type = 'checkbox';
-            check.value = assignment.id;
-            check.dataset.officerCheckbox = '';
-            check.disabled = !active;
-            check.setAttribute('aria-label', `Select ${assignment.full_name}`);
-            check.addEventListener('change', syncSelection);
-
-            const identity = document.createElement('span');
-            identity.className = 'min-w-0 flex-1';
-            identity.innerHTML = '<strong class="block truncate text-sm font-black"></strong><span class="mt-1 block truncate text-xs text-[#121017]/45"></span>';
-            identity.querySelector('strong').textContent = assignment.full_name;
-            const assignmentPeriod = assignment.school_year_label || assignment.term;
-            identity.querySelector('span').textContent = `${assignmentPeriod} · ${assignment.team_name || 'No tribe assigned'}`;
-            const account = document.createElement('div');
-            account.innerHTML = '<strong class="block text-sm">SBO Officer account</strong><span class="mt-1 block text-[10px] text-[#121017]/45"></span>';
-            const position = assignment.position ? assignment.position.charAt(0).toUpperCase() + assignment.position.slice(1) : 'Officer';
-            account.querySelector('span').textContent = `${position} · ${assignmentPeriod}`;
-            const eventCell = document.createElement('div');
-            eventCell.className = 'mt-3 min-w-0 rounded-xl bg-[#397565]/5 p-3';
-            const eventLabel = document.createElement('strong');
-            eventLabel.className = 'block text-xs font-black text-[#397565]';
-            eventLabel.textContent = 'Events in charge';
-            eventCell.append(eventLabel);
-            const groups = eventGroups(assignment.event_responsibilities);
-            if (!groups.length) {
-                const empty = document.createElement('p');
-                empty.className = 'mt-1 text-xs text-[#121017]/45';
-                empty.textContent = active ? 'No event assigned' : 'Officer login inactive';
-                eventCell.append(empty);
-            } else {
-                groups.forEach(group => {
-                    const item = document.createElement('p');
-                    item.className = 'mt-1 text-xs leading-5';
-                    const title = document.createElement('span');
-                    title.className = 'block truncate font-bold';
-                    title.textContent = group.name;
-                    const detail = document.createElement('small');
-                    detail.className = 'block text-[#121017]/50';
-                    detail.textContent = `${group.date} · ${[...group.roles].join(', ')}`;
-                    item.append(title, detail);
-                    eventCell.append(item);
-                });
-                if (false && groups.length > 2) {
-                    const moreEvents = document.createElement('small');
-                    moreEvents.className = 'mt-1 block font-bold text-[#397565]';
-                    moreEvents.textContent = `+${groups.length - 2} more in View Details`;
-                    eventCell.append(moreEvents);
-                }
-            }
-            if (active) eventCell.append(button('Assign to event', 'mt-2 min-h-9 rounded-lg border border-[#397565]/25 px-3 text-xs font-black text-[#397565]', () => openEventAssignments(assignment)));
-            const actions = document.createElement('div');
-            actions.className = 'flex flex-wrap items-center justify-end gap-2';
+            const row = document.createElement('tr');
+            row.innerHTML = `<td class="px-5 py-4"><strong class="block whitespace-nowrap font-black"></strong><span class="mt-1 block text-xs text-[#121017]/50"></span></td><td class="whitespace-nowrap px-4 py-4 text-[#121017]/65"></td><td class="whitespace-nowrap px-4 py-4 font-bold text-[#121017]/65"></td><td class="whitespace-nowrap px-4 py-4 text-[#121017]/65"></td><td class="px-4 py-4"></td><td class="px-5 py-4 text-right"></td>`;
+            const cells = row.querySelectorAll('td');
+            cells[0].querySelector('strong').textContent = assignment.full_name;
+            cells[0].querySelector('span').textContent = assignment.student_email || 'No student email';
+            cells[1].textContent = assignment.student_id;
+            cells[2].textContent = assignment.username;
+            cells[3].textContent = new Date(assignment.assigned_at).toLocaleDateString();
             const status = document.createElement('span');
-            status.className = `w-fit rounded-full px-3 py-1.5 text-[10px] font-black uppercase ${active ? 'bg-[#C6F24E]/35 text-[#397565]' : 'bg-[#121017]/6 text-[#121017]/40'}`;
+            status.className = `rounded-full px-2.5 py-1 text-[10px] font-black uppercase ${active ? 'bg-[#C6F24E]/35 text-[#397565]' : 'bg-[#121017]/6 text-[#121017]/40'}`;
             status.textContent = assignment.status;
-            const chevron = document.createElement('span');
-            chevron.className = 'text-lg font-black text-[#121017]/45 transition group-open:rotate-45';
-            chevron.textContent = '+';
-            summary.append(identity, status, chevron);
-            actions.append(button('View Details', 'min-h-9 rounded-lg border border-[#397565]/25 bg-[#397565]/8 px-3 text-xs font-black text-[#397565]', () => {
-                closeOfficerMenu();
-                openDetailsDialog(assignment);
-            }));
-            const more = button('⋯', 'grid h-9 w-9 place-items-center rounded-lg border border-[#121017]/10 text-lg font-black text-[#121017]/45 hover:bg-[#F3F0E9]/60', event => openOfficerMenu(event.currentTarget, assignment));
-            more.dataset.officerMenuTrigger = '';
-            more.setAttribute('aria-label', `More actions for ${assignment.full_name}`);
-            actions.append(more);
-            const content = document.createElement('div');
-            content.className = 'ml-0 sm:ml-7';
-            content.append(account, eventCell, actions);
-            details.append(summary, content);
-            article.append(check, details);
-            list.append(article);
+            cells[4].append(status);
+            const edit = button('Edit status', 'min-h-9 rounded-lg border border-[#397565]/25 px-3 text-xs font-black text-[#397565] hover:bg-[#397565]/5', () => openStatusDialog(assignment));
+            cells[5].append(edit);
+            list.append(row);
         });
-        syncSelection();
     };
 
     const renderPagination = data => {
@@ -420,11 +309,28 @@ window.SharedNavigation.ready.then(() => {
         pagination.append(nav);
     };
 
+    const openStatusDialog = async assignment => {
+        const nextStatus = assignment.status === 'Active' ? 'inactive' : 'active';
+        const accepted = await confirmAction({
+            title: `${nextStatus === 'active' ? 'Activate' : 'Deactivate'} SBO Officer account?`,
+            message: nextStatus === 'active'
+                ? 'This restores the officer’s separate SBO login and its existing event responsibilities.'
+                : 'This disables the officer’s separate SBO login. The student account will not be changed.',
+            action: nextStatus === 'active' ? 'Activate account' : 'Deactivate account',
+        });
+        if (!accepted) return;
+        try {
+            const response = await axios.post('api/officers.php', { action: 'update_status', id: assignment.id, status: nextStatus }, { headers: { 'X-CSRF-Token': csrfToken } });
+            notify('success', response.data.message);
+            await load();
+        } catch (error) {
+            notify('error', errorMessage(error));
+        }
+    };
+
     const showSelectedStudent = () => {
-        const selected = assignForm.querySelector('input[name="student_user_id"]:checked');
-        selectedStudentLabel.textContent = selected
-            ? `Selected: ${students.find(student => String(student.id) === selected.value)?.full_name || ''}`
-            : 'Select one student to continue.';
+        const selected = [...assignForm.querySelectorAll('input[name="student_user_ids[]"]:checked')];
+        selectedStudentLabel.textContent = selected.length ? `${selected.length} student${selected.length === 1 ? '' : 's'} selected.` : 'Select one or more students to continue.';
     };
 
     const filterStudents = () => {
@@ -434,12 +340,12 @@ window.SharedNavigation.ready.then(() => {
         studentList.querySelectorAll('[data-officer-student-option]').forEach(option => {
             const matches = (!term || option.dataset.search.includes(term)) && (!year || option.dataset.year === year);
             option.classList.toggle('hidden', !matches);
-            const selected = option.querySelector('input:checked');
-            if (!matches && selected) selected.checked = false;
             visible += Number(matches);
         });
         studentList.querySelector('[data-officer-student-empty]')?.classList.toggle('hidden', visible > 0);
         showSelectedStudent();
+        const visibleChecks = [...studentList.querySelectorAll('[data-officer-student-option]:not(.hidden) input[type="checkbox"]')];
+        selectFilteredStudents.textContent = visibleChecks.length && visibleChecks.every(input => input.checked) ? 'Clear filtered' : 'Select filtered';
     };
 
     const renderFormOptions = data => {
@@ -447,31 +353,6 @@ window.SharedNavigation.ready.then(() => {
         studentYear.replaceChildren(new Option('All year levels', ''));
         data.year_levels.forEach(level => studentYear.add(new Option(level.label, level.id)));
         studentYear.add(new Option('No year level', 'none'));
-        const team = assignForm.elements.team_id;
-        team.replaceChildren(new Option('Select a home tribe', ''));
-        data.teams.forEach(item => {
-            const option = new Option(`${item.name} · ${item.school_year_label}`, item.id);
-            option.dataset.schoolYear = item.school_year_label;
-            option.dataset.schoolYearId = String(item.school_year_id);
-            team.add(option);
-        });
-        const assignScannerTeam = assignForm.elements.scanner_team_id;
-        assignScannerTeam.replaceChildren(new Option('Select an allowed team', ''));
-        data.teams.forEach(item => {
-            const option = new Option(`${item.name} · ${item.school_year_label}`, item.id);
-            option.dataset.schoolYearId = String(item.school_year_id);
-            assignScannerTeam.add(option);
-        });
-        const scannerTeam = scannerForm.elements.scanner_team_id;
-        const previousScannerTeam = scannerTeam.value;
-        scannerTeam.replaceChildren(...data.teams.map(item => {
-            const option = new Option(`${item.name} · ${item.school_year_label}`, item.id);
-            option.dataset.schoolYearId = String(item.school_year_id);
-            return option;
-        }));
-        if (previousScannerTeam) scannerTeam.value = previousScannerTeam;
-        syncAssignmentPeriod();
-        syncAssignScannerScopeFields();
         studentList.replaceChildren();
         data.students.forEach(student => {
             const option = document.createElement('label');
@@ -481,10 +362,9 @@ window.SharedNavigation.ready.then(() => {
             option.dataset.year = student.year_level ?? 'none';
             const radio = document.createElement('input');
             radio.className = 'h-4 w-4 shrink-0 accent-[#397565]';
-            radio.name = 'student_user_id';
+            radio.name = 'student_user_ids[]';
             radio.value = student.id;
-            radio.type = 'radio';
-            radio.required = true;
+            radio.type = 'checkbox';
             const avatar = document.createElement('span');
             avatar.className = 'grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[#121017] text-[10px] font-black text-white';
             avatar.textContent = initials(student);
@@ -518,14 +398,6 @@ window.SharedNavigation.ready.then(() => {
 
     document.querySelector('[data-officer-tab="officers"]')?.addEventListener('click', () => load().catch(error => notify('error', errorMessage(error))));
 
-    selectAll.addEventListener('change', () => {
-        list.querySelectorAll('[data-officer-checkbox]:not(:disabled)').forEach(input => { input.checked = selectAll.checked; });
-        syncSelection();
-    });
-    document.querySelector('[data-clear-officer-selection]').addEventListener('click', () => {
-        list.querySelectorAll('[data-officer-checkbox]').forEach(input => { input.checked = false; });
-        syncSelection();
-    });
     filters.addEventListener('change', async () => {
         currentPage = 1;
         await load();
@@ -539,56 +411,15 @@ window.SharedNavigation.ready.then(() => {
             updateUrl();
         }, 320);
     });
-    listForm.addEventListener('submit', async submitEvent => {
-        submitEvent.preventDefault();
-        const submit = submitEvent.submitter || listForm.querySelector('button[type="submit"]');
-        const ids = [...list.querySelectorAll('[data-officer-checkbox]:checked')].map(input => Number(input.value));
-        if (!ids.length) return;
-        const accepted = await confirmAction({
-            title: 'Unassign selected officers?',
-            message: 'Their officer logins will be disabled immediately. Student accounts and assignment history will remain unchanged.',
-            action: 'Unassign selected',
-        });
-        if (!accepted) return;
-        window.Notifications?.setLoading(submit, true, 'Unassigning…');
-        try {
-            const response = await axios.post('api/officers.php', { action: 'batch_unassign', assignment_ids: ids }, { headers: { 'X-CSRF-Token': csrfToken } });
-            notify('success', response.data.message);
-            await load();
-        } catch (error) {
-            notify('error', errorMessage(error));
-        } finally {
-            window.Notifications?.setLoading(submit, false);
-        }
-    });
     document.querySelector('[data-dialog-open="assign-officer-dialog"]').addEventListener('click', () => {
         assignForm.reset();
         studentSearch.value = '';
         studentYear.value = '';
-        syncAssignmentPeriod();
-        syncAssignScannerScopeFields();
         filterStudents();
         dialog.showModal();
     });
     dialog.querySelectorAll('[data-dialog-close]').forEach(close => close.addEventListener('click', () => dialog.close()));
     detailsDialog.querySelectorAll('[data-dialog-close]').forEach(close => close.addEventListener('click', () => detailsDialog.close()));
-    scannerForm.elements.scanner_mode.addEventListener('change', syncScannerScopeFields);
-    assignForm.elements.scanner_mode.addEventListener('change', syncAssignScannerScopeFields);
-    scannerForm.addEventListener('submit', async submitEvent => {
-        submitEvent.preventDefault();
-        if (!scannerForm.reportValidity()) return;
-        const submit = submitEvent.submitter;
-        window.Notifications?.setLoading(submit, true, 'Saving access…');
-        try {
-            const data = Object.fromEntries(new FormData(scannerForm));
-            data.action = 'scanner_config';
-            const response = await axios.post('api/officers.php', data, { headers: { 'X-CSRF-Token': csrfToken } });
-            detailsDialog.close();
-            notify('success', response.data.message);
-            await load();
-        } catch (error) { notify('error', errorMessage(error)); }
-        finally { window.Notifications?.setLoading(submit, false); }
-    });
     passwordDialog.querySelectorAll('[data-dialog-close]').forEach(close => close.addEventListener('click', () => passwordDialog.close()));
     passwordDialog.querySelectorAll('[data-password-toggle]').forEach(toggle => toggle.addEventListener('click', () => {
         const input = toggle.parentElement.querySelector('input');
@@ -608,12 +439,18 @@ window.SharedNavigation.ready.then(() => {
     studentSearch.addEventListener('input', filterStudents);
     studentYear.addEventListener('change', filterStudents);
     studentList.addEventListener('change', showSelectedStudent);
-    assignForm.elements.team_id.addEventListener('change', syncAssignmentPeriod);
+    selectFilteredStudents.addEventListener('click', () => {
+        const visible = [...studentList.querySelectorAll('[data-officer-student-option]:not(.hidden) input[type="checkbox"]')];
+        const shouldSelect = visible.some(input => !input.checked);
+        visible.forEach(input => { input.checked = shouldSelect; });
+        selectFilteredStudents.textContent = shouldSelect ? 'Clear filtered' : 'Select filtered';
+        showSelectedStudent();
+    });
     credentialsDialog.addEventListener('cancel', event => event.preventDefault());
     credentialsDialog.querySelector('[data-copy-officer-credentials]').addEventListener('click', async () => {
         if (!currentCredentials) return;
         try {
-            await copyText(credentialSlip(currentCredentials));
+            await copyText(currentCredentials.map(credentialSlip).join('\n\n'));
             credentialFeedback('Credentials copied. Share them privately with the officer.');
         } catch (error) {
             credentialFeedback(error.message || 'Copy was unavailable. Use Download credential slip instead.');
@@ -621,11 +458,11 @@ window.SharedNavigation.ready.then(() => {
     });
     credentialsDialog.querySelector('[data-download-officer-credentials]').addEventListener('click', () => {
         if (!currentCredentials) return;
-        const blob = new Blob([credentialSlip(currentCredentials)], { type: 'text/plain;charset=utf-8' });
+        const blob = new Blob([currentCredentials.map(credentialSlip).join('\n\n')], { type: 'text/plain;charset=utf-8' });
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = url;
-        link.download = `officer-access-${currentCredentials.username.replace(/[^a-z0-9._-]/gi, '-')}.txt`;
+        link.download = `officer-access-${currentCredentials.length === 1 ? currentCredentials[0].username.replace(/[^a-z0-9._-]/gi, '-') : 'batch'}.txt`;
         document.body.append(link);
         link.click();
         link.remove();
@@ -644,12 +481,20 @@ window.SharedNavigation.ready.then(() => {
         if (!assignForm.reportValidity()) return;
         const submit = submitEvent.submitter;
         window.Notifications?.setLoading(submit, true, 'Creating access…');
-        const data = Object.fromEntries(new FormData(assignForm));
+        const data = { student_user_ids: [...assignForm.querySelectorAll('input[name="student_user_ids[]"]:checked')].map(input => input.value) };
+        if (!data.student_user_ids.length) { notify('error', 'Select at least one student.'); return; }
         data.action = 'assign';
         try {
             const response = await axios.post('api/officers.php', data, { headers: { 'X-CSRF-Token': csrfToken } });
             dialog.close();
-            showOfficerCredentials(response.data.data);
+            const created = Array.isArray(response.data.data) ? response.data.data : [response.data.data];
+            if (created.length > 1) {
+                const blob = new Blob([created.map(credentialSlip).join('\n\n')], { type: 'text/plain;charset=utf-8' });
+                const url = URL.createObjectURL(blob), link = document.createElement('a');
+                link.href = url; link.download = 'officer-access-batch.txt'; document.body.append(link); link.click(); link.remove(); URL.revokeObjectURL(url);
+                notify('success', 'A credential slip for every new Officer account was downloaded.');
+            }
+            showOfficerCredentials(created);
             currentPage = 1;
             load().catch(() => notify('error', 'Officer access was created, but the officer list could not refresh. Reload the page to see it.'));
         } catch (error) {

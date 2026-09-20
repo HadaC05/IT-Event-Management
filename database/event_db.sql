@@ -822,6 +822,25 @@ INSERT INTO `tbl_roles` (`id`, `name`, `created_at`, `updated_at`) VALUES
 -- --------------------------------------------------------
 
 --
+-- Table structure for table `tbl_officer_responsibilities`
+--
+
+CREATE TABLE `tbl_officer_responsibilities` (
+  `id` bigint(20) UNSIGNED NOT NULL,
+  `code` varchar(20) NOT NULL,
+  `label` varchar(60) NOT NULL,
+  `created_at` timestamp NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+INSERT INTO `tbl_officer_responsibilities` (`id`, `code`, `label`, `created_at`, `updated_at`) VALUES
+(1, 'attendance', 'Attendance', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+(2, 'scoring', 'Scoring', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+(3, 'media', 'Media', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
+
+-- --------------------------------------------------------
+
+--
 -- Table structure for table `tbl_sbo_event_assignments`
 --
 
@@ -832,7 +851,9 @@ CREATE TABLE `tbl_sbo_event_assignments` (
   `session_code` varchar(12) NOT NULL,
   `activity_id` bigint(20) UNSIGNED NOT NULL,
   `team_id` bigint(20) UNSIGNED NOT NULL,
-  `responsibility` varchar(20) NOT NULL,
+  `responsibility_id` bigint(20) UNSIGNED NOT NULL,
+  `scanner_mode` enum('specific','general') DEFAULT NULL,
+  `scanner_team_id` bigint(20) UNSIGNED DEFAULT NULL,
   `status` varchar(20) NOT NULL DEFAULT 'active',
   `assigned_by` bigint(20) UNSIGNED DEFAULT NULL,
   `ended_by` bigint(20) UNSIGNED DEFAULT NULL,
@@ -845,11 +866,11 @@ CREATE TABLE `tbl_sbo_event_assignments` (
 -- Dumping data for table `tbl_sbo_event_assignments`
 --
 
-INSERT INTO `tbl_sbo_event_assignments` (`id`, `officer_assignment_id`, `event_schedule_id`, `session_code`, `activity_id`, `team_id`, `responsibility`, `status`, `assigned_by`, `ended_by`, `ended_at`, `created_at`, `updated_at`) VALUES
-(1, 1, 2, 'whole_day', 1, 2, 'attendance', 'active', 14, NULL, NULL, '2026-09-15 17:13:40', '2026-09-15 17:13:40'),
-(2, 1, 2, 'whole_day', 1, 1, 'attendance', 'active', 14, NULL, NULL, '2026-09-16 00:45:57', '2026-09-16 00:45:57'),
-(3, 3, 2, 'whole_day', 1, 6, 'attendance', 'inactive', 14, 14, '2026-09-16 07:41:44', '2026-09-16 07:16:51', '2026-09-16 07:41:44'),
-(4, 3, 2, 'whole_day', 1, 1, 'attendance', 'active', 14, NULL, NULL, '2026-09-16 07:39:54', '2026-09-16 07:39:54');
+INSERT INTO `tbl_sbo_event_assignments` (`id`, `officer_assignment_id`, `event_schedule_id`, `session_code`, `activity_id`, `team_id`, `responsibility_id`, `scanner_mode`, `scanner_team_id`, `status`, `assigned_by`, `ended_by`, `ended_at`, `created_at`, `updated_at`) VALUES
+(1, 1, 2, 'whole_day', 1, 2, 1, 'specific', 2, 'active', 14, NULL, NULL, '2026-09-15 17:13:40', '2026-09-15 17:13:40'),
+(2, 1, 2, 'whole_day', 1, 1, 1, 'specific', 1, 'active', 14, NULL, NULL, '2026-09-16 00:45:57', '2026-09-16 00:45:57'),
+(3, 3, 2, 'whole_day', 1, 6, 1, 'specific', 6, 'inactive', 14, 14, '2026-09-16 07:41:44', '2026-09-16 07:16:51', '2026-09-16 07:41:44'),
+(4, 3, 2, 'whole_day', 1, 1, 1, 'specific', 1, 'active', 14, NULL, NULL, '2026-09-16 07:39:54', '2026-09-16 07:39:54');
 
 -- --------------------------------------------------------
 
@@ -861,10 +882,6 @@ CREATE TABLE `tbl_sbo_officer_assignments` (
   `id` bigint(20) UNSIGNED NOT NULL,
   `student_id` varchar(255) NOT NULL,
   `officer_user_id` bigint(20) UNSIGNED NOT NULL,
-  `team_id` bigint(20) UNSIGNED DEFAULT NULL,
-  `scanner_mode` varchar(8) NOT NULL DEFAULT 'specific',
-  `position` varchar(100) NOT NULL,
-  `term` varchar(100) NOT NULL,
   `assigned_by` bigint(20) UNSIGNED DEFAULT NULL,
   `assigned_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   `ended_by` bigint(20) UNSIGNED DEFAULT NULL,
@@ -878,9 +895,9 @@ CREATE TABLE `tbl_sbo_officer_assignments` (
 -- Dumping data for table `tbl_sbo_officer_assignments`
 --
 
-INSERT INTO `tbl_sbo_officer_assignments` (`id`, `student_id`, `officer_user_id`, `team_id`, `position`, `term`, `assigned_by`, `assigned_at`, `ended_by`, `ended_at`, `status`, `created_at`, `updated_at`) VALUES
-(1, '02-2026-000003', 15, 2, 'attendance', '2027', 14, '2026-09-12 05:09:22', NULL, NULL, 'Active', '2026-09-12 05:09:22', '2026-09-12 05:09:22'),
-(2, '02-2026-000001', 16, 1, 'attendance', '2026', 14, '2026-09-16 02:57:06', NULL, NULL, 'Active', '2026-09-16 02:57:06', '2026-09-16 02:57:06'),
+INSERT INTO `tbl_sbo_officer_assignments` (`id`, `student_id`, `officer_user_id`, `assigned_by`, `assigned_at`, `ended_by`, `ended_at`, `status`, `created_at`, `updated_at`) VALUES
+(1, '02-2026-000003', 15, 14, '2026-09-12 05:09:22', NULL, NULL, 'Active', '2026-09-12 05:09:22', '2026-09-12 05:09:22'),
+(2, '02-2026-000001', 16, 14, '2026-09-16 02:57:06', NULL, NULL, 'Active', '2026-09-16 02:57:06', '2026-09-16 02:57:06'),
 (3, '02-2324-011281', 19, 6, 'Attendance Officer', '2026-2027', 14, '2026-09-16 07:03:06', NULL, NULL, 'Active', '2026-09-16 07:03:06', '2026-09-16 07:03:06');
 
 -- --------------------------------------------------------
@@ -1428,6 +1445,13 @@ ALTER TABLE `tbl_roles`
   ADD UNIQUE KEY `roles_name_unique` (`name`);
 
 --
+-- Indexes for table `tbl_officer_responsibilities`
+--
+ALTER TABLE `tbl_officer_responsibilities`
+  ADD PRIMARY KEY (`id`),
+  ADD UNIQUE KEY `officer_responsibilities_code_unique` (`code`);
+
+--
 -- Indexes for table `tbl_sbo_event_assignments`
 --
 ALTER TABLE `tbl_sbo_event_assignments`
@@ -1436,6 +1460,8 @@ ALTER TABLE `tbl_sbo_event_assignments`
   ADD KEY `sbo_event_assignments_schedule_index` (`event_schedule_id`,`session_code`,`status`),
   ADD KEY `sbo_event_assignments_activity_foreign` (`activity_id`),
   ADD KEY `sbo_event_assignments_team_foreign` (`team_id`),
+  ADD KEY `sbo_event_assignments_responsibility_id_foreign` (`responsibility_id`),
+  ADD KEY `sbo_event_assignments_scanner_team_id_foreign` (`scanner_team_id`),
   ADD KEY `sbo_event_assignments_assigned_by_foreign` (`assigned_by`),
   ADD KEY `sbo_event_assignments_ended_by_foreign` (`ended_by`);
 
@@ -1445,10 +1471,9 @@ ALTER TABLE `tbl_sbo_event_assignments`
 ALTER TABLE `tbl_sbo_officer_assignments`
   ADD PRIMARY KEY (`id`),
   ADD KEY `sbo_officer_assignments_officer_user_id_foreign` (`officer_user_id`),
-  ADD KEY `sbo_officer_assignments_team_id_foreign` (`team_id`),
   ADD KEY `sbo_officer_assignments_assigned_by_foreign` (`assigned_by`),
   ADD KEY `sbo_officer_assignments_ended_by_foreign` (`ended_by`),
-  ADD KEY `officer_student_term_status_index` (`student_id`,`term`,`status`);
+  ADD KEY `officer_student_status_index` (`student_id`,`status`);
 
 --
 -- Indexes for table `tbl_sbo_scan_rate_limits`
@@ -1691,6 +1716,12 @@ ALTER TABLE `tbl_post_reactions`
   MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT;
 
 --
+-- AUTO_INCREMENT for table `tbl_officer_responsibilities`
+--
+ALTER TABLE `tbl_officer_responsibilities`
+  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
+
+--
 -- AUTO_INCREMENT for table `tbl_roles`
 --
 ALTER TABLE `tbl_roles`
@@ -1918,6 +1949,8 @@ ALTER TABLE `tbl_sbo_event_assignments`
   ADD CONSTRAINT `sbo_event_assignments_assigned_by_foreign` FOREIGN KEY (`assigned_by`) REFERENCES `tbl_users` (`id`) ON DELETE SET NULL,
   ADD CONSTRAINT `sbo_event_assignments_ended_by_foreign` FOREIGN KEY (`ended_by`) REFERENCES `tbl_users` (`id`) ON DELETE SET NULL,
   ADD CONSTRAINT `sbo_event_assignments_officer_foreign` FOREIGN KEY (`officer_assignment_id`) REFERENCES `tbl_sbo_officer_assignments` (`id`) ON DELETE CASCADE,
+  ADD CONSTRAINT `sbo_event_assignments_responsibility_id_foreign` FOREIGN KEY (`responsibility_id`) REFERENCES `tbl_officer_responsibilities` (`id`) ON DELETE RESTRICT,
+  ADD CONSTRAINT `sbo_event_assignments_scanner_team_id_foreign` FOREIGN KEY (`scanner_team_id`) REFERENCES `tbl_teams` (`id`) ON DELETE SET NULL,
   ADD CONSTRAINT `sbo_event_assignments_schedule_foreign` FOREIGN KEY (`event_schedule_id`) REFERENCES `tbl_event_attendance_schedules` (`id`) ON DELETE CASCADE,
   ADD CONSTRAINT `sbo_event_assignments_team_foreign` FOREIGN KEY (`team_id`) REFERENCES `tbl_teams` (`id`) ON DELETE CASCADE;
 
@@ -1927,8 +1960,7 @@ ALTER TABLE `tbl_sbo_event_assignments`
 ALTER TABLE `tbl_sbo_officer_assignments`
   ADD CONSTRAINT `sbo_officer_assignments_assigned_by_foreign` FOREIGN KEY (`assigned_by`) REFERENCES `tbl_users` (`id`) ON DELETE SET NULL,
   ADD CONSTRAINT `sbo_officer_assignments_ended_by_foreign` FOREIGN KEY (`ended_by`) REFERENCES `tbl_users` (`id`) ON DELETE SET NULL,
-  ADD CONSTRAINT `sbo_officer_assignments_officer_user_id_foreign` FOREIGN KEY (`officer_user_id`) REFERENCES `tbl_users` (`id`) ON DELETE CASCADE,
-  ADD CONSTRAINT `sbo_officer_assignments_team_id_foreign` FOREIGN KEY (`team_id`) REFERENCES `tbl_teams` (`id`) ON DELETE SET NULL;
+  ADD CONSTRAINT `sbo_officer_assignments_officer_user_id_foreign` FOREIGN KEY (`officer_user_id`) REFERENCES `tbl_users` (`id`) ON DELETE CASCADE;
 
 --
 -- Constraints for table `tbl_sbo_scan_rate_limits`

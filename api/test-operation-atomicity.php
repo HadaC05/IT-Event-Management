@@ -104,7 +104,7 @@ try{
     if(!$otherTeam)throw new RuntimeException('The QR atomicity fixture requires two active tribes.');
     $db->prepare("INSERT INTO tbl_sbo_officer_assignments(student_id,officer_user_id,team_id,scanner_mode,scanner_team_id,position,term,assigned_by,status,created_at,updated_at) VALUES(?,?,?,'specific',?,'Atomic officer','Atomic term',?,'Active',CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)")->execute([$studentId,$officerUser,$otherTeam,$otherTeam,$actor]);
     $officerAssignment=(int)$db->lastInsertId();
-    $db->prepare("INSERT INTO tbl_sbo_event_assignments(officer_assignment_id,event_schedule_id,session_code,activity_id,team_id,responsibility,status,assigned_by,created_at,updated_at) VALUES(?,?,'whole_day',?,?,'attendance','active',?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)")->execute([$officerAssignment,$schedule,$activity,$otherTeam,$actor]);
+    $db->prepare("INSERT INTO tbl_sbo_event_assignments(officer_assignment_id,event_schedule_id,session_code,activity_id,team_id,responsibility_id,status,assigned_by,created_at,updated_at) VALUES(?,?,'whole_day',?,?,(SELECT id FROM tbl_officer_responsibilities WHERE code='attendance'),'active',?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)")->execute([$officerAssignment,$schedule,$activity,$otherTeam,$actor]);
     $task=(int)$db->lastInsertId();
 
     $db->exec("CREATE TRIGGER fail_activity_log BEFORE INSERT ON tbl_activity_logs FOR EACH ROW SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='forced audit failure'");
@@ -271,7 +271,7 @@ try{
     $responsibilityPayload=['officer_assignment_id'=>$officerAssignment,'event_schedule_id'=>$schedule,'session_code'=>'whole_day','activity_name'=>'Atomic retry responsibility','team_id'=>$team,'responsibility'=>'media'];
     $responsibilityId=$assignments->assign($responsibilityPayload,$actor);$responsibilityRetryId=$assignments->assign($responsibilityPayload,$actor);
     $assert($responsibilityRetryId===$responsibilityId,'identical officer responsibility retry returns the existing assignment');
-    $responsibilityCount=$db->prepare("SELECT COUNT(*) FROM tbl_sbo_event_assignments WHERE officer_assignment_id=? AND event_schedule_id=? AND session_code='whole_day' AND team_id=? AND responsibility='media' AND status='active'");$responsibilityCount->execute([$officerAssignment,$schedule,$team]);
+    $responsibilityCount=$db->prepare("SELECT COUNT(*) FROM tbl_sbo_event_assignments sea JOIN tbl_officer_responsibilities r ON r.id=sea.responsibility_id WHERE sea.officer_assignment_id=? AND sea.event_schedule_id=? AND sea.session_code='whole_day' AND sea.team_id=? AND r.code='media' AND sea.status='active'");$responsibilityCount->execute([$officerAssignment,$schedule,$team]);
     $assert((int)$responsibilityCount->fetchColumn()===1,'identical officer responsibility retry creates one active assignment');
     $assignments->end($responsibilityId,$actor);$assignments->end($responsibilityId,$actor);
     $assert($db->query("SELECT status FROM tbl_sbo_event_assignments WHERE id=$responsibilityId")->fetchColumn()==='inactive','repeated responsibility end request is idempotent');
@@ -295,7 +295,7 @@ try{
 
     $db->prepare("INSERT INTO tbl_score_categories(event_id,activity_id,name,min_points,max_points,sort_order,created_at,updated_at) VALUES(?,?,'Atomic judged score',0,100,1,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)")->execute([$event,$activity]);
     $judgedCategory=(int)$db->lastInsertId();
-    $db->prepare("INSERT INTO tbl_sbo_event_assignments(officer_assignment_id,event_schedule_id,session_code,activity_id,team_id,responsibility,status,assigned_by,created_at,updated_at) VALUES(?,?,'whole_day',?,?,'scoring','active',?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)")->execute([$officerAssignment,$schedule,$activity,$team,$actor]);
+    $db->prepare("INSERT INTO tbl_sbo_event_assignments(officer_assignment_id,event_schedule_id,session_code,activity_id,team_id,responsibility_id,status,assigned_by,created_at,updated_at) VALUES(?,?,'whole_day',?,?,(SELECT id FROM tbl_officer_responsibilities WHERE code='scoring'),'active',?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)")->execute([$officerAssignment,$schedule,$activity,$team,$actor]);
     $scoringTask=(int)$db->lastInsertId();
     $officerScores=new SboScoresRepository($db,new SboAuthorization($db));
     $scoreWorkspace=$officerScores->show($officerUser,$scoringTask);
