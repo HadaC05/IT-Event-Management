@@ -26,7 +26,7 @@ window.SharedNavigation.ready.then((context) => {
     })[label] || "bg-slate-100 text-slate-500";
   document
     .querySelectorAll(
-      "[data-status-form],[data-feature-form],[data-assign-form]",
+      "[data-feature-form],[data-assign-form]",
     )
     .forEach((form) => (form.dataset.axiosForm = ""));
   function row(label, content) {
@@ -114,6 +114,10 @@ window.SharedNavigation.ready.then((context) => {
         "Ends",
         `${format(event.end_at, { weekday: "long", month: "long", day: "numeric", year: "numeric" })}<span class="block font-medium text-slate-400">${time(event.end_at)}</span>`,
       ) +
+      row(
+        "Period",
+        `${EventForm.escapeHtml(event.school_year_label || "Academic year")}<span class="block font-medium text-slate-400">${EventForm.escapeHtml(event.academic_term_name || "Term")}</span>`,
+      ) +
       row("Daily scans", `<div class="grid gap-2">${schedules}</div>`) +
       row("Locations", locationList) +
       row(
@@ -125,23 +129,6 @@ window.SharedNavigation.ready.then((context) => {
         `${EventForm.escapeHtml(event.creator_name)}<span class="block font-medium text-slate-400">${date(event.created_at)}</span>`,
       );
     renderAssigned();
-    const status = $("[data-status-form] select"),
-      statusButton = $("[data-status-form] button");
-    status.replaceChildren();
-    metadata.statuses.forEach((item) =>
-      status.add(
-        new Option(
-          item.label[0].toUpperCase() + item.label.slice(1),
-          item.id,
-          false,
-          Number(item.id) === Number(event.event_status_id),
-        ),
-      ),
-    );
-    statusButton.disabled = true;
-    status.onchange = () =>
-      (statusButton.disabled =
-        Number(status.value) === Number(event.event_status_id));
     const feature = $("[data-feature-form]"),
       canFeature =
         ["upcoming", "ongoing"].includes(event.status_label) &&
@@ -299,23 +286,6 @@ window.SharedNavigation.ready.then((context) => {
     }
   }
   load();
-  $("[data-status-form]").onsubmit = async (eventObject) => {
-    eventObject.preventDefault();
-    try {
-      await post({
-        action: "status",
-        id,
-        event_status_id: eventObject.target.event_status_id.value,
-      });
-      toast("success", "Event status updated successfully.");
-      await load();
-    } catch (error) {
-      toast(
-        "error",
-        error.response?.data?.message || "Unable to update status.",
-      );
-    }
-  };
   $("[data-feature-form]").onsubmit = async (eventObject) => {
     eventObject.preventDefault();
     const body = Object.fromEntries(new FormData(eventObject.target));

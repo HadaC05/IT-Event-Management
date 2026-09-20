@@ -26,8 +26,8 @@ final class AdviserDashboardRepository
                 'active_teams' => $this->scalar('SELECT COUNT(*) FROM tbl_teams WHERE is_active = 1'),
                 'students_present' => $this->todayPresentStudents(),
                 'upcoming_events' => $this->scalar('SELECT COUNT(*) FROM tbl_events WHERE deleted_at IS NULL AND start_at > CURRENT_TIMESTAMP'),
-                'points_awarded' => (float) $this->database->query('SELECT COALESCE(SUM(points), 0) FROM tbl_scores')->fetchColumn(),
-                'ranked_teams' => $this->scalar('SELECT COUNT(DISTINCT tbl_teams.id) FROM tbl_teams JOIN tbl_scores ON tbl_scores.team_id = tbl_teams.id WHERE tbl_teams.is_active = 1'),
+                'points_awarded' => (float) $this->database->query('SELECT COALESCE(SUM(points), 0) FROM vw_finalized_scores')->fetchColumn(),
+                'ranked_teams' => $this->scalar('SELECT COUNT(DISTINCT tbl_teams.id) FROM tbl_teams JOIN vw_finalized_scores ON vw_finalized_scores.team_id = tbl_teams.id WHERE tbl_teams.is_active = 1'),
                 'attendance_rate' => $attendance['rate'],
             ],
             'today_attendance' => $attendance,
@@ -44,12 +44,12 @@ final class AdviserDashboardRepository
     private function todayAttendance(): array
     {
         $statement = $this->database->query(
-            "SELECT attendance.status, COUNT(*) AS total
-             FROM tbl_attendances AS attendance
+            "SELECT attendance.effective_status AS status, COUNT(*) AS total
+             FROM vw_attendance_effective AS attendance
              LEFT JOIN tbl_events ON tbl_events.id = attendance.event_id
              WHERE DATE(attendance.attendance_date) = CURRENT_DATE
                 OR (attendance.attendance_date IS NULL AND DATE(tbl_events.start_at) = CURRENT_DATE)
-             GROUP BY attendance.status"
+             GROUP BY attendance.effective_status"
         );
         $counts = ['present' => 0, 'late' => 0, 'absent' => 0, 'excused' => 0];
         foreach ($statement->fetchAll() as $row) {
@@ -67,9 +67,9 @@ final class AdviserDashboardRepository
     {
         return $this->scalar(
             "SELECT COUNT(DISTINCT attendance.user_id)
-             FROM tbl_attendances AS attendance
+             FROM vw_attendance_effective AS attendance
              LEFT JOIN tbl_events ON tbl_events.id = attendance.event_id
-             WHERE attendance.status = 'present'
+             WHERE attendance.effective_status IN ('present','late')
                AND (DATE(attendance.attendance_date) = CURRENT_DATE
                     OR (attendance.attendance_date IS NULL AND DATE(tbl_events.start_at) = CURRENT_DATE))"
         );
@@ -83,7 +83,7 @@ final class AdviserDashboardRepository
                     COUNT(DISTINCT tbl_attendances.id) AS attendances_count
              FROM tbl_events
              LEFT JOIN tbl_event_user ON tbl_event_user.event_id = tbl_events.id
-             LEFT JOIN tbl_attendances ON tbl_attendances.event_id = tbl_events.id
+             LEFT JOIN vw_attendance_effective AS tbl_attendances ON tbl_attendances.event_id = tbl_events.id
                 AND (tbl_attendances.attendance_date = CURRENT_DATE OR tbl_attendances.attendance_date IS NULL)
              WHERE tbl_events.deleted_at IS NULL
                AND tbl_events.start_at < CURRENT_DATE + INTERVAL 1 DAY
@@ -115,10 +115,10 @@ final class AdviserDashboardRepository
     private function recentAttendance(): array
     {
         return $this->database->query(
-            "SELECT attendance.id, attendance.status, attendance.checked_in_at, attendance.updated_at,
+            "SELECT attendance.id, attendance.effective_status AS status, attendance.manual_status, attendance.checked_in_at, attendance.updated_at,
                     tbl_events.title AS event_title,
                     TRIM(CONCAT_WS(' ', tbl_users.first_name, NULLIF(tbl_users.middle_name, ''), tbl_users.last_name)) AS student_name
-             FROM tbl_attendances AS attendance
+             FROM vw_attendance_effective AS attendance
              JOIN tbl_users ON tbl_users.id = attendance.user_id
              JOIN tbl_events ON tbl_events.id = attendance.event_id
              ORDER BY COALESCE(attendance.checked_in_at, attendance.updated_at) DESC
@@ -188,7 +188,7 @@ final class AdviserDashboardRepository
             "SELECT events.id, events.audience_type,
                     COUNT(DISTINCT attendance.user_id) AS attendances_count
              FROM tbl_events AS events
-             LEFT JOIN tbl_attendances AS attendance ON attendance.event_id = events.id
+             LEFT JOIN vw_attendance_effective AS attendance ON attendance.event_id = events.id
              WHERE events.deleted_at IS NULL
                AND events.start_at <= CURRENT_TIMESTAMP
                AND events.end_at >= CURRENT_TIMESTAMP - INTERVAL 30 DAY
@@ -204,24 +204,8 @@ final class AdviserDashboardRepository
 
     private function expectedStudentCount(array $event): int
     {
-        $sql = "SELECT COUNT(DISTINCT users.id)
-                FROM tbl_users AS users
-                JOIN tbl_roles AS roles ON roles.id = users.role_id
-                JOIN tbl_user_statuses AS statuses ON statuses.id = users.status
-                WHERE roles.name = 'Student' AND statuses.label = 'active'";
-        $params = [];
-        if (($event['audience_type'] ?? '') === 'selected_tribes') {
-            $sql .= ' AND EXISTS (SELECT 1 FROM tbl_team_user AS membership JOIN tbl_event_team AS selected ON selected.team_id = membership.team_id WHERE membership.user_id = users.id AND selected.event_id = ?)';
-            $params[] = (int) $event['id'];
-        } elseif (($event['audience_type'] ?? '') === 'selected_year_levels') {
-            $sql .= ' AND EXISTS (SELECT 1 FROM tbl_event_year_level AS selected WHERE selected.year_level_id = users.year_level AND selected.event_id = ?)';
-            $params[] = (int) $event['id'];
-        } elseif (($event['audience_type'] ?? '') === 'specific_students') {
-            $sql .= ' AND EXISTS (SELECT 1 FROM tbl_event_participants AS selected WHERE selected.user_id = users.id AND selected.event_id = ?)';
-            $params[] = (int) $event['id'];
-        }
-        $statement = $this->database->prepare($sql);
-        $statement->execute($params);
+        $statement = $this->database->prepare('SELECT COUNT(*) FROM tbl_event_membership_snapshots WHERE event_id=?');
+        $statement->execute([(int)$event['id']]);
         return (int) $statement->fetchColumn();
     }
 
@@ -230,7 +214,7 @@ final class AdviserDashboardRepository
         $rows = $this->database->query(
             "SELECT tbl_teams.id, tbl_teams.name, COUNT(DISTINCT tbl_team_user.user_id) AS members_count, SUM(tbl_scores.points) AS total_score
              FROM tbl_teams
-             JOIN tbl_scores ON tbl_scores.team_id = tbl_teams.id
+             JOIN vw_finalized_scores AS tbl_scores ON tbl_scores.team_id = tbl_teams.id
              LEFT JOIN tbl_team_user ON tbl_team_user.team_id = tbl_teams.id
              WHERE tbl_teams.is_active = 1
              GROUP BY tbl_teams.id

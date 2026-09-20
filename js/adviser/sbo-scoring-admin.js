@@ -45,6 +45,8 @@
   document.querySelector("[data-scoring-close]").addEventListener("click", () => dialog.close());
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
+    const submit = event.submitter || form.querySelector('[data-modal-primary]');
+    submit.disabled = true;
     try {
       const response = await axios.post(API, { action: "criterion", ...Object.fromEntries(new FormData(form)) }, { headers: { "X-CSRF-Token": csrf } });
       Notifications.success(response.data.message);
@@ -52,14 +54,20 @@
       form.elements.max_points.value = "";
     } catch (error) {
       Notifications.error(error.response?.data?.message || "Unable to add criterion.");
+    } finally {
+      submit.disabled = false;
     }
   });
-  document.querySelector("[data-reopen-sheet]").addEventListener("click", async () => {
+  document.querySelector("[data-reopen-sheet]").addEventListener("click", async (event) => {
+    const button = event.currentTarget;
+    button.disabled = true;
     try {
       const response = await axios.post(API, { action: "reopen", task_id: select.value }, { headers: { "X-CSRF-Token": csrf } });
       Notifications.success(response.data.message);
     } catch (error) {
       Notifications.error(error.response?.data?.message || "Unable to reopen score sheet.");
+    } finally {
+      button.disabled = false;
     }
   });
 })();

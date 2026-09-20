@@ -10,6 +10,7 @@ require_once __DIR__.'/student-attendance-qr.php';
 require_once __DIR__.'/adviser-attendance-scans.php';
 
 $live = (new Database())->connection();
+$originalDbName = getenv('DB_NAME');
 $source = (string) $live->query('SELECT DATABASE()')->fetchColumn();
 $scratch = 'attendance_flow_test_'.bin2hex(random_bytes(4));
 if (!preg_match('/^attendance_flow_test_[0-9a-f]{8}$/', $scratch)) throw new RuntimeException('Invalid test database name.');
@@ -37,7 +38,8 @@ try {
         if (!in_array($table, $empty, true)) $live->exec("INSERT INTO `$scratch`.`$table` SELECT * FROM `$source`.`$table`");
     }
 
-    $db = (new Database(null, $scratch))->connection();
+    putenv('DB_NAME='.$scratch);
+    $db = (new Database())->connection();
     $zone = new DateTimeZone('Asia/Manila');
     $now = new DateTimeImmutable('now', $zone);
     $today = $now->format('Y-m-d');
@@ -136,6 +138,7 @@ try {
     $assert(count($todayView['scans']) === 3 && $scheduledEvent && $scheduledEvent['venue_latitude'] !== null,
         'Adviser date filter returns every scan and mapped event boundary for the selected day');
 } finally {
+    $originalDbName === false ? putenv('DB_NAME') : putenv('DB_NAME='.$originalDbName);
     $exists = $live->prepare('SELECT COUNT(*) FROM information_schema.SCHEMATA WHERE SCHEMA_NAME=?');
     $exists->execute([$scratch]);
     if ($exists->fetchColumn()) $live->exec("DROP DATABASE `$scratch`");

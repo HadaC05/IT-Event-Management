@@ -325,6 +325,30 @@ dialog[data-location-dialog] [data-location-form] > div {
   overscroll-behavior: contain;
 }
 
+/* Keep the roster replacement decision visible while preview details scroll. */
+dialog#student-roster-import-dialog {
+  height: min(90dvh, 900px);
+  max-height: calc(100dvh - 2rem) !important;
+  overflow: hidden !important;
+}
+
+dialog#student-roster-import-dialog[open] {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+}
+
+dialog#student-roster-import-dialog > header,
+dialog#student-roster-import-dialog > footer {
+  position: static;
+  flex-shrink: 0;
+}
+
+dialog#student-roster-import-dialog > div {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
 @media (max-width: 640px) {
   dialog.app-dialog[data-location-dialog] {
     height: calc(100dvh - 1rem);

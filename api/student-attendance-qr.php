@@ -112,15 +112,8 @@ final class StudentAttendanceQrRepository
 
     private function eligible(int $student,array $event): bool
     {
-        $query=$this->db->prepare("SELECT COUNT(*) FROM tbl_users u JOIN tbl_roles r ON r.id=u.role_id AND r.name='Student'
-            JOIN tbl_user_statuses us ON us.id=u.status AND us.label='active'
-            WHERE u.id=? AND
-            (?='all_students'
-             OR (?='selected_tribes' AND EXISTS(SELECT 1 FROM tbl_team_user tu JOIN tbl_event_team et ON et.team_id=tu.team_id WHERE tu.user_id=u.id AND et.event_id=?))
-             OR (?='selected_year_levels' AND EXISTS(SELECT 1 FROM tbl_event_year_level yl WHERE yl.event_id=? AND yl.year_level_id=u.year_level))
-             OR (?='specific_students' AND EXISTS(SELECT 1 FROM tbl_event_participants p WHERE p.event_id=? AND p.user_id=u.id)))");
-        $audience=$event['audience_type'];$eventId=(int)$event['event_id'];
-        $query->execute([$student,$audience,$audience,$eventId,$audience,$eventId,$audience,$eventId]);
+        $query=$this->db->prepare('SELECT COUNT(*) FROM tbl_event_membership_snapshots WHERE event_id=? AND user_id=?');
+        $query->execute([(int)$event['event_id'],$student]);
         return (bool)$query->fetchColumn();
     }
 }

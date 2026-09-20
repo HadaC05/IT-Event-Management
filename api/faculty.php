@@ -30,10 +30,10 @@ final class FacultyRepository
         if (!$teamId) return ['team' => null, 'students' => [], 'events' => []];
         $team = $this->rows('SELECT id,name,color FROM tbl_teams WHERE id=?', [$teamId])[0];
         $students = $this->rows("SELECT u.id,u.id_number,u.first_name,u.middle_name,u.last_name,yl.label year_level,
-            a.event_id,e.title event_title,a.attendance_date,a.status,a.morning_in_at,a.morning_out_at,a.afternoon_in_at,a.afternoon_out_at
+            a.event_id,e.title event_title,a.attendance_date,a.effective_status status,a.manual_status,a.morning_in_at,a.morning_out_at,a.afternoon_in_at,a.afternoon_out_at
             FROM tbl_team_user tu JOIN tbl_users u ON u.id=tu.user_id JOIN tbl_roles r ON r.id=u.role_id AND r.name='Student'
             LEFT JOIN tbl_year_levels yl ON yl.id=u.year_level
-            LEFT JOIN tbl_attendances a ON a.user_id=u.id LEFT JOIN tbl_events e ON e.id=a.event_id
+            LEFT JOIN vw_attendance_effective a ON a.user_id=u.id LEFT JOIN tbl_events e ON e.id=a.event_id
             WHERE tu.team_id=? ORDER BY u.last_name,u.first_name,a.attendance_date DESC", [$teamId]);
         $result = []; $events = [];
         foreach ($students as $row) {
@@ -41,7 +41,7 @@ final class FacultyRepository
             if (!isset($result[$id])) $result[$id] = ['id'=>$id, 'id_number'=>$row['id_number'], 'name'=>trim($row['first_name'].' '.($row['middle_name'] ?? '').' '.$row['last_name']), 'year_level'=>$row['year_level'], 'team'=>$team['name'], 'attendance'=>[]];
             if ($row['event_id'] !== null) {
                 $events[(int)$row['event_id']] = $row['event_title'];
-                $result[$id]['attendance'][] = ['event_id'=>(int)$row['event_id'], 'event_title'=>$row['event_title'], 'date'=>$row['attendance_date'], 'status'=>$row['status'], 'morning_in_at'=>$row['morning_in_at'], 'morning_out_at'=>$row['morning_out_at'], 'afternoon_in_at'=>$row['afternoon_in_at'], 'afternoon_out_at'=>$row['afternoon_out_at']];
+                $result[$id]['attendance'][] = ['event_id'=>(int)$row['event_id'], 'event_title'=>$row['event_title'], 'date'=>$row['attendance_date'], 'status'=>$row['status'], 'manual_status'=>$row['manual_status'], 'morning_in_at'=>$row['morning_in_at'], 'morning_out_at'=>$row['morning_out_at'], 'afternoon_in_at'=>$row['afternoon_in_at'], 'afternoon_out_at'=>$row['afternoon_out_at']];
             }
         }
         return ['team'=>$team, 'students'=>array_values($result), 'events'=>$events];
@@ -53,11 +53,11 @@ final class FacultyRepository
         if (!$teamId) return ['team'=>null];
         $team = $this->rows('SELECT t.id,t.name,t.color,sy.label school_year FROM tbl_teams t JOIN tbl_school_years sy ON sy.id=t.school_year_id WHERE t.id=?', [$teamId])[0];
         $team['members'] = $this->students($userId)['students'];
-        $team['scores'] = $this->rows('SELECT e.title event_title,COALESCE(c.name,\'General\') category,SUM(s.points) points FROM tbl_scores s JOIN tbl_events e ON e.id=s.event_id LEFT JOIN tbl_score_categories c ON c.id=s.score_category_id WHERE s.team_id=? GROUP BY e.id,c.id ORDER BY e.start_at DESC', [$teamId]);
-        $team['attendance'] = $this->rows("SELECT a.status,COUNT(*) total FROM tbl_attendances a JOIN tbl_team_user tu ON tu.user_id=a.user_id JOIN tbl_users u ON u.id=a.user_id JOIN tbl_roles r ON r.id=u.role_id AND r.name='Student' WHERE tu.team_id=? GROUP BY a.status", [$teamId]);
+        $team['scores'] = $this->rows('SELECT e.title event_title,COALESCE(c.name,\'General\') category,SUM(s.points) points FROM vw_finalized_scores s JOIN tbl_events e ON e.id=s.event_id LEFT JOIN tbl_score_categories c ON c.id=s.score_category_id WHERE s.team_id=? GROUP BY e.id,c.id ORDER BY e.start_at DESC', [$teamId]);
+        $team['attendance'] = $this->rows("SELECT a.effective_status status,COUNT(*) total FROM vw_attendance_effective a JOIN tbl_team_user tu ON tu.user_id=a.user_id JOIN tbl_users u ON u.id=a.user_id JOIN tbl_roles r ON r.id=u.role_id AND r.name='Student' WHERE tu.team_id=? GROUP BY a.effective_status", [$teamId]);
         $team['activities'] = $this->rows('SELECT e.title,e.start_at,e.location FROM tbl_event_team et JOIN tbl_events e ON e.id=et.event_id WHERE et.team_id=? AND e.deleted_at IS NULL AND e.end_at>=CURRENT_TIMESTAMP ORDER BY e.start_at LIMIT 8', [$teamId]);
         $team['announcements'] = $this->rows("SELECT p.content,p.created_at,e.title event_title FROM tbl_posts p LEFT JOIN tbl_events e ON e.id=p.event_id WHERE p.is_official=1 AND p.status='approved' AND p.deleted_at IS NULL AND (p.event_id IS NULL OR EXISTS(SELECT 1 FROM tbl_event_team et WHERE et.event_id=p.event_id AND et.team_id=?)) ORDER BY p.created_at DESC LIMIT 5", [$teamId]);
-        $ranked = $this->rows('SELECT team_id,SUM(points) points FROM tbl_scores GROUP BY team_id ORDER BY points DESC');
+        $ranked = $this->rows('SELECT team_id,SUM(points) points FROM vw_finalized_scores GROUP BY team_id ORDER BY points DESC');
         $team['rank'] = null;
         foreach ($ranked as $index=>$row) if ((int)$row['team_id']===$teamId) $team['rank']=$index+1;
         return ['team'=>$team];
@@ -142,7 +142,6 @@ final class FacultyRepository
         $first = trim((string)($input['first_name'] ?? '')); $last = trim((string)($input['last_name'] ?? ''));
         $middle = trim((string)($input['middle_name'] ?? '')); $bio = trim((string)($input['bio'] ?? '')); $email = trim((string)($input['email'] ?? ''));
         if ($first==='' || $last==='' || mb_strlen($first)>100 || mb_strlen($last)>100 || mb_strlen($middle)>100 || mb_strlen($bio)>280 || !filter_var($email,FILTER_VALIDATE_EMAIL)) throw new InvalidArgumentException('Enter valid profile details.');
-        if ($this->rows('SELECT id FROM tbl_users WHERE email=? AND id<>?', [$email,$userId])) throw new InvalidArgumentException('Email is already in use.');
         $path = null; $file=$files['photo'] ?? null;
         if (is_array($file) && ($file['error'] ?? UPLOAD_ERR_NO_FILE)!==UPLOAD_ERR_NO_FILE) {
             if ($file['error']!==UPLOAD_ERR_OK || $file['size']>5*1024*1024) throw new InvalidArgumentException('Choose a photo no larger than 5 MB.');
@@ -152,9 +151,24 @@ final class FacultyRepository
             $path='assets/uploads/profiles/'.bin2hex(random_bytes(16)).'.'.$ext;
             if (!move_uploaded_file($file['tmp_name'],dirname(__DIR__).'/'.$path)) throw new RuntimeException('Photo upload failed.');
         }
-        $sql='UPDATE tbl_users SET first_name=?,middle_name=?,last_name=?,email=?,bio=?,updated_at=CURRENT_TIMESTAMP'.($path?',profile_photo_path=?':'').' WHERE id=?';
-        $params=[$first,$middle ?: null,$last,$email,$bio ?: null]; if ($path) $params[]=$path; $params[]=$userId;
-        $this->db->prepare($sql)->execute($params);
+        $oldPath = null;
+        try {
+            $this->db->beginTransaction();
+            $userLock=$this->db->prepare('SELECT profile_photo_path FROM tbl_users WHERE id=? FOR UPDATE');$userLock->execute([$userId]);$locked=$userLock->fetch();
+            if(!$locked)throw new InvalidArgumentException('Faculty account not found.');
+            $emailLock=$this->db->prepare('SELECT id FROM tbl_users WHERE email=? AND id<>? FOR UPDATE');$emailLock->execute([$email,$userId]);
+            if($emailLock->fetch())throw new InvalidArgumentException('Email is already in use.');
+            $oldPath=(string)($locked['profile_photo_path']??'');
+            $sql='UPDATE tbl_users SET first_name=?,middle_name=?,last_name=?,email=?,bio=?,updated_at=CURRENT_TIMESTAMP'.($path?',profile_photo_path=?':'').' WHERE id=?';
+            $params=[$first,$middle ?: null,$last,$email,$bio ?: null]; if ($path) $params[]=$path; $params[]=$userId;
+            $this->db->prepare($sql)->execute($params);
+            $this->db->commit();
+        } catch (Throwable $exception) {
+            if($this->db->inTransaction())$this->db->rollBack();
+            if($path){$stored=dirname(__DIR__).'/'.$path;if(is_file($stored))unlink($stored);}
+            throw $exception;
+        }
+        if($path&&$oldPath&&$oldPath!==$path&&str_starts_with($oldPath,'assets/uploads/profiles/')){$oldFile=dirname(__DIR__).'/'.$oldPath;if(is_file($oldFile))unlink($oldFile);}
         $_SESSION['user']['first_name']=$first; $_SESSION['user']['middle_name']=$middle; $_SESSION['user']['last_name']=$last; $_SESSION['user']['full_name']=trim("$first $middle $last"); $_SESSION['user']['email']=$email;
         return $this->profile($userId);
     }

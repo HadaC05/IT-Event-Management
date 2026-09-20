@@ -25,6 +25,7 @@
   ) {
     form.dataset.axiosForm = "";
     const type = form.elements.event_type_id,
+      academicPeriod = form.elements.academic_period_id,
       generalLocation = form.elements.general_location_id,
       specificLocation = form.elements.specific_location_id,
       locationHost = form.querySelector("[data-event-locations]"),
@@ -35,6 +36,12 @@
     let conflictTimer;
     metadata.event_types.forEach((item) =>
       type.add(option(item.label, item.id)),
+    );
+    (metadata.academic_periods || []).forEach((item) =>
+      academicPeriod.add(option(item.label, item.id)),
+    );
+    academicPeriod.value = String(
+      event?.academic_period_id || metadata.default_academic_period_id || "",
     );
     const locations = metadata.locations || [];
     const locationNames = new Map(locations.map((item) => [Number(item.id), item.name]));
@@ -159,14 +166,27 @@
         `<strong>${escapeHtml(item.label)}</strong><small class="float-right text-slate-400">${item.students_count} students</small>`,
       event?.audience_year_level_ids || [],
     );
-    fillChecks(
-      form.querySelector('[data-audience-panel="selected_tribes"]'),
-      metadata.audience_teams,
-      "tribe_ids",
-      (item) =>
-        `<strong>${escapeHtml(item.name)}</strong><small class="float-right text-slate-400">${item.students_count} students</small>`,
-      event?.audience_team_ids || [],
-    );
+    const renderPeriodTeams = () => {
+      const period = (metadata.academic_periods || []).find(
+        (item) => String(item.id) === String(academicPeriod.value),
+      );
+      const selected = [
+        ...form.querySelectorAll('[name="tribe_ids[]"]:checked'),
+      ].map((input) => Number(input.value));
+      fillChecks(
+        form.querySelector('[data-audience-panel="selected_tribes"]'),
+        metadata.audience_teams.filter(
+          (item) =>
+            !period ||
+            Number(item.school_year_id) === Number(period.school_year_id),
+        ),
+        "tribe_ids",
+        (item) =>
+          `<strong>${escapeHtml(item.name)}</strong><small class="float-right text-slate-400">${item.students_count} students</small>`,
+        selected.length ? selected : event?.audience_team_ids || [],
+      );
+    };
+    renderPeriodTeams();
     fillChecks(
       form.querySelector('[data-audience-panel="specific_students"]'),
       metadata.active_students,
@@ -420,6 +440,7 @@
     );
     if (event) {
       type.value = event.event_type_id || "";
+      academicPeriod.value = event.academic_period_id || "";
       form.elements.title.value = event.title || "";
       const savedLocation =
         locations.find(
@@ -436,8 +457,6 @@
       audience.value = event.audience_type || "all_students";
       form.elements.description.value = event.description || "";
       form.elements.attendance_location_policy.value = event.attendance_location_policy === "strict" ? "strict" : "warning";
-      if (form.elements.event_status_id)
-        form.elements.event_status_id.value = event.event_status_id || "";
       const current = form.querySelector("[data-current-poster]");
       if (current && event.poster_path) {
         current.src = event.poster_path;
@@ -634,6 +653,12 @@
     }
     form.elements.title.addEventListener("input", () => {
       clearError("title");
+      readiness();
+    });
+    academicPeriod.addEventListener("change", () => {
+      renderPeriodTeams();
+      clearError("academic_period_id");
+      updateAudience();
       readiness();
     });
     generalLocation.addEventListener("change", () => {

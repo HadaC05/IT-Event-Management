@@ -7,7 +7,7 @@ window.SharedNavigation.ready.then(() => {
   const results = $("[data-report-results]");
   const initial = Object.fromEntries(new URLSearchParams(location.search));
   const validTypes = ["attendance", "participation", "scores", "rankings"];
-  const filterNames = ["event_id", "school_year_id", "category_id", "status", "date_from", "date_to", "search"];
+  const filterNames = ["event_id", "academic_period_id", "category_id", "status", "date_from", "date_to", "search"];
   const state = {
     type: validTypes.includes(initial.type) ? initial.type : "attendance",
     page: Math.max(1, Number(initial.page) || 1),
@@ -130,19 +130,25 @@ window.SharedNavigation.ready.then(() => {
 
   function attendanceTable(rows) {
     const body = rows.map((row) => {
-      const detail = [row.id_number, row.team_name, row.year_level].filter(Boolean).join(" · ");
-      return `<tr class="transition hover:bg-[#397565]/[.025]"><td class="px-6 py-4"><strong class="block text-xs">${escapeHtml(row.student_name || "Deleted user")}</strong><small class="mt-0.5 block text-[10px] text-[#121017]/38">${escapeHtml(detail || "No student details")}</small></td><td class="px-3 py-4 text-xs font-bold">${escapeHtml(row.event_title || "Deleted event")}</td><td class="px-3 py-4 text-xs text-[#121017]/55">${formatDate(row.attendance_date)}</td><td class="px-3 py-4">${statusBadge(row.status)}</td><td class="px-6 py-4 text-xs text-[#121017]/48">${formatTime(row.checked_in_at)}</td></tr>`;
+      const detail = [row.id_number, row.team_name, row.year_level].filter(Boolean).join(" · "),
+        hasScan = Number(row.has_scan_evidence) === 1;
+      const source = row.manual_status !== null
+        ? `Adviser correction${hasScan ? " over scan" : ""}`
+        : hasScan
+          ? "Verified scan"
+          : "Manual record";
+      return `<tr class="transition hover:bg-[#397565]/[.025]"><td class="px-6 py-4"><strong class="block text-xs">${escapeHtml(row.student_name || "Deleted user")}</strong><small class="mt-0.5 block text-[10px] text-[#121017]/38">${escapeHtml(detail || "No student details")}</small></td><td class="px-3 py-4 text-xs font-bold">${escapeHtml(row.event_title || "Deleted event")}<small class="mt-0.5 block text-[10px] font-medium text-[#121017]/38">${escapeHtml(row.academic_period_label || "Period not set")}</small></td><td class="px-3 py-4 text-xs text-[#121017]/55">${formatDate(row.attendance_date)}</td><td class="px-3 py-4">${statusBadge(row.status)}</td><td class="px-3 py-4"><span class="rounded-full ${row.manual_status !== null ? "bg-[#FF6B2C]/10 text-[#b94312]" : "bg-[#397565]/10 text-[#397565]"} px-2.5 py-1 text-[9px] font-black uppercase tracking-wide">${escapeHtml(source)}</span></td><td class="px-6 py-4 text-xs text-[#121017]/48">${formatTime(row.checked_in_at)}</td></tr>`;
     }).join("");
-    return `<div class="overflow-x-auto"><table class="w-full min-w-[820px] text-left"><thead><tr class="bg-[#121017]/[.025] text-[9px] font-black uppercase tracking-[.14em] text-[#121017]/38"><th class="px-6 py-3.5">Student</th><th class="px-3 py-3.5">Event</th><th class="px-3 py-3.5">Date</th><th class="px-3 py-3.5">Status</th><th class="px-6 py-3.5">Check-in</th></tr></thead><tbody class="divide-y divide-[#121017]/7">${body}</tbody></table></div>`;
+    return `<div class="overflow-x-auto"><table class="w-full min-w-[980px] text-left"><thead><tr class="bg-[#121017]/[.025] text-[9px] font-black uppercase tracking-[.14em] text-[#121017]/38"><th class="px-6 py-3.5">Student</th><th class="px-3 py-3.5">Event</th><th class="px-3 py-3.5">Date</th><th class="px-3 py-3.5">Status</th><th class="px-3 py-3.5">Source</th><th class="px-6 py-3.5">Scan evidence</th></tr></thead><tbody class="divide-y divide-[#121017]/7">${body}</tbody></table></div>`;
   }
 
   function participationTable(rows) {
-    const body = rows.map((row) => `<tr class="transition hover:bg-[#397565]/[.025]"><td class="px-6 py-4"><strong class="block text-xs">${escapeHtml(row.title)}</strong><small class="mt-0.5 block text-[10px] text-[#121017]/38">${escapeHtml(row.location || "Venue not set")}</small></td><td class="px-3 py-4"><span class="block text-xs font-bold">${formatDate(row.start_at)}</span><small class="text-[10px] text-[#121017]/38">${formatTime(row.start_at)}</small></td><td class="px-3 py-4 text-xs font-black">${formatNumber(row.expected_count)}</td><td class="px-3 py-4 text-xs font-black">${formatNumber(row.recorded_count)}</td><td class="px-3 py-4 text-xs font-black text-[#397565]">${formatNumber(row.attended_count)}</td><td class="px-6 py-4 text-right"><strong class="text-sm font-black">${row.participation_rate === null ? "—" : `${formatPoints(row.participation_rate)}%`}</strong><div class="ml-auto mt-2 h-1.5 w-24 overflow-hidden rounded-full bg-[#121017]/7"><i class="block h-full rounded-full bg-[#397565]" style="width:${Number(row.participation_rate || 0)}%"></i></div></td></tr>`).join("");
+    const body = rows.map((row) => `<tr class="transition hover:bg-[#397565]/[.025]"><td class="px-6 py-4"><strong class="block text-xs">${escapeHtml(row.title)}</strong><small class="mt-0.5 block text-[10px] text-[#121017]/38">${escapeHtml(row.location || "Venue not set")} · ${escapeHtml(row.academic_period_label || "Period not set")}</small></td><td class="px-3 py-4"><span class="block text-xs font-bold">${formatDate(row.start_at)}</span><small class="text-[10px] text-[#121017]/38">${formatTime(row.start_at)}</small></td><td class="px-3 py-4 text-xs font-black">${formatNumber(row.expected_count)}</td><td class="px-3 py-4 text-xs font-black">${formatNumber(row.recorded_count)}</td><td class="px-3 py-4 text-xs font-black text-[#397565]">${formatNumber(row.attended_count)}</td><td class="px-6 py-4 text-right"><strong class="text-sm font-black">${row.participation_rate === null ? "—" : `${formatPoints(row.participation_rate)}%`}</strong><div class="ml-auto mt-2 h-1.5 w-24 overflow-hidden rounded-full bg-[#121017]/7"><i class="block h-full rounded-full bg-[#397565]" style="width:${Number(row.participation_rate || 0)}%"></i></div></td></tr>`).join("");
     return `<div class="overflow-x-auto"><table class="w-full min-w-[900px] text-left"><thead><tr class="bg-[#121017]/[.025] text-[9px] font-black uppercase tracking-[.14em] text-[#121017]/38"><th class="px-6 py-3.5">Event</th><th class="px-3 py-3.5">Schedule</th><th class="px-3 py-3.5">Expected</th><th class="px-3 py-3.5">Recorded</th><th class="px-3 py-3.5">Attended</th><th class="px-6 py-3.5 text-right">Participation</th></tr></thead><tbody class="divide-y divide-[#121017]/7">${body}</tbody></table></div>`;
   }
 
   function scoresTable(rows) {
-    const body = rows.map((row) => `<tr class="transition hover:bg-[#397565]/[.025]"><td class="px-6 py-4"><strong class="block text-xs">${escapeHtml(row.event_title || "Deleted event")}</strong><small class="text-[10px] text-[#121017]/38">${formatDate(row.event_start_at)}</small></td><td class="px-3 py-4"><span class="inline-flex items-center gap-2 text-xs font-black"><i class="h-2.5 w-2.5 rounded-full" style="background:${escapeHtml(row.color || "#397565")}"></i>${escapeHtml(row.team_name || "Deleted tribe")}</span><small class="mt-0.5 block text-[10px] text-[#121017]/38">${escapeHtml(row.school_year || "")}</small></td><td class="px-3 py-4 text-xs font-bold">${escapeHtml(row.category_name || "Removed criterion")}</td><td class="px-3 py-4"><strong class="text-base font-black text-[#397565]">${formatPoints(row.points)}</strong><small class="ml-1 text-[10px] text-[#121017]/35">/ ${formatPoints(row.max_points)}</small></td><td class="px-3 py-4 text-xs text-[#121017]/52">${escapeHtml(row.recorder_name || "System")}</td><td class="px-6 py-4 text-xs text-[#121017]/45">${formatDateTime(row.updated_at)}</td></tr>`).join("");
+    const body = rows.map((row) => `<tr class="transition hover:bg-[#397565]/[.025]"><td class="px-6 py-4"><strong class="block text-xs">${escapeHtml(row.event_title || "Deleted event")}</strong><small class="text-[10px] text-[#121017]/38">${formatDate(row.event_start_at)} · ${escapeHtml(row.academic_period_label || "Period not set")}</small></td><td class="px-3 py-4"><span class="inline-flex items-center gap-2 text-xs font-black"><i class="h-2.5 w-2.5 rounded-full" style="background:${escapeHtml(row.color || "#397565")}"></i>${escapeHtml(row.team_name || "Deleted tribe")}</span></td><td class="px-3 py-4 text-xs font-bold">${escapeHtml(row.category_name || "Removed criterion")}</td><td class="px-3 py-4"><strong class="text-base font-black text-[#397565]">${formatPoints(row.points)}</strong><small class="ml-1 text-[10px] text-[#121017]/35">/ ${formatPoints(row.max_points)}</small></td><td class="px-3 py-4 text-xs text-[#121017]/52">${escapeHtml(row.recorder_name || "System")}</td><td class="px-6 py-4 text-xs text-[#121017]/45">${formatDateTime(row.updated_at)}</td></tr>`).join("");
     return `<div class="overflow-x-auto"><table class="w-full min-w-[980px] text-left"><thead><tr class="bg-[#121017]/[.025] text-[9px] font-black uppercase tracking-[.14em] text-[#121017]/38"><th class="px-6 py-3.5">Event</th><th class="px-3 py-3.5">Tribe</th><th class="px-3 py-3.5">Criterion</th><th class="px-3 py-3.5">Points</th><th class="px-3 py-3.5">Recorded by</th><th class="px-6 py-3.5">Updated</th></tr></thead><tbody class="divide-y divide-[#121017]/7">${body}</tbody></table></div>`;
   }
 
@@ -183,7 +189,7 @@ window.SharedNavigation.ready.then(() => {
 
   function fillFilters(data) {
     filters.event_id.innerHTML = '<option value="">All events</option>' + data.events.map((event) => option(event.id, `${event.title} · ${formatDate(event.start_at)}`, state.values.event_id)).join("");
-    filters.school_year_id.innerHTML = '<option value="">All school years</option>' + data.school_years.map((year) => option(year.id, year.label, state.values.school_year_id)).join("");
+    filters.academic_period_id.innerHTML = '<option value="">All academic periods</option>' + data.academic_periods.map((period) => option(period.id, period.label, state.values.academic_period_id)).join("");
     filters.category_id.innerHTML = '<option value="">All criteria</option>' + data.categories.map((category) => option(category.id, category.name, state.values.category_id)).join("");
     if (!data.categories.some((category) => String(category.id) === String(state.values.category_id))) state.values.category_id = "";
     filters.category_id.disabled = !state.values.event_id;
@@ -323,7 +329,7 @@ window.SharedNavigation.ready.then(() => {
     load();
   }));
 
-  ["event_id", "school_year_id", "status", "category_id"].forEach((name) => filters[name].addEventListener("change", () => {
+  ["event_id", "academic_period_id", "status", "category_id"].forEach((name) => filters[name].addEventListener("change", () => {
     updateValue(name, filters[name].value);
     if (name === "event_id") {
       state.values.category_id = "";

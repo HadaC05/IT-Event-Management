@@ -13,7 +13,7 @@
     href="assets/images/cite_favicon.png"
 >
 <link rel="stylesheet" href="css/tailwind.css" />
-<link rel="stylesheet" href="css/adviser.css?v=20260917-flat-2" />    <script src="js/shared/notifications.js?v=20260917-7" defer></script>
+<link rel="stylesheet" href="css/adviser.css?v=20260920-roster-1" />    <script src="js/shared/notifications.js?v=20260917-7" defer></script>
     <script src="js/shared/interactions.js?v=20260917-flat-1" defer></script>
 </head>
 <body class="app-shell min-h-screen bg-white font-sans text-[#121017] antialiased" data-admin-shell data-navigation-role="adviser">
@@ -590,7 +590,7 @@
         <div><p class="text-[10px] font-black uppercase tracking-[.14em] text-[#397565]">Student data</p><h2 class="mt-1 text-2xl font-black" id="student-roster-import-title">Import master roster</h2><p class="mt-1.5 max-w-2xl text-sm leading-6 text-[#121017]/50">Preview the workbook first. Valid students can replace demo data; uncertain rows stay in a review queue and never create accounts silently.</p></div>
         <button class="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-[#121017]/5 text-xl text-[#121017]/45 hover:bg-[#121017]/10" type="button" data-dialog-close aria-label="Close roster import">&times;</button>
     </header>
-    <div class="max-h-[calc(100vh_-_12rem)] overflow-y-auto px-5 py-5 sm:px-7">
+    <div class="min-h-0 overflow-y-auto px-5 py-5 sm:px-7">
         <form class="grid gap-3 rounded-2xl border border-[#121017]/9 bg-[#F3F0E9]/35 p-4 sm:grid-cols-[1fr_auto] sm:items-end" data-roster-import-form>
             <label class="grid gap-2"><span class="text-sm font-extrabold">Master roster workbook</span><input class="roster-file-input block min-h-11 w-full rounded-xl border border-[#121017]/12 bg-white px-3 py-2 text-sm" name="roster" type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" required></label>
             <button class="min-h-11 rounded-xl bg-[#397565] px-5 text-sm font-black text-white disabled:cursor-wait disabled:opacity-60" type="submit" data-roster-preview>Preview and validate</button>
@@ -618,6 +618,6 @@
 </dialog>    <script src="js/vendor/axios.min.js"></script>
     <script src="js/shared/password-gate.js?v=20260917-1"></script>
     <script src="js/shared/navigation.js?v=20260917-portal-flat-1"></script>
-    <script src="js/adviser/users.js?v=20260917-8"></script>
+    <script src="js/adviser/users.js?v=20260920-officer-role-guard-1"></script>
 </body>
 </html>

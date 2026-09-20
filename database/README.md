@@ -15,6 +15,26 @@ Override any default with the `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, and
 Application tables use the `tbl_` prefix, such as `tbl_users`, `tbl_roles`, and
 `tbl_posts`.
 
+Import `database/2026_09_20_add_event_academic_periods_and_membership_snapshots.sql`
+after the score-finalization migration. It gives every event an explicit
+school-year/semester period, freezes its eligible student/team membership, and
+makes SBO score-sheet finalization team-scoped.
+
+Then import
+`database/2026_09_20_separate_officer_home_tribe_and_scanner_scope.sql` once.
+It preserves `team_id` as the officer's home tribe and stores attendance
+scanner permission separately in `scanner_team_id`, so changing scanner scope
+cannot silently move the officer to another tribe.
+
+Import `database/2026_09_20_separate_attendance_corrections_and_finalize_scores.sql`
+once to keep scanner attendance evidence immutable while storing Adviser
+corrections as an explicit overlay, and to make only finalized score sheets
+official in Leaderboard, Reports, dashboards, Faculty, and Student views. Draft
+scores remain available in the Adviser and SBO Officer scoring workspaces. Run
+`php api/test-operation-atomicity.php` to verify correction/evidence separation,
+Draft/Finalized publication, reopen behavior, rollback, and retry safety in an
+isolated temporary database.
+
 Import `database/2026_09_19_add_admin_role.sql` once to add the explicit Admin
 role used by the shared media feed. Existing legacy `SBO` administrator accounts
 remain supported. The feed reuses `tbl_posts`, `tbl_post_audits`,
@@ -107,3 +127,9 @@ Run `php api/test-sbo-qr-attendance.php` to verify the scan rules in a
 temporary isolated MySQL database. The test database has a random name and is
 removed by the script after the checks; the live `event_db` records are not
 modified.
+Import `database/2026_09_20_resolve_account_identity_and_normalize_academic_labels.sql`
+once to restore imported students that were left as orphan SBO Officer accounts,
+give real Officer logins their own unique email alias, enforce unique account
+emails, and normalize the current school year and semester labels. New roster
+imports parse school year and semester separately and reports display one
+canonical academic-period label.

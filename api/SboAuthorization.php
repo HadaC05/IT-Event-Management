@@ -24,25 +24,31 @@ final class SboAuthorization
             s.afternoon_in_time,s.afternoon_in_close_time,s.afternoon_out_open_time,s.afternoon_out_time,
             CASE sea.session_code WHEN 'morning' THEN s.morning_in_time WHEN 'afternoon' THEN s.afternoon_in_time ELSE s.whole_day_in_time END session_start,
             CASE sea.session_code WHEN 'morning' THEN s.morning_out_time WHEN 'afternoon' THEN s.afternoon_out_time ELSE s.whole_day_out_time END session_end,
-            e.id event_id,e.title event_name,e.location,e.start_at,e.end_at,e.audience_type,
+            e.id event_id,e.title event_name,e.location,e.start_at,e.end_at,e.audience_type,e.academic_period_id,
+            ap.term_name academic_term_name,sy.label school_year_label,
             a.id activity_id,a.name activity_name,t.id team_id,t.name team_name,t.color team_color,
-            oa.scanner_mode,oa.team_id scanner_team_id,allowed_team.name scanner_team_name,
+            oa.scanner_mode,oa.scanner_team_id,allowed_team.name scanner_team_name,
             1 + (SELECT COUNT(*) FROM tbl_event_attendance_schedules ds WHERE ds.event_id=e.id AND ds.schedule_date<s.schedule_date) day_number
           FROM tbl_sbo_event_assignments sea
           JOIN tbl_sbo_officer_assignments oa ON oa.id=sea.officer_assignment_id AND oa.status='Active'
           JOIN tbl_event_attendance_schedules s ON s.id=sea.event_schedule_id
           JOIN tbl_events e ON e.id=s.event_id AND e.deleted_at IS NULL
+          JOIN tbl_academic_periods ap ON ap.id=e.academic_period_id
+          JOIN tbl_school_years sy ON sy.id=ap.school_year_id
           JOIN tbl_event_activities a ON a.id=sea.activity_id AND a.event_id=e.id AND a.status='active'
-          JOIN tbl_teams t ON t.id=sea.team_id AND t.is_active=1
-          LEFT JOIN tbl_teams allowed_team ON allowed_team.id=oa.team_id
+          JOIN tbl_teams t ON t.id=sea.team_id AND t.is_active=1 AND t.school_year_id=ap.school_year_id
+          LEFT JOIN tbl_teams allowed_team ON allowed_team.id=oa.scanner_team_id
           WHERE oa.officer_user_id=? AND sea.status='active' AND sea.responsibility=?
+            AND (e.audience_type='all_students'
+              OR (e.audience_type='selected_tribes' AND EXISTS(SELECT 1 FROM tbl_event_team et WHERE et.event_id=e.id AND et.team_id=t.id))
+              OR (e.audience_type IN ('selected_year_levels','specific_students') AND EXISTS(SELECT 1 FROM tbl_event_membership_snapshots ms WHERE ms.event_id=e.id AND ms.team_id=t.id)))
             AND CURDATE() BETWEEN DATE(e.start_at) AND DATE(e.end_at)$dateClause
           ORDER BY s.schedule_date,session_start,a.name,t.name");
         $statement->execute([$officerUserId, $responsibility]);
         $rows = $statement->fetchAll();
         $now = new DateTimeImmutable('now', new DateTimeZone('Asia/Manila'));
         foreach ($rows as &$row) {
-            foreach (['id','officer_assignment_id','event_schedule_id','event_id','activity_id','team_id','scanner_team_id','day_number'] as $key) $row[$key] = (int) $row[$key];
+            foreach (['id','officer_assignment_id','event_schedule_id','event_id','academic_period_id','activity_id','team_id','scanner_team_id','day_number'] as $key) $row[$key] = (int) $row[$key];
             $row['session_name'] = match ($row['session_code']) {'morning' => 'Morning Session', 'afternoon' => 'Afternoon Session', default => 'Whole Day Session'};
             $start = new DateTimeImmutable($row['schedule_date'].' '.$row['session_start'], new DateTimeZone('Asia/Manila'));
             $end = new DateTimeImmutable($row['schedule_date'].' '.$row['session_end'], new DateTimeZone('Asia/Manila'));
@@ -78,19 +84,8 @@ final class SboAuthorization
 
     public function studentIsEligible(array $assignment, int $studentId, int $studentTeamId): bool
     {
-        $statement = $this->db->prepare("SELECT COUNT(*) FROM tbl_users u
-          JOIN tbl_roles r ON r.id=u.role_id AND r.name='Student'
-          JOIN tbl_user_statuses us ON us.id=u.status AND us.label='active'
-          WHERE u.id=?
-            AND EXISTS(SELECT 1 FROM tbl_team_user tu WHERE tu.user_id=u.id AND tu.team_id=?)
-            AND (
-              ?='all_students'
-              OR (?='selected_tribes' AND EXISTS(SELECT 1 FROM tbl_event_team et WHERE et.event_id=? AND et.team_id=?))
-              OR (?='selected_year_levels' AND EXISTS(SELECT 1 FROM tbl_event_year_level eyl WHERE eyl.event_id=? AND eyl.year_level_id=u.year_level))
-              OR (?='specific_students' AND EXISTS(SELECT 1 FROM tbl_event_participants ep WHERE ep.event_id=? AND ep.user_id=u.id))
-            )");
-        $audience = $assignment['audience_type'];
-        $statement->execute([$studentId,$studentTeamId,$audience,$audience,$assignment['event_id'],$studentTeamId,$audience,$assignment['event_id'],$audience,$assignment['event_id']]);
+        $statement=$this->db->prepare('SELECT COUNT(*) FROM tbl_event_membership_snapshots WHERE event_id=? AND user_id=? AND team_id=?');
+        $statement->execute([(int)$assignment['event_id'],$studentId,$studentTeamId]);
         return (bool) $statement->fetchColumn();
     }
 }

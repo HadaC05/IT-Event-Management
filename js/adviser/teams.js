@@ -585,7 +585,7 @@ window.SharedNavigation.ready.then((context) => {
     )
       return;
     try {
-      const response = await api({ action: "toggle", id: t.id });
+      const response = await api({ action: "toggle", id: t.id, active: !t.is_active });
       toast("success", response.data.message || (t.is_active ? "Tribe deactivated." : "Tribe activated."));
       await load().catch(() => toast("warning", "Saved, but the tribe list could not refresh. Reload the page."));
     } catch (e) {
@@ -724,6 +724,7 @@ window.SharedNavigation.ready.then((context) => {
   };
   form.onsubmit = async (e) => {
     e.preventDefault();
+    const submit = e.submitter || form.querySelector('button[type="submit"]');
     clearFormErrors();
     const validation = clientErrors();
     if (Object.keys(validation).length) {
@@ -737,6 +738,7 @@ window.SharedNavigation.ready.then((context) => {
     ].map((x) => x.value);
     payload.action = editing ? "update" : "create";
     if (editing) payload.id = editing.id;
+    if (submit) submit.disabled = true;
     try {
       const r = await api(payload);
       dialog.close();
@@ -751,6 +753,8 @@ window.SharedNavigation.ready.then((context) => {
       );
       if (!response?.errors || !Object.keys(response.errors).length)
         toast("error", response?.message || "Unable to save tribe.");
+    } finally {
+      if (submit) submit.disabled = false;
     }
   };
   filters.onchange = async () => {
@@ -776,6 +780,7 @@ window.SharedNavigation.ready.then((context) => {
   $("[data-randomize-year]").onchange = updateRandomize;
   $("[data-randomize-form]").onsubmit = async (e) => {
     e.preventDefault();
+    const submit = e.submitter || e.target.querySelector('button[type="submit"]');
     if (
       !(await confirmAction({
         title: "Randomize tribe members?",
@@ -785,6 +790,7 @@ window.SharedNavigation.ready.then((context) => {
       }))
     )
       return;
+    if (submit) submit.disabled = true;
     try {
       const r = await api({
         action: "randomize",
@@ -797,6 +803,8 @@ window.SharedNavigation.ready.then((context) => {
         "error",
         err.response?.data?.message || "Unable to randomize students.",
       );
+    } finally {
+      if (submit) submit.disabled = false;
     }
   };
   document.addEventListener("click", (event) => {

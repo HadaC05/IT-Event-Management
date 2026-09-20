@@ -104,15 +104,19 @@ final class PostReviewRepository
         if (mb_strlen($reason) > 1000) $errors['rejection_reason'][] = 'The rejection reason may not exceed 1,000 characters.';
         if ($errors) throw new PostReviewValidationException($errors);
 
-        $statement = $this->db->prepare('SELECT * FROM tbl_posts WHERE id=? AND is_official=0 AND deleted_at IS NULL');
-        $statement->execute([$id]);
-        $post = $statement->fetch();
-        if (!$post) throw new PostReviewValidationException(['post' => ['Student post not found.']]);
-        if ((int) $post['user_id'] === $actorId) throw new PostReviewValidationException(['post' => ['You cannot review your own post.']]);
-        if ($post['status'] !== 'pending') throw new PostReviewValidationException(['post' => ['This post has already been reviewed.']]);
-
         $this->db->beginTransaction();
         try {
+            $statement = $this->db->prepare('SELECT * FROM tbl_posts WHERE id=? AND is_official=0 AND deleted_at IS NULL FOR UPDATE');
+            $statement->execute([$id]);
+            $post = $statement->fetch();
+            if (!$post) throw new PostReviewValidationException(['post' => ['Student post not found.']]);
+            if ((int) $post['user_id'] === $actorId) throw new PostReviewValidationException(['post' => ['You cannot review your own post.']]);
+            $storedReason = trim((string) ($post['rejection_reason'] ?? ''));
+            if ($post['status'] === $status && ($status === 'approved' || $storedReason === $reason)) {
+                $this->db->commit();
+                return 'Post was already '.$status.'.';
+            }
+            if ($post['status'] !== 'pending') throw new PostReviewValidationException(['post' => ['This post has already been reviewed.']]);
             $reviewedAt = date('Y-m-d H:i:s');
             $update = $this->db->prepare('UPDATE tbl_posts SET status=?,rejection_reason=?,reviewed_by=?,reviewed_at=?,updated_at=CURRENT_TIMESTAMP WHERE id=? AND status=\'pending\'');
             $update->execute([$status, $status === 'rejected' ? $reason : null, $actorId, $reviewedAt, $id]);

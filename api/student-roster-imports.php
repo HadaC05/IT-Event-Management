@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 require_once __DIR__.'/db_connect.php';
 require_once __DIR__.'/ApiSupport.php';
+require_once __DIR__.'/AcademicPeriodLabel.php';
 
 final class RosterSpreadsheetReader
 {
@@ -323,16 +324,30 @@ final class StudentRosterImportService
             }
 
             $schoolYearIds = [];
+            $periodsBySource = [];
             $schoolYearInsert = $this->db->prepare('INSERT INTO tbl_school_years (label,created_at,updated_at) VALUES (?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)');
-            foreach (array_values(array_unique(array_filter(array_map(static fn (array $row): string => trim((string) $row['school_year']), $rows)))) as $schoolYear) {
-                $schoolYearInsert->execute([$schoolYear]);
-                $schoolYearIds[$schoolYear] = (int) $this->db->lastInsertId();
+            $periodInsert = $this->db->prepare('INSERT INTO tbl_academic_periods (school_year_id,term_code,term_name,is_active,created_at,updated_at) VALUES (?,?,?,1,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)');
+            $createdPeriods = [];
+            foreach (array_values(array_unique(array_filter(array_map(static fn (array $row): string => trim((string) $row['school_year']), $rows)))) as $sourcePeriod) {
+                $period = AcademicPeriodLabel::parse($sourcePeriod);
+                $yearLabel = $period['school_year_label'];
+                if (!isset($schoolYearIds[$yearLabel])) {
+                    $schoolYearInsert->execute([$yearLabel]);
+                    $schoolYearIds[$yearLabel] = (int) $this->db->lastInsertId();
+                }
+                $periodKey = $yearLabel.'|'.$period['term_code'];
+                if (!isset($createdPeriods[$periodKey])) {
+                    $periodInsert->execute([$schoolYearIds[$yearLabel], $period['term_code'], $period['term_name']]);
+                    $createdPeriods[$periodKey] = (int) $this->db->lastInsertId();
+                }
+                $periodsBySource[$sourcePeriod] = $period + ['id' => $createdPeriods[$periodKey]];
             }
 
             $teamIds = [];
             $teamInsert = $this->db->prepare('INSERT INTO tbl_teams (school_year_id,name,color,is_active,created_at,updated_at) VALUES (?,?,?,1,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)');
             foreach ($rows as $row) {
-                $schoolYear = trim((string) $row['school_year']);
+                $sourcePeriod = trim((string) $row['school_year']);
+                $schoolYear = $periodsBySource[$sourcePeriod]['school_year_label'] ?? '';
                 $tribe = trim((string) $row['tribe']);
                 if ($tribe === '' || !isset($schoolYearIds[$schoolYear])) continue;
                 $key = $schoolYear.'|'.mb_strtolower($tribe);
@@ -370,10 +385,11 @@ final class StudentRosterImportService
                 $userId = (int) $this->db->lastInsertId();
                 $profileInsert->execute([
                     $userId, (string) $row['record_key'], $row['gender'], $row['campus'], $row['program'],
-                    $row['section_name'], $row['school_year'], $row['enrollment_status'], $row['source_files'], $batchId,
+                    $row['section_name'], $periodsBySource[trim((string) $row['school_year'])]['label'], $row['enrollment_status'], $row['source_files'], $batchId,
                 ]);
                 $tribe = trim((string) $row['tribe']);
-                $teamKey = trim((string) $row['school_year']).'|'.mb_strtolower($tribe);
+                $schoolYear = $periodsBySource[trim((string) $row['school_year'])]['school_year_label'];
+                $teamKey = $schoolYear.'|'.mb_strtolower($tribe);
                 if ($tribe !== '' && isset($teamIds[$teamKey])) {
                     $membershipInsert->execute([$teamIds[$teamKey], $userId]);
                 }
@@ -388,8 +404,10 @@ final class StudentRosterImportService
             $this->db->commit();
         } catch (Throwable $error) {
             if ($this->db->inTransaction()) $this->db->rollBack();
-            $failed = $this->db->prepare("UPDATE tbl_student_import_batches SET status='failed',failure_message=? WHERE id=?");
-            $failed->execute([mb_substr($error->getMessage(), 0, 1000), $batchId]);
+            // Only the request that still owns a previewable batch may mark it failed.
+            // A concurrent retry may have completed the same batch while this request
+            // was waiting for the row lock; never overwrite that completed state.
+            $this->markFailedIfPreviewed($batchId, $error->getMessage());
             throw $error;
         }
 
@@ -400,6 +418,12 @@ final class StudentRosterImportService
             'temporary_password_rule' => 'CITE@ followed by the final 5 or 6 digits of the Student ID',
             'must_change_password' => true,
         ];
+    }
+
+    private function markFailedIfPreviewed(int $batchId, string $message): void
+    {
+        $failed = $this->db->prepare("UPDATE tbl_student_import_batches SET status='failed',failure_message=? WHERE id=? AND status='previewed'");
+        $failed->execute([mb_substr($message, 0, 1000), $batchId]);
     }
 
     public function latest(?int $batchId = null, string $status = '', int $page = 1): array
@@ -440,7 +464,16 @@ final class StudentRosterImportService
         if ($officialName === '') $add('blocked', 'missing_official_name', 'Official name is required.', 'official_name');
         elseif (!str_contains($officialName, ',')) $add('warning', 'name_format', 'Official name does not use the expected LAST, FIRST format.', 'official_name');
         if (!in_array((int) $year, [1, 2, 3, 4], true)) $add('review', 'invalid_year_level', 'Year level must be 1, 2, 3, or 4.', 'year_level');
-        if ($this->clean($record['school_year'] ?? '') === '') $add('review', 'missing_school_year', 'School year is required for tribe membership.', 'school_year');
+        $sourcePeriod = $this->clean($record['school_year'] ?? '');
+        if ($sourcePeriod === '') {
+            $add('review', 'missing_school_year', 'School year and semester are required for tribe membership.', 'school_year');
+        } else {
+            try {
+                AcademicPeriodLabel::parse($sourcePeriod);
+            } catch (InvalidArgumentException $error) {
+                $add('review', 'invalid_academic_period', $error->getMessage(), 'school_year');
+            }
+        }
         if ($email === '') $add('warning', 'missing_email', 'Email is missing; a pending placeholder will be used.', 'email');
         elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) $add('review', 'invalid_email', 'Email address is not valid.', 'email');
         elseif (count($emailRows[$email] ?? []) > 1) $add('review', 'duplicate_email', 'Email is assigned to more than one Student ID.', 'email');
@@ -476,6 +509,7 @@ final class StudentRosterImportService
         ] as $table) {
             $this->db->exec('DELETE FROM '.$table);
         }
+        $this->db->exec('DELETE FROM tbl_academic_periods');
         $this->db->exec('DELETE FROM tbl_school_years');
     }
 
@@ -579,6 +613,8 @@ function rosterImportError(Throwable $error): never
     JsonResponse::send(['success' => false, 'message' => $error->getMessage()], $status);
 }
 
+if (realpath((string) ($_SERVER['SCRIPT_FILENAME'] ?? '')) !== __FILE__) return;
+
 $database = new Database();
 $service = new StudentRosterImportService($database->connection(), new RosterSpreadsheetReader());
 
@@ -633,7 +669,11 @@ try {
         if ((int) $upload['size'] > 25 * 1024 * 1024) throw new InvalidArgumentException('The roster may not exceed 25 MB.');
         if (mb_strtolower(pathinfo((string) $upload['name'], PATHINFO_EXTENSION)) !== 'xlsx') throw new InvalidArgumentException('Upload an .xlsx workbook.');
         $data = $service->preview((string) $upload['tmp_name'], (string) $upload['name'], $actorId);
-        JsonResponse::send(['success' => true, 'message' => 'Roster preview completed.', 'data' => $data]);
+        JsonResponse::send([
+            'success' => true,
+            'message' => 'Preview complete. No accounts changed yet; confirm the replacement below to import the validated roster.',
+            'data' => $data,
+        ]);
     }
 
     $input = json_decode((string) file_get_contents('php://input'), true, 512, JSON_THROW_ON_ERROR);

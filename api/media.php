@@ -27,7 +27,12 @@ try {
         'delete' => (function () use ($repository,$actor,$postId) { $repository->delete($actor,$postId); return 'Post deleted.'; })(),
         'approve','reject' => (function () use ($repository,$actor,$postId,$action,$input) { $repository->review($actor,$postId,$action === 'approve' ? 'approved' : 'rejected',(string)($input['reason'] ?? '')); return $action === 'approve' ? 'Post approved.' : 'Post rejected.'; })(),
         'hide' => (function () use ($repository,$actor,$postId,$input) { $repository->hide($actor,$postId,(string)($input['reason'] ?? '')); return 'Post hidden from the public feed.'; })(),
-        'reaction_toggle' => (function () use ($repository,$userId,$postId,$input) { $repository->toggleReaction($userId,$postId,(string)($input['type'] ?? '')); return 'Reaction updated.'; })(),
+        'reaction_toggle' => (function () use ($repository,$userId,$postId,$input) {
+            $desired = array_key_exists('active', $input) ? filter_var($input['active'], FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE) : null;
+            if (array_key_exists('active', $input) && $desired === null) throw new InvalidArgumentException('Choose a valid reaction state.');
+            $repository->toggleReaction($userId,$postId,(string)($input['type'] ?? ''),$desired);
+            return 'Reaction updated.';
+        })(),
         'comment_create','comment_update' => (function () use ($repository,$userId,$postId,$input,$action) { $repository->saveComment($userId,$postId,(string)($input['body'] ?? ''),$action === 'comment_update' ? (int)($input['comment_id'] ?? 0) : null); return $action === 'comment_create' ? 'Comment added.' : 'Comment updated.'; })(),
         'comment_delete' => (function () use ($repository,$userId,$postId,$input) { $repository->deleteComment($userId,$postId,(int)($input['comment_id'] ?? 0)); return 'Comment deleted.'; })(),
         'comment_pin' => (function () use ($repository,$userId,$postId,$input) { $repository->pinComment($userId,$postId,(int)($input['comment_id'] ?? 0),!empty($input['pin'])); return !empty($input['pin']) ? 'Comment pinned.' : 'Comment unpinned.'; })(),

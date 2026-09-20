@@ -19,7 +19,8 @@ if (!$eventId || !$teamId || !$actorId) {
     throw new RuntimeException('Activity scoring test requires an event, an active team, and an SBO Adviser.');
 }
 
-$db->beginTransaction();
+$activityA = 0;
+$activityB = 0;
 try {
     $activityInsert = $db->prepare("INSERT INTO tbl_event_activities(event_id,name,status,created_by,created_at,updated_at) VALUES(?,?,'active',?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)");
     $activityInsert->execute([$eventId, '__Scoring test A', $actorId]);
@@ -58,4 +59,6 @@ try {
     echo "PASS: activity-specific categories, scores, and cross-activity protection.\n";
 } finally {
     if ($db->inTransaction()) $db->rollBack();
+    $delete = $db->prepare('DELETE FROM tbl_event_activities WHERE id IN (?,?)');
+    $delete->execute([$activityA, $activityB]);
 }

@@ -32,7 +32,7 @@
             <div class="flex flex-wrap items-start justify-between gap-3">
                 <div>
                     <h3 class="font-black">${escapeHtml(item.event_title)}</h3>
-                    <p class="mt-1 text-xs text-[#121017]/45">${formatDate(item.attendance_date || item.start_at, false)}</p>
+                    <p class="mt-1 text-xs text-[#121017]/45">${formatDate(item.attendance_date || item.start_at, false)}${item.manual_status ? ' · Adviser corrected' : ''}</p>
                 </div>
                 <span class="rounded-full px-3 py-1 text-[9px] font-black uppercase ${statusTone(item.status)}">${escapeHtml(item.status)}</span>
             </div>

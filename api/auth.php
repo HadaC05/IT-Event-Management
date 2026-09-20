@@ -39,18 +39,18 @@ final class UserRepository
 
     public function replacePassword(int $userId, string $password, string $role): void
     {
-        $statement = $this->database->prepare('SELECT password FROM tbl_users WHERE id = ? LIMIT 1');
-        $statement->execute([$userId]);
-        $currentHash = $statement->fetchColumn();
-        if (!is_string($currentHash)) {
-            throw new InvalidArgumentException('Your account was not found.');
-        }
-        if (password_verify($password, $currentHash)) {
-            throw new InvalidArgumentException('Choose a password different from your temporary password.');
-        }
-
         $this->database->beginTransaction();
         try {
+            $statement = $this->database->prepare('SELECT password FROM tbl_users WHERE id = ? LIMIT 1 FOR UPDATE');
+            $statement->execute([$userId]);
+            $currentHash = $statement->fetchColumn();
+            if (!is_string($currentHash)) {
+                throw new InvalidArgumentException('Your account was not found.');
+            }
+            if (password_verify($password, $currentHash)) {
+                throw new InvalidArgumentException('Choose a password different from your temporary password.');
+            }
+
             $update = $this->database->prepare('UPDATE tbl_users SET password = ?, must_change_password = 0, updated_at = CURRENT_TIMESTAMP WHERE id = ?');
             $update->execute([password_hash($password, PASSWORD_BCRYPT), $userId]);
             $log = $this->database->prepare("INSERT INTO tbl_activity_logs
@@ -85,8 +85,14 @@ final class AuthController
             throw new InvalidArgumentException('Enter your username/email and password.');
         }
 
+        $candidates = $this->users->findLoginCandidates($login);
+        if (filter_var($login, FILTER_VALIDATE_EMAIL) !== false && count($candidates) > 1) {
+            $this->recordFailure();
+            throw new InvalidArgumentException('This email belongs to more than one account. Sign in with your account username.');
+        }
+
         $account = null;
-        foreach ($this->users->findLoginCandidates($login) as $candidate) {
+        foreach ($candidates as $candidate) {
             if (password_verify($password, (string) $candidate['password'])) {
                 $account = $candidate;
                 break;

@@ -110,13 +110,19 @@ final class AnnouncementRepository
 
     public function update(int $id, array $input, array $files, int $actorId): string
     {
-        $announcement = $this->official($id);
+        $this->official($id);
         $data = $this->validate($input, $files);
         $newImage = $this->storeImage($files['image'] ?? null);
-        $oldImage = (string) ($announcement['image_path'] ?? '');
-        $imagePath = $newImage ?: ($this->boolean($input['remove_image'] ?? false) ? null : ($oldImage ?: null));
+        $oldImage = '';
+        $imagePath = null;
         try {
             $this->db->beginTransaction();
+            $lock = $this->db->prepare('SELECT * FROM tbl_posts WHERE id=? AND is_official=1 AND deleted_at IS NULL FOR UPDATE');
+            $lock->execute([$id]);
+            $announcement = $lock->fetch();
+            if (!$announcement) throw new AnnouncementValidationException(['announcement' => ['Official announcement not found.']]);
+            $oldImage = (string) ($announcement['image_path'] ?? '');
+            $imagePath = $newImage ?: ($this->boolean($input['remove_image'] ?? false) ? null : ($oldImage ?: null));
             $status = $data['intent'] === 'publish' ? 'approved' : 'draft';
             $statement = $this->db->prepare("UPDATE tbl_posts SET event_id=?,content=?,image_path=?,status=?,rejection_reason=NULL,reviewed_by=?,reviewed_at=?,updated_at=CURRENT_TIMESTAMP WHERE id=? AND is_official=1 AND deleted_at IS NULL");
             $statement->execute([$data['event_id'], $data['content'], $imagePath, $status, $status === 'approved' ? $actorId : null, $status === 'approved' ? date('Y-m-d H:i:s') : null, $id]);
@@ -136,9 +142,11 @@ final class AnnouncementRepository
     public function updateStatus(int $id, string $status, int $actorId): string
     {
         if (!in_array($status, ['draft', 'approved'], true)) throw new AnnouncementValidationException(['status' => ['Choose draft or approved.']]);
-        $announcement = $this->official($id);
         $this->db->beginTransaction();
         try {
+            $lock=$this->db->prepare('SELECT * FROM tbl_posts WHERE id=? AND is_official=1 AND deleted_at IS NULL FOR UPDATE');$lock->execute([$id]);$announcement=$lock->fetch();
+            if(!$announcement)throw new AnnouncementValidationException(['announcement'=>['Official announcement not found.']]);
+            if((string)$announcement['status']===$status){$this->db->commit();return $status==='approved'?'Announcement is already published.':'Announcement is already a draft.';}
             $statement = $this->db->prepare("UPDATE tbl_posts SET status=?,reviewed_by=?,reviewed_at=?,updated_at=CURRENT_TIMESTAMP WHERE id=?");
             $statement->execute([$status, $status === 'approved' ? $actorId : null, $status === 'approved' ? date('Y-m-d H:i:s') : null, $id]);
             $action = $status === 'approved' ? 'announcement_published' : 'announcement_unpublished';
@@ -154,9 +162,11 @@ final class AnnouncementRepository
 
     public function archive(int $id, int $actorId): string
     {
-        $announcement = $this->official($id);
         $this->db->beginTransaction();
         try {
+            $lock=$this->db->prepare('SELECT * FROM tbl_posts WHERE id=? AND is_official=1 FOR UPDATE');$lock->execute([$id]);$announcement=$lock->fetch();
+            if(!$announcement)throw new AnnouncementValidationException(['announcement'=>['Official announcement not found.']]);
+            if($announcement['deleted_at']!==null){$this->db->commit();return 'Announcement is already archived.';}
             $this->audit($id, $actorId, 'announcement_archived', (string) $announcement['status'], null);
             $this->log($actorId, $announcement['event_id'] === null ? null : (int) $announcement['event_id'], 'announcement_archived', "Official announcement #$id was archived.");
             $this->db->prepare('UPDATE tbl_posts SET deleted_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP WHERE id=?')->execute([$id]);
@@ -170,10 +180,11 @@ final class AnnouncementRepository
 
     public function restore(int $id, int $actorId): string
     {
-        $announcement = $this->official($id, true);
-        if ($announcement['deleted_at'] === null) throw new AnnouncementValidationException(['announcement' => ['Announcement is not archived.']]);
         $this->db->beginTransaction();
         try {
+            $lock=$this->db->prepare('SELECT * FROM tbl_posts WHERE id=? AND is_official=1 FOR UPDATE');$lock->execute([$id]);$announcement=$lock->fetch();
+            if(!$announcement)throw new AnnouncementValidationException(['announcement'=>['Official announcement not found.']]);
+            if($announcement['deleted_at']===null){$this->db->commit();return 'Announcement is already restored.';}
             $this->db->prepare("UPDATE tbl_posts SET deleted_at=NULL,status='draft',reviewed_by=NULL,reviewed_at=NULL,updated_at=CURRENT_TIMESTAMP WHERE id=?")->execute([$id]);
             $this->audit($id, $actorId, 'announcement_restored', null, 'draft');
             $this->log($actorId, $announcement['event_id'] === null ? null : (int) $announcement['event_id'], 'announcement_restored', "Official announcement #$id was restored.");

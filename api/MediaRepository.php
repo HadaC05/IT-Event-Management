@@ -96,7 +96,8 @@ final class MediaRepository
     {
         $userId = (int) $actor['id'];
         $permissions = new MediaPermissions((string) $actor['role']);
-        $post = $this->ownedPost((int) ($input['id'] ?? 0), $userId);
+        $postId = (int) ($input['id'] ?? 0);
+        $post = $this->ownedPost($postId, $userId);
         if ($permissions->isStudent() && !in_array($post['status'], ['pending', 'approved', 'rejected'], true)) {
             throw new MediaForbiddenException('This post can no longer be edited.');
         }
@@ -107,17 +108,33 @@ final class MediaRepository
         $eventId = $this->eventId($input, $userId, $permissions);
         [$newImage, $newVideo] = $this->storeMedia($files);
         $removeMedia = !empty($input['remove_media']);
-        $imagePath = $removeMedia ? null : $post['image_path'];
-        $videoPath = $removeMedia ? null : $post['video_path'];
-        if ($newImage !== null) { $imagePath = $newImage; $videoPath = null; }
-        if ($newVideo !== null) { $videoPath = $newVideo; $imagePath = null; }
         $status = $permissions->isStudent() ? 'pending' : 'approved';
+        $imagePath = $videoPath = null;
+        $oldImagePath = $oldVideoPath = null;
         $this->db->beginTransaction();
         try {
+            $lock = $this->db->prepare('SELECT * FROM tbl_posts WHERE id=? AND user_id=? AND deleted_at IS NULL FOR UPDATE');
+            $lock->execute([$postId, $userId]);
+            $post = $lock->fetch();
+            if (!$post) throw new MediaForbiddenException('You can change only your own posts.');
+            if ($permissions->isStudent() && !in_array($post['status'], ['pending', 'approved', 'rejected'], true)) {
+                throw new MediaForbiddenException('This post can no longer be edited.');
+            }
+            if (!$permissions->isStudent() && $post['status'] === 'hidden') {
+                throw new MediaForbiddenException('A hidden post cannot be edited by its author.');
+            }
+            $eventId = $this->eventId($input, $userId, $permissions);
+            $oldImagePath = $post['image_path'];
+            $oldVideoPath = $post['video_path'];
+            $imagePath = $removeMedia ? null : $oldImagePath;
+            $videoPath = $removeMedia ? null : $oldVideoPath;
+            if ($newImage !== null) { $imagePath = $newImage; $videoPath = null; }
+            if ($newVideo !== null) { $videoPath = $newVideo; $imagePath = null; }
             $statement = $this->db->prepare('UPDATE tbl_posts SET event_id=?,content=?,image_path=?,video_path=?,status=?,rejection_reason=NULL,reviewed_by=?,reviewed_at=?,updated_at=CURRENT_TIMESTAMP WHERE id=? AND user_id=? AND deleted_at IS NULL');
-            $statement->execute([$eventId, $content, $imagePath, $videoPath, $status, $status === 'approved' ? $userId : null, $status === 'approved' ? date('Y-m-d H:i:s') : null, (int) $post['id'], $userId]);
-            $this->audit((int) $post['id'], $userId, 'edited', (string) $post['status'], $status, $permissions->isStudent() ? 'Student edit requires a new review.' : null);
-            if ($permissions->isStudent()) $this->notifyModerators((int) $post['id'], $actor);
+            $statement->execute([$eventId, $content, $imagePath, $videoPath, $status, $status === 'approved' ? $userId : null, $status === 'approved' ? date('Y-m-d H:i:s') : null, $postId, $userId]);
+            if ($statement->rowCount() !== 1) throw new RuntimeException('The post was not updated.');
+            $this->audit($postId, $userId, 'edited', (string) $post['status'], $status, $permissions->isStudent() ? 'Student edit requires a new review.' : null);
+            if ($permissions->isStudent()) $this->notifyModerators($postId, $actor);
             $this->db->commit();
         } catch (Throwable $exception) {
             if ($this->db->inTransaction()) $this->db->rollBack();
@@ -125,19 +142,24 @@ final class MediaRepository
             $this->removeUpload($newVideo);
             throw $exception;
         }
-        if ($imagePath !== $post['image_path']) $this->removeUpload($post['image_path']);
-        if ($videoPath !== $post['video_path']) $this->removeUpload($post['video_path']);
+        if ($imagePath !== $oldImagePath) $this->removeUpload($oldImagePath);
+        if ($videoPath !== $oldVideoPath) $this->removeUpload($oldVideoPath);
     }
 
     public function delete(array $actor, int $postId): void
     {
         $userId = (int) $actor['id'];
-        $post = $this->ownedPost($postId, $userId);
-        if ($post['status'] === 'hidden') throw new MediaForbiddenException('A hidden post cannot be deleted by its author.');
         $this->db->beginTransaction();
         try {
+            $lock = $this->db->prepare('SELECT status,deleted_at FROM tbl_posts WHERE id=? AND user_id=? FOR UPDATE');
+            $lock->execute([$postId, $userId]);
+            $post = $lock->fetch();
+            if (!$post) throw new MediaForbiddenException('You can change only your own posts.');
+            if ($post['status'] === 'hidden') throw new MediaForbiddenException('A hidden post cannot be deleted by its author.');
+            if ($post['deleted_at'] !== null) { $this->db->commit(); return; }
             $statement = $this->db->prepare('UPDATE tbl_posts SET deleted_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP WHERE id=? AND user_id=? AND deleted_at IS NULL');
             $statement->execute([$postId, $userId]);
+            if ($statement->rowCount() !== 1) throw new RuntimeException('The post was not deleted.');
             $this->audit($postId, $userId, 'deleted', (string) $post['status'], null, 'Soft deleted by the author.');
             $this->db->commit();
         } catch (Throwable $exception) {
@@ -154,15 +176,19 @@ final class MediaRepository
         $reason = trim($reason);
         if ($status === 'rejected' && $reason === '') throw new InvalidArgumentException('Enter a rejection reason for the student.');
         if (mb_strlen($reason) > 1000) throw new InvalidArgumentException('The rejection reason may not exceed 1,000 characters.');
-        $statement = $this->db->prepare("SELECT p.*,r.name author_role FROM tbl_posts p JOIN tbl_users u ON u.id=p.user_id JOIN tbl_roles r ON r.id=u.role_id WHERE p.id=? AND p.deleted_at IS NULL");
-        $statement->execute([$postId]);
-        $post = $statement->fetch();
-        if (!$post) throw new InvalidArgumentException('Post not found.');
-        if ($post['author_role'] !== 'Student') throw new MediaForbiddenException('Only student posts enter the approval queue.');
-        if ($post['status'] !== 'pending') throw new InvalidArgumentException('This post is no longer pending.');
         $actorId = (int) $actor['id'];
         $this->db->beginTransaction();
         try {
+            $statement = $this->db->prepare("SELECT p.*,r.name author_role FROM tbl_posts p JOIN tbl_users u ON u.id=p.user_id JOIN tbl_roles r ON r.id=u.role_id WHERE p.id=? AND p.deleted_at IS NULL FOR UPDATE");
+            $statement->execute([$postId]);
+            $post = $statement->fetch();
+            if (!$post) throw new InvalidArgumentException('Post not found.');
+            if ($post['author_role'] !== 'Student') throw new MediaForbiddenException('Only student posts enter the approval queue.');
+            if ($post['status'] === $status && ($status !== 'rejected' || (string) ($post['rejection_reason'] ?? '') === $reason)) {
+                $this->db->commit();
+                return;
+            }
+            if ($post['status'] !== 'pending') throw new InvalidArgumentException('This post is no longer pending.');
             $update = $this->db->prepare("UPDATE tbl_posts SET status=?,rejection_reason=?,reviewed_by=?,reviewed_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP WHERE id=? AND status='pending'");
             $update->execute([$status, $status === 'rejected' ? $reason : null, $actorId, $postId]);
             if ($update->rowCount() !== 1) throw new InvalidArgumentException('This post has already been reviewed.');
@@ -182,14 +208,18 @@ final class MediaRepository
         $reason = trim($reason);
         if ($reason === '') throw new InvalidArgumentException('Enter a reason for hiding this post.');
         if (mb_strlen($reason) > 1000) throw new InvalidArgumentException('The reason may not exceed 1,000 characters.');
-        $statement = $this->db->prepare("SELECT id,user_id,status FROM tbl_posts WHERE id=? AND status='approved' AND deleted_at IS NULL");
-        $statement->execute([$postId]);
-        $post = $statement->fetch();
-        if (!$post) throw new InvalidArgumentException('Only an approved public post can be hidden.');
         $actorId = (int) $actor['id'];
         $this->db->beginTransaction();
         try {
-            $this->db->prepare("UPDATE tbl_posts SET status='hidden',rejection_reason=?,reviewed_by=?,reviewed_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP WHERE id=? AND status='approved'")->execute([$reason, $actorId, $postId]);
+            $statement = $this->db->prepare('SELECT id,user_id,status,rejection_reason,deleted_at FROM tbl_posts WHERE id=? FOR UPDATE');
+            $statement->execute([$postId]);
+            $post = $statement->fetch();
+            if (!$post || $post['deleted_at'] !== null) throw new InvalidArgumentException('Only an approved public post can be hidden.');
+            if ($post['status'] === 'hidden' && (string) ($post['rejection_reason'] ?? '') === $reason) { $this->db->commit(); return; }
+            if ($post['status'] !== 'approved') throw new InvalidArgumentException('Only an approved public post can be hidden.');
+            $update = $this->db->prepare("UPDATE tbl_posts SET status='hidden',rejection_reason=?,reviewed_by=?,reviewed_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP WHERE id=? AND status='approved'");
+            $update->execute([$reason, $actorId, $postId]);
+            if ($update->rowCount() !== 1) throw new RuntimeException('The post was not hidden.');
             $this->audit($postId, $actorId, 'hidden', 'approved', 'hidden', $reason);
             $this->notifyPostOwner((int) $post['user_id'], $postId, 'hidden', $reason);
             $this->db->commit();
@@ -199,17 +229,29 @@ final class MediaRepository
         }
     }
 
-    public function toggleReaction(int $userId, int $postId, string $type): void
+    public function toggleReaction(int $userId, int $postId, string $type, ?bool $desiredActive = null): void
     {
-        $this->publicPost($postId);
         if ($type !== 'like') throw new InvalidArgumentException('Only the Like reaction is available.');
-        $statement = $this->db->prepare('SELECT type FROM tbl_post_reactions WHERE post_id=? AND user_id=?');
-        $statement->execute([$postId, $userId]);
-        if ($statement->fetchColumn() === $type) {
-            $this->db->prepare('DELETE FROM tbl_post_reactions WHERE post_id=? AND user_id=?')->execute([$postId, $userId]);
-            return;
+        $this->db->beginTransaction();
+        try {
+            $post = $this->db->prepare("SELECT id FROM tbl_posts WHERE id=? AND status='approved' AND deleted_at IS NULL FOR UPDATE");
+            $post->execute([$postId]);
+            if (!$post->fetchColumn()) throw new InvalidArgumentException('This post is not publicly available.');
+            $statement = $this->db->prepare('SELECT type FROM tbl_post_reactions WHERE post_id=? AND user_id=? FOR UPDATE');
+            $statement->execute([$postId, $userId]);
+            $current = $statement->fetchColumn() === $type;
+            $active = $desiredActive ?? !$current;
+            if ($active === $current) { $this->db->commit(); return; }
+            if (!$active) {
+                $this->db->prepare('DELETE FROM tbl_post_reactions WHERE post_id=? AND user_id=?')->execute([$postId, $userId]);
+            } else {
+                $this->db->prepare('INSERT INTO tbl_post_reactions(post_id,user_id,type,created_at,updated_at) VALUES(?,?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP) ON DUPLICATE KEY UPDATE type=VALUES(type),updated_at=CURRENT_TIMESTAMP')->execute([$postId, $userId, $type]);
+            }
+            $this->db->commit();
+        } catch (Throwable $exception) {
+            if ($this->db->inTransaction()) $this->db->rollBack();
+            throw $exception;
         }
-        $this->db->prepare('INSERT INTO tbl_post_reactions(post_id,user_id,type,created_at,updated_at) VALUES(?,?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP) ON DUPLICATE KEY UPDATE type=VALUES(type),updated_at=CURRENT_TIMESTAMP')->execute([$postId, $userId, $type]);
     }
 
     public function saveComment(int $userId, int $postId, string $body, ?int $commentId): void
@@ -234,15 +276,22 @@ final class MediaRepository
 
     public function pinComment(int $userId, int $postId, int $commentId, bool $pin): void
     {
-        $post = $this->publicPost($postId);
-        if ((int) $post['user_id'] !== $userId) throw new MediaForbiddenException('Only the post author can pin a comment.');
-        $statement = $this->db->prepare('SELECT id FROM tbl_post_comments WHERE id=? AND post_id=?');
-        $statement->execute([$commentId, $postId]);
-        if (!$statement->fetchColumn()) throw new InvalidArgumentException('Comment not found.');
         $this->db->beginTransaction();
         try {
+            $post = $this->db->prepare("SELECT id,user_id FROM tbl_posts WHERE id=? AND status='approved' AND deleted_at IS NULL FOR UPDATE");
+            $post->execute([$postId]);
+            $post = $post->fetch();
+            if (!$post) throw new InvalidArgumentException('This post is not publicly available.');
+            if ((int) $post['user_id'] !== $userId) throw new MediaForbiddenException('Only the post author can pin a comment.');
+            $statement = $this->db->prepare('SELECT id,is_pinned FROM tbl_post_comments WHERE id=? AND post_id=? FOR UPDATE');
+            $statement->execute([$commentId, $postId]);
+            $comment = $statement->fetch();
+            if (!$comment) throw new InvalidArgumentException('Comment not found.');
+            if ((bool) $comment['is_pinned'] === $pin) { $this->db->commit(); return; }
             if ($pin) $this->db->prepare('UPDATE tbl_post_comments SET is_pinned=0 WHERE post_id=?')->execute([$postId]);
-            $this->db->prepare('UPDATE tbl_post_comments SET is_pinned=?,updated_at=CURRENT_TIMESTAMP WHERE id=? AND post_id=?')->execute([$pin ? 1 : 0, $commentId, $postId]);
+            $update = $this->db->prepare('UPDATE tbl_post_comments SET is_pinned=?,updated_at=CURRENT_TIMESTAMP WHERE id=? AND post_id=?');
+            $update->execute([$pin ? 1 : 0, $commentId, $postId]);
+            if ($update->rowCount() !== 1) throw new RuntimeException('The comment pin was not updated.');
             $this->db->commit();
         } catch (Throwable $exception) {
             if ($this->db->inTransaction()) $this->db->rollBack();
@@ -264,10 +313,26 @@ final class MediaRepository
         if ($featured && strtotime((string) $event['end_at']) < time()) throw new InvalidArgumentException('Completed events cannot be added to the active carousel.');
         $file = $files['carousel_image'] ?? null;
         $newPath = $this->storeImage($file, self::CAROUSEL_DIRECTORY, 8 * 1024 * 1024);
-        $posterPath = $newPath ?? $event['poster_path'];
-        if ($featured && !$posterPath) throw new InvalidArgumentException('Add an event carousel image before featuring this event.');
-        $this->db->prepare('UPDATE tbl_events SET poster_path=?,is_featured=?,featured_until=CASE WHEN ?=1 THEN end_at ELSE NULL END,updated_at=CURRENT_TIMESTAMP WHERE id=?')->execute([$posterPath, $featured ? 1 : 0, $featured ? 1 : 0, $eventId]);
-        if ($newPath && $event['poster_path'] && $newPath !== $event['poster_path']) $this->removeUpload($event['poster_path']);
+        $oldPath = null;
+        try {
+            $this->db->beginTransaction();
+            if ($permissions->isOfficer()) $this->assertOfficerEvent((int) $actor['id'], $eventId);
+            $lock = $this->db->prepare('SELECT poster_path,end_at FROM tbl_events WHERE id=? AND deleted_at IS NULL FOR UPDATE');
+            $lock->execute([$eventId]);
+            $event = $lock->fetch();
+            if (!$event) throw new InvalidArgumentException('Choose a valid event.');
+            if ($featured && strtotime((string) $event['end_at']) < time()) throw new InvalidArgumentException('Completed events cannot be added to the active carousel.');
+            $oldPath = $event['poster_path'];
+            $posterPath = $newPath ?? $oldPath;
+            if ($featured && !$posterPath) throw new InvalidArgumentException('Add an event carousel image before featuring this event.');
+            $this->db->prepare('UPDATE tbl_events SET poster_path=?,is_featured=?,featured_until=CASE WHEN ?=1 THEN end_at ELSE NULL END,updated_at=CURRENT_TIMESTAMP WHERE id=?')->execute([$posterPath, $featured ? 1 : 0, $featured ? 1 : 0, $eventId]);
+            $this->db->commit();
+        } catch (Throwable $exception) {
+            if ($this->db->inTransaction()) $this->db->rollBack();
+            $this->removeUpload($newPath);
+            throw $exception;
+        }
+        if ($newPath && $oldPath && $newPath !== $oldPath) $this->removeUpload($oldPath);
     }
 
     private function approvedPosts(int $viewerId, ?int $eventId): array

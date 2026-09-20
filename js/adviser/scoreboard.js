@@ -250,6 +250,7 @@ window.SharedNavigation.ready.then(() => {
   }
 
   function renderCriteria() {
+    const locked = state.sheet?.status === "finalized";
     if (!state.selected_activity) {
       criteriaSection.innerHTML = `<div class="rounded-2xl border border-[#FF6B2C]/20 bg-[#FF6B2C]/[.06] p-7"><p class="text-[10px] font-black uppercase tracking-[.16em] text-[#FF6B2C]">Activity required</p><h2 class="mt-2 text-xl font-black">Add the event's first activity.</h2><p class="mt-2 text-sm text-[#121017]/55">Activities organize separate judging criteria and team scores.</p><a class="mt-5 inline-flex min-h-11 items-center rounded-xl bg-[#397565] px-5 text-xs font-black text-white" href="pages/adviser/event-details.html?id=${eventId}#event-activities">Add activity</a></div>`;
       return;
@@ -263,11 +264,11 @@ window.SharedNavigation.ready.then(() => {
       const rows = state.categories.slice(start, start + PAGE_SIZE)
         .map(
           (category, index) =>
-            `<tr><td class="px-6 py-3.5"><div class="flex items-center gap-3"><span class="grid h-7 w-7 place-items-center rounded-lg bg-[#397565]/10 text-[10px] font-black text-[#397565]">${start + index + 1}</span><strong class="text-sm">${escapeHtml(category.name)}</strong></div></td><td class="px-4 py-3.5 text-xs font-black">${formatScore(category.max_points)} <span class="font-semibold text-[#121017]/35">pts</span></td><td class="px-4 py-3.5 text-[10px] font-bold text-[#121017]/50">● ${category.scores_count} ${category.scores_count === 1 ? "entry" : "entries"}</td><td class="px-6 py-3.5"><div class="flex justify-end gap-2"><button class="min-h-10 rounded-xl border border-[#2F3AE0]/25 bg-[#2F3AE0]/8 px-4 text-xs font-black text-[#2F3AE0]" type="button" data-edit-category="${category.id}">Edit</button><button class="min-h-10 rounded-xl border border-[#FF6B2C]/25 bg-[#FF6B2C]/10 px-4 text-xs font-black text-[#d9470a]" type="button" data-delete-category="${category.id}">Remove</button></div></td></tr>`,
+            `<tr><td class="px-6 py-3.5"><div class="flex items-center gap-3"><span class="grid h-7 w-7 place-items-center rounded-lg bg-[#397565]/10 text-[10px] font-black text-[#397565]">${start + index + 1}</span><strong class="text-sm">${escapeHtml(category.name)}</strong></div></td><td class="px-4 py-3.5 text-xs font-black">${formatScore(category.max_points)} <span class="font-semibold text-[#121017]/35">pts</span></td><td class="px-4 py-3.5 text-[10px] font-bold text-[#121017]/50">● ${category.scores_count} ${category.scores_count === 1 ? "entry" : "entries"}</td><td class="px-6 py-3.5"><div class="flex justify-end gap-2">${locked ? '<span class="text-[9px] font-black uppercase tracking-wide text-[#397565]">Finalized</span>' : `<button class="min-h-10 rounded-xl border border-[#2F3AE0]/25 bg-[#2F3AE0]/8 px-4 text-xs font-black text-[#2F3AE0]" type="button" data-edit-category="${category.id}">Edit</button><button class="min-h-10 rounded-xl border border-[#FF6B2C]/25 bg-[#FF6B2C]/10 px-4 text-xs font-black text-[#d9470a]" type="button" data-delete-category="${category.id}">Remove</button>`}</div></td></tr>`,
         )
         .join("");
       const pager = lastPage > 1 ? `<nav class="flex flex-wrap items-center justify-between gap-3 border-t px-4 py-3 text-xs" aria-label="Criterion pages"><span>Showing ${start + 1}–${Math.min(start + PAGE_SIZE, state.categories.length)} of ${state.categories.length}</span><span class="flex items-center gap-2"><button class="min-h-10 rounded-lg border px-3 font-bold disabled:opacity-30" type="button" data-criteria-page="${criteriaPage - 1}" ${criteriaPage === 1 ? "disabled" : ""}>Previous</button><b>${criteriaPage} / ${lastPage}</b><button class="min-h-10 rounded-lg border px-3 font-bold disabled:opacity-30" type="button" data-criteria-page="${criteriaPage + 1}" ${criteriaPage === lastPage ? "disabled" : ""}>Next</button></span></nav>` : "";
-      criteriaSection.innerHTML = `<div class="overflow-hidden rounded-2xl border border-[#121017]/10 bg-white/70"><header class="flex items-end justify-between border-b px-6 py-5"><div><p class="text-[10px] font-black uppercase tracking-[.16em] text-[#397565]">Scoring rules</p><h2 class="mt-1 text-xl font-black">${state.categories.length} configured ${state.categories.length === 1 ? "criterion" : "criteria"}</h2></div><p class="text-[10px] font-bold text-[#121017]/40">${formatScore(state.summary.maximum)} maximum points per tribe</p></header><div class="overflow-x-auto"><table class="w-full min-w-[620px]"><thead class="bg-[#121017]/[.025] text-left text-[9px] font-black uppercase text-[#121017]/40"><tr><th class="px-6 py-3">Criterion</th><th class="px-4 py-3">Maximum</th><th class="px-4 py-3">Recorded</th><th class="px-6 py-3 text-right">Actions</th></tr></thead><tbody class="divide-y">${rows}</tbody></table></div>${pager}<form class="grid gap-3 border-t bg-[#121017]/[.025] p-4 sm:grid-cols-[minmax(220px,1fr)_150px_auto]" data-create-category>${categoryFields()}<button class="min-h-11 rounded-xl bg-[#397565] px-5 text-xs font-black text-white" type="submit">+ Add Criterion</button></form></div>`;
+      criteriaSection.innerHTML = `<div class="overflow-hidden rounded-2xl border border-[#121017]/10 bg-white/70"><header class="flex items-end justify-between border-b px-6 py-5"><div><p class="text-[10px] font-black uppercase tracking-[.16em] text-[#397565]">Scoring rules</p><h2 class="mt-1 text-xl font-black">${state.categories.length} configured ${state.categories.length === 1 ? "criterion" : "criteria"}</h2></div><p class="text-[10px] font-bold text-[#121017]/40">${formatScore(state.summary.maximum)} maximum points per tribe</p></header>${locked ? '<div class="border-b bg-[#397565]/8 px-6 py-3 text-xs font-bold text-[#397565]">Finalized criteria are locked. Reopen scoring below to edit them.</div>' : ''}<div class="overflow-x-auto"><table class="w-full min-w-[620px]"><thead class="bg-[#121017]/[.025] text-left text-[9px] font-black uppercase text-[#121017]/40"><tr><th class="px-6 py-3">Criterion</th><th class="px-4 py-3">Maximum</th><th class="px-4 py-3">Recorded</th><th class="px-6 py-3 text-right">Actions</th></tr></thead><tbody class="divide-y">${rows}</tbody></table></div>${pager}${locked ? '' : `<form class="grid gap-3 border-t bg-[#121017]/[.025] p-4 sm:grid-cols-[minmax(220px,1fr)_150px_auto]" data-create-category>${categoryFields()}<button class="min-h-11 rounded-xl bg-[#397565] px-5 text-xs font-black text-white" type="submit">+ Add Criterion</button></form>`}</div>`;
     }
     const form = $("[data-create-category]");
     if (form) bindCategoryForm(form, "category-create");
@@ -331,6 +332,7 @@ window.SharedNavigation.ready.then(() => {
   }
 
   function renderMatrix() {
+    const locked = state.sheet?.status === "finalized";
     if (!state.selected_activity) {
       matrixSection.innerHTML = "";
       return;
@@ -356,13 +358,13 @@ window.SharedNavigation.ready.then(() => {
         const inputs = state.categories
           .map((category) => {
             const value = state.scores[`${category.id}-${team.id}`] ?? "";
-            return `<td class="px-3 py-3"><input class="h-10 w-full rounded-lg border border-[#121017]/10 px-3 text-right text-sm font-black invalid:border-[#FF6B2C]" type="number" min="0" max="${category.max_points}" step="0.01" placeholder="—" value="${value}" data-score-input data-category="${category.id}" data-team="${team.id}" data-original-score="${value}" aria-label="${escapeHtml(category.name)} score for ${escapeHtml(team.name)}" /><small class="hidden text-[9px] text-red-600" data-score-error></small></td>`;
+            return `<td class="px-3 py-3"><input class="h-10 w-full rounded-lg border border-[#121017]/10 px-3 text-right text-sm font-black invalid:border-[#FF6B2C] disabled:bg-[#121017]/5 disabled:text-[#121017]/55" type="number" min="0" max="${category.max_points}" step="0.01" placeholder="—" value="${value}" data-score-input data-category="${category.id}" data-team="${team.id}" data-original-score="${value}" aria-label="${escapeHtml(category.name)} score for ${escapeHtml(team.name)}" ${locked ? "disabled" : ""}/><small class="hidden text-[9px] text-red-600" data-score-error></small></td>`;
           })
           .join("");
         return `<tr class="group" data-team-row data-team-name="${escapeHtml(team.name.toLowerCase())}"><td class="sticky left-0 z-10 bg-white px-6 py-3.5"><div class="flex items-center gap-3"><span class="grid h-8 w-8 place-items-center rounded-full bg-[#121017]/6 text-[10px] font-black" data-rank>${state.summary.entries ? team.rank : "—"}</span><span class="h-8 w-1 rounded-full" style="background:${escapeHtml(team.color)}"></span><span><strong class="block text-sm">${escapeHtml(team.name)}</strong><small class="text-[9px] text-[#121017]/38">${escapeHtml(team.school_year_label || "School year not set")}${team.is_active ? "" : " · Inactive"}</small></span></div></td>${inputs}<td class="px-6 text-right"><strong class="text-lg font-black" data-team-total>${formatScore(team.event_score_total)}</strong> <small>pts</small></td></tr>`;
       })
       .join("");
-    matrixSection.innerHTML = `<div class="overflow-hidden rounded-2xl border border-[#121017]/10 bg-white/80 shadow-[0_18px_55px_rgba(18,16,23,.06)]"><header class="border-b px-5 py-5 sm:px-6"><div class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between"><div><p class="text-[10px] font-black uppercase tracking-[.16em] text-[#397565]">Main workspace</p><h2 class="mt-1 text-xl font-black">Tribe Score Matrix</h2><p class="mt-1 text-xs text-[#121017]/45">Enter awarded points below. Blank fields remain unjudged.</p></div><div class="flex gap-2"><p class="inline-flex min-h-10 items-center rounded-xl bg-[#C6F24E]/25 px-3 text-[10px] font-black text-[#397565]" data-save-state>● All changes saved</p><input class="h-10 rounded-xl border bg-[#F3F0E9]/55 px-3 text-xs" type="search" placeholder="Find a tribe…" data-team-search /></div></div></header><form data-score-form><div class="max-h-[62vh] overflow-auto"><table class="w-full border-collapse" style="min-width:${470 + state.categories.length * 154}px"><thead class="sticky top-0 z-20 bg-[#F3F0E9] text-left text-[9px] font-black uppercase text-[#121017]/40"><tr><th class="sticky left-0 z-30 min-w-60 bg-[#F3F0E9] px-6 py-3.5">Rank / Tribe</th>${heads}<th class="min-w-28 px-6 text-right">Total</th></tr></thead><tbody class="divide-y" data-score-body>${rows}<tr class="hidden" data-no-team-results><td class="px-6 py-10 text-center" colspan="${state.categories.length + 2}">No tribes match your search.</td></tr></tbody></table></div><footer class="sticky bottom-0 flex items-center justify-between border-t bg-white/95 px-6 py-4"><div><p class="text-xs font-bold text-[#121017]/45"><strong data-change-count>0</strong> unsaved changes</p><p class="text-[9px] text-[#121017]/35">Maximum ${formatScore(state.summary.maximum)} points per tribe</p></div><div class="flex gap-2"><button class="min-h-11 rounded-xl border px-4 text-xs font-black" type="button" data-reset>Reset</button><button class="min-h-11 rounded-xl bg-[#2F3AE0] px-6 text-xs font-black text-white disabled:bg-[#121017]/15" type="submit" data-save-scores disabled>Save Scores</button></div></footer></form></div>`;
+    matrixSection.innerHTML = `<div class="overflow-hidden rounded-2xl border border-[#121017]/10 bg-white/80 shadow-[0_18px_55px_rgba(18,16,23,.06)]"><header class="border-b px-5 py-5 sm:px-6"><div class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between"><div><p class="text-[10px] font-black uppercase tracking-[.16em] text-[#397565]">Main workspace</p><h2 class="mt-1 text-xl font-black">Tribe Score Matrix</h2><p class="mt-1 text-xs text-[#121017]/45">${locked ? "These official results are read-only until scoring is reopened." : "Save work as a draft, then finalize complete results to publish them."}</p></div><div class="flex gap-2"><p class="inline-flex min-h-10 items-center rounded-xl bg-[#C6F24E]/25 px-3 text-[10px] font-black text-[#397565]" data-save-state>● ${locked ? "Finalized · Official" : "Draft · All changes saved"}</p><input class="h-10 rounded-xl border bg-[#F3F0E9]/55 px-3 text-xs" type="search" placeholder="Find a tribe…" data-team-search /></div></div></header><form data-score-form><div class="max-h-[62vh] overflow-auto"><table class="w-full border-collapse" style="min-width:${470 + state.categories.length * 154}px"><thead class="sticky top-0 z-20 bg-[#F3F0E9] text-left text-[9px] font-black uppercase text-[#121017]/40"><tr><th class="sticky left-0 z-30 min-w-60 bg-[#F3F0E9] px-6 py-3.5">Rank / Tribe</th>${heads}<th class="min-w-28 px-6 text-right">Total</th></tr></thead><tbody class="divide-y" data-score-body>${rows}<tr class="hidden" data-no-team-results><td class="px-6 py-10 text-center" colspan="${state.categories.length + 2}">No tribes match your search.</td></tr></tbody></table></div><footer class="sticky bottom-0 flex items-center justify-between border-t bg-white/95 px-6 py-4"><div><p class="text-xs font-bold text-[#121017]/45"><strong data-change-count>0</strong> unsaved changes</p><p class="text-[9px] text-[#121017]/35">Maximum ${formatScore(state.summary.maximum)} points per tribe</p></div><div class="flex gap-2">${locked ? '<button class="min-h-11 rounded-xl border border-[#397565]/25 px-5 text-xs font-black text-[#397565]" type="button" data-reopen>Reopen scoring</button>' : '<button class="min-h-11 rounded-xl border px-4 text-xs font-black" type="button" data-reset>Reset</button><button class="min-h-11 rounded-xl border border-[#397565]/25 px-5 text-xs font-black text-[#397565] disabled:opacity-30" type="submit" data-save-scores disabled>Save draft</button><button class="min-h-11 rounded-xl bg-[#397565] px-6 text-xs font-black text-white disabled:bg-[#121017]/15" type="button" data-finalize disabled>Finalize results</button>'}</div></footer></form></div>`;
     $("[data-score-form] > div").insertAdjacentHTML("afterend", '<nav class="flex flex-wrap items-center justify-between gap-3 border-t px-4 py-3 text-xs sm:px-6" data-matrix-pagination aria-label="Score matrix pages"></nav>');
     bindMatrix();
   }
@@ -371,6 +373,7 @@ window.SharedNavigation.ready.then(() => {
     const inputs = $$("[data-score-input]"),
       rows = $$("[data-team-row]"),
       save = $("[data-save-scores]"),
+      finalize = $("[data-finalize]"),
       saveState = $("[data-save-state]");
     const normalize = (value) => (value === "" ? "" : String(Number(value)));
     const refresh = () => {
@@ -407,10 +410,13 @@ window.SharedNavigation.ready.then(() => {
           normalize(input.value) !== normalize(input.dataset.originalScore),
       ).length;
       $("[data-change-count]").textContent = changed;
-      save.disabled = !changed || inputs.some((input) => !input.validity.valid);
-      saveState.textContent = changed
-        ? `● ${changed} unsaved ${changed === 1 ? "change" : "changes"}`
-        : "● All changes saved";
+      const invalid = inputs.some((input) => !input.validity.valid),
+        complete = inputs.length > 0 && inputs.every((input) => input.value !== "");
+      if (save) save.disabled = !changed || invalid;
+      if (finalize) finalize.disabled = invalid || !complete;
+      if (!state.sheet || state.sheet.status !== "finalized") saveState.textContent = changed
+        ? `● Draft · ${changed} unsaved ${changed === 1 ? "change" : "changes"}`
+        : "● Draft · All changes saved";
       $("[data-entry-count]").textContent = entries;
       $("[data-grand-total]").textContent = formatScore(total);
       const completion = Math.round((entries / inputs.length) * 1000) / 10;
@@ -449,18 +455,24 @@ window.SharedNavigation.ready.then(() => {
       applyPage();
     };
     applyPage();
-    $("[data-reset]").onclick = () => {
+    const reset = $("[data-reset]");
+    if (reset) reset.onclick = () => {
       inputs.forEach((input) => (input.value = input.dataset.originalScore));
       refresh();
     };
-    $("[data-score-form]").onsubmit = async (event) => {
-      event.preventDefault();
-      if (!event.currentTarget.reportValidity()) return;
+    const collectScores = () => {
       const scores = {};
       inputs.forEach((input) => {
         scores[input.dataset.category] ??= {};
         scores[input.dataset.category][input.dataset.team] = input.value;
       });
+      return scores;
+    };
+    $("[data-score-form]").onsubmit = async (event) => {
+      event.preventDefault();
+      if (!save) return;
+      if (!event.currentTarget.reportValidity()) return;
+      const scores = collectScores();
       save.disabled = true;
       try {
         const response = await post("save", { scores });
@@ -471,6 +483,46 @@ window.SharedNavigation.ready.then(() => {
           error.response?.data?.message || "Scores could not be saved.",
         );
         refresh();
+      }
+    };
+    if (finalize) finalize.onclick = async () => {
+      if (!$("[data-score-form]").reportValidity()) return;
+      const accepted = window.Notifications?.confirm
+        ? await window.Notifications.confirm({
+            title: "Finalize these results?",
+            message: "Finalized scores become official in Leaderboard and Reports. Reopen scoring if a correction is later required.",
+            action: "Finalize results",
+          })
+        : confirm("Finalize these results and publish them to Leaderboard and Reports?");
+      if (!accepted) return;
+      finalize.disabled = true;
+      try {
+        const response = await post("finalize", { scores: collectScores() });
+        window.Notifications?.success?.(response.data.message);
+        await load();
+      } catch (error) {
+        window.Notifications?.error?.(error.response?.data?.message || "Results could not be finalized.");
+        refresh();
+      }
+    };
+    const reopen = $("[data-reopen]");
+    if (reopen) reopen.onclick = async () => {
+      const accepted = window.Notifications?.confirm
+        ? await window.Notifications.confirm({
+            title: "Reopen scoring?",
+            message: "These results will immediately disappear from Leaderboard and Reports until finalized again.",
+            action: "Reopen scoring",
+          })
+        : confirm("Reopen scoring and hide these results from official views?");
+      if (!accepted) return;
+      reopen.disabled = true;
+      try {
+        const response = await post("reopen");
+        window.Notifications?.success?.(response.data.message);
+        await load();
+      } catch (error) {
+        window.Notifications?.error?.(error.response?.data?.message || "Scoring could not be reopened.");
+        reopen.disabled = false;
       }
     };
   }

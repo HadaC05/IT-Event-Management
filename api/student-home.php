@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 require_once __DIR__.'/db_connect.php';
 require_once __DIR__.'/ApiSupport.php';
+require_once __DIR__.'/MediaRepository.php';
 
 final class StudentHomeRepository
 {
@@ -207,30 +208,19 @@ final class StudentHomeRepository
              WHERE e.deleted_at IS NULL
                AND e.end_at >= CURRENT_TIMESTAMP
                AND (
-                    e.audience_type = 'all_students'
-                    OR EXISTS (
+                    EXISTS (
                         SELECT 1 FROM tbl_event_user eu
                         WHERE eu.event_id = e.id AND eu.user_id = ?
                     )
                     OR EXISTS (
-                        SELECT 1 FROM tbl_event_participants ep
-                        WHERE ep.event_id = e.id AND ep.user_id = ?
-                    )
-                    OR EXISTS (
-                        SELECT 1 FROM tbl_event_year_level eyl
-                        JOIN tbl_users audience_user ON audience_user.year_level = eyl.year_level_id
-                        WHERE eyl.event_id = e.id AND audience_user.id = ?
-                    )
-                    OR EXISTS (
-                        SELECT 1 FROM tbl_event_team et
-                        JOIN tbl_team_user tu ON tu.team_id = et.team_id
-                        WHERE et.event_id = e.id AND tu.user_id = ?
+                        SELECT 1 FROM tbl_event_membership_snapshots membership
+                        WHERE membership.event_id=e.id AND membership.user_id=?
                     )
                )
              ORDER BY e.start_at
              LIMIT 1"
         );
-        $statement->execute([$userId, $userId, $userId, $userId]);
+        $statement->execute([$userId, $userId]);
         $event = $statement->fetch();
         if (!$event) {
             return null;
@@ -560,7 +550,9 @@ final class StudentHomeRepository
 if (realpath((string) ($_SERVER['SCRIPT_FILENAME'] ?? '')) !== __FILE__) return;
 
 $actor = AuthGuard::requireRole('Student');
-$repository = new StudentHomeRepository((new Database())->connection());
+$connection = (new Database())->connection();
+$repository = new StudentHomeRepository($connection);
+$mediaRepository = new MediaRepository($connection);
 
 try {
     if ($_SERVER['REQUEST_METHOD'] === 'GET') {
@@ -599,24 +591,26 @@ try {
     $userId = (int) $actor['id'];
     $postId = (int) ($input['post_id'] ?? 0);
     if ($action === 'reaction_toggle') {
-        $repository->toggleReaction($userId, $postId, (string) ($input['type'] ?? ''));
+        $desired = array_key_exists('active', $input) ? filter_var($input['active'], FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE) : null;
+        if (array_key_exists('active', $input) && $desired === null) throw new InvalidArgumentException('Choose a valid reaction state.');
+        $mediaRepository->toggleReaction($userId, $postId, (string) ($input['type'] ?? ''), $desired);
         JsonResponse::send(['success' => true, 'message' => 'Reaction updated.']);
     }
     if ($action === 'comment_create' || $action === 'comment_update') {
-        $repository->saveComment($userId, $postId, (string) ($input['body'] ?? ''), $action === 'comment_update' ? (int) ($input['comment_id'] ?? 0) : null);
+        $mediaRepository->saveComment($userId, $postId, (string) ($input['body'] ?? ''), $action === 'comment_update' ? (int) ($input['comment_id'] ?? 0) : null);
         JsonResponse::send(['success' => true, 'message' => $action === 'comment_create' ? 'Comment added.' : 'Comment updated.']);
     }
     if ($action === 'comment_delete') {
-        $repository->deleteComment($userId, $postId, (int) ($input['comment_id'] ?? 0));
+        $mediaRepository->deleteComment($userId, $postId, (int) ($input['comment_id'] ?? 0));
         JsonResponse::send(['success' => true, 'message' => 'Comment deleted.']);
     }
     if ($action === 'comment_pin') {
-        $repository->pinComment($userId, $postId, (int) ($input['comment_id'] ?? 0), !empty($input['pin']));
+        $mediaRepository->pinComment($userId, $postId, (int) ($input['comment_id'] ?? 0), !empty($input['pin']));
         JsonResponse::send(['success' => true, 'message' => !empty($input['pin']) ? 'Comment pinned.' : 'Comment unpinned.']);
     }
     if ($action !== '' && $action !== 'create') throw new InvalidArgumentException('Unknown feed action.');
 
-    $postId = $repository->createPost((int) $actor['id'], $input, $_FILES);
+    $postId = $mediaRepository->create($actor, $input, $_FILES);
     JsonResponse::send([
         'success' => true,
         'id' => $postId,

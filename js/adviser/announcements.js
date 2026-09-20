@@ -21,6 +21,7 @@ window.SharedNavigation.ready.then(() => {
   let csrfToken = "";
   let events = [];
   let previewUrl = "";
+  let composerPending = false;
 
   const escapeHtml = (value) => String(value ?? "").replace(
     /[&<>'"]/g,
@@ -313,6 +314,7 @@ window.SharedNavigation.ready.then(() => {
 
   composer.addEventListener("submit", async (event) => {
     event.preventDefault();
+    if (composerPending) return;
     clearErrors(composer);
     if (!validateForm(composer)) return;
     const button = event.submitter;
@@ -323,6 +325,8 @@ window.SharedNavigation.ready.then(() => {
     const data = new FormData(composer);
     data.set("action", "create");
     data.set("intent", intent);
+    composerPending = true;
+    $$('button[type="submit"]', composer).forEach((control) => { control.disabled = true; });
     Notifications.setLoading(button, true);
     try {
       const response = await send(data);
@@ -337,6 +341,7 @@ window.SharedNavigation.ready.then(() => {
       showErrors(composer, error.response?.data?.errors);
       Notifications.error(error.response?.data?.message || "Announcement could not be saved.");
     } finally {
+      composerPending = false;
       Notifications.setLoading(button, false);
       syncComposerControls();
     }

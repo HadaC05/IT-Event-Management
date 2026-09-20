@@ -23,7 +23,7 @@ final class StudentPortalRepository
                AND {$this->eligibleEventSql('e')}
              ORDER BY e.start_at"
         );
-        $statement->execute([$userId, $userId, $userId, $userId]);
+        $statement->execute([$userId, $userId]);
         $events = $statement->fetchAll();
         $this->attachSchedules($events);
 
@@ -51,11 +51,11 @@ final class StudentPortalRepository
     {
         $summaryStatement = $this->db->prepare(
             "SELECT COUNT(*) AS total,
-                    SUM(status = 'present') AS present,
-                    SUM(status = 'late') AS late,
-                    SUM(status = 'absent') AS absent,
-                    SUM(status = 'excused') AS excused
-             FROM tbl_attendances
+                    SUM(effective_status = 'present') AS present,
+                    SUM(effective_status = 'late') AS late,
+                    SUM(effective_status = 'absent') AS absent,
+                    SUM(effective_status = 'excused') AS excused
+             FROM vw_attendance_effective
              WHERE user_id = ?"
         );
         $summaryStatement->execute([$userId]);
@@ -69,11 +69,11 @@ final class StudentPortalRepository
             : 0;
 
         $history = $this->db->prepare(
-            "SELECT a.id, a.attendance_date, a.status, a.checked_in_at,
+            "SELECT a.id, a.attendance_date, a.effective_status status, a.manual_status, a.checked_in_at,
                     a.morning_in_at, a.morning_out_at,
                     a.afternoon_in_at, a.afternoon_out_at, a.notes,
                     e.title AS event_title, e.start_at, asm.code AS attendance_mode
-             FROM tbl_attendances a
+             FROM vw_attendance_effective a
              JOIN tbl_events e ON e.id = a.event_id
              LEFT JOIN tbl_event_attendance_schedules eas ON eas.event_id=a.event_id AND eas.schedule_date=a.attendance_date
              LEFT JOIN tbl_attendance_session_modes asm ON asm.id=eas.attendance_session_mode_id
@@ -108,7 +108,7 @@ final class StudentPortalRepository
              LEFT JOIN tbl_team_user members ON members.team_id = t.id AND EXISTS(SELECT 1 FROM tbl_users mu JOIN tbl_roles mr ON mr.id=mu.role_id WHERE mu.id=members.user_id AND mr.name='Student')
              LEFT JOIN (
                  SELECT team_id, SUM(points) AS total
-                 FROM tbl_scores
+                 FROM vw_finalized_scores
                  GROUP BY team_id
              ) score_totals ON score_totals.team_id = t.id
              WHERE mine.user_id = ? AND t.is_active = 1
@@ -150,7 +150,7 @@ final class StudentPortalRepository
         $scores = $this->db->prepare(
             "SELECT COALESCE(sc.name, 'General') AS category,
                     SUM(s.points) AS points, MAX(s.updated_at) AS updated_at
-             FROM tbl_scores s
+             FROM vw_finalized_scores s
              LEFT JOIN tbl_score_categories sc ON sc.id = s.score_category_id
              WHERE s.team_id = ?
              GROUP BY sc.id, sc.name
@@ -202,7 +202,7 @@ final class StudentPortalRepository
              ORDER BY e.start_at
              LIMIT 1"
         );
-        $eventStatement->execute([$userId, $userId, $userId, $userId]);
+        $eventStatement->execute([$userId, $userId]);
         $event = $eventStatement->fetch();
         if (!$event) {
             return ['event' => null, 'categories' => [], 'teams' => []];
@@ -232,7 +232,7 @@ final class StudentPortalRepository
                     MAX(s.updated_at) AS last_scored_at
              FROM tbl_teams t
              LEFT JOIN tbl_team_user tu ON tu.team_id = t.id
-             LEFT JOIN tbl_scores s ON s.team_id = t.id AND s.event_id = ?
+             LEFT JOIN vw_finalized_scores s ON s.team_id = t.id AND s.event_id = ?
              WHERE t.is_active = 1
              GROUP BY t.id, t.name, t.color
              ORDER BY COUNT(s.id) > 0 DESC, COALESCE(SUM(s.points), 0) DESC, t.name"
@@ -242,7 +242,7 @@ final class StudentPortalRepository
 
         $categoryScores = $this->db->prepare(
             "SELECT team_id, score_category_id, SUM(points) AS points
-             FROM tbl_scores
+             FROM vw_finalized_scores
              WHERE event_id = ?
              GROUP BY team_id, score_category_id"
         );
@@ -281,19 +281,8 @@ final class StudentPortalRepository
     private function eligibleEventSql(string $eventAlias): string
     {
         return "(
-            {$eventAlias}.audience_type = 'all_students'
-            OR EXISTS (SELECT 1 FROM tbl_event_user eu WHERE eu.event_id = {$eventAlias}.id AND eu.user_id = ?)
-            OR EXISTS (SELECT 1 FROM tbl_event_participants ep WHERE ep.event_id = {$eventAlias}.id AND ep.user_id = ?)
-            OR EXISTS (
-                SELECT 1 FROM tbl_event_year_level eyl
-                JOIN tbl_users audience_user ON audience_user.year_level = eyl.year_level_id
-                WHERE eyl.event_id = {$eventAlias}.id AND audience_user.id = ?
-            )
-            OR EXISTS (
-                SELECT 1 FROM tbl_event_team evt
-                JOIN tbl_team_user tu ON tu.team_id = evt.team_id
-                WHERE evt.event_id = {$eventAlias}.id AND tu.user_id = ?
-            )
+            EXISTS (SELECT 1 FROM tbl_event_user eu WHERE eu.event_id = {$eventAlias}.id AND eu.user_id = ?)
+            OR EXISTS (SELECT 1 FROM tbl_event_membership_snapshots membership WHERE membership.event_id={$eventAlias}.id AND membership.user_id=?)
         )";
     }
 
@@ -330,7 +319,7 @@ final class StudentPortalRepository
         $rows = $this->db->query(
             "SELECT t.id, COUNT(s.id) AS entries, COALESCE(SUM(s.points), 0) AS points
              FROM tbl_teams t
-             LEFT JOIN tbl_scores s ON s.team_id = t.id
+             LEFT JOIN vw_finalized_scores s ON s.team_id = t.id
              WHERE t.is_active = 1
              GROUP BY t.id
              ORDER BY COUNT(s.id) > 0 DESC, COALESCE(SUM(s.points), 0) DESC, t.name"

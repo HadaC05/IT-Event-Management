@@ -9,6 +9,7 @@ require_once __DIR__.'/student-attendance-qr.php';
 require_once __DIR__.'/sbo-assignments.php';
 
 $live=(new Database())->connection();
+$originalDbName=getenv('DB_NAME');
 $source=(string)$live->query('SELECT DATABASE()')->fetchColumn();
 $scratch='event_qr_test_'.bin2hex(random_bytes(4));
 if(!preg_match('/^event_qr_test_[0-9a-f]{8}$/',$scratch))throw new RuntimeException('Invalid test database name.');
@@ -32,7 +33,8 @@ try {
         if($table!=='tbl_sbo_scan_rate_limits'&&$table!=='tbl_attendance_entries'&&$table!=='tbl_attendance_qr_tokens'&&$table!=='tbl_sbo_event_assignments')
             $live->exec("INSERT INTO `$scratch`.`$table` SELECT * FROM `$source`.`$table`");
     }
-    $db=(new Database(null,$scratch))->connection();
+    putenv('DB_NAME='.$scratch);
+    $db=(new Database())->connection();
     $zone=new DateTimeZone('Asia/Manila');$now=new DateTimeImmutable('now',$zone);
     $today=$now->format('Y-m-d');$tomorrow=$now->modify('+1 day')->format('Y-m-d');$third=$now->modify('+2 days')->format('Y-m-d');
     $start=$now->modify('-1 hour')->format('H:i:s');$end=$now->modify('+1 hour')->format('H:i:s');
@@ -151,6 +153,7 @@ try {
     $expect(fn()=>$repository->scan($officer,['assignment_id'=>9999,'mode'=>'qr','token'=>str_repeat('x',32)]),ScanRateLimitException::class,'Too many');
     $assert((int)$db->query('SELECT COUNT(*) FROM tbl_attendance_entries')->fetchColumn()>=2,'duplicate attempts did not create extra scan entries');
 } finally {
+    $originalDbName===false?putenv('DB_NAME'):putenv('DB_NAME='.$originalDbName);
     $check=$live->prepare('SELECT COUNT(*) FROM information_schema.SCHEMATA WHERE SCHEMA_NAME=?');$check->execute([$scratch]);
     if($check->fetchColumn())$live->exec("DROP DATABASE `$scratch`");
 }

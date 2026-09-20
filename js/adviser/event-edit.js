@@ -83,15 +83,6 @@ window.SharedNavigation.ready.then(() => {
           .forEach(
             (link) => (link.href = `pages/adviser/event-details.html?id=${id}`),
           );
-        const status = document.querySelector('[name="event_status_id"]');
-        data.metadata.statuses.forEach((item) =>
-          status.add(
-            new Option(
-              item.label[0].toUpperCase() + item.label.slice(1),
-              item.id,
-            ),
-          ),
-        );
         EventForm.mount(
           document.querySelector("[data-event-form]"),
           data.metadata,

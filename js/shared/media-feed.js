@@ -3,7 +3,7 @@
   const esc = value => String(value ?? '').replace(/[&<>'"]/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[char]));
   const statusTone = status => ({pending:'bg-[#C6F24E]/35 text-[#397565]',approved:'bg-[#397565]/10 text-[#397565]',rejected:'bg-[#FF6B2C]/12 text-[#c84510]',hidden:'bg-[#121017]/10 text-[#121017]/60'}[status]||'bg-[#F3F0E9]');
   const formatDate = value => value ? new Intl.DateTimeFormat('en-PH',{dateStyle:'medium',timeStyle:'short'}).format(new Date(value.replace(' ','T'))) : '';
-  const state = {data:null,eventId:null,form:null,root:null,carouselTimer:null};
+  const state = {data:null,eventId:null,form:null,root:null,carouselTimer:null,pending:new Set()};
 
   const notify = (message,type='success') => {
     if(window.Notifications?.[type]){window.Notifications[type](message);return;}
@@ -14,7 +14,11 @@
 
   async function execute(payload, options={}) {
     if(options.confirm && !confirm(options.confirm)) return;
-    try{const response=await CiteMediaApi.send(payload);notify(response.message);await load();}catch(error){notify(error.response?.data?.message||'The media request failed.','error');}
+    const value=payload instanceof FormData?Object.fromEntries(payload.entries()):payload;
+    const key=[value.action,value.post_id||value.id||'',value.comment_id||'',value.event_id||'',value.active??value.pin??''].join(':');
+    if(state.pending.has(key))return;
+    state.pending.add(key);
+    try{const response=await CiteMediaApi.send(payload);notify(response.message);await load();}catch(error){notify(error.response?.data?.message||'The media request failed.','error');}finally{state.pending.delete(key);}
   }
 
   function featuredMarkup(events) {

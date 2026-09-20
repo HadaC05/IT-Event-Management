@@ -64,7 +64,7 @@ final class SboAttendanceRepository {
         if(!$student)throw new InvalidArgumentException($mode==='qr'?'Invalid QR code or student not found.':'Student ID was not found.');
         if($mode==='qr'&&$student['qr_phase']!==$checkpoint)
             throw new InvalidArgumentException('This student QR is for Time '.($student['qr_phase']==='in'?'In':'Out').', not Time '.($checkpoint==='in'?'In':'Out').'.');
-        $membership=$this->row('SELECT t.id,t.name FROM tbl_team_user tu JOIN tbl_teams t ON t.id=tu.team_id AND t.is_active=1 WHERE tu.user_id=? ORDER BY tu.id DESC LIMIT 1',[(int)$student['id']]);
+        $membership=$this->row('SELECT ms.team_id id,COALESCE(ms.team_name,t.name) name FROM tbl_event_membership_snapshots ms LEFT JOIN tbl_teams t ON t.id=ms.team_id WHERE ms.event_id=? AND ms.user_id=? LIMIT 1',[(int)$a['event_id'],(int)$student['id']]);
         if(!$membership){
             throw new InvalidArgumentException('Scan rejected. This student has no active team.');
         }
@@ -235,19 +235,13 @@ final class SboAttendanceRepository {
         $q=$this->db->prepare("SELECT
           (SELECT COUNT(*) FROM tbl_attendance_entries ae WHERE ae.sbo_event_assignment_id=? AND ae.event_schedule_id=? AND ae.session_code=? AND ae.phase='in') total,
           (SELECT COUNT(*) FROM tbl_attendance_entries ae WHERE ae.sbo_event_assignment_id=? AND ae.event_schedule_id=? AND ae.session_code=? AND ae.phase='out') checked_out,
-          (SELECT COUNT(DISTINCT u.id) FROM tbl_users u JOIN tbl_roles r ON r.id=u.role_id AND r.name='Student'
-             JOIN tbl_user_statuses us ON us.id=u.status AND us.label='active'
-             JOIN tbl_team_user tu ON tu.user_id=u.id JOIN tbl_teams student_team ON student_team.id=tu.team_id AND student_team.is_active=1
-             WHERE (?='all_students'
-               OR (?='selected_tribes' AND EXISTS(SELECT 1 FROM tbl_event_team et WHERE et.event_id=? AND et.team_id=tu.team_id))
-               OR (?='selected_year_levels' AND EXISTS(SELECT 1 FROM tbl_event_year_level yl WHERE yl.event_id=? AND yl.year_level_id=u.year_level))
-               OR (?='specific_students' AND EXISTS(SELECT 1 FROM tbl_event_participants ep WHERE ep.event_id=? AND ep.user_id=u.id)))
-             AND (?='general' OR tu.team_id=?)
+          (SELECT COUNT(DISTINCT ms.user_id) FROM tbl_event_membership_snapshots ms
+             WHERE ms.event_id=? AND ms.team_id IS NOT NULL
+             AND (?='general' OR ms.team_id=?)
              AND NOT EXISTS(SELECT 1 FROM tbl_attendances atd JOIN tbl_attendance_entries ae ON ae.attendance_id=atd.id
-               WHERE atd.user_id=u.id AND atd.event_id=? AND ae.event_schedule_id=? AND ae.session_code=? AND ae.phase='in')) remaining");
-        $audience=$a['audience_type'];
+               WHERE atd.user_id=ms.user_id AND atd.event_id=? AND ae.event_schedule_id=? AND ae.session_code=? AND ae.phase='in')) remaining");
         $q->execute([$a['id'],$a['event_schedule_id'],$a['session_code'],$a['id'],$a['event_schedule_id'],$a['session_code'],
-            $audience,$audience,$a['event_id'],$audience,$a['event_id'],$audience,$a['event_id'],$a['scanner_mode'],$a['scanner_team_id'],
+            $a['event_id'],$a['scanner_mode'],$a['scanner_team_id'],
             $a['event_id'],$a['event_schedule_id'],$a['session_code']]);
         $r=$q->fetch();return ['total'=>(int)$r['total'],'checked_out'=>(int)$r['checked_out'],'remaining'=>(int)$r['remaining']];
     }

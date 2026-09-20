@@ -102,15 +102,12 @@ final class AdviserLocationRepository
         if ($id < 1) {
             throw new InvalidArgumentException('Select a valid location to edit.');
         }
-        $exists = $this->db->prepare('SELECT COUNT(*) FROM tbl_locations WHERE id = ?');
-        $exists->execute([$id]);
-        if (!(bool) $exists->fetchColumn()) {
-            throw new InvalidArgumentException('The selected location was not found.');
-        }
-
-        $data = $this->validate($input, $id);
         $this->db->beginTransaction();
         try {
+            $exists = $this->db->prepare('SELECT id FROM tbl_locations WHERE id = ? FOR UPDATE');
+            $exists->execute([$id]);
+            if (!$exists->fetchColumn()) throw new InvalidArgumentException('The selected location was not found.');
+            $data = $this->validate($input, $id);
             $statement = $this->db->prepare(
                 "UPDATE tbl_locations
                  SET name = ?, type = ?, parent_location_id = ?, latitude = ?, longitude = ?, radius = ?, updated_at = CURRENT_TIMESTAMP

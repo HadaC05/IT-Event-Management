@@ -5,7 +5,7 @@
   const select = document.querySelector('[data-assignment]');
   const grid = document.querySelector('[data-score-grid]');
   const form = document.querySelector('[data-score-form]');
-  let csrf = '', state = null, finalize = false;
+  let csrf = '', state = null, finalize = false, saving = false;
   const esc = value => SboPortal.escapeHtml(value);
 
   const total = team => state.categories.reduce((sum, category) =>
@@ -18,7 +18,7 @@
 
   function render() {
     select.innerHTML = state.assignments.length
-      ? state.assignments.map(assignment => `<option value="${assignment.id}">${esc(assignment.event_name)} · ${esc(assignment.activity_name)}</option>`).join('')
+      ? state.assignments.map(assignment => `<option value="${assignment.id}">${esc(assignment.event_name)} · ${esc(assignment.session_name)} · ${esc(assignment.team_name)} · ${esc(assignment.activity_name)}</option>`).join('')
       : '<option value="">No scoring assignment</option>';
     if (state.selected) select.value = state.selected.id;
 
@@ -63,6 +63,7 @@
   }));
   form.addEventListener('submit', async event => {
     event.preventDefault();
+    if (saving) return;
     if (finalize && !(await Notifications.confirm({
       title: 'Finalize scores?',
       message: 'You cannot edit these scores again unless the adviser reopens the sheet.',
@@ -76,6 +77,8 @@
         scores[team.id][category.id] = form.elements[`score_${team.id}_${category.id}`].value;
       });
     });
+    saving = true;
+    form.querySelectorAll('button[type="submit"]').forEach(button => { button.disabled = true; });
     try {
       const response = await axios.post(API, {assignment_id: state.selected.id, scores, finalize}, {
         headers: {'X-CSRF-Token': csrf},
@@ -84,6 +87,9 @@
       await load(state.selected.id);
     } catch (error) {
       Notifications.error(error.response?.data?.message || 'Unable to save scores.');
+    } finally {
+      saving = false;
+      form.querySelectorAll('button[type="submit"]').forEach(button => { button.disabled = false; });
     }
   });
 

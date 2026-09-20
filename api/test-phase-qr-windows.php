@@ -11,6 +11,7 @@ require_once __DIR__.'/adviser-events.php';
 require_once __DIR__.'/officers.php';
 
 $live=(new Database())->connection();
+$originalDbName=getenv('DB_NAME');
 $source=(string)$live->query('SELECT DATABASE()')->fetchColumn();
 if (!preg_match('/^[A-Za-z0-9_]+$/',$source)) throw new RuntimeException('Unsafe source database name.');
 $scratch='phase_qr_test_'.bin2hex(random_bytes(4));
@@ -38,7 +39,8 @@ try {
         if (!in_array($table,$empty,true))
             $live->prepare("INSERT INTO `$scratch`.`$table` SELECT * FROM `$source`.`$table`")->execute();
     }
-    $db=(new Database(null,$scratch))->connection();
+    putenv('DB_NAME='.$scratch);
+    $db=(new Database())->connection();
     $now=AttendanceScanWindows::now();$today=$now->format('Y-m-d');
     if ($now->modify('+20 minutes')->format('Y-m-d')!==$today)
         throw new RuntimeException('Run this test at least 20 minutes before Manila midnight.');
@@ -48,7 +50,7 @@ try {
     $outClose=$now->modify('+20 minutes')->format('H:i:s');
     $db->prepare("UPDATE tbl_events SET start_at=?,end_at=?,audience_type='all_students',location_id=1,attendance_location_policy='warning' WHERE id=1")
         ->execute([$today.' 00:00:00',$today.' 23:59:59']);
-    $db->prepare("UPDATE tbl_sbo_officer_assignments SET team_id=1,scanner_mode='specific' WHERE id=1")->execute();
+    $db->prepare("UPDATE tbl_sbo_officer_assignments SET scanner_team_id=1,scanner_mode='specific' WHERE id=1")->execute();
     $db->prepare('UPDATE tbl_locations SET latitude=?,longitude=?,radius=? WHERE id=1')->execute([8.4699237,124.6342058,100]);
     $db->prepare('UPDATE tbl_event_attendance_schedules SET schedule_date=?,attendance_session_mode_id=2,
         whole_day_in_time=?,whole_day_in_close_time=?,whole_day_out_open_time=?,whole_day_out_time=? WHERE id=1')
@@ -208,6 +210,7 @@ try {
     $saved->execute([$team1[0]['id']]);
     $assert(count($saved->fetchAll())===2,'adviser save extends window without rewriting either recorded scan');
 } finally {
+    $originalDbName===false?putenv('DB_NAME'):putenv('DB_NAME='.$originalDbName);
     $check=$live->prepare('SELECT COUNT(*) FROM information_schema.SCHEMATA WHERE SCHEMA_NAME=?');
     $check->execute([$scratch]);
     if ($check->fetchColumn()) $live->prepare("DROP DATABASE `$scratch`")->execute();

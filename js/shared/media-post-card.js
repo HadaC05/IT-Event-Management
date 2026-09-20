@@ -44,7 +44,7 @@
       comments.append(item);
     });
 
-    engagement.querySelector("[data-reaction]").onclick = (event) => action({ action: "reaction_toggle", post_id: post.id, type: event.currentTarget.dataset.reaction });
+    engagement.querySelector("[data-reaction]").onclick = (event) => action({ action: "reaction_toggle", post_id: post.id, type: event.currentTarget.dataset.reaction, active: !Boolean(post.viewer_reaction) });
     engagement.querySelector("[data-comment-focus]").onclick = () => engagement.querySelector("textarea").focus();
     engagement.querySelector("form").onsubmit = (event) => { event.preventDefault(); const body = event.currentTarget.elements.body.value.trim(); if (body) action({ action: "comment_create", post_id: post.id, body }); };
     engagement.querySelectorAll("[data-delete-comment]").forEach((button) => button.onclick = () => action({ action: "comment_delete", post_id: post.id, comment_id: button.dataset.deleteComment }));

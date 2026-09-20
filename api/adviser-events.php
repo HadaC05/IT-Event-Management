@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 require_once __DIR__.'/db_connect.php';
 require_once __DIR__.'/ApiSupport.php';
+require_once __DIR__.'/AcademicPeriodScope.php';
 
 final class EventValidationException extends InvalidArgumentException
 {
@@ -72,10 +73,12 @@ final class EventManagementRepository
         $page = min($page, $lastPage);
         $offset = ($page - 1) * $perPage;
         $query = $this->db->prepare(
-            "SELECT e.*,et.label type_label,es.label status_label
+            "SELECT e.*,et.label type_label,es.label status_label,ap.term_name academic_term_name,sy.label school_year_label
              FROM tbl_events e
              LEFT JOIN tbl_event_types et ON et.id=e.event_type_id
              LEFT JOIN tbl_event_statuses es ON es.id=e.event_status_id
+             LEFT JOIN tbl_academic_periods ap ON ap.id=e.academic_period_id
+             LEFT JOIN tbl_school_years sy ON sy.id=ap.school_year_id
              $whereSql
              ORDER BY CASE WHEN e.deleted_at IS NOT NULL THEN 1 ELSE 0 END,e.start_at,e.id
              LIMIT :limit OFFSET :offset"
@@ -113,11 +116,13 @@ final class EventManagementRepository
     {
         $this->synchronizeStatuses();
         $statement = $this->db->prepare(
-            'SELECT e.*,et.label type_label,es.label status_label,
+            'SELECT e.*,et.label type_label,es.label status_label,ap.term_name academic_term_name,sy.label school_year_label,
                     u.first_name creator_first_name,u.middle_name creator_middle_name,u.last_name creator_last_name
              FROM tbl_events e
              LEFT JOIN tbl_event_types et ON et.id=e.event_type_id
              LEFT JOIN tbl_event_statuses es ON es.id=e.event_status_id
+             LEFT JOIN tbl_academic_periods ap ON ap.id=e.academic_period_id
+             LEFT JOIN tbl_school_years sy ON sy.id=ap.school_year_id
              LEFT JOIN tbl_users u ON u.id=e.created_by WHERE e.id=?'
         );
         $statement->execute([$id]);
@@ -169,29 +174,52 @@ final class EventManagementRepository
             $activity->execute([$activityId, $eventId]);
             if (!$activity->fetch()) throw new EventValidationException(['activity' => ['Activity not found for this event.']]);
         }
-        $duplicate = $this->db->prepare('SELECT id FROM tbl_event_activities WHERE event_id=? AND LOWER(name)=LOWER(?)'.($activityId === null ? '' : ' AND id<>?'));
-        $duplicate->execute($activityId === null ? [$eventId, $name] : [$eventId, $name, $activityId]);
-        if ($duplicate->fetch()) throw new EventValidationException(['name' => ['An activity with this name already exists for this event.']]);
-        if ($activityId === null) {
-            $statement = $this->db->prepare("INSERT INTO tbl_event_activities(event_id,name,description,status,created_by,created_at,updated_at) VALUES(?,?,?,'active',?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)");
-            $statement->execute([$eventId, $name, $description ?: null, $actorId]);
-        } else {
-            $statement = $this->db->prepare('UPDATE tbl_event_activities SET name=?,description=?,updated_at=CURRENT_TIMESTAMP WHERE id=? AND event_id=?');
-            $statement->execute([$name, $description ?: null, $activityId, $eventId]);
+        $this->db->beginTransaction();
+        try {
+            $eventLock = $this->db->prepare('SELECT id FROM tbl_events WHERE id=? AND deleted_at IS NULL FOR UPDATE');
+            $eventLock->execute([$eventId]);
+            if (!$eventLock->fetchColumn()) throw new EventValidationException(['event' => ['Event not found.']]);
+            $duplicate = $this->db->prepare('SELECT id FROM tbl_event_activities WHERE event_id=? AND LOWER(name)=LOWER(?)'.($activityId === null ? '' : ' AND id<>?'));
+            $duplicate->execute($activityId === null ? [$eventId, $name] : [$eventId, $name, $activityId]);
+            if ($duplicate->fetch()) throw new EventValidationException(['name' => ['An activity with this name already exists for this event.']]);
+            if ($activityId === null) {
+                $statement = $this->db->prepare("INSERT INTO tbl_event_activities(event_id,name,description,status,created_by,created_at,updated_at) VALUES(?,?,?,'active',?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)");
+                $statement->execute([$eventId, $name, $description ?: null, $actorId]);
+            } else {
+                $activityLock = $this->db->prepare('SELECT id FROM tbl_event_activities WHERE id=? AND event_id=? FOR UPDATE');
+                $activityLock->execute([$activityId, $eventId]);
+                if (!$activityLock->fetchColumn()) throw new EventValidationException(['activity' => ['Activity not found for this event.']]);
+                $statement = $this->db->prepare('UPDATE tbl_event_activities SET name=?,description=?,updated_at=CURRENT_TIMESTAMP WHERE id=? AND event_id=?');
+                $statement->execute([$name, $description ?: null, $activityId, $eventId]);
+            }
+            $this->log($actorId, $eventId, $activityId === null ? 'event_activity_created' : 'event_activity_updated', $name.' was '.($activityId === null ? 'added to ' : 'updated for ').$event['title'].'.');
+            $this->db->commit();
+        } catch (Throwable $exception) {
+            if ($this->db->inTransaction()) $this->db->rollBack();
+            throw $exception;
         }
-        $this->log($actorId, $eventId, $activityId === null ? 'event_activity_created' : 'event_activity_updated', $name.' was '.($activityId === null ? 'added to ' : 'updated for ').$event['title'].'.');
     }
 
     public function setActivityStatus(int $eventId, int $activityId, string $status, int $actorId): void
     {
         $event = $this->eventRow($eventId);
         if (!in_array($status, ['active', 'inactive'], true)) throw new EventValidationException(['status' => ['Invalid activity status.']]);
-        $statement = $this->db->prepare('SELECT name FROM tbl_event_activities WHERE id=? AND event_id=?');
-        $statement->execute([$activityId, $eventId]);
-        $activity = $statement->fetch();
-        if (!$activity) throw new EventValidationException(['activity' => ['Activity not found for this event.']]);
-        $this->db->prepare('UPDATE tbl_event_activities SET status=?,updated_at=CURRENT_TIMESTAMP WHERE id=? AND event_id=?')->execute([$status, $activityId, $eventId]);
-        $this->log($actorId, $eventId, 'event_activity_status_updated', $activity['name'].' was marked '.$status.' for '.$event['title'].'.');
+        $this->db->beginTransaction();
+        try {
+            $eventLock=$this->db->prepare('SELECT id,title FROM tbl_events WHERE id=? AND deleted_at IS NULL FOR UPDATE');$eventLock->execute([$eventId]);$lockedEvent=$eventLock->fetch();
+            if(!$lockedEvent)throw new EventValidationException(['event'=>['Event not found.']]);
+            $statement = $this->db->prepare('SELECT name,status FROM tbl_event_activities WHERE id=? AND event_id=? FOR UPDATE');
+            $statement->execute([$activityId, $eventId]);
+            $activity = $statement->fetch();
+            if (!$activity) throw new EventValidationException(['activity' => ['Activity not found for this event.']]);
+            if ((string) $activity['status'] === $status) { $this->db->commit(); return; }
+            $this->db->prepare('UPDATE tbl_event_activities SET status=?,updated_at=CURRENT_TIMESTAMP WHERE id=? AND event_id=?')->execute([$status, $activityId, $eventId]);
+            $this->log($actorId, $eventId, 'event_activity_status_updated', $activity['name'].' was marked '.$status.' for '.$lockedEvent['title'].'.');
+            $this->db->commit();
+        } catch (Throwable $exception) {
+            if ($this->db->inTransaction()) $this->db->rollBack();
+            throw $exception;
+        }
     }
 
     public function metadata(): array
@@ -224,6 +252,7 @@ final class EventManagementRepository
         $teams = $this->db->query('SELECT id,name,school_year_id FROM tbl_teams WHERE is_active=1 ORDER BY name')->fetchAll();
         foreach ($teams as &$team) {
             $team['id'] = (int) $team['id'];
+            $team['school_year_id'] = (int) $team['school_year_id'];
             $team['member_ids'] = $this->teamMemberIds($team['id']);
             $team['students_count'] = count($team['member_ids']);
         }
@@ -250,6 +279,7 @@ final class EventManagementRepository
         }
         unset($location);
 
+        $periods = (new AcademicPeriodScope($this->db))->periods();
         return [
             'statuses' => $this->db->query('SELECT id,label FROM tbl_event_statuses ORDER BY id')->fetchAll(),
             'event_types' => $this->eventTypes(),
@@ -259,6 +289,8 @@ final class EventManagementRepository
             'audience_teams' => $teams,
             'audience_year_levels' => $levels,
             'active_students' => $studentRows,
+            'academic_periods' => $periods,
+            'default_academic_period_id' => $periods[0]['id'] ?? null,
         ];
     }
 
@@ -307,11 +339,16 @@ final class EventManagementRepository
     {
         $existing = $id ? $this->eventRow($id) : null;
         $data = $this->validateEvent($input, $id);
-        if (!$existing || $existing['deleted_at'] === null) {
-            $now = date('Y-m-d H:i:s');
-            $statusLabel = $data['start_at'] > $now ? 'upcoming' : ($data['end_at'] <= $now ? 'completed' : 'ongoing');
-            $data['event_status_id'] = (int) $this->scalar('SELECT id FROM tbl_event_statuses WHERE label=?', [$statusLabel]);
+        $scopeChanged = !$existing
+            || (int)($existing['academic_period_id'] ?? 0) !== $data['academic_period_id']
+            || (string)$existing['audience_type'] !== $data['audience_type']
+            || $this->audienceSelectionChanged((int)$id, $data);
+        if ($existing && $scopeChanged && $this->scopeHasOperationalHistory((int)$id)) {
+            throw new EventValidationException(['academic_period_id' => ['The academic period or participant scope cannot change after attendance, scoring, posts, or officer responsibilities have been recorded.']]);
         }
+        $data['event_status_id'] = $existing && $existing['deleted_at'] !== null
+            ? (int)$existing['event_status_id']
+            : $this->lifecycleStatusId($data['start_at'], $data['end_at']);
         $newPoster = $this->storePoster($files['poster'] ?? null);
         $posterPath = $newPoster ?: ($existing['poster_path'] ?? null);
         if ($id && !$newPoster && $this->boolean($input['remove_poster'] ?? false)) {
@@ -322,17 +359,17 @@ final class EventManagementRepository
         try {
             if ($id) {
                 $statement = $this->db->prepare(
-                    "UPDATE tbl_events SET title=?,description=?,location=?,location_id=?,attendance_location_policy=?,audience_type=?,poster_path=?,
+                    "UPDATE tbl_events SET title=?,description=?,location=?,location_id=?,attendance_location_policy=?,audience_type=?,academic_period_id=?,poster_path=?,
                      start_at=?,end_at=?,event_type_id=?,event_status_id=?,updated_at=CURRENT_TIMESTAMP WHERE id=?"
                 );
-                $statement->execute([$data['title'], $data['description'], $data['location'], $data['location_id'], $data['attendance_location_policy'], $data['audience_type'], $posterPath,
+                $statement->execute([$data['title'], $data['description'], $data['location'], $data['location_id'], $data['attendance_location_policy'], $data['audience_type'], $data['academic_period_id'], $posterPath,
                     $data['start_at'], $data['end_at'], $data['event_type_id'], $data['event_status_id'], $id]);
             } else {
                 $statement = $this->db->prepare(
-                    "INSERT INTO tbl_events(title,description,location,location_id,attendance_location_policy,audience_type,poster_path,start_at,end_at,event_type_id,event_status_id,created_by,is_featured,created_at,updated_at)
-                     VALUES(?,?,?,?,?,?,?,?,?,?,?,?,0,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)"
+                    "INSERT INTO tbl_events(title,description,location,location_id,attendance_location_policy,audience_type,academic_period_id,poster_path,start_at,end_at,event_type_id,event_status_id,created_by,is_featured,created_at,updated_at)
+                     VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,0,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)"
                 );
-                $statement->execute([$data['title'], $data['description'], $data['location'], $data['location_id'], $data['attendance_location_policy'], $data['audience_type'], $posterPath,
+                $statement->execute([$data['title'], $data['description'], $data['location'], $data['location_id'], $data['attendance_location_policy'], $data['audience_type'], $data['academic_period_id'], $posterPath,
                     $data['start_at'], $data['end_at'], $data['event_type_id'], $data['event_status_id'], $actorId]);
                 $id = (int) $this->db->lastInsertId();
             }
@@ -342,6 +379,8 @@ final class EventManagementRepository
             $this->replacePivot('tbl_event_team', 'team_id', $id, $data['audience_type'] === 'selected_tribes' ? $data['tribe_ids'] : []);
             $this->replacePivot('tbl_event_year_level', 'year_level_id', $id, $data['audience_type'] === 'selected_year_levels' ? $data['year_level_ids'] : []);
             $this->replacePivot('tbl_event_participants', 'user_id', $id, $data['audience_type'] === 'specific_students' ? $data['participant_ids'] : []);
+            $periodScope = new AcademicPeriodScope($this->db);
+            if ($scopeChanged || $periodScope->snapshotCount($id) === 0) $periodScope->refreshMembershipSnapshot($id);
             $this->log($actorId, $id, $existing ? 'event_updated' : 'event_created', $data['title'].($existing ? ' was updated.' : ' was created.'));
             $this->db->commit();
         } catch (Throwable $exception) {
@@ -424,39 +463,52 @@ final class EventManagementRepository
 
     public function setStatus(int $id, int $statusId, int $actorId): void
     {
-        $event = $this->eventRow($id);
-        if (!$this->exists('tbl_event_statuses', $statusId)) {
-            throw new EventValidationException(['event_status_id' => ['Select a valid event status.']]);
-        }
-        $label = (string) $this->scalar('SELECT label FROM tbl_event_statuses WHERE id=?', [$statusId]);
-        $deletedAt = $label === 'archived' ? date('Y-m-d H:i:s') : null;
-        $statement = $this->db->prepare("UPDATE tbl_events SET event_status_id=?,deleted_at=?,is_featured=CASE WHEN ?='archived' THEN 0 ELSE is_featured END,updated_at=CURRENT_TIMESTAMP WHERE id=?");
-        $statement->execute([$statusId, $deletedAt, $label, $id]);
-        $this->log($actorId, $id, $label === 'archived' ? 'event_archived' : 'event_status_updated', $event['title'].' status was updated to '.$label.'.');
+        $this->eventRow($id);
+        throw new EventValidationException([
+            'event_status_id' => ['Event lifecycle status is determined automatically from its schedule. Archive the event if it should leave active views.'],
+        ]);
     }
 
     public function archive(int $id, int $actorId): void
     {
+        $event = $this->eventRow($id);
         $archived = (int) $this->scalar("SELECT id FROM tbl_event_statuses WHERE label='archived'");
-        $this->setStatus($id, $archived, $actorId);
+        $this->db->beginTransaction();
+        try {
+            $lock=$this->db->prepare('SELECT event_status_id,deleted_at FROM tbl_events WHERE id=? FOR UPDATE');$lock->execute([$id]);$current=$lock->fetch();
+            if(!$current)throw new EventValidationException(['event'=>['Event not found.']]);
+            if($current['deleted_at']!==null){$this->db->commit();return;}
+            $this->db->prepare('UPDATE tbl_events SET event_status_id=?,deleted_at=CURRENT_TIMESTAMP,is_featured=0,featured_order=NULL,featured_until=NULL,updated_at=CURRENT_TIMESTAMP WHERE id=?')
+                ->execute([$archived,$id]);
+            $this->log($actorId,$id,'event_archived',$event['title'].' was archived.');
+            $this->db->commit();
+        } catch (Throwable $exception) { if ($this->db->inTransaction()) $this->db->rollBack(); throw $exception; }
     }
 
     public function restore(int $id, int $actorId): void
     {
         $event = $this->eventRow($id);
-        $upcoming = (int) $this->scalar("SELECT id FROM tbl_event_statuses WHERE label='upcoming'");
-        $this->db->prepare('UPDATE tbl_events SET event_status_id=?,deleted_at=NULL,updated_at=CURRENT_TIMESTAMP WHERE id=?')->execute([$upcoming, $id]);
-        $this->log($actorId, $id, 'event_restored', $event['title'].' was restored.');
+        $this->db->beginTransaction();
+        try {
+            $lock=$this->db->prepare('SELECT deleted_at,event_status_id,start_at,end_at FROM tbl_events WHERE id=? FOR UPDATE');$lock->execute([$id]);$current=$lock->fetch();
+            if(!$current)throw new EventValidationException(['event'=>['Event not found.']]);
+            $lifecycleStatus = $this->lifecycleStatusId((string)$current['start_at'], (string)$current['end_at']);
+            if($current['deleted_at']===null&&(int)$current['event_status_id']===$lifecycleStatus){$this->db->commit();return;}
+            $this->db->prepare('UPDATE tbl_events SET event_status_id=?,deleted_at=NULL,updated_at=CURRENT_TIMESTAMP WHERE id=?')->execute([$lifecycleStatus, $id]);
+            $this->log($actorId, $id, 'event_restored', $event['title'].' was restored.');
+            $this->db->commit();
+        } catch (Throwable $exception) { if ($this->db->inTransaction()) $this->db->rollBack(); throw $exception; }
     }
 
     public function forceDelete(int $id): void
     {
-        $event = $this->eventRow($id);
-        if ($event['deleted_at'] === null) {
-            throw new EventValidationException(['event' => ['Archive the event before permanently deleting it.']]);
-        }
+        $posterPath = null;
         $this->db->beginTransaction();
         try {
+            $eventLock=$this->db->prepare('SELECT poster_path,deleted_at FROM tbl_events WHERE id=? FOR UPDATE');$eventLock->execute([$id]);$event=$eventLock->fetch();
+            if(!$event)throw new EventValidationException(['event'=>['Event not found.']]);
+            if($event['deleted_at']===null)throw new EventValidationException(['event'=>['Archive the event before permanently deleting it.']]);
+            $posterPath=$event['poster_path'];
             foreach (['tbl_event_user', 'tbl_event_team', 'tbl_event_year_level', 'tbl_event_participants', 'tbl_event_attendance_schedules'] as $table) {
                 $this->db->prepare("DELETE FROM $table WHERE event_id=?")->execute([$id]);
             }
@@ -464,11 +516,11 @@ final class EventManagementRepository
             $this->db->prepare('DELETE FROM tbl_events WHERE id=?')->execute([$id]);
             $this->db->commit();
         } catch (Throwable $exception) {
-            $this->db->rollBack();
+            if($this->db->inTransaction())$this->db->rollBack();
             throw $exception;
         }
-        if ($event['poster_path']) {
-            $this->deletePoster($event['poster_path']);
+        if ($posterPath) {
+            $this->deletePoster($posterPath);
         }
     }
 
@@ -493,40 +545,48 @@ final class EventManagementRepository
             throw new EventValidationException(['featured_until' => ['Featured-until must be in the future and no later than the event end.']]);
         }
         $until = $untilDate?->format('Y-m-d H:i:s');
-        $this->db->prepare('UPDATE tbl_events SET is_featured=?,featured_order=?,featured_until=?,updated_at=CURRENT_TIMESTAMP WHERE id=?')
-            ->execute([$featured ? 1 : 0, $featured ? $order : null, $featured ? $until : null, $id]);
-        $this->log($actorId, $id, $featured ? 'event_featured' : 'event_unfeatured', $event['title'].($featured ? ' was added to the featured carousel.' : ' was removed from the featured carousel.'));
+        $this->db->beginTransaction();
+        try {
+            $lock=$this->db->prepare('SELECT is_featured,featured_order,featured_until FROM tbl_events WHERE id=? FOR UPDATE');$lock->execute([$id]);$current=$lock->fetch();
+            if(!$current)throw new EventValidationException(['event'=>['Event not found.']]);
+            $same=(bool)$current['is_featured']===$featured
+                &&($featured?($current['featured_order']===null?null:(int)$current['featured_order']):null)===($featured?$order:null)
+                &&($featured?($current['featured_until']?:null):null)===($featured?$until:null);
+            if($same){$this->db->commit();return;}
+            $this->db->prepare('UPDATE tbl_events SET is_featured=?,featured_order=?,featured_until=?,updated_at=CURRENT_TIMESTAMP WHERE id=?')
+                ->execute([$featured ? 1 : 0, $featured ? $order : null, $featured ? $until : null, $id]);
+            $this->log($actorId, $id, $featured ? 'event_featured' : 'event_unfeatured', $event['title'].($featured ? ' was added to the featured carousel.' : ' was removed from the featured carousel.'));
+            $this->db->commit();
+        } catch (Throwable $exception) { if ($this->db->inTransaction()) $this->db->rollBack(); throw $exception; }
     }
 
     public function assign(int $eventId, int $userId, int $actorId): void
     {
-        $event = $this->eventRow($eventId);
-        $valid = $this->db->prepare("SELECT u.id,u.first_name,u.middle_name,u.last_name FROM tbl_users u JOIN tbl_roles r ON r.id=u.role_id JOIN tbl_user_statuses s ON s.id=u.status WHERE u.id=? AND r.name IN ('SBO Adviser','Faculty') AND s.label='active'");
-        $valid->execute([$userId]);
-        $user = $valid->fetch();
-        if (!$user) {
-            throw new EventValidationException(['user_id' => ['Select an active SBO Adviser or Faculty member.']]);
-        }
-        if ((string) $this->scalar('SELECT label FROM tbl_event_statuses WHERE id=?', [(int) $event['event_status_id']]) === 'archived') {
-            throw new EventValidationException(['user_id' => ['Users cannot be assigned while this event is archived.']]);
-        }
-        $statement = $this->db->prepare('INSERT IGNORE INTO tbl_event_user(event_id,user_id,created_at,updated_at) VALUES(?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)');
-        $statement->execute([$eventId, $userId]);
-        if ($statement->rowCount()) {
-            $this->log($actorId, $eventId, 'event_assigned', $this->fullName($user).' was assigned to '.$event['title'].'.', $userId);
-        }
+        $this->db->beginTransaction();
+        try {
+            $eventLock=$this->db->prepare("SELECT e.id,e.title,e.deleted_at,s.label status FROM tbl_events e LEFT JOIN tbl_event_statuses s ON s.id=e.event_status_id WHERE e.id=? FOR UPDATE");$eventLock->execute([$eventId]);$event=$eventLock->fetch();
+            if(!$event)throw new EventValidationException(['event'=>['Event not found.']]);
+            if($event['deleted_at']!==null||$event['status']==='archived')throw new EventValidationException(['user_id'=>['Users cannot be assigned while this event is archived.']]);
+            $valid=$this->db->prepare("SELECT u.id,u.first_name,u.middle_name,u.last_name FROM tbl_users u JOIN tbl_roles r ON r.id=u.role_id JOIN tbl_user_statuses s ON s.id=u.status WHERE u.id=? AND r.name IN ('SBO Adviser','Faculty') AND s.label='active' FOR UPDATE");$valid->execute([$userId]);$user=$valid->fetch();
+            if(!$user)throw new EventValidationException(['user_id'=>['Select an active SBO Adviser or Faculty member.']]);
+            $statement = $this->db->prepare('INSERT IGNORE INTO tbl_event_user(event_id,user_id,created_at,updated_at) VALUES(?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)');
+            $statement->execute([$eventId, $userId]);
+            if ($statement->rowCount()) $this->log($actorId, $eventId, 'event_assigned', $this->fullName($user).' was assigned to '.$event['title'].'.', $userId);
+            $this->db->commit();
+        } catch (Throwable $exception) { if ($this->db->inTransaction()) $this->db->rollBack(); throw $exception; }
     }
 
     public function unassign(int $eventId, int $userId, int $actorId): void
     {
-        $event = $this->eventRow($eventId);
-        $nameStatement = $this->db->prepare('SELECT first_name,middle_name,last_name FROM tbl_users WHERE id=?');
-        $nameStatement->execute([$userId]);
-        $user = $nameStatement->fetch();
-        $this->db->prepare('DELETE FROM tbl_event_user WHERE event_id=? AND user_id=?')->execute([$eventId, $userId]);
-        if ($user) {
-            $this->log($actorId, $eventId, 'event_unassigned', $this->fullName($user).' was unassigned from '.$event['title'].'.', $userId);
-        }
+        $this->db->beginTransaction();
+        try {
+            $eventLock=$this->db->prepare('SELECT id,title FROM tbl_events WHERE id=? FOR UPDATE');$eventLock->execute([$eventId]);$event=$eventLock->fetch();
+            if(!$event)throw new EventValidationException(['event'=>['Event not found.']]);
+            $nameStatement=$this->db->prepare('SELECT first_name,middle_name,last_name FROM tbl_users WHERE id=? FOR UPDATE');$nameStatement->execute([$userId]);$user=$nameStatement->fetch();
+            $statement=$this->db->prepare('DELETE FROM tbl_event_user WHERE event_id=? AND user_id=?');$statement->execute([$eventId, $userId]);
+            if ($user && $statement->rowCount()) $this->log($actorId, $eventId, 'event_unassigned', $this->fullName($user).' was unassigned from '.$event['title'].'.', $userId);
+            $this->db->commit();
+        } catch (Throwable $exception) { if ($this->db->inTransaction()) $this->db->rollBack(); throw $exception; }
     }
 
     private function validateEvent(array $input, ?int $id): array
@@ -580,12 +640,13 @@ final class EventManagementRepository
                 $errors['attendance_location_policy'][] = 'Every selected event location requires coordinates and a box radius for attendance scanning.';
         }
         $typeId = (int) ($input['event_type_id'] ?? 0);
-        $statusId = (int) ($input['event_status_id'] ?? 0);
         $audienceType = (string) ($input['audience_type'] ?? 'all_students');
+        $academicPeriodId = (int)($input['academic_period_id'] ?? 0);
         if ($title === '' || mb_strlen($title) > 255) $errors['title'][] = 'Event name is required and may not exceed 255 characters.';
         if ($description !== null && mb_strlen($description) > 5000) $errors['description'][] = 'Description may not exceed 5,000 characters.';
         if (!$typeId || !$this->exists('tbl_event_types', $typeId)) $errors['event_type_id'][] = 'Select a valid event type.';
         if (!in_array($audienceType, ['all_students', 'selected_tribes', 'selected_year_levels', 'specific_students'], true)) $errors['audience_type'][] = 'Select a valid participant group.';
+        try {$period = (new AcademicPeriodScope($this->db))->period($academicPeriodId);} catch (InvalidArgumentException) {$period = null;$errors['academic_period_id'][] = 'Select a valid academic period.';}
         $schedules = $this->validateSchedules($input['attendance_days'] ?? [], $errors, $id);
         $startAt = $schedules ? $schedules[0]['start_at'] : '';
         $endAt = $schedules ? $schedules[array_key_last($schedules)]['end_at'] : '';
@@ -594,7 +655,7 @@ final class EventManagementRepository
         $tribes = $this->integerList($input['tribe_ids'] ?? []);
         $yearLevels = $this->integerList($input['year_level_ids'] ?? []);
         $participants = $this->integerList($input['participant_ids'] ?? []);
-        if ($audienceType === 'selected_tribes') $this->validateAudienceIds('tbl_teams', $tribes, 'tribe_ids', $errors, 'is_active=1');
+        if ($audienceType === 'selected_tribes') $this->validateAudienceIds('tbl_teams', $tribes, 'tribe_ids', $errors, 'is_active=1'.($period?' AND school_year_id='.(int)$period['school_year_id']:''));
         if ($audienceType === 'selected_year_levels') $this->validateAudienceIds('tbl_year_levels', $yearLevels, 'year_level_ids', $errors);
         if ($audienceType === 'specific_students') $this->validateStudents($participants, $errors);
         if ($startAt && $endAt && !$this->boolean($input['acknowledge_conflicts'] ?? false)) {
@@ -608,15 +669,12 @@ final class EventManagementRepository
             if ($conflicts['conflicts']['location']) $errors['general_location_id'][] = 'Possible scheduling conflict at this location. Review and confirm the warning to continue.';
             if ($conflicts['conflicts']['people']) $errors['assigned_user_ids'][] = 'An Event-in-Charge has a scheduling conflict. Review and confirm the warning to continue.';
         }
-        if ($id) {
-            $this->eventRow($id);
-            if (!$statusId || !$this->exists('tbl_event_statuses', $statusId)) $errors['event_status_id'][] = 'Select a valid event status.';
-        }
+        if ($id) $this->eventRow($id);
         if ($errors) throw new EventValidationException($errors);
         return [
             'title' => $title, 'description' => $description, 'location' => $location, 'location_id' => $locationId, 'location_ids' => $locationIds,
             'attendance_location_policy' => $locationPolicy, 'event_type_id' => $typeId,
-            'event_status_id' => $statusId, 'audience_type' => $audienceType, 'start_at' => $startAt, 'end_at' => $endAt,
+            'audience_type' => $audienceType, 'academic_period_id' => $academicPeriodId, 'start_at' => $startAt, 'end_at' => $endAt,
             'schedules' => $schedules, 'assigned_user_ids' => $assigned, 'tribe_ids' => $tribes,
             'year_level_ids' => $yearLevels, 'participant_ids' => $participants,
         ];
@@ -842,13 +900,7 @@ final class EventManagementRepository
 
     private function expectedParticipants(array $event): int
     {
-        $base = "SELECT COUNT(DISTINCT u.id) FROM tbl_users u JOIN tbl_roles r ON r.id=u.role_id JOIN tbl_user_statuses s ON s.id=u.status WHERE r.name='Student' AND s.label='active'";
-        return match ($event['audience_type']) {
-            'selected_tribes' => (int) $this->scalar($base.' AND u.id IN (SELECT tu.user_id FROM tbl_team_user tu JOIN tbl_event_team et ON et.team_id=tu.team_id WHERE et.event_id=?)', [(int) $event['id']]),
-            'selected_year_levels' => (int) $this->scalar($base.' AND u.year_level IN (SELECT year_level_id FROM tbl_event_year_level WHERE event_id=?)', [(int) $event['id']]),
-            'specific_students' => (int) $this->scalar($base.' AND u.id IN (SELECT user_id FROM tbl_event_participants WHERE event_id=?)', [(int) $event['id']]),
-            default => (int) $this->scalar($base),
-        };
+        return (int)$this->scalar('SELECT COUNT(*) FROM tbl_event_membership_snapshots WHERE event_id=?',[(int)$event['id']]);
     }
 
     private function synchronizeStatuses(): void
@@ -861,14 +913,41 @@ final class EventManagementRepository
         $statement->execute([$now, $upcoming, $now, $completed, $ongoing, $now, $now, $now]);
     }
 
+    private function lifecycleStatusId(string $startAt, string $endAt): int
+    {
+        $now = date('Y-m-d H:i:s');
+        $label = $startAt > $now ? 'upcoming' : ($endAt <= $now ? 'completed' : 'ongoing');
+        return (int)$this->scalar('SELECT id FROM tbl_event_statuses WHERE label=?', [$label]);
+    }
+
     private function normalizeEvent(array $event): array
     {
-        foreach (['id', 'location_id', 'event_type_id', 'event_status_id', 'created_by', 'featured_order'] as $field) {
+        foreach (['id', 'location_id', 'academic_period_id', 'event_type_id', 'event_status_id', 'created_by', 'featured_order'] as $field) {
             $event[$field] = $event[$field] === null ? null : (int) $event[$field];
         }
         $event['is_featured'] = (bool) $event['is_featured'];
         $event['is_archived'] = $event['deleted_at'] !== null;
         return $event;
+    }
+
+    private function audienceSelectionChanged(int $eventId,array $data):bool
+    {
+        $expected=match($data['audience_type']){
+            'selected_tribes'=>$data['tribe_ids'],'selected_year_levels'=>$data['year_level_ids'],'specific_students'=>$data['participant_ids'],default=>[],
+        };
+        $current=match($data['audience_type']){
+            'selected_tribes'=>$this->pivotIds('tbl_event_team','team_id',$eventId),'selected_year_levels'=>$this->pivotIds('tbl_event_year_level','year_level_id',$eventId),'specific_students'=>$this->pivotIds('tbl_event_participants','user_id',$eventId),default=>[],
+        };
+        sort($expected);sort($current);return$expected!==$current;
+    }
+
+    private function scopeHasOperationalHistory(int $eventId):bool
+    {
+        return (int)$this->scalar("SELECT
+          (SELECT COUNT(*) FROM tbl_attendances WHERE event_id=?)+
+          (SELECT COUNT(*) FROM tbl_scores WHERE event_id=?)+
+          (SELECT COUNT(*) FROM tbl_posts WHERE event_id=?)+
+          (SELECT COUNT(*) FROM tbl_sbo_event_assignments sea JOIN tbl_event_attendance_schedules es ON es.id=sea.event_schedule_id WHERE es.event_id=?)",[$eventId,$eventId,$eventId,$eventId])>0;
     }
 
     private function eventRow(int $id): array

@@ -73,7 +73,8 @@ window.SharedNavigation.ready.then(() => {
         userForm.reset();
         if (user) userForm.dataset.userId = user.id;
         else delete userForm.dataset.userId;
-        fillSelect(userForm.elements.role_id, roles, user?.role_id ?? '', user ? null : creatableRoles);
+        const allowedRoles = user?.role === 'SBO Officer' ? ['SBO Officer', 'Student'] : creatableRoles;
+        fillSelect(userForm.elements.role_id, roles, user?.role_id ?? '', allowedRoles);
         fillSelect(userForm.elements.year_level, yearLevels, user?.year_level ?? '');
         fillSelect(userForm.elements.faculty_team_id, teams.map(team => ({id:team.id,label:team.name})), user?.faculty_team_id ?? '');
         userForm.elements.password.required = !user;
@@ -169,7 +170,7 @@ window.SharedNavigation.ready.then(() => {
             : confirm(`${action[0].toUpperCase()}${action.slice(1)} ${user.full_name}?`);
         if (!accepted) return;
         try {
-            const response = await axios.post('api/users.php', { action: 'toggle', id: user.id }, {
+            const response = await axios.post('api/users.php', { action: 'toggle', id: user.id, active: user.status !== 'inactive' ? false : true }, {
                 headers: { 'X-CSRF-Token': csrfToken },
             });
             notify('success', response.data.message || `${user.full_name} ${action}d successfully.`);
@@ -304,6 +305,8 @@ window.SharedNavigation.ready.then(() => {
         form.querySelectorAll('[data-dialog-close]').forEach(button => button.addEventListener('click', () => dialog.close()));
         form.addEventListener('submit', async submitEvent => {
             submitEvent.preventDefault();
+            const submit = submitEvent.submitter || form.querySelector('button[type="submit"]');
+            window.Notifications?.setLoading(submit, true, 'Assigning…');
             try {
                 const response = await axios.post('api/users.php', { action: 'assign_event', id: user.id, event_id: select.value }, {
                     headers: { 'X-CSRF-Token': csrfToken },
@@ -313,6 +316,8 @@ window.SharedNavigation.ready.then(() => {
                 await loadUsers().catch(() => notify('warning', 'Saved, but the user list could not refresh. Reload the page.'));
             } catch (error) {
                 showError(error);
+            } finally {
+                window.Notifications?.setLoading(submit, false);
             }
         });
         dialog.addEventListener('close', () => dialog.remove());
@@ -663,7 +668,7 @@ window.SharedNavigation.ready.then(() => {
             const response = await axios.post('api/student-roster-imports.php?action=preview', body, { headers: { 'X-CSRF-Token': csrfToken } });
             rosterStatusFilter.value = '';
             renderRosterImport(response.data.data);
-            notify('success', response.data.message || 'Roster preview completed.');
+            notify('success', response.data.message || 'Preview complete. No accounts changed yet; confirm the replacement below to import the validated roster.');
         } catch (error) {
             showError(error);
         } finally {

@@ -145,14 +145,23 @@ final class UserManagementRepository
         }
 
         $role = $this->value('SELECT name FROM tbl_roles WHERE id = ?', [(int) $data['role_id']]);
+        $previousRole = $id ? $this->value('SELECT r.name FROM tbl_users u JOIN tbl_roles r ON r.id=u.role_id WHERE u.id=?', [$id]) : null;
         $allowedRoles = $id ? self::MANAGEABLE_ROLES : self::CREATABLE_ROLES;
         if (!in_array($role, $allowedRoles, true)) {
             throw new InvalidArgumentException('That role cannot be assigned here.');
         }
+        if ($role === 'SBO Officer' && $previousRole !== 'SBO Officer') {
+            throw new InvalidArgumentException('Create separate Officer access from Officer Management instead of changing the student role.');
+        }
+        if ($previousRole === 'SBO Officer' && $role !== 'SBO Officer') {
+            $hasAssignment = (bool) $this->value('SELECT id FROM tbl_sbo_officer_assignments WHERE officer_user_id=? LIMIT 1', [$id]);
+            if ($hasAssignment) {
+                throw new InvalidArgumentException('Manage this linked Officer account from Officer Management.');
+            }
+        }
         if ($id) {
             $this->requireManageableUser($id);
         }
-        $previousRole = $id ? $this->value('SELECT r.name FROM tbl_users u JOIN tbl_roles r ON r.id=u.role_id WHERE u.id=?', [$id]) : null;
         if ($role === 'Student' && !StudentId::isValid((string) ($data['id_number'] ?? ''))) {
             throw new InvalidArgumentException(StudentId::FORMAT_MESSAGE);
         }
@@ -192,6 +201,22 @@ final class UserManagementRepository
 
         $this->db->beginTransaction();
         try {
+            // Serialize account writes before repeating the uniqueness check. The
+            // earlier check provides fast feedback, while this lock closes the
+            // race where two simultaneous requests validate the same values.
+            $this->db->query('SELECT id FROM tbl_roles ORDER BY id LIMIT 1 FOR UPDATE')->fetchColumn();
+            if ($id) {
+                $targetLock = $this->db->prepare('SELECT id FROM tbl_users WHERE id = ? FOR UPDATE');
+                $targetLock->execute([$id]);
+                if (!$targetLock->fetchColumn()) {
+                    throw new InvalidArgumentException('The selected user no longer exists.');
+                }
+            }
+            $duplicate->execute($params);
+            if ($duplicate->fetch()) {
+                throw new InvalidArgumentException('Username, email, or ID number is already in use.');
+            }
+
             if ($id) {
                 $set = [];
                 foreach ($values as $key => $unused) $set[] = "$key = :$key";
@@ -230,57 +255,67 @@ final class UserManagementRepository
         }
     }
 
-    public function toggle(int $id, int $actorId): void
+    public function toggle(int $id, int $actorId, ?bool $desiredActive = null): void
     {
-        $user = $this->requireManageableUser($id);
-        $next = $user['status'] === 'active' ? 'inactive' : 'active';
-        $statement = $this->db->prepare("UPDATE tbl_users
-            SET status = (SELECT id FROM tbl_user_statuses WHERE label = :status), updated_at = CURRENT_TIMESTAMP
-            WHERE id = :id");
-        $statement->execute(['status' => $next, 'id' => $id]);
-        $verb = $next === 'active' ? 'activated' : 'deactivated';
-        $this->log($actorId, $id, 'user_status_changed', $user['full_name']." was $verb.");
+        $this->db->beginTransaction();
+        try {
+            $lock = $this->db->prepare('SELECT id FROM tbl_users WHERE id=? FOR UPDATE');
+            $lock->execute([$id]);
+            if (!$lock->fetchColumn()) throw new InvalidArgumentException('User not found.');
+            $user = $this->requireManageableUser($id);
+            $next = $desiredActive === null ? ($user['status'] === 'active' ? 'inactive' : 'active') : ($desiredActive ? 'active' : 'inactive');
+            if ($user['status'] === $next) { $this->db->commit(); return; }
+            $statement = $this->db->prepare("UPDATE tbl_users
+                SET status = (SELECT id FROM tbl_user_statuses WHERE label = :status), updated_at = CURRENT_TIMESTAMP
+                WHERE id = :id");
+            $statement->execute(['status' => $next, 'id' => $id]);
+            $verb = $next === 'active' ? 'activated' : 'deactivated';
+            $this->log($actorId, $id, 'user_status_changed', $user['full_name']." was $verb.");
+            $this->db->commit();
+        } catch (Throwable $error) {
+            if ($this->db->inTransaction()) $this->db->rollBack();
+            throw $error;
+        }
     }
 
     public function assignEvent(int $userId, int $eventId, int $actorId): void
     {
-        $user = $this->requireAssignableUser($userId);
-        $statement = $this->db->prepare("SELECT e.id, e.title, s.label AS status
-            FROM tbl_events e LEFT JOIN tbl_event_statuses s ON s.id = e.event_status_id WHERE e.id = ?");
-        $statement->execute([$eventId]);
-        $event = $statement->fetch();
-        if (!$event) throw new InvalidArgumentException('Event not found.');
-        if ($event['status'] === 'inactive') throw new InvalidArgumentException('Inactive events cannot receive new assignments.');
-        if ($this->value('SELECT 1 FROM tbl_event_user WHERE user_id = ? AND event_id = ?', [$userId, $eventId])) {
-            throw new InvalidArgumentException('That event is already assigned to this user.');
-        }
         $this->db->beginTransaction();
         try {
+            $userLock=$this->db->prepare('SELECT id FROM tbl_users WHERE id=? FOR UPDATE');$userLock->execute([$userId]);
+            if(!$userLock->fetchColumn())throw new InvalidArgumentException('User not found.');
+            $user = $this->requireAssignableUser($userId);
+            $statement = $this->db->prepare("SELECT e.id,e.title,s.label status FROM tbl_events e LEFT JOIN tbl_event_statuses s ON s.id=e.event_status_id WHERE e.id=? AND e.deleted_at IS NULL FOR UPDATE");
+            $statement->execute([$eventId]);$event=$statement->fetch();
+            if(!$event)throw new InvalidArgumentException('Event not found.');
+            if($event['status']==='inactive')throw new InvalidArgumentException('Inactive events cannot receive new assignments.');
+            $existing=$this->db->prepare('SELECT 1 FROM tbl_event_user WHERE user_id=? AND event_id=? FOR UPDATE');$existing->execute([$userId,$eventId]);
+            if($existing->fetchColumn()){$this->db->commit();return;}
             $statement = $this->db->prepare('INSERT INTO tbl_event_user (user_id, event_id, created_at, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)');
             $statement->execute([$userId, $eventId]);
             $this->log($actorId, $userId, 'event_assigned', $user['full_name'].' was assigned to '.$event['title'].'.', $eventId);
             $this->db->commit();
         } catch (Throwable $error) {
-            $this->db->rollBack();
+            if($this->db->inTransaction())$this->db->rollBack();
             throw $error;
         }
     }
 
     public function unassignEvent(int $userId, int $eventId, int $actorId): void
     {
-        $user = $this->requireAssignableUser($userId);
-        $title = $this->value('SELECT title FROM tbl_events WHERE id = ?', [$eventId]);
-        if (!$title || !$this->value('SELECT 1 FROM tbl_event_user WHERE user_id = ? AND event_id = ?', [$userId, $eventId])) {
-            throw new InvalidArgumentException('That event assignment was already removed.');
-        }
         $this->db->beginTransaction();
         try {
+            $userLock=$this->db->prepare('SELECT id FROM tbl_users WHERE id=? FOR UPDATE');$userLock->execute([$userId]);
+            if(!$userLock->fetchColumn())throw new InvalidArgumentException('User not found.');
+            $user=$this->requireAssignableUser($userId);
+            $eventLock=$this->db->prepare('SELECT title FROM tbl_events WHERE id=? FOR UPDATE');$eventLock->execute([$eventId]);$title=$eventLock->fetchColumn();
+            if(!$title)throw new InvalidArgumentException('Event not found.');
             $statement = $this->db->prepare('DELETE FROM tbl_event_user WHERE user_id = ? AND event_id = ?');
             $statement->execute([$userId, $eventId]);
-            $this->log($actorId, $userId, 'event_unassigned', $user['full_name']." was unassigned from $title.", $eventId);
+            if($statement->rowCount())$this->log($actorId, $userId, 'event_unassigned', $user['full_name']." was unassigned from $title.", $eventId);
             $this->db->commit();
         } catch (Throwable $error) {
-            $this->db->rollBack();
+            if($this->db->inTransaction())$this->db->rollBack();
             throw $error;
         }
     }
@@ -349,7 +384,7 @@ try {
     if($_SERVER['REQUEST_METHOD']!=='POST') JsonResponse::send(['success'=>false,'message'=>'Method not allowed.'],405);
     if(!SessionManager::validateCsrf($_SERVER['HTTP_X_CSRF_TOKEN']??null)) JsonResponse::send(['success'=>false,'message'=>'Your session expired.'],403);
     $input=json_decode(file_get_contents('php://input'),true); if(!is_array($input))$input=$_POST; $action=$input['action']??'create';
-    if($action==='toggle'){ $repo->toggle((int)($input['id']??0), (int)$actor['id']); JsonResponse::send(['success'=>true,'message'=>'Account status updated.']); }
+    if($action==='toggle'){ $desired=array_key_exists('active',$input)?filter_var($input['active'],FILTER_VALIDATE_BOOL,FILTER_NULL_ON_FAILURE):null;if(array_key_exists('active',$input)&&$desired===null)throw new InvalidArgumentException('Choose a valid account status.');$repo->toggle((int)($input['id']??0),(int)$actor['id'],$desired);JsonResponse::send(['success'=>true,'message'=>'Account status updated.']); }
     if($action==='assign_event'){ $repo->assignEvent((int)($input['id']??0),(int)($input['event_id']??0),(int)$actor['id']); JsonResponse::send(['success'=>true,'message'=>'Event assigned successfully.']); }
     if($action==='unassign_event'){ $repo->unassignEvent((int)($input['id']??0),(int)($input['event_id']??0),(int)$actor['id']); JsonResponse::send(['success'=>true,'message'=>'Event assignment removed.']); }
     if(!in_array($action,['create','update'],true)) JsonResponse::send(['success'=>false,'message'=>'Unknown user-management action.'],422);
