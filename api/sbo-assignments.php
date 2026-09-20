@@ -73,7 +73,7 @@ final class SboAssignmentRepository
         try {
             $officerLock=$this->db->prepare("SELECT oa.id FROM tbl_sbo_officer_assignments oa JOIN tbl_users u ON u.id=oa.officer_user_id JOIN tbl_roles r ON r.id=u.role_id AND r.name='SBO Officer' JOIN tbl_user_statuses us ON us.id=u.status AND us.label='active' WHERE oa.id=? AND oa.status='Active' FOR UPDATE");$officerLock->execute([$officer]);
             if(!$officerLock->fetchColumn())throw new InvalidArgumentException('Select an active SBO Officer.');
-            $scheduleLock=$this->db->prepare("SELECT s.*,m.code session_mode,e.audience_type,e.deleted_at FROM tbl_event_attendance_schedules s JOIN tbl_attendance_session_modes m ON m.id=s.attendance_session_mode_id JOIN tbl_events e ON e.id=s.event_id WHERE s.id=? FOR UPDATE");$scheduleLock->execute([$schedule]);
+            $scheduleLock=$this->db->prepare("SELECT s.*,m.code session_mode,e.audience_type,e.event_type_id,e.deleted_at FROM tbl_event_attendance_schedules s JOIN tbl_attendance_session_modes m ON m.id=s.attendance_session_mode_id JOIN tbl_events e ON e.id=s.event_id WHERE s.id=? FOR UPDATE");$scheduleLock->execute([$schedule]);
             $scheduleRow=$scheduleLock->fetch();
             if(!$scheduleRow||$scheduleRow['deleted_at']!==null)throw new InvalidArgumentException('The selected event day no longer exists.');
             $validSessions=$scheduleRow['session_mode']==='whole_day'?['whole_day']:($scheduleRow['session_mode']==='two_sessions'?['morning','afternoon']:[]);
@@ -82,7 +82,12 @@ final class SboAssignmentRepository
             if(!$teamRow||(int)$teamRow['is_active']!==1)throw new InvalidArgumentException('Select an active team.');
             if(!(new AcademicPeriodScope($this->db))->teamIsInEvent((int)$scheduleRow['event_id'],$team))throw new InvalidArgumentException('That team is outside the event academic period or participant scope.');
             $activity=$this->row('SELECT id,status FROM tbl_event_activities WHERE event_id=? AND lower(name)=lower(?) LIMIT 1 FOR UPDATE',[(int)$scheduleRow['event_id'],$activityName]);
-            if(!$activity){$statement=$this->db->prepare("INSERT INTO tbl_event_activities(event_id,name,status,created_by,created_at,updated_at) VALUES(?,?,'active',?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)");$statement->execute([(int)$scheduleRow['event_id'],$activityName,$actorId]);$activityId=(int)$this->db->lastInsertId();}
+            if(!$activity){
+                if($scheduleRow['event_type_id']===null)throw new InvalidArgumentException('Assign an event type before adding an activity.');
+                $catalog=$this->db->prepare("INSERT INTO tbl_activities(label,event_type_id,status,created_at,updated_at) VALUES(?,?,'active',CURRENT_TIMESTAMP,CURRENT_TIMESTAMP) ON DUPLICATE KEY UPDATE status='active',updated_at=CURRENT_TIMESTAMP");$catalog->execute([$activityName,(int)$scheduleRow['event_type_id']]);
+                $catalogId=(int)$this->scalar('SELECT id FROM tbl_activities WHERE event_type_id=? AND label=?',[(int)$scheduleRow['event_type_id'],$activityName]);
+                $statement=$this->db->prepare("INSERT INTO tbl_event_activities(event_id,activity_id,name,status,created_by,created_at,updated_at) VALUES(?,?,?,'active',?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)");$statement->execute([(int)$scheduleRow['event_id'],$catalogId,$activityName,$actorId]);$activityId=(int)$this->db->lastInsertId();
+            }
             else {
                 $activityId=(int)$activity['id'];
                 if($activity['status']!=='active')

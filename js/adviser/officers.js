@@ -142,31 +142,8 @@ window.SharedNavigation.ready.then(() => {
 
     const openEventAssignments = assignment => {
         if (assignment.status !== 'Active') return notify('error', 'Only active SBO Officers can be assigned to an event.');
-        const taskDialog = document.querySelector('[data-task-dialog]');
-        const opener = document.querySelector('[data-task-open]');
-        if (!taskDialog || !opener) return notify('error', 'Event responsibilities are unavailable. Reload this page and try again.');
-        const chooseOfficer = () => {
-            if (!taskDialog.open) return false;
-            const select = taskDialog.querySelector('[data-task-officer]');
-            if (select) {
-                select.value = String(assignment.id);
-                select.dispatchEvent(new Event('change', {bubbles: true}));
-            }
-            const team = taskDialog.querySelector('[data-task-team]');
-            if (team && assignment.team_id) team.value = String(assignment.team_id);
-            const event = taskDialog.querySelector('[data-task-event]');
-            if (event && !event.querySelector('option[value=""]')) event.prepend(new Option('Select an event day', ''));
-            if (event) { event.value = ''; event.dispatchEvent(new Event('change', {bubbles: true})); }
-            const activity = taskDialog.querySelector('input[name="activity_name"]');
-            if (activity && !activity.value.trim()) activity.value = 'Event duties';
-            select?.focus();
-            return true;
-        };
-        if (chooseOfficer()) return;
-        const observer = new MutationObserver(() => { if (chooseOfficer()) observer.disconnect(); });
-        observer.observe(taskDialog, {attributes: true, attributeFilter: ['open']});
-        setTimeout(() => observer.disconnect(), 10000);
-        opener.click();
+        window.SboOfficerAssignments?.activate(assignment.id)
+            ?? notify('error', 'Event responsibilities are unavailable. Reload this page and try again.');
     };
 
     const eventGroups = tasks => {
@@ -304,7 +281,7 @@ window.SharedNavigation.ready.then(() => {
 
     const renderAssignments = data => {
         list.replaceChildren();
-        document.querySelector('[data-officer-result-count]').textContent = `${data.pagination.total} ${data.pagination.total === 1 ? 'assignment' : 'assignments'} found`;
+        document.querySelector('[data-officer-result-count]').textContent = `${data.pagination.total} ${data.pagination.total === 1 ? 'officer' : 'officers'} found`;
         if (!data.assignments.length) {
             const empty = document.createElement('div');
             empty.className = 'px-6 py-14 text-center';
@@ -318,7 +295,11 @@ window.SharedNavigation.ready.then(() => {
         data.assignments.forEach(assignment => {
             const active = assignment.status === 'Active';
             const article = document.createElement('article');
-            article.className = 'grid gap-4 px-5 py-5 lg:grid-cols-[auto_minmax(220px,1fr)_minmax(180px,.7fr)_minmax(180px,.7fr)_auto] lg:items-center';
+            article.className = 'flex items-start gap-3 px-5 py-4';
+            const details = document.createElement('details');
+            details.className = 'group min-w-0';
+            const summary = document.createElement('summary');
+            summary.className = 'flex cursor-pointer list-none items-center gap-3 rounded-xl py-1 outline-none focus-visible:ring-4 focus-visible:ring-[#397565]/15';
 
             const check = document.createElement('input');
             check.className = 'h-4 w-4 accent-[#397565] disabled:opacity-25';
@@ -329,8 +310,8 @@ window.SharedNavigation.ready.then(() => {
             check.setAttribute('aria-label', `Select ${assignment.full_name}`);
             check.addEventListener('change', syncSelection);
 
-            const identity = document.createElement('div');
-            identity.className = 'min-w-0';
+            const identity = document.createElement('span');
+            identity.className = 'min-w-0 flex-1';
             identity.innerHTML = '<strong class="block truncate text-sm font-black"></strong><span class="mt-1 block truncate text-xs text-[#121017]/45"></span>';
             identity.querySelector('strong').textContent = assignment.full_name;
             const assignmentPeriod = assignment.school_year_label || assignment.term;
@@ -352,7 +333,7 @@ window.SharedNavigation.ready.then(() => {
                 empty.textContent = active ? 'No event assigned' : 'Officer login inactive';
                 eventCell.append(empty);
             } else {
-                groups.slice(0, 2).forEach(group => {
+                groups.forEach(group => {
                     const item = document.createElement('p');
                     item.className = 'mt-1 text-xs leading-5';
                     const title = document.createElement('span');
@@ -364,7 +345,7 @@ window.SharedNavigation.ready.then(() => {
                     item.append(title, detail);
                     eventCell.append(item);
                 });
-                if (groups.length > 2) {
+                if (false && groups.length > 2) {
                     const moreEvents = document.createElement('small');
                     moreEvents.className = 'mt-1 block font-bold text-[#397565]';
                     moreEvents.textContent = `+${groups.length - 2} more in View Details`;
@@ -377,6 +358,10 @@ window.SharedNavigation.ready.then(() => {
             const status = document.createElement('span');
             status.className = `w-fit rounded-full px-3 py-1.5 text-[10px] font-black uppercase ${active ? 'bg-[#C6F24E]/35 text-[#397565]' : 'bg-[#121017]/6 text-[#121017]/40'}`;
             status.textContent = assignment.status;
+            const chevron = document.createElement('span');
+            chevron.className = 'text-lg font-black text-[#121017]/45 transition group-open:rotate-45';
+            chevron.textContent = '+';
+            summary.append(identity, status, chevron);
             actions.append(button('View Details', 'min-h-9 rounded-lg border border-[#397565]/25 bg-[#397565]/8 px-3 text-xs font-black text-[#397565]', () => {
                 closeOfficerMenu();
                 openDetailsDialog(assignment);
@@ -385,8 +370,11 @@ window.SharedNavigation.ready.then(() => {
             more.dataset.officerMenuTrigger = '';
             more.setAttribute('aria-label', `More actions for ${assignment.full_name}`);
             actions.append(more);
-            identity.append(eventCell);
-            article.append(check, identity, account, status, actions);
+            const content = document.createElement('div');
+            content.className = 'ml-0 sm:ml-7';
+            content.append(account, eventCell, actions);
+            details.append(summary, content);
+            article.append(check, details);
             list.append(article);
         });
         syncSelection();
@@ -528,7 +516,7 @@ window.SharedNavigation.ready.then(() => {
         renderFormOptions(response.data.data);
     };
 
-    document.querySelector('[data-task-dialog]')?.addEventListener('close', () => load().catch(error => notify('error', errorMessage(error))));
+    document.querySelector('[data-officer-tab="officers"]')?.addEventListener('click', () => load().catch(error => notify('error', errorMessage(error))));
 
     selectAll.addEventListener('change', () => {
         list.querySelectorAll('[data-officer-checkbox]:not(:disabled)').forEach(input => { input.checked = selectAll.checked; });

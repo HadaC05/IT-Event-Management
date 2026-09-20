@@ -23,6 +23,24 @@
 body[data-navigation-role] .shared-navigation-sidebar [data-shared-navigation-links] {
   gap: .4rem;
 }
+body[data-navigation-role="adviser"] .shared-navigation-sidebar [data-shared-navigation-links] {
+  display: flex;
+  flex-direction: column;
+  gap: .85rem;
+}
+body[data-navigation-role="adviser"] .shared-navigation-link-group {
+  display: grid;
+  gap: .4rem;
+}
+body[data-navigation-role="adviser"] .shared-navigation-section-title {
+  margin: .15rem .25rem 0;
+  color: rgba(243, 240, 233, .45);
+  font-size: .625rem;
+  font-weight: 900;
+  letter-spacing: .12em;
+  line-height: 1.25;
+  text-transform: uppercase;
+}
 body[data-navigation-role] .shared-navigation-sidebar [data-shared-navigation-links] a {
   min-height: 3rem;
   border-radius: 5px;

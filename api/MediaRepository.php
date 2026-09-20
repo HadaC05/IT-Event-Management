@@ -432,7 +432,7 @@ final class MediaRepository
         if (!$events) return [];
         $eventIds = array_map('intval', array_column($events, 'id'));
         $marks = implode(',', array_fill(0, count($eventIds), '?'));
-        $statement = $this->db->prepare("SELECT id,event_id,name,description FROM tbl_event_activities WHERE status='active' AND event_id IN ($marks) ORDER BY event_id,id");
+        $statement = $this->db->prepare("SELECT ea.id,ea.event_id,a.label AS name,a.description FROM tbl_event_activities ea INNER JOIN tbl_activities a ON a.id=ea.activity_id WHERE ea.status='active' AND ea.event_id IN ($marks) ORDER BY ea.event_id,ea.id");
         $statement->execute($eventIds);
         $activities = [];
         foreach ($statement->fetchAll() as $activity) {

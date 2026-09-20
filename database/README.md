@@ -15,6 +15,13 @@ Override any default with the `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, and
 Application tables use the `tbl_` prefix, such as `tbl_users`, `tbl_roles`, and
 `tbl_posts`.
 
+Import `database/2026_09_21_add_activity_catalog.sql` once to create the
+activity catalog (`tbl_activities`) grouped by event type. It migrates existing
+event activities to the catalog, removes the legacy event-activity description,
+adds the required `activity_id` reference, and restricts both activity statuses
+to the `active`/`inactive` enum values. Every existing event activity must have
+an event type before importing it.
+
 Import `database/2026_09_20_add_event_academic_periods_and_membership_snapshots.sql`
 after the score-finalization migration. It gives every event an explicit
 school-year/semester period, freezes its eligible student/team membership, and

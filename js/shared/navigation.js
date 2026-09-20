@@ -31,10 +31,10 @@
     ],
     adviser: [
       ['dashboard','Dashboard','pages/adviser/dashboard.html','M4 13h6V4H4v9Zm0 7h6v-4H4v4Zm10 0h6v-9h-6v9Zm0-16v4h6V4h-6Z'],
-      ['users','User Management','pages/adviser/users.html','M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8'],
-      ['officers','Officer Management','pages/adviser/officers.html','M12 3 4 7v5c0 4.6 3.2 7.8 8 9 4.8-1.2 8-4.4 8-9V7l-8-4Zm-3 9 2 2 4-5'],
+      ['users','Users','pages/adviser/users.html','M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8'],
+      ['officers','SBO Officers','pages/adviser/officers.html','M12 3 4 7v5c0 4.6 3.2 7.8 8 9 4.8-1.2 8-4.4 8-9V7l-8-4Zm-3 9 2 2 4-5'],
       ['teams','Team Management','pages/adviser/teams.html','M8 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6Zm8 0a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM2 20v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2'],
-      ['events','Event Management','pages/adviser/events.html','M6 2v4m12-4v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14H3V6a2 2 0 0 1 2-2Z'],
+      ['events','Events','pages/adviser/events.html','M6 2v4m12-4v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14H3V6a2 2 0 0 1 2-2Z'],
       ['locations','Locations','pages/adviser/locations.html','M20 10c0 5-8 11-8 11S4 15 4 10a8 8 0 1 1 16 0ZM12 10h.01'],
       ['attendance','Attendance','pages/adviser/attendance.html','M9 11l2 2 4-4m6 3a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z'],
       ['scores','Scores','pages/adviser/scores.html','M8 21h8M12 17v4M7 4h10v4a5 5 0 0 1-10 0V4Z'],
@@ -44,6 +44,11 @@
       ['posts','Media Feed','pages/adviser/posts.html','M4 5h16v12H8l-4 4V5Zm4 4h8m-8 4h5'],
     ],
   };
+  const ADVISER_NAVIGATION_SECTIONS = [
+    {items: ['dashboard']},
+    {title: 'User Management', items: ['users', 'officers']},
+    {title: 'Event Management', items: ['teams', 'events', 'locations', 'attendance', 'scores', 'leaderboard', 'announcements', 'reports', 'posts']},
+  ];
 
   const esc = value => String(value ?? '').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;').replaceAll("'",'&#039;');
   const icon = (path, mobile = false) => `<svg class="${mobile ? 'h-5 w-5' : 'h-6 w-6'} shrink-0 fill-none stroke-current stroke-2" viewBox="0 0 24 24" aria-hidden="true"><path d="${path}"></path></svg>`;
@@ -56,13 +61,22 @@
   };
   const ensureStyles = () => {
     if (document.querySelector('link[href^="css/navigation.css"]')) return;
-    const link = document.createElement('link'); link.rel = 'stylesheet'; link.href = 'css/navigation.css?v=20260919-notifications-2'; document.head.append(link);
+    const link = document.createElement('link'); link.rel = 'stylesheet'; link.href = 'css/navigation.css?v=20260921-adviser-sections-1'; document.head.append(link);
   };
   const clone = (documentFragment, selector) => documentFragment.querySelector(selector).content.firstElementChild.cloneNode(true);
   const linkMarkup = (item, active, mobile = false) => {
     const [key,label,href,path] = item, selected = key === active;
     if (mobile) return `<a class="flex min-w-0 flex-col items-center justify-center gap-1 rounded-xl text-[10px] font-black ${selected ? 'bg-[#397565] text-[#C6F24E]' : 'text-white/55'}" href="${href}" aria-current="${selected ? 'page' : 'false'}">${icon(path,true)}<span class="max-w-full truncate">${label}</span></a>`;
     return `<a class="group flex min-h-14 items-center gap-4 overflow-hidden rounded-2xl border px-3 text-sm font-black transition ${selected ? 'border-[#C6F24E]/30 bg-[#397565]/55 text-[#C6F24E] shadow-lg shadow-black/20' : 'border-white/5 bg-white/[.06] text-[#F3F0E9]/75 hover:border-[#C6F24E]/20 hover:bg-white/[.1] hover:text-[#C6F24E]'}" href="${href}" aria-label="${label}" aria-current="${selected ? 'page' : 'false'}">${icon(path)}<span class="hidden whitespace-nowrap" data-shared-sidebar-label>${label}</span></a>`;
+  };
+  const sidebarLinksMarkup = (role, pages, active) => {
+    if (role !== 'adviser') return pages.map(item => linkMarkup(item, active)).join('');
+    const itemsByKey = new Map(pages.map(item => [item[0], item]));
+    return ADVISER_NAVIGATION_SECTIONS.map(section => {
+      const links = section.items.map(key => linkMarkup(itemsByKey.get(key), active)).join('');
+      if (!section.title) return `<div class="shared-navigation-link-group">${links}</div>`;
+      return `<section class="shared-navigation-link-group" aria-label="${section.title}"><h2 class="shared-navigation-section-title hidden" data-shared-sidebar-label>${section.title}</h2>${links}</section>`;
+    }).join('');
   };
 
   const studentNotifications = async (header, csrf) => {
@@ -96,7 +110,7 @@
     const fragment = new DOMParser().parseFromString(fragmentResponse.data,'text/html');
     const sidebar = clone(fragment,'[data-shared-navigation-sidebar]'), header = clone(fragment,'[data-shared-navigation-header]'), active = activePage(role), pages = ROLE_PAGES[role];
     sidebar.querySelector('[data-shared-brand-label]').textContent = role === 'adviser' ? 'CITE ADVISER' : role === 'sbo' ? 'CITE SBO' : role === 'faculty' ? 'CITE FACULTY' : 'STUDENT MENU';
-    sidebar.querySelector('[data-shared-navigation-links]').innerHTML = pages.map(item => linkMarkup(item,active)).join('');
+    sidebar.querySelector('[data-shared-navigation-links]').innerHTML = sidebarLinksMarkup(role, pages, active);
     sidebar.querySelector('[data-shared-sidebar-name]').textContent = name;
     sidebar.querySelector('[data-shared-sidebar-account]').textContent = user.username ? `@${user.username}` : user.email || '';
     if (role === 'adviser') sidebar.querySelector('[data-shared-sidebar-name]')?.closest('[data-shared-sidebar-label]')?.remove();
@@ -128,7 +142,12 @@
       toggle.setAttribute('aria-expanded',String(expanded)); toggle.setAttribute('aria-label',expanded ? 'Collapse navigation' : 'Expand navigation');
       if (persist) localStorage.setItem(sidebarStateKey,expanded ? '1' : '0');
     };
-    setDesktopExpanded(localStorage.getItem(sidebarStateKey) === '1',false);
+    setDesktopExpanded(
+      document.body.hasAttribute('data-navigation-collapsed')
+        ? false
+        : localStorage.getItem(sidebarStateKey) === '1',
+      false,
+    );
     if (role === 'admin' || role === 'adviser' || role === 'faculty') {
       const mobileToggle = header.querySelector('[data-shared-mobile-toggle]'), scrim = clone(fragment,'[data-shared-navigation-scrim]');
       mobileToggle.classList.remove('hidden'); mobileToggle.classList.add('grid'); document.body.append(scrim);

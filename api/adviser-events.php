@@ -80,7 +80,14 @@ final class EventManagementRepository
              LEFT JOIN tbl_academic_periods ap ON ap.id=e.academic_period_id
              LEFT JOIN tbl_school_years sy ON sy.id=ap.school_year_id
              $whereSql
-             ORDER BY CASE WHEN e.deleted_at IS NOT NULL THEN 1 ELSE 0 END,e.start_at,e.id
+             ORDER BY CASE es.label
+                        WHEN 'ongoing' THEN 0
+                        WHEN 'upcoming' THEN 1
+                        WHEN 'completed' THEN 2
+                        ELSE 3
+                      END,
+                      CASE WHEN e.deleted_at IS NOT NULL THEN 1 ELSE 0 END,
+                      e.start_at,e.id
              LIMIT :limit OFFSET :offset"
         );
         foreach ($params as $key => $value) {
@@ -152,7 +159,7 @@ final class EventManagementRepository
 
     private function activities(int $eventId): array
     {
-        $statement = $this->db->prepare('SELECT id,name,description,status FROM tbl_event_activities WHERE event_id=? ORDER BY id');
+        $statement = $this->db->prepare('SELECT ea.id,a.label AS name,a.description,ea.status FROM tbl_event_activities ea INNER JOIN tbl_activities a ON a.id=ea.activity_id WHERE ea.event_id=? ORDER BY ea.id');
         $statement->execute([$eventId]);
         $activities = $statement->fetchAll();
         foreach ($activities as &$activity) $activity['id'] = (int) $activity['id'];
@@ -176,21 +183,28 @@ final class EventManagementRepository
         }
         $this->db->beginTransaction();
         try {
-            $eventLock = $this->db->prepare('SELECT id FROM tbl_events WHERE id=? AND deleted_at IS NULL FOR UPDATE');
+            $eventLock = $this->db->prepare('SELECT id,event_type_id FROM tbl_events WHERE id=? AND deleted_at IS NULL FOR UPDATE');
             $eventLock->execute([$eventId]);
-            if (!$eventLock->fetchColumn()) throw new EventValidationException(['event' => ['Event not found.']]);
+            $lockedEvent = $eventLock->fetch();
+            if (!$lockedEvent) throw new EventValidationException(['event' => ['Event not found.']]);
+            if ($lockedEvent['event_type_id'] === null) throw new EventValidationException(['event_type' => ['Assign an event type before adding an activity.']]);
             $duplicate = $this->db->prepare('SELECT id FROM tbl_event_activities WHERE event_id=? AND LOWER(name)=LOWER(?)'.($activityId === null ? '' : ' AND id<>?'));
             $duplicate->execute($activityId === null ? [$eventId, $name] : [$eventId, $name, $activityId]);
             if ($duplicate->fetch()) throw new EventValidationException(['name' => ['An activity with this name already exists for this event.']]);
             if ($activityId === null) {
-                $statement = $this->db->prepare("INSERT INTO tbl_event_activities(event_id,name,description,status,created_by,created_at,updated_at) VALUES(?,?,?,'active',?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)");
-                $statement->execute([$eventId, $name, $description ?: null, $actorId]);
+                $catalog = $this->db->prepare("INSERT INTO tbl_activities(label,description,event_type_id,status,created_at,updated_at) VALUES(?,?,?,'active',CURRENT_TIMESTAMP,CURRENT_TIMESTAMP) ON DUPLICATE KEY UPDATE description=VALUES(description),status='active',updated_at=CURRENT_TIMESTAMP");
+                $catalog->execute([$name, $description ?: null, $lockedEvent['event_type_id']]);
+                $catalogId = (int) $this->scalar('SELECT id FROM tbl_activities WHERE event_type_id=? AND label=?', [(int) $lockedEvent['event_type_id'], $name]);
+                $statement = $this->db->prepare("INSERT INTO tbl_event_activities(event_id,activity_id,name,status,created_by,created_at,updated_at) VALUES(?,?,?,'active',?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)");
+                $statement->execute([$eventId, $catalogId, $name, $actorId]);
             } else {
                 $activityLock = $this->db->prepare('SELECT id FROM tbl_event_activities WHERE id=? AND event_id=? FOR UPDATE');
                 $activityLock->execute([$activityId, $eventId]);
                 if (!$activityLock->fetchColumn()) throw new EventValidationException(['activity' => ['Activity not found for this event.']]);
-                $statement = $this->db->prepare('UPDATE tbl_event_activities SET name=?,description=?,updated_at=CURRENT_TIMESTAMP WHERE id=? AND event_id=?');
-                $statement->execute([$name, $description ?: null, $activityId, $eventId]);
+                $catalog = $this->db->prepare('UPDATE tbl_activities a INNER JOIN tbl_event_activities ea ON ea.activity_id=a.id SET a.label=?,a.description=?,a.updated_at=CURRENT_TIMESTAMP WHERE ea.id=? AND ea.event_id=?');
+                $catalog->execute([$name, $description ?: null, $activityId, $eventId]);
+                $statement = $this->db->prepare('UPDATE tbl_event_activities SET name=?,updated_at=CURRENT_TIMESTAMP WHERE id=? AND event_id=?');
+                $statement->execute([$name, $activityId, $eventId]);
             }
             $this->log($actorId, $eventId, $activityId === null ? 'event_activity_created' : 'event_activity_updated', $name.' was '.($activityId === null ? 'added to ' : 'updated for ').$event['title'].'.');
             $this->db->commit();

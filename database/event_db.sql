@@ -324,9 +324,9 @@ INSERT INTO `tbl_event_locations` (`event_id`, `location_id`, `is_primary`, `cre
 CREATE TABLE `tbl_event_activities` (
   `id` bigint(20) UNSIGNED NOT NULL,
   `event_id` bigint(20) UNSIGNED NOT NULL,
+  `activity_id` bigint(20) UNSIGNED NOT NULL,
   `name` varchar(120) NOT NULL,
-  `description` text DEFAULT NULL,
-  `status` varchar(20) NOT NULL DEFAULT 'active',
+  `status` enum('active','inactive') NOT NULL DEFAULT 'active',
   `created_by` bigint(20) UNSIGNED DEFAULT NULL,
   `created_at` timestamp NULL DEFAULT current_timestamp(),
   `updated_at` timestamp NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
@@ -336,8 +336,8 @@ CREATE TABLE `tbl_event_activities` (
 -- Dumping data for table `tbl_event_activities`
 --
 
-INSERT INTO `tbl_event_activities` (`id`, `event_id`, `name`, `description`, `status`, `created_by`, `created_at`, `updated_at`) VALUES
-(1, 2, 'Event duties', NULL, 'active', 14, '2026-09-15 17:13:40', '2026-09-15 17:13:40');
+INSERT INTO `tbl_event_activities` (`id`, `event_id`, `activity_id`, `name`, `status`, `created_by`, `created_at`, `updated_at`) VALUES
+(1, 2, 1, 'Event duties', 'active', 14, '2026-09-15 17:13:40', '2026-09-15 17:13:40');
 
 -- --------------------------------------------------------
 
@@ -445,6 +445,29 @@ CREATE TABLE `tbl_event_types` (
 INSERT INTO `tbl_event_types` (`id`, `label`, `created_at`, `updated_at`) VALUES
 (1, 'IT Days', '2026-09-11 15:45:47', '2026-09-11 15:45:47'),
 (2, 'IT Expo', '2026-09-11 15:45:47', '2026-09-11 15:45:47');
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `tbl_activities`
+--
+
+CREATE TABLE `tbl_activities` (
+  `id` bigint(20) UNSIGNED NOT NULL,
+  `label` varchar(120) NOT NULL,
+  `description` text DEFAULT NULL,
+  `event_type_id` bigint(20) UNSIGNED NOT NULL,
+  `status` enum('active','inactive') NOT NULL DEFAULT 'active',
+  `created_at` timestamp NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+--
+-- Dumping data for table `tbl_activities`
+--
+
+INSERT INTO `tbl_activities` (`id`, `label`, `description`, `event_type_id`, `status`, `created_at`, `updated_at`) VALUES
+(1, 'Event duties', NULL, 1, 'active', '2026-09-15 17:13:40', '2026-09-15 17:13:40');
 
 -- --------------------------------------------------------
 
@@ -1248,6 +1271,7 @@ ALTER TABLE `tbl_event_locations`
 ALTER TABLE `tbl_event_activities`
   ADD PRIMARY KEY (`id`),
   ADD UNIQUE KEY `event_activities_event_name_unique` (`event_id`,`name`),
+  ADD KEY `event_activities_activity_id_foreign` (`activity_id`),
   ADD KEY `event_activities_created_by_foreign` (`created_by`);
 
 --
@@ -1287,6 +1311,14 @@ ALTER TABLE `tbl_event_team`
 ALTER TABLE `tbl_event_types`
   ADD PRIMARY KEY (`id`),
   ADD UNIQUE KEY `event_types_label_unique` (`label`);
+
+--
+-- Indexes for table `tbl_activities`
+--
+ALTER TABLE `tbl_activities`
+  ADD PRIMARY KEY (`id`),
+  ADD UNIQUE KEY `activities_event_type_label_unique` (`event_type_id`,`label`),
+  ADD KEY `activities_event_type_id_foreign` (`event_type_id`);
 
 --
 -- Indexes for table `tbl_event_user`
@@ -1593,6 +1625,12 @@ ALTER TABLE `tbl_event_types`
   MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
 
 --
+-- AUTO_INCREMENT for table `tbl_activities`
+--
+ALTER TABLE `tbl_activities`
+  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
+
+--
 -- AUTO_INCREMENT for table `tbl_event_user`
 --
 ALTER TABLE `tbl_event_user`
@@ -1791,7 +1829,14 @@ ALTER TABLE `tbl_event_locations`
 --
 ALTER TABLE `tbl_event_activities`
   ADD CONSTRAINT `event_activities_created_by_foreign` FOREIGN KEY (`created_by`) REFERENCES `tbl_users` (`id`) ON DELETE SET NULL,
+  ADD CONSTRAINT `event_activities_activity_id_foreign` FOREIGN KEY (`activity_id`) REFERENCES `tbl_activities` (`id`) ON DELETE RESTRICT,
   ADD CONSTRAINT `event_activities_event_id_foreign` FOREIGN KEY (`event_id`) REFERENCES `tbl_events` (`id`) ON DELETE CASCADE;
+
+--
+-- Constraints for table `tbl_activities`
+--
+ALTER TABLE `tbl_activities`
+  ADD CONSTRAINT `activities_event_type_id_foreign` FOREIGN KEY (`event_type_id`) REFERENCES `tbl_event_types` (`id`) ON DELETE RESTRICT;
 
 --
 -- Constraints for table `tbl_event_attendance_schedules`

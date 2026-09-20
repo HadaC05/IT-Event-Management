@@ -298,6 +298,109 @@ details[open] > .attendance-scan-summary .attendance-scan-chevron {
   z-index: 100;
 }
 
+/* Compact event-details banner: the poster fades into its text content. */
+.event-detail-hero {
+  min-height: 21rem;
+}
+
+.event-detail-hero__poster {
+  position: absolute;
+  inset: 0 0 0 auto;
+  display: grid;
+  width: 48%;
+  place-items: center;
+  color: #397565;
+  background-color: #edf8f2;
+  background-position: center;
+  background-size: cover;
+}
+
+.event-detail-hero__poster::after {
+  position: absolute;
+  inset: 0;
+  content: "";
+  background: linear-gradient(90deg, #fff 0%, rgba(255, 255, 255, 0.96) 16%, rgba(255, 255, 255, 0) 64%);
+}
+
+.event-detail-hero__poster svg {
+  position: relative;
+  z-index: 1;
+}
+
+.event-detail-hero__content {
+  width: 64%;
+  min-height: 21rem;
+}
+
+.event-detail-hero__meta {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: 1rem;
+  row-gap: .55rem;
+}
+
+.event-detail-hero__meta-item {
+  display: flex;
+  min-width: 0;
+  align-items: flex-start;
+  gap: .5rem;
+  color: #397565;
+}
+
+.event-detail-hero__meta-item > svg {
+  width: 1rem;
+  height: 1rem;
+  flex: 0 0 auto;
+  margin-top: .05rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.8;
+}
+
+.event-detail-hero__meta-item span {
+  display: grid;
+  min-width: 0;
+}
+
+.event-detail-hero__meta-item b {
+  font-size: .625rem;
+  font-weight: 800;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+
+.event-detail-hero__meta-item small {
+  overflow: hidden;
+  color: rgba(18, 16, 23, .62);
+  font-size: .7rem;
+  font-weight: 600;
+  line-height: 1.1rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (max-width: 767px) {
+  .event-detail-hero {
+    min-height: 0;
+  }
+
+  .event-detail-hero__poster {
+    width: 42%;
+    opacity: .45;
+  }
+
+  .event-detail-hero__poster::after {
+    background: linear-gradient(90deg, #fff 0%, rgba(255, 255, 255, .9) 52%, rgba(255, 255, 255, .08) 100%);
+  }
+
+  .event-detail-hero__content {
+    width: 100%;
+    min-height: 0;
+  }
+}
+
 /* Keep the Location form's actions visible while its fields scroll. */
 dialog.app-dialog[data-location-dialog] {
   height: min(90dvh, 900px);

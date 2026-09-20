@@ -17,6 +17,43 @@ window.SharedNavigation.ready.then((context) => {
       axios.post("api/adviser-events.php", payload, {
         headers: { "X-CSRF-Token": csrf },
       });
+  const tabButtons = document.querySelectorAll("[data-event-tab]"),
+    tabPanels = document.querySelectorAll("[data-event-tab-panel]");
+  function activateTab(name, updateUrl = false) {
+    const tab = name === "activities" ? "activities" : "details";
+    tabButtons.forEach((button) => {
+      const active = button.dataset.eventTab === tab;
+      button.setAttribute("aria-selected", String(active));
+      button.tabIndex = active ? 0 : -1;
+      button.className = active
+        ? "inline-flex min-h-10 flex-1 items-center justify-center rounded-lg bg-[#397565] px-4 text-sm font-bold text-white shadow-sm"
+        : "inline-flex min-h-10 flex-1 items-center justify-center rounded-lg px-4 text-sm font-bold text-slate-500 transition hover:text-[#397565]";
+    });
+    tabPanels.forEach((panel) => {
+      panel.classList.toggle("hidden", panel.dataset.eventTabPanel !== tab);
+    });
+    if (updateUrl) {
+      const url = new URL(location.href);
+      url.hash = tab === "activities" ? "event-activities" : "";
+      history.pushState(null, "", url);
+    }
+  }
+  tabButtons.forEach((button) => {
+    button.addEventListener("click", () => activateTab(button.dataset.eventTab, true));
+  });
+  document.querySelectorAll("[data-event-tab-link]").forEach((link) => {
+    link.addEventListener("click", (event) => {
+      event.preventDefault();
+      activateTab(link.dataset.eventTabLink, true);
+    });
+  });
+  window.addEventListener("hashchange", () =>
+    activateTab(location.hash === "#event-activities" ? "activities" : "details"),
+  );
+  window.addEventListener("popstate", () =>
+    activateTab(location.hash === "#event-activities" ? "activities" : "details"),
+  );
+  activateTab(location.hash === "#event-activities" ? "activities" : "details");
   const statusClass = (label) =>
     ({
       upcoming: "bg-[#2F3AE0]/8 text-[#2F3AE0]",
@@ -73,18 +110,35 @@ window.SharedNavigation.ready.then((context) => {
     const locationList = eventLocations
       .map((location) => `${EventForm.escapeHtml(location.name)}${location.is_primary ? ' <small class="font-bold text-[#397565]">(Primary)</small>' : ""}`)
       .join('<span class="text-slate-300"> · </span>');
-    $("[data-stat-cards]").innerHTML = `${[
-      ["Starts", date(event.start_at), time(event.start_at)],
-      ["Ends", date(event.end_at), time(event.end_at)],
-      ["Location", EventForm.escapeHtml(event.location), "Event venue"],
+    const heroIcon = (path) =>
+      `<svg aria-hidden="true" viewBox="0 0 24 24"><path d="${path}" /></svg>`;
+    $("[data-event-hero-meta]").innerHTML = [
+      [
+        heroIcon("M7 2v3m10-3v3M4 9h16M5 4h14a1 1 0 0 1 1 1v14H4V5a1 1 0 0 1 1-1Z"),
+        "Date",
+        `${date(event.start_at)} – ${date(event.end_at)}`,
+      ],
+      [
+        heroIcon("M12 6v6l4 2m5-2a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"),
+        "Time",
+        `${time(event.start_at)} – ${time(event.end_at)}`,
+      ],
+      [
+        heroIcon("M12 21s7-4.4 7-11a7 7 0 1 0-14 0c0 6.6 7 11 7 11Zm0-8.5h.01"),
+        "Location",
+        EventForm.escapeHtml(event.location || "Location to be announced"),
+      ],
+      [
+        heroIcon("M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2m18-6a4 4 0 0 0-3-3.9M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z"),
+        "Attendees",
+        `${event.expected_participants} expected · ${EventForm.escapeHtml(audienceLabel)}`,
+      ],
     ]
       .map(
-        (item) =>
-          `<article class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><span class="text-[10px] font-extrabold uppercase text-slate-400">${item[0]}</span><strong class="mt-2 block truncate text-sm">${item[1]}</strong><span class="mt-1 block text-xs text-slate-500">${item[2]}</span></article>`,
+        ([icon, label, value]) =>
+          `<div class="event-detail-hero__meta-item">${icon}<span><b>${label}</b><small>${value}</small></span></div>`,
       )
-      .join(
-        "",
-      )}<article class="rounded-2xl border border-emerald-100 bg-emerald-50/60 p-5"><span class="text-[10px] font-extrabold uppercase text-emerald-700">Expected attendees</span><strong class="mt-2 block text-2xl font-black text-emerald-900">${event.expected_participants}</strong><span class="mt-1 block text-xs text-emerald-800/70">${audienceLabel}</span></article>`;
+      .join("");
     const schedules = event.attendance_schedules
       .map((day, index) => {
         const slots = [];
