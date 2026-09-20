@@ -20,7 +20,7 @@ window.SharedNavigation.ready.then((context) => {
   const tabButtons = document.querySelectorAll("[data-event-tab]"),
     tabPanels = document.querySelectorAll("[data-event-tab-panel]");
   function activateTab(name, updateUrl = false) {
-    const tab = name === "activities" ? "activities" : "details";
+    const tab = ["activities", "attendance"].includes(name) ? name : "details";
     tabButtons.forEach((button) => {
       const active = button.dataset.eventTab === tab;
       button.setAttribute("aria-selected", String(active));
@@ -34,26 +34,20 @@ window.SharedNavigation.ready.then((context) => {
     });
     if (updateUrl) {
       const url = new URL(location.href);
-      url.hash = tab === "activities" ? "event-activities" : "";
+      url.hash = tab === "activities" ? "event-activities" : tab === "attendance" ? "event-attendance" : "";
       history.pushState(null, "", url);
     }
   }
   tabButtons.forEach((button) => {
     button.addEventListener("click", () => activateTab(button.dataset.eventTab, true));
   });
-  document.querySelectorAll("[data-event-tab-link]").forEach((link) => {
-    link.addEventListener("click", (event) => {
-      event.preventDefault();
-      activateTab(link.dataset.eventTabLink, true);
-    });
-  });
   window.addEventListener("hashchange", () =>
-    activateTab(location.hash === "#event-activities" ? "activities" : "details"),
+    activateTab(location.hash === "#event-activities" ? "activities" : location.hash === "#event-attendance" ? "attendance" : "details"),
   );
   window.addEventListener("popstate", () =>
-    activateTab(location.hash === "#event-activities" ? "activities" : "details"),
+    activateTab(location.hash === "#event-activities" ? "activities" : location.hash === "#event-attendance" ? "attendance" : "details"),
   );
-  activateTab(location.hash === "#event-activities" ? "activities" : "details");
+  activateTab(location.hash === "#event-activities" ? "activities" : location.hash === "#event-attendance" ? "attendance" : "details");
   const statusClass = (label) =>
     ({
       upcoming: "bg-[#2F3AE0]/8 text-[#2F3AE0]",
@@ -87,13 +81,11 @@ window.SharedNavigation.ready.then((context) => {
       poster.replaceChildren();
     }
     $("[data-edit-link]").href = `pages/adviser/event-edit.html?id=${event.id}`;
-    $("[data-edit-link-visible]").href = `pages/adviser/event-edit.html?id=${event.id}`;
     const scoreLink = $("[data-event-scores]");
-    const attendanceLink = $("[data-event-attendance]");
     if (scoreLink)
       scoreLink.href = `pages/adviser/scoreboard.html?event_id=${event.id}`;
-    if (attendanceLink)
-      attendanceLink.href = `pages/adviser/attendance-roster.html?event_id=${event.id}`;
+    if ($("[data-attendance-roster-link]"))
+      $("[data-attendance-roster-link]").href = `pages/adviser/attendance-roster.html?event_id=${event.id}`;
     const date = (value) =>
         format(value, { month: "short", day: "numeric", year: "numeric" }),
       time = (value) => format(value, { hour: "numeric", minute: "2-digit" }),
@@ -183,6 +175,7 @@ window.SharedNavigation.ready.then((context) => {
         `${EventForm.escapeHtml(event.creator_name)}<span class="block font-medium text-slate-400">${date(event.created_at)}</span>`,
       );
     renderAssigned();
+    renderAttendance();
     const feature = $("[data-feature-form]"),
       canFeature =
         ["upcoming", "ongoing"].includes(event.status_label) &&
@@ -201,6 +194,18 @@ window.SharedNavigation.ready.then((context) => {
     feature.elements.featured_until.max = event.end_at
       .slice(0, 16)
       .replace(" ", "T");
+  }
+  function renderAttendance() {
+    const overview = data.event.attendance_overview || { expected: 0, recorded: 0, present: 0, absent: 0, unrecorded: 0, days: [] };
+    const number = (value) => Number(value || 0).toLocaleString("en-PH");
+    $("[data-attendance-summary]").innerHTML = [
+      ["Expected records", overview.expected, "bg-slate-50 text-slate-700"], ["Recorded", overview.recorded, "bg-blue-50 text-[#2F3AE0]"],
+      ["Present / late", overview.present, "bg-emerald-50 text-[#397565]"], ["Not recorded", overview.unrecorded, "bg-amber-50 text-amber-700"],
+    ].map(([label, value, classes]) => `<article class="rounded-2xl p-4 ${classes}"><p class="text-[10px] font-extrabold uppercase tracking-wider">${label}</p><strong class="mt-2 block text-2xl font-black">${number(value)}</strong></article>`).join("");
+    const days = overview.days || [];
+    $("[data-attendance-days]").innerHTML = days.length ? days.map((day) => `<div class="grid gap-2 px-5 py-4 text-xs sm:grid-cols-[150px_repeat(4,1fr)] sm:px-6"><strong>${format(`${day.date} 12:00:00`, { weekday: "short", month: "short", day: "numeric", year: "numeric" })}</strong><span><b>${number(day.recorded)}</b> recorded</span><span class="text-[#397565]"><b>${number(day.present)}</b> present</span><span class="text-red-600"><b>${number(day.absent)}</b> absent</span><span class="text-slate-500"><b>${number(day.unrecorded)}</b> awaiting</span></div>`).join("") : '<p class="px-5 py-8 text-center text-xs text-slate-500">No attendance schedule has been configured for this event.</p>';
+    const assignments = data.event.attendance_assignments || [];
+    $("[data-attendance-officers]").innerHTML = assignments.length ? assignments.map((assignment) => `<tr><td class="px-5 py-3 sm:px-6"><strong>${EventForm.escapeHtml(assignment.officer_name)}</strong><small class="mt-0.5 block text-slate-400">${EventForm.escapeHtml(assignment.username || "SBO Officer")}</small></td><td class="px-4 py-3">${format(`${assignment.schedule_date} 12:00:00`, { month: "short", day: "numeric", year: "numeric" })}<small class="mt-0.5 block text-slate-400">${EventForm.escapeHtml(assignment.session_code.replace("_", " "))}</small></td><td class="px-4 py-3">${EventForm.escapeHtml(assignment.scanner_mode === "general" ? "All eligible attendees" : assignment.scanner_team_name || assignment.team_name || "Assigned team")}</td><td class="px-4 py-3">${EventForm.escapeHtml(assignment.activity_name || "Attendance")}</td><td class="px-5 py-3 sm:px-6"><span class="rounded-full px-2 py-1 text-[10px] font-bold ${assignment.status === "active" ? "bg-emerald-50 text-[#397565]" : "bg-slate-100 text-slate-500"}">${EventForm.escapeHtml(assignment.status)}</span></td></tr>`).join("") : '<tr><td class="px-5 py-8 text-center text-slate-500 sm:px-6" colspan="5">No SBO officers are assigned to attendance for this event yet.</td></tr>';
   }
   function renderAssigned() {
     const event = data.event,
@@ -250,16 +255,29 @@ window.SharedNavigation.ready.then((context) => {
     const form = $("[data-activity-form]");
     form.reset();
     form.elements.activity_id.value = "";
+    populateActivityOptions();
     $("[data-activity-form-title]").textContent = "Add activity";
     $("[data-activity-save]").textContent = "Add activity";
     $("[data-activity-error]").classList.add("hidden");
+  }
+  function populateActivityOptions(selectedId = "") {
+    const select = activityForm.elements.catalog_activity_id;
+    const options = data.event.activity_options || [];
+    select.replaceChildren(new Option(options.length ? "Select an activity" : "No activities available for this event type", ""));
+    options.forEach((activity) =>
+      select.add(new Option(activity.label, activity.id, false, String(activity.id) === String(selectedId))),
+    );
+    select.disabled = !options.length;
+    $("[data-activity-options-note]").textContent = options.length
+      ? `Showing activities for ${data.event.type_label || "this event type"}.`
+      : "Create an activity in the Activity Catalog for this event type first.";
   }
   function openActivityDialog(activity = null) {
     resetActivityForm();
     if (activity) {
       activityForm.elements.activity_id.value = activity.id;
+      populateActivityOptions(activity.catalog_activity_id);
       activityForm.elements.name.value = activity.name;
-      activityForm.elements.description.value = activity.description || "";
       $("[data-activity-form-title]").textContent = "Edit activity";
       $("[data-activity-save]").textContent = "Save changes";
     }
@@ -278,7 +296,7 @@ window.SharedNavigation.ready.then((context) => {
     activities.forEach((activity) => {
       const item = document.createElement("article");
       item.className = "flex flex-col gap-3 py-4 sm:flex-row sm:items-center sm:justify-between";
-      item.innerHTML = `<div class="min-w-0"><div class="flex flex-wrap items-center gap-2"><h3 class="font-bold text-[#121017]">${EventForm.escapeHtml(activity.name)}</h3><span class="rounded px-2 py-0.5 text-[10px] font-bold ${activity.status === "active" ? "bg-[#C6F24E]/35 text-[#397565]" : "bg-slate-100 text-slate-500"}">${activity.status === "active" ? "Active" : "Inactive"}</span></div>${activity.description ? `<p class="mt-1 whitespace-pre-wrap text-xs text-slate-500">${EventForm.escapeHtml(activity.description)}</p>` : ""}</div><div class="flex shrink-0 flex-wrap gap-2"><a class="inline-flex min-h-9 items-center rounded-lg bg-[#397565] px-3 text-xs font-bold text-white" href="pages/adviser/scoreboard.html?event_id=${id}&activity_id=${activity.id}">Score teams</a><button class="min-h-9 rounded-lg border border-slate-300 px-3 text-xs font-bold text-slate-700" type="button" data-edit>Edit</button><button class="min-h-9 rounded-lg border border-slate-300 px-3 text-xs font-bold text-slate-700" type="button" data-toggle>${activity.status === "active" ? "Deactivate" : "Activate"}</button></div>`;
+      item.innerHTML = `<div class="min-w-0"><div class="flex flex-wrap items-center gap-2"><h3 class="font-bold text-[#121017]">${EventForm.escapeHtml(activity.name)}</h3><span class="rounded px-2 py-0.5 text-[10px] font-bold ${activity.status === "active" ? "bg-[#C6F24E]/35 text-[#397565]" : "bg-slate-100 text-slate-500"}">${activity.status === "active" ? "Active" : "Inactive"}</span></div></div><div class="flex shrink-0 flex-wrap gap-2"><a class="inline-flex min-h-9 items-center rounded-lg bg-[#397565] px-3 text-xs font-bold text-white" href="pages/adviser/scoreboard.html?event_id=${id}&activity_id=${activity.id}">Score teams</a><button class="min-h-9 rounded-lg border border-slate-300 px-3 text-xs font-bold text-slate-700" type="button" data-edit>Edit</button><button class="min-h-9 rounded-lg border border-slate-300 px-3 text-xs font-bold text-slate-700" type="button" data-toggle>${activity.status === "active" ? "Deactivate" : "Activate"}</button></div>`;
       item.querySelector("[data-edit]").onclick = () => openActivityDialog(activity);
       item.querySelector("[data-toggle]").onclick = async (event) => {
         event.currentTarget.disabled = true;
@@ -311,12 +329,12 @@ window.SharedNavigation.ready.then((context) => {
     errorHost.classList.add("hidden");
     saveButton.disabled = true;
     try {
-      await post({ action: activityId ? "activity_update" : "activity_create", id, activity_id: activityId, name: form.elements.name.value.trim(), description: form.elements.description.value.trim() });
+      await post({ action: activityId ? "activity_update" : "activity_create", id, activity_id: activityId, catalog_activity_id: Number(form.elements.catalog_activity_id.value), name: form.elements.name.value.trim() });
       toast("success", activityId ? "Activity updated." : "Activity added.");
       activityDialog.close();
       await load();
     } catch (error) {
-      errorHost.textContent = error.response?.data?.errors?.name?.[0] || error.response?.data?.errors?.description?.[0] || error.response?.data?.message || "Unable to save activity.";
+      errorHost.textContent = error.response?.data?.errors?.catalog_activity_id?.[0] || error.response?.data?.errors?.name?.[0] || error.response?.data?.message || "Unable to save activity.";
       errorHost.classList.remove("hidden");
     } finally {
       saveButton.disabled = false;
