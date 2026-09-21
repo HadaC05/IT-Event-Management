@@ -15,6 +15,23 @@ Override any default with the `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, and
 Application tables use the `tbl_` prefix, such as `tbl_users`, `tbl_roles`, and
 `tbl_posts`.
 
+## Required setup for each collaborator
+
+The PHP endpoints and the shared sidebar require the current MySQL schema. A
+fresh clone does **not** create that schema automatically. Before opening the
+site, each collaborator must start Apache and MySQL in XAMPP, create/import the
+`event_db` database from `database/event_db.sql` in phpMyAdmin, and then open
+the project through Apache at `http://localhost/<project-folder>/`.
+
+The committed dump includes the attendance and finalized-score views used by
+the Adviser, Faculty, Student, and SBO pages. Do not use an older local
+`event_db` dump: missing views or columns cause portal requests to fail and can
+look like broken sidebar navigation.
+
+For an existing local database containing work that must be kept, make a backup
+first and apply the migrations in this folder in chronological order instead of
+importing the dump over it.
+
 Import `database/2026_09_21_normalize_officer_responsibilities.sql` once after
 the SBO migrations. It creates `tbl_officer_responsibilities`, seeds Attendance,
 Scoring, and Media, and converts each existing SBO event assignment to the new
