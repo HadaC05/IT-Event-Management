@@ -4,6 +4,7 @@
   const ROLE_LABELS = {admin: 'Admin', student: 'Student', sbo: 'SBO Officer', adviser: 'SBO Adviser', faculty: 'Faculty'};
   const ROLE_SESSION_ROLES = {admin: ['Admin', 'SBO'], student: ['Student'], sbo: ['SBO Officer'], adviser: ['SBO Adviser'], faculty: ['Faculty']};
   const ROLE_HOME = {admin: 'pages/admin/media.html', student: 'pages/student/home.html', sbo: 'pages/sbo/attendance.html', adviser: 'pages/adviser/dashboard.html', faculty: 'pages/faculty/students.html'};
+  const SESSION_ROLE_PORTAL = {'Admin': 'admin', 'SBO': 'admin', 'Student': 'student', 'SBO Officer': 'sbo', 'SBO Adviser': 'adviser', 'Faculty': 'faculty'};
   const ROLE_PAGES = {
     admin: [
       ['media','Media Feed','pages/admin/media.html','M4 5h16v14H4V5Zm3 10 3-3 2 2 3-4 3 5M8 9h.01'],
@@ -52,6 +53,7 @@
   ];
 
   const esc = value => String(value ?? '').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;').replaceAll("'",'&#039;');
+  const portalForSession = sessionRole => ROLE_HOME[SESSION_ROLE_PORTAL[sessionRole]] || './';
   const icon = (path, mobile = false) => `<svg class="${mobile ? 'h-5 w-5' : 'h-6 w-6'} shrink-0 fill-none stroke-current stroke-2" viewBox="0 0 24 24" aria-hidden="true"><path d="${path}"></path></svg>`;
   const activePage = role => {
     const file = location.pathname.split('/').pop().replace('.html','') || ROLE_PAGES[role][0][0];
@@ -105,7 +107,13 @@
     ensureStyles();
     const [session, fragmentResponse] = await Promise.all([axios.get('api/auth.php?action=session'), axios.get('pages/shared/navigation.html?v=20260917-6',{responseType:'text'})]);
     const expected = ROLE_LABELS[role];
-    if (!session.data.authenticated || !ROLE_SESSION_ROLES[role].includes(session.data.user?.role)) { location.href = './'; throw new Error(`${expected} authentication required.`); }
+    if (!session.data.authenticated || !ROLE_SESSION_ROLES[role].includes(session.data.user?.role)) {
+      // Do not strand authenticated users on the public homepage when they open
+      // a page that belongs to another role (for example, an SBO Officer opening
+      // the adviser-only SBO Officers or Events pages).
+      location.href = session.data.authenticated ? portalForSession(session.data.user?.role) : './';
+      throw new Error(`${expected} authentication required.`);
+    }
     const user = session.data.user, csrf = session.data.csrf_token, name = user.full_name || `${user.first_name || ''} ${user.last_name || ''}`.trim(), initials = `${user.first_name?.[0] || ''}${user.last_name?.[0] || ''}`.toUpperCase() || expected.slice(0,2).toUpperCase();
     await window.RequiredPasswordGate.open(user, csrf);
     const fragment = new DOMParser().parseFromString(fragmentResponse.data,'text/html');
