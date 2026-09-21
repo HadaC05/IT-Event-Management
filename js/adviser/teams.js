@@ -11,7 +11,15 @@ window.SharedNavigation.ready.then((context) => {
     dialog = $("#team-dialog"),
     unassignedDialog = $("#unassigned-students-dialog"),
     form = $("[data-team-form]");
-  let unassignedSelection = new Set();
+  let unassignedSelection = new Set(),
+    unassignedData = { students: [], pagination: { total: 0, current_page: 1, last_page: 1 } },
+    unassignedPage = 1,
+    unassignedSearchTimer,
+    unassignedRequest = 0,
+    memberSelection = new Set(),
+    memberPage = 1,
+    memberSearchTimer,
+    memberRequest = 0;
   const initialUrl = new URL(location.href);
   let requestedSchoolYear = initialUrl.searchParams.get("school_year") || "";
   filters.search.value = initialUrl.searchParams.get("search") || "";
@@ -70,15 +78,6 @@ window.SharedNavigation.ready.then((context) => {
     );
   }
 
-  function unassignedForYear(yearId) {
-    return data.students.filter(
-      (student) =>
-        !student.teams.some(
-          (team) => String(team.school_year_id) === String(yearId),
-        ),
-    );
-  }
-
   function fillTeamSelect(select, teams, placeholder = "Choose a tribe…") {
     select.replaceChildren(new Option(placeholder, ""));
     teams.forEach((team) =>
@@ -101,50 +100,37 @@ window.SharedNavigation.ready.then((context) => {
     all.indeterminate = selected > 0 && selected < visibleChecks.length;
   }
 
-  function filterUnassignedRows() {
-    const query = $("[data-unassigned-search]").value.trim().toLowerCase();
-    let visible = 0;
-    $("[data-unassigned-list]")
-      .querySelectorAll("[data-unassigned-row]")
-      .forEach((row) => {
-        const matches = !query || row.dataset.search.includes(query);
-        row.classList.toggle("hidden", !matches);
-        if (matches) visible++;
-      });
-    const total = unassignedForYear(selectedReviewYear()).length;
-    $("[data-unassigned-visible-count]").textContent = query
-      ? `Showing ${visible.toLocaleString()} of ${total.toLocaleString()} unassigned students`
-      : `${total.toLocaleString()} unassigned ${total === 1 ? "student" : "students"}`;
-    updateUnassignedSelection();
-  }
-
   function renderUnassignedReview() {
     if (!data) return;
     const yearId = selectedReviewYear();
     const year = data.school_years.find((item) => String(item.id) === yearId);
-    const students = unassignedForYear(yearId);
+    const students = unassignedData.students;
+    const pagination = unassignedData.pagination;
     const teams = activeTeamsForYear(yearId);
     const host = $("[data-unassigned-list]");
     const randomizeButton = $("[data-randomize-unassigned]");
-    randomizeButton.disabled = !students.length || teams.length < 2;
+    randomizeButton.disabled = !pagination.total || teams.length < 2;
     randomizeButton.classList.toggle("opacity-40", randomizeButton.disabled);
     randomizeButton.title = teams.length < 2
       ? "Create at least two active tribes before randomizing students."
       : "Distribute unassigned students without changing existing assignments.";
-    unassignedSelection = new Set(
-      [...unassignedSelection].filter((id) => students.some((student) => student.id === id)),
-    );
     $("[data-unassigned-context]").textContent =
-      `${students.length.toLocaleString()} students have no tribe assignment for ${year ? schoolYearLabel(year.label) : "the selected school year"}.`;
-    fillTeamSelect($("[data-unassigned-bulk-team]"), teams);
+      `${pagination.total.toLocaleString()} students have no tribe assignment for ${year ? schoolYearLabel(year.label) : "the selected school year"}.`;
+    const bulkTeamSelect = $("[data-unassigned-bulk-team]"),
+      selectedBulkTeam = bulkTeamSelect.value;
+    fillTeamSelect(bulkTeamSelect, teams);
+    if ([...bulkTeamSelect.options].some((option) => option.value === selectedBulkTeam))
+      bulkTeamSelect.value = selectedBulkTeam;
     host.replaceChildren();
-    if (!students.length) {
+    if (!pagination.total) {
       const empty = document.createElement("div");
       empty.className = "px-6 py-16 text-center";
       empty.innerHTML = '<span class="mx-auto grid h-14 w-14 place-items-center rounded-full bg-[#C6F24E]/35 text-2xl text-[#397565]">✓</span><strong class="mt-4 block text-base text-[#121017]">Everyone is assigned</strong><p class="mt-1 text-sm text-slate-500">There are no unassigned active students for this school year.</p>';
       host.append(empty);
       $("[data-unassigned-bulk-bar]").classList.add("hidden");
-      filterUnassignedRows();
+      $("[data-unassigned-visible-count]").textContent = "0 unassigned students";
+      renderUnassignedPagination();
+      updateUnassignedSelection();
       return;
     }
     $("[data-unassigned-bulk-bar]").classList.remove("hidden");
@@ -176,7 +162,45 @@ window.SharedNavigation.ready.then((context) => {
       assignButton.onclick = () => assignUnassigned([student.id], teamSelect.value);
       host.append(row);
     });
-    filterUnassignedRows();
+    $("[data-unassigned-visible-count]").textContent =
+      `Showing ${pagination.from.toLocaleString()}–${pagination.to.toLocaleString()} of ${pagination.total.toLocaleString()} unassigned students`;
+    renderUnassignedPagination();
+    updateUnassignedSelection();
+  }
+
+  function renderUnassignedPagination() {
+    const pagination = unassignedData.pagination,
+      nav = $("[data-unassigned-pagination]");
+    const visible = pagination.last_page > 1;
+    nav.classList.toggle("hidden", !visible);
+    nav.classList.toggle("flex", visible);
+    if (!visible) {
+      nav.replaceChildren();
+      return;
+    }
+    nav.innerHTML = `<button class="min-h-9 rounded-lg border border-slate-200 px-3 font-bold disabled:opacity-30" type="button" data-unassigned-page="${pagination.current_page - 1}" ${pagination.current_page === 1 ? "disabled" : ""}>Previous</button><b>${pagination.current_page} / ${pagination.last_page}</b><button class="min-h-9 rounded-lg border border-slate-200 px-3 font-bold disabled:opacity-30" type="button" data-unassigned-page="${pagination.current_page + 1}" ${pagination.current_page === pagination.last_page ? "disabled" : ""}>Next</button>`;
+  }
+
+  async function loadUnassignedStudents(targetPage = unassignedPage) {
+    const request = ++unassignedRequest;
+    $("[data-unassigned-visible-count]").textContent = "Loading students…";
+    try {
+      const response = await axios.get("api/teams.php", {
+        params: {
+          action: "unassigned_students",
+          school_year_id: selectedReviewYear(),
+          search: $("[data-unassigned-search]").value.trim(),
+          page: targetPage,
+        },
+      });
+      if (request !== unassignedRequest) return;
+      unassignedData = response.data.data;
+      unassignedPage = unassignedData.pagination.current_page;
+      renderUnassignedReview();
+    } catch (error) {
+      if (request !== unassignedRequest) return;
+      toast("error", error.response?.data?.message || "Unable to load unassigned students.");
+    }
   }
 
   async function openUnassignedReview() {
@@ -194,8 +218,8 @@ window.SharedNavigation.ready.then((context) => {
     );
     unassignedSelection.clear();
     $("[data-unassigned-search]").value = "";
-    renderUnassignedReview();
     unassignedDialog.showModal();
+    await loadUnassignedStudents(1);
   }
 
   async function assignUnassigned(studentIds, teamId) {
@@ -208,8 +232,9 @@ window.SharedNavigation.ready.then((context) => {
         student_ids: studentIds,
       });
       toast("success", response.data.message);
+      studentIds.forEach((id) => unassignedSelection.delete(Number(id)));
       await load();
-      renderUnassignedReview();
+      await loadUnassignedStudents(unassignedPage);
     } catch (error) {
       toast("error", error.response?.data?.message || "Unable to assign the selected students.");
     }
@@ -407,21 +432,24 @@ window.SharedNavigation.ready.then((context) => {
     );
     n.append(info, ctr);
   }
-  function renderMembers(selected = []) {
+  function renderMembers(result) {
     const host = $("[data-member-list]");
     host.replaceChildren();
-    data.students.forEach((s) => {
+    result.students.forEach((s) => {
       const l = document.createElement("label");
       l.className =
         "flex cursor-pointer items-center gap-3 rounded-xl border border-slate-200 px-3.5 py-3 has-[:checked]:border-emerald-300 has-[:checked]:bg-emerald-50/60";
-      l.dataset.search =
-        `${s.full_name} ${s.id_number || ""} ${s.year_level_label || ""}`.toLowerCase();
       const c = document.createElement("input");
       c.type = "checkbox";
-      c.name = "member_ids[]";
       c.value = s.id;
-      c.checked = selected.includes(s.id);
-      c.onchange = updateMemberCount;
+      c.checked = memberSelection.has(Number(s.id));
+      c.dataset.memberCandidate = "";
+      c.onchange = () => {
+        c.checked
+          ? memberSelection.add(Number(s.id))
+          : memberSelection.delete(Number(s.id));
+        updateMemberCount();
+      };
       const av = document.createElement("span");
       av.className =
         "grid h-9 w-9 place-items-center rounded-full bg-[#121017] text-[9px] font-extrabold text-white";
@@ -432,18 +460,62 @@ window.SharedNavigation.ready.then((context) => {
       l.append(c, av, tx);
       host.append(l);
     });
+    $("[data-no-member-results]").classList.toggle("hidden", !!result.students.length);
+    const pagination = result.pagination;
+    $("[data-member-result-count]").textContent = pagination.total
+      ? `Showing ${pagination.from.toLocaleString()}–${pagination.to.toLocaleString()} of ${pagination.total.toLocaleString()} eligible students`
+      : "No eligible students match this search.";
+    memberPage = pagination.current_page;
+    renderMemberPagination(pagination);
     updateMemberCount();
   }
+  function renderMemberPagination(pagination) {
+    const nav = $("[data-member-pagination]"),
+      visible = pagination.last_page > 1;
+    nav.classList.toggle("hidden", !visible);
+    nav.classList.toggle("flex", visible);
+    if (!visible) {
+      nav.replaceChildren();
+      return;
+    }
+    nav.innerHTML = `<span>Page ${pagination.current_page} of ${pagination.last_page}</span><span class="flex gap-2"><button class="min-h-9 rounded-lg border border-slate-200 px-3 font-bold disabled:opacity-30" type="button" data-member-page="${pagination.current_page - 1}" ${pagination.current_page === 1 ? "disabled" : ""}>Previous</button><button class="min-h-9 rounded-lg border border-slate-200 px-3 font-bold disabled:opacity-30" type="button" data-member-page="${pagination.current_page + 1}" ${pagination.current_page === pagination.last_page ? "disabled" : ""}>Next</button></span>`;
+  }
+  async function loadMemberCandidates(targetPage = memberPage) {
+    if (!editing) return;
+    const request = ++memberRequest;
+    $("[data-member-result-count]").textContent = "Loading eligible students…";
+    try {
+      const response = await axios.get("api/teams.php", {
+        params: {
+          action: "student_candidates",
+          team_id: editing.id,
+          school_year_id: form.elements.school_year_id.value,
+          search: $("[data-member-search]").value.trim(),
+          page: targetPage,
+        },
+      });
+      if (request !== memberRequest) return;
+      renderMembers(response.data.data);
+    } catch (error) {
+      if (request !== memberRequest) return;
+      $("[data-member-list]").replaceChildren();
+      $("[data-member-result-count]").textContent =
+        error.response?.data?.message || "Eligible students could not be loaded.";
+    }
+  }
   function updateMemberCount() {
-    const count = form.querySelectorAll('[name="member_ids[]"]:checked').length;
+    const count = memberSelection.size;
     $("[data-selected-count]").textContent = count;
     $("[data-preview-members]").textContent = count;
     $("[data-preview-member-label]").textContent =
       count === 1 ? "member" : "members";
     clearFieldError("member_ids");
   }
-  function openTeam(team = null, focusMembers = false) {
+  async function openTeam(team = null, focusMembers = false) {
     editing = team;
+    memberSelection = new Set();
+    memberPage = 1;
+    memberRequest++;
     form.reset();
     clearFormErrors();
     form.dataset.id = team?.id || "";
@@ -470,9 +542,28 @@ window.SharedNavigation.ready.then((context) => {
       "hidden",
       data.school_years.length !== 1,
     );
-    renderMembers(team?.members.map((m) => Number(m.id)) || []);
+    $("[data-member-list]").replaceChildren();
+    $("[data-member-pagination]").classList.add("hidden");
+    $("[data-member-search]").value = "";
+    $("[data-member-result-count]").textContent = team
+      ? "Loading tribe members…"
+      : "Members can be assigned after the tribe is created.";
+    updateMemberCount();
     updatePreview();
     dialog.showModal();
+    if (team) {
+      try {
+        const response = await axios.get("api/teams.php", {
+          params: { action: "team_selection", id: team.id },
+        });
+        if (editing?.id !== team.id) return;
+        memberSelection = new Set(response.data.data.member_ids.map(Number));
+        updateMemberCount();
+        await loadMemberCandidates(1);
+      } catch (error) {
+        toast("error", error.response?.data?.message || "Unable to load tribe members.");
+      }
+    }
     if (focusMembers)
       requestAnimationFrame(() =>
         $("[data-members-section]")?.scrollIntoView({ block: "start" }),
@@ -638,14 +729,18 @@ window.SharedNavigation.ready.then((context) => {
   unassignedDialog
     .querySelectorAll("[data-unassigned-close]")
     .forEach((button) => (button.onclick = () => unassignedDialog.close()));
-  $("[data-unassigned-search]").oninput = filterUnassignedRows;
+  $("[data-unassigned-search]").oninput = () => {
+    clearTimeout(unassignedSearchTimer);
+    unassignedSearchTimer = setTimeout(() => loadUnassignedStudents(1), 300);
+  };
   $("[data-unassigned-year]").onchange = async (event) => {
     filters.school_year.value = event.target.value;
     page = 1;
+    unassignedPage = 1;
     unassignedSelection.clear();
     await load();
     syncUrl();
-    renderUnassignedReview();
+    await loadUnassignedStudents(1);
   };
   $("[data-unassigned-select-all]").onchange = (event) => {
     $("[data-unassigned-list]")
@@ -668,9 +763,9 @@ window.SharedNavigation.ready.then((context) => {
     );
   $("[data-randomize-unassigned]").onclick = async () => {
     const selected = [...unassignedSelection];
-    const available = unassignedForYear(selectedReviewYear());
-    if (!available.length) return;
-    const count = selected.length || available.length;
+    const available = Number(unassignedData.pagination.total || 0);
+    if (!available) return;
+    const count = selected.length || available;
     if (
       !(await confirmAction({
         title: selected.length
@@ -691,7 +786,7 @@ window.SharedNavigation.ready.then((context) => {
       toast("success", response.data.message);
       unassignedSelection.clear();
       await load();
-      renderUnassignedReview();
+      await loadUnassignedStudents(unassignedPage);
     } catch (error) {
       toast("error", error.response?.data?.message || "Unable to randomize unassigned students.");
     }
@@ -709,18 +804,21 @@ window.SharedNavigation.ready.then((context) => {
   form.elements.school_year_id.onchange = () => {
     clearFieldError("school_year_id");
     updatePreview();
+    if (editing) loadMemberCandidates(1);
   };
-  $("[data-member-search]").oninput = (e) => {
-    const q = e.target.value.toLowerCase();
-    let visible = 0;
-    $("[data-member-list]")
-      .querySelectorAll("label")
-      .forEach((l) => {
-        const matches = l.dataset.search.includes(q);
-        l.classList.toggle("hidden", !matches);
-        if (matches) visible++;
-      });
-    $("[data-no-member-results]").classList.toggle("hidden", visible !== 0);
+  $("[data-member-search]").oninput = () => {
+    clearTimeout(memberSearchTimer);
+    memberSearchTimer = setTimeout(() => loadMemberCandidates(1), 300);
+  };
+  $("[data-member-pagination]").onclick = (event) => {
+    const control = event.target.closest("[data-member-page]");
+    if (!control || control.disabled) return;
+    loadMemberCandidates(Number(control.dataset.memberPage));
+  };
+  $("[data-unassigned-pagination]").onclick = (event) => {
+    const control = event.target.closest("[data-unassigned-page]");
+    if (!control || control.disabled) return;
+    loadUnassignedStudents(Number(control.dataset.unassignedPage));
   };
   form.onsubmit = async (e) => {
     e.preventDefault();
@@ -733,9 +831,7 @@ window.SharedNavigation.ready.then((context) => {
     }
     if (!form.reportValidity()) return;
     const payload = Object.fromEntries(new FormData(form));
-    payload.member_ids = [
-      ...form.querySelectorAll('[name="member_ids[]"]:checked'),
-    ].map((x) => x.value);
+    payload.member_ids = [...memberSelection];
     payload.action = editing ? "update" : "create";
     if (editing) payload.id = editing.id;
     if (submit) submit.disabled = true;

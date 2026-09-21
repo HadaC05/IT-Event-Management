@@ -11,7 +11,7 @@
     <script src="js/shared/password-gate.js?v=20260917-1"></script>
     <script src="js/shared/navigation.js?v=20260919-notifications-2" defer></script>
     <script src="js/student/portal.js?v=20260915-2" defer></script>
-    <script src="js/student/attendance.js?v=20260915-5" defer></script>
+    <script src="js/student/attendance.js?v=20260922-1" defer></script>
 </head>
 <body class="min-h-screen bg-[#F7F4ED] font-sans text-[#121017] antialiased" data-navigation-role="student">
     <div data-student-sidebar-host></div>
@@ -19,39 +19,46 @@
 
     <main class="w-auto pb-28 transition-[margin] duration-200 lg:ml-20 lg:pb-10" data-student-main data-student-sidebar-content>
         <div class="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:py-10">
-            <header class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-                <div>
-                    <p class="text-[10px] font-black uppercase tracking-[.15em] text-[#397565]">Student attendance</p>
-                    <h1 class="mt-1 text-3xl font-black tracking-tight">Attendance overview</h1>
-                    <p class="mt-2 text-sm text-[#121017]/50">Track your event attendance and recorded session times.</p>
-                </div>
-                <div class="hidden w-fit rounded-2xl bg-[#397565] px-5 py-3 text-white" data-attendance-rate-card>
-                    <span class="block text-[9px] font-black uppercase tracking-wider text-white/65">Attendance rate</span>
-                    <strong class="mt-1 block text-2xl" data-attendance-rate>0%</strong>
-                </div>
+            <header>
+                <p class="text-[10px] font-black uppercase tracking-[.15em] text-[#397565]">Student attendance</p>
+                <h1 class="mt-1 text-3xl font-black tracking-tight">Attendance</h1>
+                <p class="mt-2 text-sm text-[#121017]/50"><span data-attendance-greeting>Welcome back.</span> <span data-attendance-date></span></p>
             </header>
 
-            <section class="mt-6 grid gap-3 sm:grid-cols-4" data-attendance-summary></section>
-            <section class="mt-6 rounded-3xl border border-[#397565]/20 bg-white p-5 sm:p-6" aria-labelledby="student-qr-heading">
-                <h2 class="text-lg font-black" id="student-qr-heading">Your attendance QR</h2>
-                <p class="mt-1 text-xs text-[#121017]/50">Time In and Time Out use different short-lived QRs. Show only the code currently displayed to your assigned SBO officer.</p>
-                <div class="mt-4 grid gap-3" data-student-qr>Checking for an active session…</div>
-                <button class="mt-4 min-h-11 rounded-xl border border-[#397565]/25 bg-white px-4 text-xs font-black text-[#397565]" type="button" data-refresh-qr>Refresh attendance QR</button>
+            <section class="mt-7 overflow-hidden rounded-3xl border border-[#397565]/20 bg-white shadow-[0_18px_55px_rgba(18,16,23,.05)]" aria-labelledby="student-attendance-action-heading">
+                <header class="flex items-center justify-between gap-4 border-b border-[#397565]/10 px-5 py-4 sm:px-7">
+                    <div>
+                        <p class="text-[9px] font-black uppercase tracking-[.16em] text-[#397565]">Today’s attendance</p>
+                        <h2 class="mt-1 text-lg font-black" id="student-attendance-action-heading">What you need right now</h2>
+                    </div>
+                    <span class="hidden rounded-full px-3 py-1.5 text-[9px] font-black uppercase" data-attendance-state-badge></span>
+                </header>
+                <div class="p-5 sm:p-7" data-attendance-action>
+                    <p class="text-sm text-[#121017]/50">Checking today’s attendance sessions…</p>
+                </div>
+                <footer class="flex justify-end border-t border-[#121017]/7 px-5 py-3 sm:px-7">
+                    <button class="min-h-10 rounded-xl px-3 text-xs font-black text-[#397565] transition hover:bg-[#397565]/7" type="button" data-refresh-qr>Refresh status</button>
+                </footer>
             </section>
 
-            <div class="mt-6 grid items-start gap-6 xl:grid-cols-[360px_minmax(0,1fr)]">
-                <aside class="rounded-3xl border border-[#121017]/8 bg-white p-5 xl:sticky xl:top-24" data-current-event></aside>
-                <section class="overflow-hidden rounded-3xl border border-[#121017]/8 bg-white">
-                    <header class="flex items-center justify-between gap-4 border-b border-[#121017]/8 p-5 sm:p-6">
-                        <div>
-                            <h2 class="text-lg font-black">Attendance history</h2>
-                            <p class="mt-1 text-xs text-[#121017]/45">Your recorded event attendance and session times.</p>
-                        </div>
-                        <span class="rounded-full bg-[#F7F4ED] px-3 py-1.5 text-[10px] font-black" data-record-count>0 records</span>
-                    </header>
-                    <div class="divide-y divide-[#121017]/7" data-attendance-records></div>
-                </section>
-            </div>
+            <section class="mt-6 border-y border-[#121017]/10 py-4" aria-labelledby="student-attendance-summary-heading">
+                <div class="flex flex-wrap items-center justify-between gap-2">
+                    <h2 class="text-[10px] font-black uppercase tracking-[.15em] text-[#121017]/45" id="student-attendance-summary-heading">All recorded attendance</h2>
+                    <span class="hidden text-[10px] font-black text-[#397565]" data-attendance-rate></span>
+                </div>
+                <div class="mt-3 grid grid-cols-2 gap-y-4 sm:grid-cols-4" data-attendance-summary></div>
+            </section>
+
+            <section class="mt-8 overflow-hidden rounded-3xl border border-[#121017]/8 bg-white" aria-labelledby="student-attendance-history-heading">
+                <header class="flex items-center justify-between gap-4 border-b border-[#121017]/8 p-5 sm:px-7 sm:py-5">
+                    <div>
+                        <h2 class="text-lg font-black" id="student-attendance-history-heading">Attendance history</h2>
+                        <p class="mt-1 text-xs text-[#121017]/45">Completed sessions and Adviser corrections appear here.</p>
+                    </div>
+                    <span class="rounded-full bg-[#F7F4ED] px-3 py-1.5 text-[10px] font-black" data-record-count>0 records</span>
+                </header>
+                <div class="divide-y divide-[#121017]/7" data-attendance-records></div>
+            </section>
         </div>
     </main>
 </body>

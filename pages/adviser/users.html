@@ -595,6 +595,10 @@
             <label class="grid gap-2"><span class="text-sm font-extrabold">Master roster workbook</span><input class="roster-file-input block min-h-11 w-full rounded-xl border border-[#121017]/12 bg-white px-3 py-2 text-sm" name="roster" type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" required></label>
             <button class="min-h-11 rounded-xl bg-[#397565] px-5 text-sm font-black text-white disabled:cursor-wait disabled:opacity-60" type="submit" data-roster-preview>Preview and validate</button>
         </form>
+        <aside class="mt-3 rounded-xl bg-[#397565]/7 px-4 py-3 text-xs leading-5 text-[#121017]/65" aria-label="Student first sign-in rule">
+            <strong class="text-[#397565]">Student first sign-in:</strong>
+            the username is the complete Student ID. The one-time password is the complete Student ID followed by the surname in uppercase, with spaces and punctuation removed. Students must replace it immediately after signing in. Individual passwords are never displayed here.
+        </aside>
         <div class="mt-5 hidden" data-roster-import-results>
             <div class="grid gap-2 sm:grid-cols-5" data-roster-import-summary></div>
             <div class="mt-5 grid gap-5 lg:grid-cols-2">
@@ -618,6 +622,6 @@
 </dialog>    <script src="js/vendor/axios.min.js"></script>
     <script src="js/shared/password-gate.js?v=20260917-1"></script>
     <script src="js/shared/navigation.js?v=20260921-adviser-sections-1"></script>
-    <script src="js/adviser/users.js?v=20260920-officer-role-guard-1"></script>
+    <script src="js/adviser/users.js?v=20260922-student-initial-credential-1"></script>
 </body>
 </html>

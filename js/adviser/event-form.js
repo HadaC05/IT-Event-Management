@@ -188,14 +188,6 @@
     };
     renderPeriodTeams();
     fillChecks(
-      form.querySelector('[data-audience-panel="specific_students"]'),
-      metadata.active_students,
-      "participant_ids",
-      (item) =>
-        `<strong>${escapeHtml(item.full_name)}</strong><small class="block text-slate-400">${escapeHtml(item.id_number || "No student ID")}</small>`,
-      event?.participant_ids || [],
-    );
-    fillChecks(
       form.querySelector("[data-assignable-users]"),
       metadata.assignable_users,
       "assigned_user_ids",
@@ -203,19 +195,108 @@
         `<strong class="block text-slate-700">${escapeHtml(item.full_name)}</strong><small class="text-slate-500">${escapeHtml(item.role)}</small>`,
       event?.assigned_users?.map((user) => Number(user.id)) || [],
     );
-    const memberSets = {
+    const audienceCounts = {
       selected_year_levels: new Map(
         metadata.audience_year_levels.map((item) => [
           String(item.id),
-          item.member_ids,
+          Number(item.students_count),
         ]),
       ),
       selected_tribes: new Map(
         metadata.audience_teams.map((item) => [
           String(item.id),
-          item.member_ids,
+          Number(item.students_count),
         ]),
       ),
+    },
+      selectedParticipantIds = new Set(
+        (event?.participant_ids || []).map(Number),
+      ),
+      studentPanel = form.querySelector(
+        '[data-audience-panel="specific_students"]',
+      ),
+      studentSearch = studentPanel.querySelector("[data-student-search]"),
+      studentResults = studentPanel.querySelector("[data-student-results]"),
+      studentPagination = studentPanel.querySelector(
+        "[data-student-pagination]",
+      ),
+      clearStudents = studentPanel.querySelector("[data-clear-students]");
+    let studentPage = 1,
+      studentSearchTimer,
+      studentRequest = 0,
+      studentsLoaded = false;
+
+    const updateSelectedStudentCount = () => {
+      const count = selectedParticipantIds.size;
+      studentPanel.querySelector("[data-selected-student-count]").textContent =
+        `${count.toLocaleString()} selected`;
+      clearStudents.disabled = count === 0;
+    };
+    const renderStudentPagination = (pagination) => {
+      const visible = pagination.last_page > 1;
+      studentPagination.classList.toggle("hidden", !visible);
+      studentPagination.classList.toggle("flex", visible);
+      if (!visible) {
+        studentPagination.replaceChildren();
+        return;
+      }
+      studentPagination.innerHTML = `<span>Showing ${pagination.from.toLocaleString()}–${pagination.to.toLocaleString()} of ${pagination.total.toLocaleString()}</span><span class="flex items-center gap-2"><button class="min-h-9 rounded-lg border border-slate-200 bg-white px-3 font-bold disabled:opacity-30" type="button" data-student-page="${pagination.current_page - 1}" ${pagination.current_page === 1 ? "disabled" : ""}>Previous</button><b>${pagination.current_page} / ${pagination.last_page}</b><button class="min-h-9 rounded-lg border border-slate-200 bg-white px-3 font-bold disabled:opacity-30" type="button" data-student-page="${pagination.current_page + 1}" ${pagination.current_page === pagination.last_page ? "disabled" : ""}>Next</button></span>`;
+    };
+    const renderStudentCandidates = (data) => {
+      studentResults.replaceChildren();
+      data.students.forEach((student) => {
+        const row = document.createElement("label");
+        row.className =
+          "flex min-h-14 cursor-pointer items-center gap-3 rounded-lg border border-slate-200 bg-white p-3 text-xs transition hover:border-emerald-300 has-[:checked]:border-emerald-400 has-[:checked]:bg-emerald-50";
+        const input = document.createElement("input");
+        input.type = "checkbox";
+        input.value = student.id;
+        input.checked = selectedParticipantIds.has(Number(student.id));
+        input.disabled = audience.value !== "specific_students";
+        input.className = "h-4 w-4 shrink-0 accent-emerald-600";
+        input.dataset.studentCandidate = "";
+        const text = document.createElement("span");
+        text.className = "min-w-0 flex-1";
+        text.innerHTML = `<strong class="block truncate text-slate-700">${escapeHtml(student.full_name)}</strong><small class="block truncate text-slate-400">${escapeHtml(student.id_number || "No student ID")}${student.year_level_label ? ` · ${escapeHtml(student.year_level_label)}` : ""}</small>`;
+        row.append(input, text);
+        studentResults.append(row);
+      });
+      if (!data.students.length) {
+        const empty = document.createElement("p");
+        empty.className =
+          "sm:col-span-2 rounded-lg border border-dashed border-slate-200 bg-white px-4 py-8 text-center text-xs text-slate-500";
+        empty.textContent = "No active students match this search.";
+        studentResults.append(empty);
+      }
+      const pagination = data.pagination;
+      studentPanel.querySelector("[data-student-result-count]").textContent =
+        `${pagination.total.toLocaleString()} matching ${pagination.total === 1 ? "student" : "students"}`;
+      studentPage = pagination.current_page;
+      renderStudentPagination(pagination);
+      updateSelectedStudentCount();
+    };
+    const loadStudents = async (page = studentPage) => {
+      const request = ++studentRequest;
+      studentPanel.querySelector("[data-student-result-count]").textContent =
+        "Loading students…";
+      try {
+        const response = await axios.get("api/adviser-events.php", {
+          params: {
+            action: "student_candidates",
+            search: studentSearch.value.trim(),
+            page,
+          },
+        });
+        if (request !== studentRequest) return;
+        studentsLoaded = true;
+        renderStudentCandidates(response.data.data);
+      } catch (error) {
+        if (request !== studentRequest) return;
+        studentResults.replaceChildren();
+        studentPagination.classList.add("hidden");
+        studentPanel.querySelector("[data-student-result-count]").textContent =
+          error.response?.data?.message || "Students could not be loaded.";
+      }
     };
     const updateAudience = () => {
       form.querySelectorAll("[data-audience-panel]").forEach((panel) => {
@@ -225,25 +306,23 @@
           .querySelectorAll("input")
           .forEach((input) => (input.disabled = !active));
       });
-      let count = metadata.active_students.length;
+      let count = Number(metadata.active_students_count || 0);
       if (audience.value === "specific_students")
-        count = form.querySelectorAll(
-          '[name="participant_ids[]"]:checked',
-        ).length;
-      else if (memberSets[audience.value]) {
-        const ids = new Set();
+        count = selectedParticipantIds.size;
+      else if (audienceCounts[audience.value]) {
+        count = 0;
         form
           .querySelectorAll(
             `[data-audience-panel="${audience.value}"] input:checked`,
           )
-          .forEach((input) =>
-            (memberSets[audience.value].get(input.value) || []).forEach((id) =>
-              ids.add(Number(id)),
-            ),
+          .forEach(
+            (input) =>
+              (count += audienceCounts[audience.value].get(input.value) || 0),
           );
-        count = ids.size;
       }
-      form.querySelector("[data-expected-count]").textContent = count;
+      form.querySelector("[data-expected-count]").textContent =
+        count.toLocaleString();
+      updateSelectedStudentCount();
       readiness();
     };
     audience.addEventListener("change", () => {
@@ -257,6 +336,33 @@
         panel
           .querySelectorAll("input")
           .forEach((input) => (input.checked = true));
+      updateAudience();
+      if (audience.value === "specific_students" && !studentsLoaded)
+        loadStudents(1);
+    });
+    studentSearch.addEventListener("input", () => {
+      clearTimeout(studentSearchTimer);
+      studentSearchTimer = setTimeout(() => loadStudents(1), 300);
+    });
+    studentResults.addEventListener("change", (eventObject) => {
+      const input = eventObject.target.closest("[data-student-candidate]");
+      if (!input) return;
+      const id = Number(input.value);
+      if (input.checked) selectedParticipantIds.add(id);
+      else selectedParticipantIds.delete(id);
+      clearError("audience_type");
+      updateAudience();
+    });
+    studentPagination.addEventListener("click", (eventObject) => {
+      const button = eventObject.target.closest("[data-student-page]");
+      if (!button || button.disabled) return;
+      loadStudents(Number(button.dataset.studentPage));
+    });
+    clearStudents.addEventListener("click", () => {
+      selectedParticipantIds.clear();
+      studentResults
+        .querySelectorAll("[data-student-candidate]")
+        .forEach((input) => (input.checked = false));
       updateAudience();
     });
     form
@@ -441,6 +547,7 @@
     if (event) {
       type.value = event.event_type_id || "";
       academicPeriod.value = event.academic_period_id || "";
+      renderPeriodTeams();
       form.elements.title.value = event.title || "";
       const savedLocation =
         locations.find(
@@ -502,9 +609,11 @@
     function readiness() {
       const audienceReady =
           audience.value === "all_students" ||
-          !!form.querySelector(
-            `[data-audience-panel="${audience.value}"] input:checked`,
-          ),
+          (audience.value === "specific_students"
+            ? selectedParticipantIds.size > 0
+            : !!form.querySelector(
+                `[data-audience-panel="${audience.value}"] input:checked`,
+              )),
         scheduleReady =
           rows().length &&
           rows().every((row) =>
@@ -678,6 +787,7 @@
       .querySelector("[data-assignable-users]")
       .addEventListener("change", checkConflicts);
     updateAudience();
+    if (audience.value === "specific_students") loadStudents(1);
     syncSchedules();
     readiness();
     form.addEventListener("submit", async (eventObject) => {
@@ -707,6 +817,11 @@
       }
       save.disabled = true;
       const body = new FormData(form);
+      if (audience.value === "specific_students") {
+        selectedParticipantIds.forEach((id) =>
+          body.append("participant_ids[]", String(id)),
+        );
+      }
       body.append("action", event ? "update" : "create");
       if (event) body.append("id", event.id);
       try {

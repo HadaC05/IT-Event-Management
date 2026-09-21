@@ -22,6 +22,7 @@ final class EventValidationException extends InvalidArgumentException
 final class EventManagementRepository
 {
     private const PER_PAGE = 20;
+    private const STUDENT_PER_PAGE = 24;
 
     public function __construct(private readonly PDO $db)
     {
@@ -260,35 +261,37 @@ final class EventManagementRepository
     {
         $studentRole = (int) $this->scalar("SELECT id FROM tbl_roles WHERE name='Student'");
         $activeStatus = (int) $this->scalar("SELECT id FROM tbl_user_statuses WHERE label='active'");
-        $students = $this->db->prepare(
-            'SELECT u.id,u.id_number,u.first_name,u.middle_name,u.last_name,u.year_level,yl.label year_level_label
-             FROM tbl_users u LEFT JOIN tbl_year_levels yl ON yl.id=u.year_level
-             WHERE u.role_id=? AND u.status=? ORDER BY u.last_name,u.first_name'
+        $activeStudentsCount = (int) $this->scalar(
+            'SELECT COUNT(*) FROM tbl_users WHERE role_id=? AND status=?',
+            [$studentRole, $activeStatus]
         );
-        $students->execute([$studentRole, $activeStatus]);
-        $studentRows = $students->fetchAll();
-        foreach ($studentRows as &$student) {
-            $student['id'] = (int) $student['id'];
-            $student['year_level'] = $student['year_level'] === null ? null : (int) $student['year_level'];
-            $student['full_name'] = $this->fullName($student);
-        }
-        unset($student);
-        $levels = $this->db->query('SELECT id,label FROM tbl_year_levels ORDER BY id')->fetchAll();
+        $levels = $this->db->prepare(
+            'SELECT yl.id,yl.label,COUNT(u.id) students_count
+             FROM tbl_year_levels yl
+             LEFT JOIN tbl_users u ON u.year_level=yl.id AND u.role_id=? AND u.status=?
+             GROUP BY yl.id,yl.label ORDER BY yl.id'
+        );
+        $levels->execute([$studentRole, $activeStatus]);
+        $levels = $levels->fetchAll();
         foreach ($levels as &$level) {
             $level['id'] = (int) $level['id'];
-            $level['member_ids'] = array_values(array_map(
-                static fn (array $student): int => $student['id'],
-                array_filter($studentRows, static fn (array $student): bool => $student['year_level'] === $level['id'])
-            ));
-            $level['students_count'] = count($level['member_ids']);
+            $level['students_count'] = (int) $level['students_count'];
         }
         unset($level);
-        $teams = $this->db->query('SELECT id,name,school_year_id FROM tbl_teams WHERE is_active=1 ORDER BY name')->fetchAll();
+        $teams = $this->db->prepare(
+            'SELECT t.id,t.name,t.school_year_id,COUNT(u.id) students_count
+             FROM tbl_teams t
+             LEFT JOIN tbl_team_user tu ON tu.team_id=t.id
+             LEFT JOIN tbl_users u ON u.id=tu.user_id AND u.role_id=? AND u.status=?
+             WHERE t.is_active=1
+             GROUP BY t.id,t.name,t.school_year_id ORDER BY t.name'
+        );
+        $teams->execute([$studentRole, $activeStatus]);
+        $teams = $teams->fetchAll();
         foreach ($teams as &$team) {
             $team['id'] = (int) $team['id'];
             $team['school_year_id'] = (int) $team['school_year_id'];
-            $team['member_ids'] = $this->teamMemberIds($team['id']);
-            $team['students_count'] = count($team['member_ids']);
+            $team['students_count'] = (int) $team['students_count'];
         }
         unset($team);
 
@@ -322,9 +325,70 @@ final class EventManagementRepository
             'assignable_users' => $assignableRows,
             'audience_teams' => $teams,
             'audience_year_levels' => $levels,
-            'active_students' => $studentRows,
+            'active_students_count' => $activeStudentsCount,
             'academic_periods' => $periods,
             'default_academic_period_id' => $periods[0]['id'] ?? null,
+        ];
+    }
+
+    public function studentCandidates(array $filters): array
+    {
+        $search = trim((string) ($filters['search'] ?? ''));
+        $page = max(1, (int) ($filters['page'] ?? 1));
+        if (mb_strlen($search) > 100) {
+            throw new EventValidationException(['search' => ['Search may not exceed 100 characters.']]);
+        }
+
+        $where = ["r.name='Student'", "s.label='active'"];
+        $params = [];
+        if ($search !== '') {
+            $term = '%'.addcslashes($search, '%_\\').'%';
+            $where[] = "(u.id_number LIKE :q_id ESCAPE '\\\\'
+                OR u.first_name LIKE :q_first ESCAPE '\\\\'
+                OR u.middle_name LIKE :q_middle ESCAPE '\\\\'
+                OR u.last_name LIKE :q_last ESCAPE '\\\\'
+                OR CONCAT_WS(' ',u.first_name,NULLIF(u.middle_name,''),u.last_name) LIKE :q_full ESCAPE '\\\\')";
+            foreach (['q_id', 'q_first', 'q_middle', 'q_last', 'q_full'] as $key) $params[$key] = $term;
+        }
+        $whereSql = implode(' AND ', $where);
+        $count = $this->db->prepare("SELECT COUNT(*) FROM tbl_users u JOIN tbl_roles r ON r.id=u.role_id JOIN tbl_user_statuses s ON s.id=u.status WHERE {$whereSql}");
+        $count->execute($params);
+        $total = (int) $count->fetchColumn();
+        $lastPage = max(1, (int) ceil($total / self::STUDENT_PER_PAGE));
+        $page = min($page, $lastPage);
+        $offset = ($page - 1) * self::STUDENT_PER_PAGE;
+
+        $statement = $this->db->prepare(
+            "SELECT u.id,u.id_number,u.first_name,u.middle_name,u.last_name,yl.label year_level_label
+             FROM tbl_users u
+             JOIN tbl_roles r ON r.id=u.role_id
+             JOIN tbl_user_statuses s ON s.id=u.status
+             LEFT JOIN tbl_year_levels yl ON yl.id=u.year_level
+             WHERE {$whereSql}
+             ORDER BY u.last_name,u.first_name,u.id
+             LIMIT :limit OFFSET :offset"
+        );
+        foreach ($params as $key => $value) $statement->bindValue(':'.$key, $value);
+        $statement->bindValue(':limit', self::STUDENT_PER_PAGE, PDO::PARAM_INT);
+        $statement->bindValue(':offset', $offset, PDO::PARAM_INT);
+        $statement->execute();
+        $students = $statement->fetchAll();
+        foreach ($students as &$student) {
+            $student['id'] = (int) $student['id'];
+            $student['full_name'] = $this->fullName($student);
+        }
+        unset($student);
+
+        return [
+            'students' => $students,
+            'pagination' => [
+                'current_page' => $page,
+                'last_page' => $lastPage,
+                'per_page' => self::STUDENT_PER_PAGE,
+                'total' => $total,
+                'from' => $total ? $offset + 1 : null,
+                'to' => $total ? min($offset + self::STUDENT_PER_PAGE, $total) : null,
+            ],
         ];
     }
 
@@ -1155,9 +1219,11 @@ $repository = new EventManagementRepository((new Database())->connection());
 
 try {
     if ($_SERVER['REQUEST_METHOD'] === 'GET') {
-        $data = ($_GET['action'] ?? '') === 'event_types'
-            ? $repository->eventTypes()
-            : (isset($_GET['id']) ? $repository->details((int) $_GET['id']) : $repository->index($_GET));
+        $data = match ((string) ($_GET['action'] ?? '')) {
+            'event_types' => $repository->eventTypes(),
+            'student_candidates' => $repository->studentCandidates($_GET),
+            default => isset($_GET['id']) ? $repository->details((int) $_GET['id']) : $repository->index($_GET),
+        };
         JsonResponse::send(['success' => true, 'data' => $data]);
     }
     if ($_SERVER['REQUEST_METHOD'] !== 'POST') {

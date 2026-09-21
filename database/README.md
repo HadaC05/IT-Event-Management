@@ -15,6 +15,15 @@ Override any default with the `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, and
 Application tables use the `tbl_` prefix, such as `tbl_users`, `tbl_roles`, and
 `tbl_posts`.
 
+Student roster imports use the complete Student ID as the username. The initial
+temporary password is the complete Student ID followed immediately by the
+student's normalized uppercase surname (spaces, punctuation, and diacritics are
+removed). Every imported Student must replace it on first sign-in. To update
+only existing Student accounts that still have a pending first-login password,
+first run `php api/reset-pending-student-temporary-passwords.php` for a dry run,
+then run `php api/reset-pending-student-temporary-passwords.php --apply`.
+Neither command prints individual credentials.
+
 Import `database/2026_09_21_normalize_officer_responsibilities.sql` once after
 the SBO migrations. It creates `tbl_officer_responsibilities`, seeds Attendance,
 Scoring, and Media, and converts each existing SBO event assignment to the new

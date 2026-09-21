@@ -690,7 +690,7 @@ window.SharedNavigation.ready.then(() => {
         window.Notifications?.setLoading(rosterApply, true, 'Importing…');
         try {
             const response = await axios.post('api/student-roster-imports.php', { action: 'apply', batch_id: activeRosterBatchId }, { headers: { 'X-CSRF-Token': csrfToken }, timeout: 600000 });
-            notify('success', response.data.message || 'Roster imported successfully.');
+            notify('success', response.data.message || 'Roster imported. Students must replace their one-time password at first sign-in.');
             await loadLatestRosterImport();
             currentPage = 1;
             await loadUsers();

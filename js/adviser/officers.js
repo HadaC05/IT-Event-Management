@@ -3,8 +3,11 @@ window.SharedNavigation.ready.then(() => {
 
     let csrfToken = '';
     let currentPage = Math.max(1, Number(new URLSearchParams(location.search).get('page')) || 1);
-    let students = [];
     let searchTimer;
+    let candidateSearchTimer;
+    let candidatePage = 1;
+    let candidateRequest = 0;
+    let selectedStudentIds = new Set();
     let currentCredentials = null;
     const pendingUnassign = new Set();
 
@@ -22,6 +25,8 @@ window.SharedNavigation.ready.then(() => {
     const studentYear = document.querySelector('[data-officer-year-filter]');
     const selectedStudentLabel = document.querySelector('[data-selected-student-label]');
     const selectFilteredStudents = document.querySelector('[data-select-filtered-students]');
+    const candidateCount = document.querySelector('[data-officer-candidate-count]');
+    const candidatePagination = document.querySelector('[data-officer-candidate-pagination]');
     const logoutForm = document.querySelector('form[action="api/auth.php?action=logout"]');
 
     const initials = person => `${person.first_name?.[0] || ''}${person.last_name?.[0] || ''}`.toUpperCase();
@@ -329,42 +334,55 @@ window.SharedNavigation.ready.then(() => {
     };
 
     const showSelectedStudent = () => {
-        const selected = [...assignForm.querySelectorAll('input[name="student_user_ids[]"]:checked')];
-        selectedStudentLabel.textContent = selected.length ? `${selected.length} student${selected.length === 1 ? '' : 's'} selected.` : 'Select one or more students to continue.';
+        const count = selectedStudentIds.size;
+        selectedStudentLabel.textContent = count ? `${count} student${count === 1 ? '' : 's'} selected.` : 'Select one or more students to continue.';
     };
 
-    const filterStudents = () => {
-        const term = studentSearch.value.trim().toLowerCase();
-        const year = studentYear.value;
-        let visible = 0;
-        studentList.querySelectorAll('[data-officer-student-option]').forEach(option => {
-            const matches = (!term || option.dataset.search.includes(term)) && (!year || option.dataset.year === year);
-            option.classList.toggle('hidden', !matches);
-            visible += Number(matches);
-        });
-        studentList.querySelector('[data-officer-student-empty]')?.classList.toggle('hidden', visible > 0);
+    const updatePageSelectionAction = () => {
+        const pageChecks = [...studentList.querySelectorAll('input[name="student_user_ids[]"]')];
+        selectFilteredStudents.disabled = !pageChecks.length;
+        selectFilteredStudents.textContent = pageChecks.length && pageChecks.every(input => selectedStudentIds.has(Number(input.value)))
+            ? 'Clear page'
+            : 'Select page';
         showSelectedStudent();
-        const visibleChecks = [...studentList.querySelectorAll('[data-officer-student-option]:not(.hidden) input[type="checkbox"]')];
-        selectFilteredStudents.textContent = visibleChecks.length && visibleChecks.every(input => input.checked) ? 'Clear filtered' : 'Select filtered';
     };
 
-    const renderFormOptions = data => {
-        students = data.students;
-        studentYear.replaceChildren(new Option('All year levels', ''));
-        data.year_levels.forEach(level => studentYear.add(new Option(level.label, level.id)));
-        studentYear.add(new Option('No year level', 'none'));
+    const renderCandidatePagination = paginationData => {
+        const visible = paginationData.last_page > 1;
+        candidatePagination.classList.toggle('hidden', !visible);
+        candidatePagination.classList.toggle('flex', visible);
+        candidatePagination.replaceChildren();
+        if (!visible) return;
+        const position = document.createElement('span');
+        position.textContent = `Page ${paginationData.current_page} of ${paginationData.last_page}`;
+        const controls = document.createElement('span');
+        controls.className = 'flex gap-2';
+        const addButton = (label, target, disabled) => {
+            const control = document.createElement('button');
+            control.type = 'button';
+            control.className = 'min-h-9 rounded-lg border border-[#121017]/12 px-3 font-bold disabled:opacity-30';
+            control.textContent = label;
+            control.disabled = disabled;
+            control.addEventListener('click', () => loadCandidateStudents(target));
+            controls.append(control);
+        };
+        addButton('Previous', paginationData.current_page - 1, paginationData.current_page === 1);
+        addButton('Next', paginationData.current_page + 1, paginationData.current_page === paginationData.last_page);
+        candidatePagination.append(position, controls);
+    };
+
+    const renderCandidateStudents = data => {
         studentList.replaceChildren();
         data.students.forEach(student => {
             const option = document.createElement('label');
             option.className = 'group flex cursor-pointer items-center gap-3 rounded-xl border border-transparent bg-white px-3 py-2.5 transition hover:border-[#397565]/25 hover:bg-[#397565]/5 has-[:checked]:border-[#397565] has-[:checked]:bg-[#397565]/8';
             option.dataset.officerStudentOption = '';
-            option.dataset.search = `${student.full_name} ${student.id_number} ${student.email}`.toLowerCase();
-            option.dataset.year = student.year_level ?? 'none';
-            const radio = document.createElement('input');
-            radio.className = 'h-4 w-4 shrink-0 accent-[#397565]';
-            radio.name = 'student_user_ids[]';
-            radio.value = student.id;
-            radio.type = 'checkbox';
+            const checkbox = document.createElement('input');
+            checkbox.className = 'h-4 w-4 shrink-0 accent-[#397565]';
+            checkbox.name = 'student_user_ids[]';
+            checkbox.value = student.id;
+            checkbox.type = 'checkbox';
+            checkbox.checked = selectedStudentIds.has(Number(student.id));
             const avatar = document.createElement('span');
             avatar.className = 'grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[#121017] text-[10px] font-black text-white';
             avatar.textContent = initials(student);
@@ -372,18 +390,52 @@ window.SharedNavigation.ready.then(() => {
             details.className = 'min-w-0 flex-1';
             details.innerHTML = '<strong class="block truncate text-xs font-black"></strong><small class="mt-0.5 block truncate text-[10px] text-[#121017]/45"></small>';
             details.querySelector('strong').textContent = student.full_name;
-            details.querySelector('small').textContent = `${student.id_number} · ${student.email}`;
+            details.querySelector('small').textContent = `${student.id_number} · ${student.email || 'No email provided'}`;
             const year = document.createElement('span');
             year.className = 'shrink-0 rounded-full bg-[#2F3AE0]/8 px-2.5 py-1 text-[9px] font-black text-[#2F3AE0]';
             year.textContent = student.year_level_label || 'No year';
-            option.append(radio, avatar, details, year);
+            option.append(checkbox, avatar, details, year);
             studentList.append(option);
         });
         const empty = document.createElement('p');
         empty.className = `${data.students.length ? 'hidden ' : ''}px-4 py-8 text-center text-sm text-[#121017]/45`;
         empty.dataset.officerStudentEmpty = '';
-        empty.textContent = data.students.length ? 'No students match your search and year level.' : 'No active student accounts are available.';
+        empty.textContent = 'No eligible students match this search and year level.';
         studentList.append(empty);
+        const page = data.pagination;
+        candidatePage = page.current_page;
+        candidateCount.textContent = page.total
+            ? `Showing ${page.from.toLocaleString()}–${page.to.toLocaleString()} of ${page.total.toLocaleString()} eligible students`
+            : 'No eligible students found.';
+        renderCandidatePagination(page);
+        updatePageSelectionAction();
+    };
+
+    const loadCandidateStudents = async (targetPage = candidatePage) => {
+        const request = ++candidateRequest;
+        candidateCount.textContent = 'Loading eligible students…';
+        selectFilteredStudents.disabled = true;
+        try {
+            const response = await axios.get('api/officers.php', { params: {
+                action: 'eligible_students',
+                search: studentSearch.value.trim(),
+                year_level: studentYear.value,
+                page: targetPage,
+            }});
+            if (request !== candidateRequest) return;
+            renderCandidateStudents(response.data.data);
+        } catch (error) {
+            if (request !== candidateRequest) return;
+            studentList.replaceChildren();
+            candidatePagination.classList.add('hidden');
+            candidateCount.textContent = errorMessage(error);
+        }
+    };
+
+    const renderCandidateFilters = data => {
+        if (studentYear.options.length > 1) return;
+        data.year_levels.forEach(level => studentYear.add(new Option(level.label, level.id)));
+        studentYear.add(new Option('No year level', 'none'));
     };
 
     const load = async () => {
@@ -393,7 +445,7 @@ window.SharedNavigation.ready.then(() => {
         currentPage = response.data.data.pagination.current_page;
         renderAssignments(response.data.data);
         renderPagination(response.data.data);
-        renderFormOptions(response.data.data);
+        renderCandidateFilters(response.data.data);
     };
 
     document.querySelector('[data-officer-tab="officers"]')?.addEventListener('click', () => load().catch(error => notify('error', errorMessage(error))));
@@ -413,10 +465,17 @@ window.SharedNavigation.ready.then(() => {
     });
     document.querySelector('[data-dialog-open="assign-officer-dialog"]').addEventListener('click', () => {
         assignForm.reset();
+        selectedStudentIds = new Set();
+        candidatePage = 1;
+        candidateRequest++;
         studentSearch.value = '';
         studentYear.value = '';
-        filterStudents();
+        studentList.innerHTML = '<p class="px-4 py-8 text-center text-sm text-[#121017]/45">Loading eligible students…</p>';
+        candidatePagination.classList.add('hidden');
+        selectFilteredStudents.disabled = true;
+        showSelectedStudent();
         dialog.showModal();
+        loadCandidateStudents(1);
     });
     dialog.querySelectorAll('[data-dialog-close]').forEach(close => close.addEventListener('click', () => dialog.close()));
     detailsDialog.querySelectorAll('[data-dialog-close]').forEach(close => close.addEventListener('click', () => detailsDialog.close()));
@@ -436,15 +495,25 @@ window.SharedNavigation.ready.then(() => {
         toggle.setAttribute('aria-pressed', String(!showing));
         toggle.setAttribute('aria-label', `${showing ? 'Show' : 'Hide'} ${input.name === 'password_confirmation' ? 'password confirmation' : 'new password'}`);
     }));
-    studentSearch.addEventListener('input', filterStudents);
-    studentYear.addEventListener('change', filterStudents);
-    studentList.addEventListener('change', showSelectedStudent);
+    studentSearch.addEventListener('input', () => {
+        clearTimeout(candidateSearchTimer);
+        candidateSearchTimer = setTimeout(() => loadCandidateStudents(1), 300);
+    });
+    studentYear.addEventListener('change', () => loadCandidateStudents(1));
+    studentList.addEventListener('change', event => {
+        const input = event.target.closest('input[name="student_user_ids[]"]');
+        if (!input) return;
+        input.checked ? selectedStudentIds.add(Number(input.value)) : selectedStudentIds.delete(Number(input.value));
+        updatePageSelectionAction();
+    });
     selectFilteredStudents.addEventListener('click', () => {
-        const visible = [...studentList.querySelectorAll('[data-officer-student-option]:not(.hidden) input[type="checkbox"]')];
-        const shouldSelect = visible.some(input => !input.checked);
-        visible.forEach(input => { input.checked = shouldSelect; });
-        selectFilteredStudents.textContent = shouldSelect ? 'Clear filtered' : 'Select filtered';
-        showSelectedStudent();
+        const pageChecks = [...studentList.querySelectorAll('input[name="student_user_ids[]"]')];
+        const shouldSelect = pageChecks.some(input => !selectedStudentIds.has(Number(input.value)));
+        pageChecks.forEach(input => {
+            input.checked = shouldSelect;
+            shouldSelect ? selectedStudentIds.add(Number(input.value)) : selectedStudentIds.delete(Number(input.value));
+        });
+        updatePageSelectionAction();
     });
     credentialsDialog.addEventListener('cancel', event => event.preventDefault());
     credentialsDialog.querySelector('[data-copy-officer-credentials]').addEventListener('click', async () => {
@@ -479,10 +548,10 @@ window.SharedNavigation.ready.then(() => {
     assignForm.addEventListener('submit', async submitEvent => {
         submitEvent.preventDefault();
         if (!assignForm.reportValidity()) return;
+        const data = { student_user_ids: [...selectedStudentIds] };
+        if (!data.student_user_ids.length) { notify('error', 'Select at least one student.'); return; }
         const submit = submitEvent.submitter;
         window.Notifications?.setLoading(submit, true, 'Creating access…');
-        const data = { student_user_ids: [...assignForm.querySelectorAll('input[name="student_user_ids[]"]:checked')].map(input => input.value) };
-        if (!data.student_user_ids.length) { notify('error', 'Select at least one student.'); return; }
         data.action = 'assign';
         try {
             const response = await axios.post('api/officers.php', data, { headers: { 'X-CSRF-Token': csrfToken } });

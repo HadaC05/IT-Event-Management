@@ -28,15 +28,8 @@
                 <label class="grid gap-1.5"><span class="text-[10px] font-black uppercase tracking-wider text-[#397565]">Attendance</span><select class="h-12 min-w-0 rounded-xl border border-[#121017]/12 bg-white px-3 text-sm outline-none focus:border-[#397565]" name="status"><option value="">All attendance</option><option value="present">Recorded</option><option value="not_recorded">Not recorded</option></select></label>
             </form>
             <p class="hidden border-b border-[#397565]/15 bg-[#C6F24E]/20 px-4 py-3 text-sm text-[#397565] sm:px-5" data-upcoming-assignment-notice><strong>Upcoming assignment.</strong> This roster is for an upcoming event; attendance will be available once its scheduled session opens.</p>
-
-            <div class="grid gap-3 p-4 sm:hidden" data-student-cards></div>
-
-            <div class="hidden overflow-x-auto sm:block" data-student-table-wrap>
-                <table class="w-full min-w-[760px] text-left">
-                    <thead class="bg-[#397565] text-xs uppercase tracking-wider text-white"><tr><th class="p-4">Student ID</th><th class="p-4">Name</th><th class="p-4">Course & year</th><th class="p-4">Team</th><th class="p-4">Attendance</th></tr></thead>
-                    <tbody class="divide-y divide-[#121017]/8" data-students></tbody>
-                </table>
-            </div>
+            <div data-student-results></div>
+            <footer class="hidden items-center justify-between gap-3 border-t border-[#121017]/8 px-4 py-4 text-xs text-[#121017]/50 sm:px-5" data-student-pagination></footer>
         </section>
     </main>
 
@@ -45,6 +38,6 @@
     <script src="js/shared/password-gate.js?v=20260917-1"></script>
     <script src="js/shared/navigation.js?v=20260917-portal-flat-1"></script>
     <script src="js/sbo/portal.js?v=20260917-1"></script>
-    <script src="js/sbo/students.js"></script>
+    <script src="js/sbo/students.js?v=20260922-paginated-roster-1"></script>
 </body>
 </html>

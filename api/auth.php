@@ -82,7 +82,7 @@ final class AuthController
 
         if ($login === '' || mb_strlen($login) > 255 || $password === '') {
             $this->recordFailure();
-            throw new InvalidArgumentException('Enter your username/email and password.');
+            throw new InvalidArgumentException('Enter your username or Student ID and password.');
         }
 
         $candidates = $this->users->findLoginCandidates($login);
@@ -101,7 +101,7 @@ final class AuthController
 
         if ($account === null) {
             $this->recordFailure();
-            throw new InvalidArgumentException('The username/email or password is incorrect.');
+            throw new InvalidArgumentException('The username or Student ID, or the password, is incorrect.');
         }
 
         if (strtolower((string) $account['status']) === 'inactive') {

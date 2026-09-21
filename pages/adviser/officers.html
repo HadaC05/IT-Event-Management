@@ -76,8 +76,9 @@
             <div class="grid gap-5 p-6">
                 <fieldset class="grid gap-3"><legend class="text-sm font-bold">Select students</legend>
                     <div class="grid gap-2 sm:grid-cols-[minmax(0,1fr)_180px]"><label class="relative"><span class="sr-only">Search students</span><svg class="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 fill-none stroke-[#397565] stroke-2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg><input class="h-11 w-full rounded-xl border border-[#121017]/12 bg-[#F3F0E9]/45 pl-10 pr-3 text-sm outline-none focus:border-[#397565] focus:bg-white focus:ring-4 focus:ring-[#397565]/10" type="search" placeholder="Name, ID, or email…" autocomplete="off" data-officer-student-search></label><label><span class="sr-only">Filter by year level</span><select class="h-11 w-full rounded-xl border border-[#121017]/12 bg-[#F3F0E9]/45 px-3 text-sm outline-none focus:border-[#397565] focus:bg-white" data-officer-year-filter><option value="">All year levels</option></select></label></div>
-                    <div class="flex justify-end"><button class="min-h-10 rounded-xl border border-[#397565]/25 px-4 text-xs font-black text-[#397565] hover:bg-[#397565]/5" type="button" data-select-filtered-students>Select filtered</button></div>
+                    <div class="flex flex-wrap items-center justify-between gap-2"><span class="text-xs text-[#121017]/45" data-officer-candidate-count>Open this dialog to load eligible students.</span><button class="min-h-10 rounded-xl border border-[#397565]/25 px-4 text-xs font-black text-[#397565] hover:bg-[#397565]/5" type="button" data-select-filtered-students>Select page</button></div>
                     <div class="max-h-52 space-y-2 overflow-y-auto rounded-xl border border-[#121017]/10 bg-[#F3F0E9]/25 p-2" data-officer-student-list></div>
+                    <nav class="hidden items-center justify-between gap-3 border-t border-[#121017]/8 pt-3 text-xs text-[#121017]/50" data-officer-candidate-pagination aria-label="Eligible student pages"></nav>
                     <p class="text-[10px] font-bold text-[#397565]" data-selected-student-label aria-live="polite">Select one student to continue.</p>
                 </fieldset>
                 <div class="rounded-xl bg-[#397565]/7 px-4 py-3 text-xs leading-5 text-[#397565]"><strong class="block text-sm">The student login will not change.</strong><span class="mt-1 block">The system will create a separate Officer username and one-time password after you confirm. The officer must replace that password at first sign-in.</span></div>
@@ -138,7 +139,7 @@
     <script src="js/vendor/axios.min.js"></script>
     <script src="js/shared/password-gate.js?v=20260917-1"></script>
     <script src="js/shared/navigation.js?v=20260921-adviser-sections-1"></script>
-    <script src="js/adviser/officers.js?v=20260921-officer-table-1"></script>
+    <script src="js/adviser/officers.js?v=20260922-lazy-candidates-1"></script>
     <script src="js/adviser/sbo-assignments.js?v=20260921-officer-modal-2"></script>
     <script src="js/adviser/sbo-scoring-admin.js"></script>
 </body>

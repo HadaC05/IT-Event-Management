@@ -9,6 +9,7 @@ require_once __DIR__.'/AcademicPeriodLabel.php';
 final class OfficerManagementRepository
 {
     private const PER_PAGE = 15;
+    private const CANDIDATES_PER_PAGE = 24;
 
     public function __construct(private readonly PDO $db) {}
 
@@ -117,25 +118,7 @@ final class OfficerManagementRepository
             }
         }
 
-        $students = $this->db->query("SELECT u.id, u.id_number, u.first_name, u.middle_name, u.last_name,
-                u.email, u.username, u.year_level, yl.label AS year_level_label
-            FROM tbl_users u
-            JOIN tbl_roles r ON r.id = u.role_id
-            JOIN tbl_user_statuses s ON s.id = u.status
-            LEFT JOIN tbl_year_levels yl ON yl.id = u.year_level
-            WHERE r.name = 'Student' AND s.label = 'active' AND u.id_number IS NOT NULL
-              AND NOT EXISTS (SELECT 1 FROM tbl_sbo_officer_assignments officer_assignment WHERE officer_assignment.student_id=u.id_number)
-            ORDER BY u.first_name, u.middle_name, u.last_name")->fetchAll();
-        foreach ($students as &$student) {
-            $student['id'] = (int) $student['id'];
-            $student['year_level'] = $student['year_level'] === null ? null : (int) $student['year_level'];
-            $student['full_name'] = $this->fullName($student);
-        }
-        unset($student);
-        usort($students, fn (array $left, array $right): int => strcasecmp($left['full_name'], $right['full_name']));
-
         return [
-            'students' => $students,
             'assignments' => $assignments,
             'teams' => $this->db->query('SELECT t.id, t.name, t.color, t.school_year_id, sy.label AS school_year_label
                 FROM tbl_teams t JOIN tbl_school_years sy ON sy.id=t.school_year_id
@@ -148,6 +131,84 @@ final class OfficerManagementRepository
                 'total' => $total,
                 'from' => $total === 0 ? null : $offset + 1,
                 'to' => $total === 0 ? null : min($offset + $perPage, $total),
+            ],
+        ];
+    }
+
+    public function eligibleStudents(array $filters = []): array
+    {
+        $page = max(1, (int) ($filters['page'] ?? 1));
+        $search = trim((string) ($filters['search'] ?? ''));
+        $yearLevel = trim((string) ($filters['year_level'] ?? ''));
+        if (mb_strlen($search) > 100) throw new InvalidArgumentException('Search may not exceed 100 characters.');
+        if ($yearLevel !== '' && $yearLevel !== 'none' && !ctype_digit($yearLevel)) {
+            throw new InvalidArgumentException('Choose a valid year level.');
+        }
+        if ($yearLevel !== '' && $yearLevel !== 'none' && !$this->value('SELECT id FROM tbl_year_levels WHERE id=?', [(int) $yearLevel])) {
+            throw new InvalidArgumentException('Choose a valid year level.');
+        }
+
+        $where = [
+            "r.name='Student'",
+            "s.label='active'",
+            'u.id_number IS NOT NULL',
+            'NOT EXISTS (SELECT 1 FROM tbl_sbo_officer_assignments officer_assignment WHERE officer_assignment.student_id=u.id_number)',
+        ];
+        $params = [];
+        if ($yearLevel === 'none') {
+            $where[] = 'u.year_level IS NULL';
+        } elseif ($yearLevel !== '') {
+            $where[] = 'u.year_level=:year_level';
+            $params['year_level'] = (int) $yearLevel;
+        }
+        if ($search !== '') {
+            $term = '%'.addcslashes($search, '%_\\').'%';
+            $where[] = "(u.id_number LIKE :q_id ESCAPE '\\\\'
+                OR u.first_name LIKE :q_first ESCAPE '\\\\'
+                OR u.middle_name LIKE :q_middle ESCAPE '\\\\'
+                OR u.last_name LIKE :q_last ESCAPE '\\\\'
+                OR u.email LIKE :q_email ESCAPE '\\\\'
+                OR u.username LIKE :q_username ESCAPE '\\\\'
+                OR CONCAT_WS(' ',u.first_name,NULLIF(u.middle_name,''),u.last_name) LIKE :q_full ESCAPE '\\\\')";
+            foreach (['q_id', 'q_first', 'q_middle', 'q_last', 'q_email', 'q_username', 'q_full'] as $key) $params[$key] = $term;
+        }
+        $from = ' FROM tbl_users u
+            JOIN tbl_roles r ON r.id=u.role_id
+            JOIN tbl_user_statuses s ON s.id=u.status
+            LEFT JOIN tbl_year_levels yl ON yl.id=u.year_level
+            WHERE '.implode(' AND ', $where);
+        $count = $this->db->prepare('SELECT COUNT(*)'.$from);
+        foreach ($params as $key => $value) $count->bindValue(':'.$key, $value, is_int($value) ? PDO::PARAM_INT : PDO::PARAM_STR);
+        $count->execute();
+        $total = (int) $count->fetchColumn();
+        $lastPage = max(1, (int) ceil($total / self::CANDIDATES_PER_PAGE));
+        $page = min($page, $lastPage);
+        $offset = ($page - 1) * self::CANDIDATES_PER_PAGE;
+
+        $statement = $this->db->prepare("SELECT u.id,u.id_number,u.first_name,u.middle_name,u.last_name,
+                u.email,u.username,u.year_level,yl.label AS year_level_label{$from}
+            ORDER BY u.last_name,u.first_name,u.middle_name,u.id LIMIT :limit OFFSET :offset");
+        foreach ($params as $key => $value) $statement->bindValue(':'.$key, $value, is_int($value) ? PDO::PARAM_INT : PDO::PARAM_STR);
+        $statement->bindValue(':limit', self::CANDIDATES_PER_PAGE, PDO::PARAM_INT);
+        $statement->bindValue(':offset', $offset, PDO::PARAM_INT);
+        $statement->execute();
+        $students = $statement->fetchAll();
+        foreach ($students as &$student) {
+            $student['id'] = (int) $student['id'];
+            $student['year_level'] = $student['year_level'] === null ? null : (int) $student['year_level'];
+            $student['full_name'] = $this->fullName($student);
+        }
+        unset($student);
+
+        return [
+            'students' => $students,
+            'pagination' => [
+                'current_page' => $page,
+                'last_page' => $lastPage,
+                'per_page' => self::CANDIDATES_PER_PAGE,
+                'total' => $total,
+                'from' => $total === 0 ? null : $offset + 1,
+                'to' => $total === 0 ? null : min($offset + self::CANDIDATES_PER_PAGE, $total),
             ],
         ];
     }
@@ -472,7 +533,10 @@ $repository = new OfficerManagementRepository((new Database())->connection());
 
 try {
     if ($_SERVER['REQUEST_METHOD'] === 'GET') {
-        JsonResponse::send(['success' => true, 'data' => $repository->index($_GET)]);
+        $result = (string) ($_GET['action'] ?? '') === 'eligible_students'
+            ? $repository->eligibleStudents($_GET)
+            : $repository->index($_GET);
+        JsonResponse::send(['success' => true, 'data' => $result]);
     }
     if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
         JsonResponse::send(['success' => false, 'message' => 'Method not allowed.'], 405);

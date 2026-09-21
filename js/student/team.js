@@ -3,6 +3,9 @@
 
     const {initialize, formatDate, escapeHtml} = window.StudentPortal;
     const page = document.querySelector('[data-team-page]');
+    let directoryState = {members: [], search: '', page: 1, pagination: {current_page: 1, last_page: 1, total: 0}};
+    let directoryRequest = 0;
+    let directorySearchTimer;
 
     const safeColor = value => /^#[0-9a-f]{6}$/i.test(value || '') ? value : '#397565';
 
@@ -13,17 +16,86 @@
             <p class="mt-2 text-sm text-[#121017]/45">An adviser will assign your team for the current school year.</p>
         </div>`;
 
-    const member = person => `
-        <div class="flex items-center gap-3 rounded-2xl bg-[#F7F4ED]/60 p-3">
+    const member = (person, isCurrent = false) => `
+        <div class="flex items-center gap-3 rounded-2xl ${isCurrent ? 'border border-[#397565]/20 bg-[#397565]/7' : 'bg-[#F7F4ED]/60'} p-3">
             <span class="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#C6F24E] text-[10px] font-black">${escapeHtml(person.initials)}</span>
-            <div class="min-w-0">
-                <strong class="block truncate text-xs">${escapeHtml(person.full_name)}</strong>
+            <div class="min-w-0 flex-1">
+                <span class="flex min-w-0 items-center gap-2">
+                    <strong class="block truncate text-xs">${escapeHtml(person.full_name)}</strong>
+                    ${isCurrent ? '<em class="shrink-0 rounded-full bg-[#397565] px-2 py-0.5 text-[9px] font-black not-italic text-white">You</em>' : ''}
+                </span>
                 <span class="text-[10px] text-[#121017]/40">${escapeHtml(person.year_level || 'Student')}</span>
             </div>
         </div>`;
 
+    const renderDirectory = () => {
+        const list = page.querySelector('[data-member-list]');
+        const count = page.querySelector('[data-member-count]');
+        const pageLabel = page.querySelector('[data-member-page-label]');
+        const previous = page.querySelector('[data-member-previous]');
+        const next = page.querySelector('[data-member-next]');
+        if (!list || !count || !pageLabel || !previous || !next) return;
+
+        const pagination = directoryState.pagination;
+        list.innerHTML = directoryState.members.length
+            ? directoryState.members.map(person => member(person)).join('')
+            : '<div class="col-span-full rounded-2xl border border-dashed border-[#121017]/12 px-5 py-10 text-center text-sm text-[#121017]/45">No teammate matches that search.</div>';
+        count.textContent = directoryState.search
+            ? `${pagination.total} match${pagination.total === 1 ? '' : 'es'}`
+            : `${pagination.total} teammate${pagination.total === 1 ? '' : 's'}`;
+        pageLabel.textContent = `Page ${pagination.current_page} of ${pagination.last_page}`;
+        previous.disabled = pagination.current_page <= 1;
+        next.disabled = pagination.current_page >= pagination.last_page;
+    };
+
+    const loadDirectory = async (targetPage = directoryState.page) => {
+        const request = ++directoryRequest;
+        const count = page.querySelector('[data-member-count]');
+        if (count) count.textContent = 'Loading teammates…';
+        try {
+            const response = await axios.get('api/student-portal.php', {params: {page: 'team_members', search: directoryState.search, page_number: targetPage}});
+            if (request !== directoryRequest) return;
+            directoryState.members = response.data.data.members;
+            directoryState.pagination = response.data.data.pagination;
+            directoryState.page = response.data.data.pagination.current_page;
+            renderDirectory();
+        } catch (error) {
+            if (request !== directoryRequest) return;
+            const list = page.querySelector('[data-member-list]');
+            if (list) list.innerHTML = '<div class="col-span-full rounded-2xl border border-dashed border-[#FF6B2C]/20 px-5 py-10 text-center text-sm text-[#FF6B2C]">The team directory could not be loaded.</div>';
+        }
+    };
+
+    const installDirectory = () => {
+        const search = page.querySelector('[data-member-search]');
+        search?.addEventListener('input', event => {
+            directoryState.search = event.target.value;
+            directoryState.page = 1;
+            clearTimeout(directorySearchTimer);
+            directorySearchTimer = setTimeout(() => loadDirectory(1), 300);
+        });
+        page.querySelector('[data-member-previous]')?.addEventListener('click', () => {
+            if (directoryState.page <= 1) return;
+            loadDirectory(directoryState.page - 1);
+            page.querySelector('[data-team-directory]')?.scrollIntoView({behavior: 'smooth', block: 'start'});
+        });
+        page.querySelector('[data-member-next]')?.addEventListener('click', () => {
+            if (directoryState.page >= directoryState.pagination.last_page) return;
+            loadDirectory(directoryState.page + 1);
+            page.querySelector('[data-team-directory]')?.scrollIntoView({behavior: 'smooth', block: 'start'});
+        });
+        loadDirectory(1);
+    };
+
     const teamPage = team => {
         const color = safeColor(team.color);
+        const currentMember = team.current_member;
+        directoryState = {
+            members: [],
+            search: '',
+            page: 1,
+            pagination: {current_page: 1, last_page: 1, total: Math.max(0, team.members_count - 1)},
+        };
         const scores = team.scores.length
             ? team.scores.map(score => `
                 <div class="rounded-2xl border border-[#121017]/7 bg-[#F7F4ED]/60 p-4">
@@ -67,12 +139,29 @@
                         <h2 class="text-lg font-black">Activity category scores</h2>
                         <div class="mt-4 grid gap-3 sm:grid-cols-2">${scores}</div>
                     </section>
-                    <section class="rounded-3xl border border-[#121017]/8 bg-white p-5">
-                        <div class="flex items-center justify-between">
-                            <h2 class="text-lg font-black">Team members</h2>
-                            <span class="text-xs text-[#121017]/40">${team.members.length}</span>
+                    ${currentMember ? `
+                    <section class="rounded-3xl border border-[#397565]/15 bg-white p-5">
+                        <p class="text-[10px] font-black uppercase tracking-[.14em] text-[#397565]">Your place in the team</p>
+                        <div class="mt-3">${member(currentMember, true)}</div>
+                    </section>` : ''}
+                    <section class="rounded-3xl border border-[#121017]/8 bg-white p-5" data-team-directory>
+                        <div class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+                            <div>
+                                <h2 class="text-lg font-black">Team directory</h2>
+                                <span class="mt-1 block text-xs text-[#121017]/40" data-member-count></span>
+                            </div>
+                            <label class="relative block w-full sm:max-w-md">
+                                <span class="sr-only">Find a teammate</span>
+                                <svg class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 fill-none stroke-[#121017]/35 stroke-2" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>
+                                <input class="h-11 w-full rounded-xl border border-[#121017]/10 bg-[#F7F4ED]/60 pl-10 pr-3 text-sm outline-none placeholder:text-[#121017]/35 focus:border-[#397565] focus:ring-4 focus:ring-[#397565]/10" type="search" placeholder="Find a teammate…" data-member-search>
+                            </label>
                         </div>
-                        <div class="mt-4 grid gap-2 sm:grid-cols-2">${team.members.map(member).join('')}</div>
+                        <div class="mt-4 grid gap-2 sm:grid-cols-2" data-member-list></div>
+                        <nav class="mt-5 flex items-center justify-between gap-3 border-t border-[#121017]/7 pt-4" aria-label="Team directory pages">
+                            <button class="min-h-10 rounded-xl border border-[#121017]/10 px-4 text-xs font-black text-[#397565] disabled:cursor-not-allowed disabled:opacity-40" type="button" data-member-previous>Previous</button>
+                            <span class="text-xs font-bold text-[#121017]/45" data-member-page-label></span>
+                            <button class="min-h-10 rounded-xl border border-[#121017]/10 px-4 text-xs font-black text-[#397565] disabled:cursor-not-allowed disabled:opacity-40" type="button" data-member-next>Next</button>
+                        </nav>
                     </section>
                 </div>
                 <aside class="space-y-5">
@@ -93,6 +182,7 @@
         const response = await axios.get('api/student-portal.php', {params: {page: 'team'}});
         const team = response.data.data.team;
         page.innerHTML = team ? teamPage(team) : emptyTeam();
+        if (team) installDirectory();
     };
 
     load().catch(() => {

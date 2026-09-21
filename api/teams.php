@@ -8,6 +8,8 @@ require_once __DIR__.'/ApiSupport.php';
 final class TeamManagementRepository
 {
     private const PER_PAGE = 9;
+    private const STUDENT_PER_PAGE = 24;
+    private const UNASSIGNED_PER_PAGE = 25;
 
     public function __construct(private readonly PDO $db) {}
 
@@ -41,29 +43,8 @@ final class TeamManagementRepository
               FROM tbl_teams t JOIN tbl_school_years sy ON sy.id=t.school_year_id
               $whereSql ORDER BY t.is_active DESC,t.name LIMIT :limit OFFSET :offset";
         $st=$this->db->prepare($sql);foreach($params as $k=>$v)$st->bindValue(':'.$k,$v);$st->bindValue(':limit',$perPage,PDO::PARAM_INT);$st->bindValue(':offset',($page-1)*$perPage,PDO::PARAM_INT);$st->execute();$teams=$st->fetchAll();
-        foreach($teams as &$team){$team['id']=(int)$team['id'];$team['school_year_id']=(int)$team['school_year_id'];$team['is_active']=(bool)$team['is_active'];$m=$this->db->prepare("SELECT u.id,u.first_name,u.middle_name,u.last_name,u.id_number,yl.label year_level_label FROM tbl_team_user tu JOIN tbl_users u ON u.id=tu.user_id JOIN tbl_roles r ON r.id=u.role_id AND r.name='Student' LEFT JOIN tbl_year_levels yl ON yl.id=u.year_level WHERE tu.team_id=? ORDER BY u.last_name,u.first_name");$m->execute([$team['id']]);$team['members']=$m->fetchAll();$team['members_count']=count($team['members']);foreach($team['members'] as &$member)$member['full_name']=$this->fullName($member);unset($member);}unset($team);
+        foreach($teams as &$team){$team['id']=(int)$team['id'];$team['school_year_id']=(int)$team['school_year_id'];$team['is_active']=(bool)$team['is_active'];$team['members_count']=(int)$team['members_count'];$m=$this->db->prepare("SELECT u.id,u.first_name,u.middle_name,u.last_name,u.id_number,yl.label year_level_label FROM tbl_team_user tu JOIN tbl_users u ON u.id=tu.user_id JOIN tbl_roles r ON r.id=u.role_id AND r.name='Student' LEFT JOIN tbl_year_levels yl ON yl.id=u.year_level WHERE tu.team_id=? ORDER BY u.last_name,u.first_name LIMIT 3");$m->execute([$team['id']]);$team['members']=$m->fetchAll();foreach($team['members'] as &$member){$member['id']=(int)$member['id'];$member['full_name']=$this->fullName($member);}unset($member);}unset($team);
         $studentRole=(int)$this->value("SELECT id FROM tbl_roles WHERE name='Student'");$active=(int)$this->value("SELECT id FROM tbl_user_statuses WHERE label='active'");
-        $hasImportRows=(bool)$this->value("SELECT 1 FROM information_schema.tables WHERE table_schema=DATABASE() AND table_name='tbl_student_import_rows' LIMIT 1");
-        $importMissingTribe=$hasImportRows
-          ? "EXISTS(SELECT 1 FROM tbl_student_import_rows sir WHERE sir.user_id=u.id AND sir.flags_json LIKE '%\"code\":\"missing_tribe\"%')"
-          : '0';
-        $hasStudentProfiles=(bool)$this->value("SELECT 1 FROM information_schema.tables WHERE table_schema=DATABASE() AND table_name='tbl_student_profiles' LIMIT 1");
-        $profileColumns=$hasStudentProfiles
-          ? 'sp.program,sp.section_name,sp.school_year_label profile_school_year'
-          : 'NULL program,NULL section_name,NULL profile_school_year';
-        $profileJoin=$hasStudentProfiles?'LEFT JOIN tbl_student_profiles sp ON sp.user_id=u.id':'';
-        $studentsSt=$this->db->prepare("SELECT u.id,u.id_number,u.first_name,u.middle_name,u.last_name,u.year_level,
-          yl.label year_level_label,{$profileColumns},
-          {$importMissingTribe} import_missing_tribe
-          FROM tbl_users u
-          LEFT JOIN tbl_year_levels yl ON yl.id=u.year_level
-          {$profileJoin}
-          WHERE u.role_id=? AND u.status=? ORDER BY u.last_name,u.first_name");
-        $studentsSt->execute([$studentRole,$active]);$students=$studentsSt->fetchAll();
-        $memberships=[];
-        $membershipSt=$this->db->query('SELECT tu.user_id,t.id,t.name,t.school_year_id,sy.label school_year_label FROM tbl_team_user tu JOIN tbl_teams t ON t.id=tu.team_id JOIN tbl_school_years sy ON sy.id=t.school_year_id');
-        foreach($membershipSt->fetchAll() as $membership){$memberships[(int)$membership['user_id']][]=$membership;}
-        foreach($students as &$student){$student['id']=(int)$student['id'];$student['import_missing_tribe']=(bool)$student['import_missing_tribe'];$student['full_name']=$this->fullName($student);$student['teams']=$memberships[$student['id']]??[];}unset($student);
         $yearClause=$schoolYear?' WHERE school_year_id=?':'';
         $activeYearClause=$schoolYear?' AND school_year_id=?':'';
         $assignedYearClause=$schoolYear?' AND t.school_year_id=?':'';
@@ -82,7 +63,54 @@ final class TeamManagementRepository
         $summary['school_year_label']=$schoolYear?(string)$this->value('SELECT label FROM tbl_school_years WHERE id=?',[$schoolYear]):null;
         $assignmentTeams=$this->db->query('SELECT t.id,t.name,t.school_year_id,t.color,(SELECT COUNT(*) FROM tbl_team_user tu WHERE tu.team_id=t.id) members_count FROM tbl_teams t WHERE t.is_active=1 ORDER BY t.name')->fetchAll();
         foreach($assignmentTeams as &$assignmentTeam){$assignmentTeam['id']=(int)$assignmentTeam['id'];$assignmentTeam['school_year_id']=(int)$assignmentTeam['school_year_id'];$assignmentTeam['members_count']=(int)$assignmentTeam['members_count'];}unset($assignmentTeam);
-        return ['teams'=>$teams,'assignment_teams'=>$assignmentTeams,'students'=>$students,'school_years'=>$this->db->query('SELECT id,label,teams_randomized_at FROM tbl_school_years ORDER BY label DESC')->fetchAll(),'summary'=>$summary,'pagination'=>['current_page'=>$page,'last_page'=>$lastPage,'per_page'=>$perPage,'total'=>$total,'from'=>$total?($page-1)*$perPage+1:null,'to'=>$total?min($page*$perPage,$total):null]];
+        return ['teams'=>$teams,'assignment_teams'=>$assignmentTeams,'school_years'=>$this->db->query('SELECT id,label,teams_randomized_at FROM tbl_school_years ORDER BY label DESC')->fetchAll(),'summary'=>$summary,'pagination'=>['current_page'=>$page,'last_page'=>$lastPage,'per_page'=>$perPage,'total'=>$total,'from'=>$total?($page-1)*$perPage+1:null,'to'=>$total?min($page*$perPage,$total):null]];
+    }
+
+    public function teamSelection(int $teamId): array
+    {
+        $team=$this->team($teamId);
+        $statement=$this->db->prepare("SELECT tu.user_id FROM tbl_team_user tu JOIN tbl_users u ON u.id=tu.user_id JOIN tbl_roles r ON r.id=u.role_id AND r.name='Student' WHERE tu.team_id=? ORDER BY tu.user_id");
+        $statement->execute([$teamId]);
+        return ['team_id'=>$teamId,'school_year_id'=>(int)$team['school_year_id'],'member_ids'=>array_map('intval',$statement->fetchAll(PDO::FETCH_COLUMN))];
+    }
+
+    public function studentCandidates(array $filters): array
+    {
+        $search=trim((string)($filters['search']??''));$year=(int)($filters['school_year_id']??0);$teamId=(int)($filters['team_id']??0);$page=max(1,(int)($filters['page']??1));
+        if(mb_strlen($search)>100)throw new InvalidArgumentException('Search may not exceed 100 characters.');
+        if(!$this->value('SELECT id FROM tbl_school_years WHERE id=?',[$year]))throw new InvalidArgumentException('Select a valid school year.');
+        if($teamId)$this->team($teamId);
+        $where=["r.name='Student'","s.label='active'","(EXISTS(SELECT 1 FROM tbl_team_user current_membership WHERE current_membership.team_id=:team_member AND current_membership.user_id=u.id) OR NOT EXISTS(SELECT 1 FROM tbl_team_user other_membership JOIN tbl_teams other_team ON other_team.id=other_membership.team_id WHERE other_membership.user_id=u.id AND other_team.school_year_id=:school_year))"];
+        $params=['team_member'=>$teamId,'school_year'=>$year];
+        if($search!==''){$term='%'.addcslashes($search,'%_\\').'%';$where[]="(u.id_number LIKE :q_id ESCAPE '\\\\' OR u.first_name LIKE :q_first ESCAPE '\\\\' OR u.middle_name LIKE :q_middle ESCAPE '\\\\' OR u.last_name LIKE :q_last ESCAPE '\\\\' OR CONCAT_WS(' ',u.first_name,NULLIF(u.middle_name,''),u.last_name) LIKE :q_full ESCAPE '\\\\' OR yl.label LIKE :q_year ESCAPE '\\\\')";foreach(['q_id','q_first','q_middle','q_last','q_full','q_year'] as $key)$params[$key]=$term;}
+        $whereSql=implode(' AND ',$where);
+        $from=" FROM tbl_users u JOIN tbl_roles r ON r.id=u.role_id JOIN tbl_user_statuses s ON s.id=u.status LEFT JOIN tbl_year_levels yl ON yl.id=u.year_level WHERE {$whereSql}";
+        $count=$this->db->prepare('SELECT COUNT(*)'.$from);foreach($params as $key=>$value)$count->bindValue(':'.$key,$value,is_int($value)?PDO::PARAM_INT:PDO::PARAM_STR);$count->execute();$total=(int)$count->fetchColumn();
+        $lastPage=max(1,(int)ceil($total/self::STUDENT_PER_PAGE));$page=min($page,$lastPage);$offset=($page-1)*self::STUDENT_PER_PAGE;
+        $statement=$this->db->prepare("SELECT u.id,u.id_number,u.first_name,u.middle_name,u.last_name,yl.label year_level_label,EXISTS(SELECT 1 FROM tbl_team_user selected_membership WHERE selected_membership.team_id=:selected_team AND selected_membership.user_id=u.id) is_member{$from} ORDER BY u.last_name,u.first_name,u.id LIMIT :limit OFFSET :offset");
+        foreach($params as $key=>$value)$statement->bindValue(':'.$key,$value,is_int($value)?PDO::PARAM_INT:PDO::PARAM_STR);$statement->bindValue(':selected_team',$teamId,PDO::PARAM_INT);$statement->bindValue(':limit',self::STUDENT_PER_PAGE,PDO::PARAM_INT);$statement->bindValue(':offset',$offset,PDO::PARAM_INT);$statement->execute();$students=$statement->fetchAll();
+        foreach($students as &$student){$student['id']=(int)$student['id'];$student['is_member']=(bool)$student['is_member'];$student['full_name']=$this->fullName($student);}unset($student);
+        return ['students'=>$students,'pagination'=>['current_page'=>$page,'last_page'=>$lastPage,'per_page'=>self::STUDENT_PER_PAGE,'total'=>$total,'from'=>$total?$offset+1:null,'to'=>$total?min($offset+self::STUDENT_PER_PAGE,$total):null]];
+    }
+
+    public function unassignedStudents(array $filters): array
+    {
+        $year=(int)($filters['school_year_id']??0);$search=trim((string)($filters['search']??''));$page=max(1,(int)($filters['page']??1));
+        if(!$this->value('SELECT id FROM tbl_school_years WHERE id=?',[$year]))throw new InvalidArgumentException('Select a valid school year.');
+        if(mb_strlen($search)>100)throw new InvalidArgumentException('Search may not exceed 100 characters.');
+        $hasImportRows=(bool)$this->value("SELECT 1 FROM information_schema.tables WHERE table_schema=DATABASE() AND table_name='tbl_student_import_rows' LIMIT 1");
+        $hasProfiles=(bool)$this->value("SELECT 1 FROM information_schema.tables WHERE table_schema=DATABASE() AND table_name='tbl_student_profiles' LIMIT 1");
+        $profileColumns=$hasProfiles?'sp.program,sp.section_name,sp.school_year_label profile_school_year':'NULL program,NULL section_name,NULL profile_school_year';
+        $profileJoin=$hasProfiles?' LEFT JOIN tbl_student_profiles sp ON sp.user_id=u.id':'';
+        $missingFlag=$hasImportRows?"EXISTS(SELECT 1 FROM tbl_student_import_rows sir WHERE sir.user_id=u.id AND sir.flags_json LIKE '%\"code\":\"missing_tribe\"%')":'0';
+        $where=["r.name='Student'","s.label='active'","NOT EXISTS(SELECT 1 FROM tbl_team_user tu JOIN tbl_teams t ON t.id=tu.team_id WHERE tu.user_id=u.id AND t.school_year_id=:school_year)"];$params=['school_year'=>$year];
+        if($search!==''){$term='%'.addcslashes($search,'%_\\').'%';$where[]="(u.id_number LIKE :q_id ESCAPE '\\\\' OR u.first_name LIKE :q_first ESCAPE '\\\\' OR u.middle_name LIKE :q_middle ESCAPE '\\\\' OR u.last_name LIKE :q_last ESCAPE '\\\\' OR CONCAT_WS(' ',u.first_name,NULLIF(u.middle_name,''),u.last_name) LIKE :q_full ESCAPE '\\\\' OR yl.label LIKE :q_year ESCAPE '\\\\'".($hasProfiles?" OR sp.program LIKE :q_program ESCAPE '\\\\' OR sp.section_name LIKE :q_section ESCAPE '\\\\'":'').')';foreach(['q_id','q_first','q_middle','q_last','q_full','q_year'] as $key)$params[$key]=$term;if($hasProfiles){$params['q_program']=$term;$params['q_section']=$term;}}
+        $from=' FROM tbl_users u JOIN tbl_roles r ON r.id=u.role_id JOIN tbl_user_statuses s ON s.id=u.status LEFT JOIN tbl_year_levels yl ON yl.id=u.year_level'.$profileJoin.' WHERE '.implode(' AND ',$where);
+        $count=$this->db->prepare('SELECT COUNT(*)'.$from);foreach($params as $key=>$value)$count->bindValue(':'.$key,$value,is_int($value)?PDO::PARAM_INT:PDO::PARAM_STR);$count->execute();$total=(int)$count->fetchColumn();
+        $lastPage=max(1,(int)ceil($total/self::UNASSIGNED_PER_PAGE));$page=min($page,$lastPage);$offset=($page-1)*self::UNASSIGNED_PER_PAGE;
+        $statement=$this->db->prepare("SELECT u.id,u.id_number,u.first_name,u.middle_name,u.last_name,yl.label year_level_label,{$profileColumns},{$missingFlag} import_missing_tribe{$from} ORDER BY u.last_name,u.first_name,u.id LIMIT :limit OFFSET :offset");foreach($params as $key=>$value)$statement->bindValue(':'.$key,$value,is_int($value)?PDO::PARAM_INT:PDO::PARAM_STR);$statement->bindValue(':limit',self::UNASSIGNED_PER_PAGE,PDO::PARAM_INT);$statement->bindValue(':offset',$offset,PDO::PARAM_INT);$statement->execute();$students=$statement->fetchAll();
+        foreach($students as &$student){$student['id']=(int)$student['id'];$student['import_missing_tribe']=(bool)$student['import_missing_tribe'];$student['full_name']=$this->fullName($student);}unset($student);
+        return ['students'=>$students,'pagination'=>['current_page'=>$page,'last_page'=>$lastPage,'per_page'=>self::UNASSIGNED_PER_PAGE,'total'=>$total,'from'=>$total?$offset+1:null,'to'=>$total?min($offset+self::UNASSIGNED_PER_PAGE,$total):null]];
     }
 
     public function save(array $data,int $actorId,?int $id=null): int
@@ -222,7 +250,7 @@ function validationErrors(InvalidArgumentException $exception): array
  return $field?[$field=>[$message]]:[];
 }
 try{
- if($_SERVER['REQUEST_METHOD']==='GET')JsonResponse::send(['success'=>true,'data'=>$repo->index($_GET)]);
+ if($_SERVER['REQUEST_METHOD']==='GET'){$result=match((string)($_GET['action']??'')){'team_selection'=>$repo->teamSelection((int)($_GET['id']??0)),'student_candidates'=>$repo->studentCandidates($_GET),'unassigned_students'=>$repo->unassignedStudents($_GET),default=>$repo->index($_GET)};JsonResponse::send(['success'=>true,'data'=>$result]);}
  if($_SERVER['REQUEST_METHOD']!=='POST')JsonResponse::send(['success'=>false,'message'=>'Method not allowed.'],405);
  if(!SessionManager::validateCsrf($_SERVER['HTTP_X_CSRF_TOKEN']??null))JsonResponse::send(['success'=>false,'message'=>'Your session expired.'],403);
  $input=json_decode(file_get_contents('php://input'),true);if(!is_array($input))$input=$_POST;$action=$input['action']??'create';

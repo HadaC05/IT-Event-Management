@@ -5,6 +5,7 @@ declare(strict_types=1);
 require_once __DIR__.'/db_connect.php';
 require_once __DIR__.'/ApiSupport.php';
 require_once __DIR__.'/AcademicPeriodLabel.php';
+require_once __DIR__.'/StudentInitialCredential.php';
 
 final class RosterSpreadsheetReader
 {
@@ -377,7 +378,7 @@ final class StudentRosterImportService
                 if ($email === '') {
                     $email = mb_strtolower(preg_replace('/[^A-Za-z0-9]+/', '.', $studentId) ?? $studentId).'@pending.invalid';
                 }
-                $temporaryPassword = $this->temporaryPassword($studentId);
+                $temporaryPassword = StudentInitialCredential::temporaryPassword($studentId, $lastName);
                 $userInsert->execute([
                     $studentRoleId, $studentId, $firstName, null, $lastName, $yearLevelIds[$yearNumber] ?? null,
                     $studentId, password_hash($temporaryPassword, PASSWORD_BCRYPT, ['cost' => 10]), $activeStatusId, $email,
@@ -415,7 +416,7 @@ final class StudentRosterImportService
             'batch_id' => $batchId,
             'imported' => $imported,
             'flagged' => $skipped,
-            'temporary_password_rule' => 'CITE@ followed by the final 5 or 6 digits of the Student ID',
+            'temporary_password_rule' => StudentInitialCredential::RULE_DESCRIPTION,
             'must_change_password' => true,
         ];
     }
@@ -578,12 +579,6 @@ final class StudentRosterImportService
         return [implode(' ', $parts) ?: 'Student', $lastName];
     }
 
-    private function temporaryPassword(string $studentId): string
-    {
-        $parts = explode('-', $studentId);
-        return 'CITE@'.(end($parts) ?: preg_replace('/\D/', '', $studentId));
-    }
-
     private function yearNumber(string $label): int
     {
         return match (true) {
@@ -680,7 +675,11 @@ try {
     $action = trim((string) ($input['action'] ?? $action));
     if ($action === 'apply') {
         $data = $service->applyReplacement((int) ($input['batch_id'] ?? 0), $actorId);
-        JsonResponse::send(['success' => true, 'message' => 'The validated roster replaced the demo data.', 'data' => $data]);
+        JsonResponse::send([
+            'success' => true,
+            'message' => 'The validated roster was imported. Students must replace their one-time password at first sign-in.',
+            'data' => $data,
+        ]);
     }
     throw new InvalidArgumentException('Unknown roster import action.');
 } catch (Throwable $error) {

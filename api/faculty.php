@@ -9,6 +9,9 @@ require_once __DIR__.'/sbo-attendance.php';
 
 final class FacultyRepository
 {
+    private const STUDENTS_PER_PAGE = 25;
+    private const HISTORY_PER_PAGE = 10;
+
     public function __construct(private readonly PDO $db) {}
 
     private function rows(string $sql, array $params = []): array
@@ -24,35 +27,75 @@ final class FacultyRepository
         return isset($rows[0]) ? (int) $rows[0]['id'] : null;
     }
 
-    public function students(int $userId): array
+    public function students(int $userId, array $filters = []): array
     {
         $teamId = $this->teamId($userId);
-        if (!$teamId) return ['team' => null, 'students' => [], 'events' => []];
+        if (!$teamId) return ['team' => null, 'students' => [], 'events' => [], 'pagination' => $this->pagination(1, 0, self::STUDENTS_PER_PAGE)];
         $team = $this->rows('SELECT id,name,color FROM tbl_teams WHERE id=?', [$teamId])[0];
-        $students = $this->rows("SELECT u.id,u.id_number,u.first_name,u.middle_name,u.last_name,yl.label year_level,
-            a.event_id,e.title event_title,a.attendance_date,a.effective_status status,a.manual_status,a.morning_in_at,a.morning_out_at,a.afternoon_in_at,a.afternoon_out_at
-            FROM tbl_team_user tu JOIN tbl_users u ON u.id=tu.user_id JOIN tbl_roles r ON r.id=u.role_id AND r.name='Student'
-            LEFT JOIN tbl_year_levels yl ON yl.id=u.year_level
-            LEFT JOIN vw_attendance_effective a ON a.user_id=u.id LEFT JOIN tbl_events e ON e.id=a.event_id
-            WHERE tu.team_id=? ORDER BY u.last_name,u.first_name,a.attendance_date DESC", [$teamId]);
-        $result = []; $events = [];
-        foreach ($students as $row) {
-            $id = (int) $row['id'];
-            if (!isset($result[$id])) $result[$id] = ['id'=>$id, 'id_number'=>$row['id_number'], 'name'=>trim($row['first_name'].' '.($row['middle_name'] ?? '').' '.$row['last_name']), 'year_level'=>$row['year_level'], 'team'=>$team['name'], 'attendance'=>[]];
-            if ($row['event_id'] !== null) {
-                $events[(int)$row['event_id']] = $row['event_title'];
-                $result[$id]['attendance'][] = ['event_id'=>(int)$row['event_id'], 'event_title'=>$row['event_title'], 'date'=>$row['attendance_date'], 'status'=>$row['status'], 'manual_status'=>$row['manual_status'], 'morning_in_at'=>$row['morning_in_at'], 'morning_out_at'=>$row['morning_out_at'], 'afternoon_in_at'=>$row['afternoon_in_at'], 'afternoon_out_at'=>$row['afternoon_out_at']];
-            }
+        $eventRows = $this->rows("SELECT DISTINCT e.id,e.title FROM tbl_team_user tu
+            JOIN vw_attendance_effective a ON a.user_id=tu.user_id JOIN tbl_events e ON e.id=a.event_id
+            WHERE tu.team_id=? ORDER BY e.start_at DESC,e.id DESC", [$teamId]);
+        $events = [];
+        foreach ($eventRows as $event) $events[(int) $event['id']] = $event['title'];
+
+        $search = trim((string) ($filters['search'] ?? ''));
+        $status = strtolower(trim((string) ($filters['status'] ?? '')));
+        $eventId = (int) ($filters['event_id'] ?? 0);
+        $page = max(1, (int) ($filters['page_number'] ?? $filters['page'] ?? 1));
+        if (mb_strlen($search) > 100) throw new InvalidArgumentException('Search may not exceed 100 characters.');
+        if (!in_array($status, ['', 'present', 'late', 'absent', 'excused', 'unrecorded'], true)) throw new InvalidArgumentException('Choose a valid attendance status.');
+        if ($eventId && !isset($events[$eventId])) throw new InvalidArgumentException('Choose an event with attendance records for this team.');
+
+        $where = ["tu.team_id=:team_id", "r.name='Student'"];
+        $params = ['team_id' => $teamId];
+        if ($search !== '') {
+            $term = '%'.addcslashes($search, '%_\\').'%';
+            $where[] = "(u.id_number LIKE :q_id ESCAPE '\\\\' OR u.first_name LIKE :q_first ESCAPE '\\\\' OR u.middle_name LIKE :q_middle ESCAPE '\\\\' OR u.last_name LIKE :q_last ESCAPE '\\\\' OR CONCAT_WS(' ',u.first_name,NULLIF(u.middle_name,''),u.last_name) LIKE :q_full ESCAPE '\\\\')";
+            foreach (['q_id','q_first','q_middle','q_last','q_full'] as $key) $params[$key] = $term;
         }
-        return ['team'=>$team, 'students'=>array_values($result), 'events'=>$events];
+        $eventClause = $eventId ? ' AND attendance.event_id='.$eventId : '';
+        if ($status === 'unrecorded') {
+            $where[] = "NOT EXISTS(SELECT 1 FROM vw_attendance_effective attendance WHERE attendance.user_id=u.id{$eventClause})";
+        } elseif ($status !== '') {
+            $where[] = "EXISTS(SELECT 1 FROM vw_attendance_effective attendance WHERE attendance.user_id=u.id{$eventClause} AND attendance.effective_status=:attendance_status)";
+            $params['attendance_status'] = $status;
+        }
+        $from = ' FROM tbl_team_user tu JOIN tbl_users u ON u.id=tu.user_id JOIN tbl_roles r ON r.id=u.role_id LEFT JOIN tbl_year_levels yl ON yl.id=u.year_level WHERE '.implode(' AND ', $where);
+        $count = $this->db->prepare('SELECT COUNT(DISTINCT u.id)'.$from);
+        foreach ($params as $key=>$value) $count->bindValue(':'.$key,$value,is_int($value)?PDO::PARAM_INT:PDO::PARAM_STR);
+        $count->execute();$total=(int)$count->fetchColumn();$lastPage=max(1,(int)ceil($total/self::STUDENTS_PER_PAGE));$page=min($page,$lastPage);$offset=($page-1)*self::STUDENTS_PER_PAGE;
+        $historyEventClause = $eventId ? ' AND history.event_id='.$eventId : '';
+        $statement = $this->db->prepare("SELECT DISTINCT u.id,u.id_number,u.first_name,u.middle_name,u.last_name,yl.label year_level,
+            (SELECT COUNT(*) FROM vw_attendance_effective history WHERE history.user_id=u.id{$historyEventClause}) attendance_count{$from}
+            ORDER BY u.last_name,u.first_name,u.id LIMIT :limit OFFSET :offset");
+        foreach ($params as $key=>$value) $statement->bindValue(':'.$key,$value,is_int($value)?PDO::PARAM_INT:PDO::PARAM_STR);
+        $statement->bindValue(':limit',self::STUDENTS_PER_PAGE,PDO::PARAM_INT);$statement->bindValue(':offset',$offset,PDO::PARAM_INT);$statement->execute();$students=$statement->fetchAll();
+        foreach($students as &$student){$student['id']=(int)$student['id'];$student['attendance_count']=(int)$student['attendance_count'];$student['name']=trim($student['first_name'].' '.($student['middle_name']??'').' '.$student['last_name']);$student['team']=$team['name'];unset($student['first_name'],$student['middle_name'],$student['last_name']);}unset($student);
+        return ['team'=>$team,'students'=>$students,'events'=>$events,'pagination'=>$this->pagination($page,$total,self::STUDENTS_PER_PAGE)];
     }
+
+    public function studentAttendance(int $userId, array $filters): array
+    {
+        $teamId=$this->teamId($userId);$studentId=(int)($filters['student_id']??0);$eventId=(int)($filters['event_id']??0);$page=max(1,(int)($filters['page_number']??1));
+        if(!$teamId)throw new DomainException('No team is assigned to your Faculty account.');
+        $student=$this->rows("SELECT u.id,u.id_number,u.first_name,u.middle_name,u.last_name FROM tbl_team_user tu JOIN tbl_users u ON u.id=tu.user_id JOIN tbl_roles r ON r.id=u.role_id AND r.name='Student' WHERE tu.team_id=? AND u.id=? LIMIT 1",[$teamId,$studentId])[0]??null;
+        if(!$student)throw new DomainException('That student is not part of your assigned team.');
+        $where=' WHERE a.user_id=?';$params=[$studentId];if($eventId){$where.=' AND a.event_id=?';$params[]=$eventId;}
+        $count=$this->db->prepare('SELECT COUNT(*) FROM vw_attendance_effective a'.$where);$count->execute($params);$total=(int)$count->fetchColumn();$lastPage=max(1,(int)ceil($total/self::HISTORY_PER_PAGE));$page=min($page,$lastPage);$offset=($page-1)*self::HISTORY_PER_PAGE;
+        $statement=$this->db->prepare("SELECT a.event_id,e.title event_title,a.attendance_date date,a.effective_status status,a.manual_status,a.morning_in_at,a.morning_out_at,a.afternoon_in_at,a.afternoon_out_at FROM vw_attendance_effective a JOIN tbl_events e ON e.id=a.event_id{$where} ORDER BY a.attendance_date DESC,a.event_id DESC LIMIT ? OFFSET ?");
+        $position=1;foreach($params as $value)$statement->bindValue($position++,$value,is_int($value)?PDO::PARAM_INT:PDO::PARAM_STR);$statement->bindValue($position++,self::HISTORY_PER_PAGE,PDO::PARAM_INT);$statement->bindValue($position,$offset,PDO::PARAM_INT);$statement->execute();$records=$statement->fetchAll();foreach($records as &$record)$record['event_id']=(int)$record['event_id'];unset($record);
+        return ['student'=>['id'=>(int)$student['id'],'id_number'=>$student['id_number'],'name'=>trim($student['first_name'].' '.($student['middle_name']??'').' '.$student['last_name'])],'records'=>$records,'pagination'=>$this->pagination($page,$total,self::HISTORY_PER_PAGE)];
+    }
+
+    private function pagination(int $page,int $total,int $perPage):array{$offset=($page-1)*$perPage;return['current_page'=>$page,'last_page'=>max(1,(int)ceil($total/$perPage)),'per_page'=>$perPage,'total'=>$total,'from'=>$total?$offset+1:null,'to'=>$total?min($offset+$perPage,$total):null];}
 
     public function team(int $userId): array
     {
         $teamId = $this->teamId($userId);
         if (!$teamId) return ['team'=>null];
         $team = $this->rows('SELECT t.id,t.name,t.color,sy.label school_year FROM tbl_teams t JOIN tbl_school_years sy ON sy.id=t.school_year_id WHERE t.id=?', [$teamId])[0];
-        $team['members'] = $this->students($userId)['students'];
+        $team['members_count'] = (int) $this->rows("SELECT COUNT(*) total FROM tbl_team_user tu JOIN tbl_users u ON u.id=tu.user_id JOIN tbl_roles r ON r.id=u.role_id AND r.name='Student' WHERE tu.team_id=?",[$teamId])[0]['total'];
+        $team['member_preview'] = $this->rows("SELECT u.id_number,TRIM(CONCAT_WS(' ',u.first_name,NULLIF(u.middle_name,''),u.last_name)) name FROM tbl_team_user tu JOIN tbl_users u ON u.id=tu.user_id JOIN tbl_roles r ON r.id=u.role_id AND r.name='Student' WHERE tu.team_id=? ORDER BY u.last_name,u.first_name,u.id LIMIT 8",[$teamId]);
         $team['scores'] = $this->rows('SELECT e.title event_title,COALESCE(c.name,\'General\') category,SUM(s.points) points FROM vw_finalized_scores s JOIN tbl_events e ON e.id=s.event_id LEFT JOIN tbl_score_categories c ON c.id=s.score_category_id WHERE s.team_id=? GROUP BY e.id,c.id ORDER BY e.start_at DESC', [$teamId]);
         $team['attendance'] = $this->rows("SELECT a.effective_status status,COUNT(*) total FROM vw_attendance_effective a JOIN tbl_team_user tu ON tu.user_id=a.user_id JOIN tbl_users u ON u.id=a.user_id JOIN tbl_roles r ON r.id=u.role_id AND r.name='Student' WHERE tu.team_id=? GROUP BY a.effective_status", [$teamId]);
         $team['activities'] = $this->rows('SELECT e.title,e.start_at,e.location FROM tbl_event_team et JOIN tbl_events e ON e.id=et.event_id WHERE et.team_id=? AND e.deleted_at IS NULL AND e.end_at>=CURRENT_TIMESTAMP ORDER BY e.start_at LIMIT 8', [$teamId]);
@@ -179,7 +222,7 @@ $actor=AuthGuard::requireRole('Faculty'); $repo=new FacultyRepository((new Datab
 try {
     if ($_SERVER['REQUEST_METHOD']==='GET') {
         $data=match($page) {
-            'students'=>$repo->students((int)$actor['id']), 'team'=>$repo->team((int)$actor['id']),
+            'students'=>$repo->students((int)$actor['id'],$_GET), 'student_history'=>$repo->studentAttendance((int)$actor['id'],$_GET), 'team'=>$repo->team((int)$actor['id']),
             'leaderboard'=>$repo->leaderboard((int)$actor['id'],$_GET), 'attendance'=>$repo->attendance((int)$actor['id']),
             'profile'=>$repo->profile((int)$actor['id']), default=>null,
         };
