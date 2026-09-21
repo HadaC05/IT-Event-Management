@@ -354,6 +354,8 @@ final class StudentPortalRepository
     }
 }
 
+if (realpath((string) ($_SERVER['SCRIPT_FILENAME'] ?? '')) !== __FILE__) return;
+
 $actor = AuthGuard::requireRole('Student');
 $repository = new StudentPortalRepository((new Database())->connection());
 $page = (string) ($_GET['page'] ?? 'events');

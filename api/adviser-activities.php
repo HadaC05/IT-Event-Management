@@ -117,6 +117,8 @@ final class AdviserActivityRepository
     }
 }
 
+if (realpath((string) ($_SERVER['SCRIPT_FILENAME'] ?? '')) !== __FILE__) return;
+
 $actor = AuthGuard::requireRole('SBO Adviser');
 $repository = new AdviserActivityRepository((new Database())->connection());
 try {
