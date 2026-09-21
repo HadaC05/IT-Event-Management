@@ -332,7 +332,7 @@ window.SharedNavigation.ready.then((context) => {
       await post({ action: activityId ? "activity_update" : "activity_create", id, activity_id: activityId, catalog_activity_id: Number(form.elements.catalog_activity_id.value), name: form.elements.name.value.trim() });
       toast("success", activityId ? "Activity updated." : "Activity added.");
       activityDialog.close();
-      await load();
+      location.reload();
     } catch (error) {
       errorHost.textContent = error.response?.data?.errors?.catalog_activity_id?.[0] || error.response?.data?.errors?.name?.[0] || error.response?.data?.message || "Unable to save activity.";
       errorHost.classList.remove("hidden");

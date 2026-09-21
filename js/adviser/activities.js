@@ -47,7 +47,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   form.onsubmit = async event => {
     event.preventDefault(); if (!form.reportValidity()) return;
     const editing = form.elements.action.value === 'update'; save.disabled = true; save.textContent = editing ? 'Saving...' : 'Creating...';
-    try { const response = await axios.post(API, Object.fromEntries(new FormData(form)), { headers: { 'X-CSRF-Token': csrfToken } }); dialog.close(); notify('success', response.data.message); page = 1; await load(); }
+    try { const response = await axios.post(API, Object.fromEntries(new FormData(form)), { headers: { 'X-CSRF-Token': csrfToken } }); dialog.close(); notify('success', response.data.message); location.reload(); }
     catch (error) { notify('error', error.response?.data?.message || 'Unable to save activity details.'); }
     finally { save.disabled = false; save.textContent = editing ? 'Save Changes' : 'Create Activity'; }
   };
