@@ -8,7 +8,6 @@ require_once __DIR__.'/AcademicPeriodScope.php';
 
 final class SboAssignmentRepository
 {
-    private const RESPONSIBILITIES = ['attendance', 'scoring', 'media'];
     private const SESSIONS = ['whole_day', 'morning', 'afternoon'];
 
     public function __construct(private readonly PDO $db) {}
@@ -38,18 +37,20 @@ final class SboAssignmentRepository
         $teams=$this->db->query('SELECT id,name,color,school_year_id FROM tbl_teams WHERE is_active=1 ORDER BY name')->fetchAll();
         foreach($teams as &$team){$team['id']=(int)$team['id'];$team['school_year_id']=(int)$team['school_year_id'];}unset($team);
 
-        $tasks=$this->db->query("SELECT sea.id,sea.officer_assignment_id,sea.event_schedule_id,sea.session_code,sea.responsibility,sea.status,
-          e.id event_id,e.title event_name,s.schedule_date,a.name activity_name,t.name team_name,
+        $tasks=$this->db->query("SELECT sea.id,sea.officer_assignment_id,sea.event_schedule_id,sea.session_code,r.code responsibility,sea.scanner_mode,sea.scanner_team_id,sea.status,
+          e.id event_id,e.title event_name,s.schedule_date,a.name activity_name,t.name team_name,scanner_team.name scanner_team_name,
           u.first_name,u.middle_name,u.last_name,u.username
           FROM tbl_sbo_event_assignments sea
+          JOIN tbl_officer_responsibilities r ON r.id=sea.responsibility_id
           JOIN tbl_sbo_officer_assignments oa ON oa.id=sea.officer_assignment_id AND oa.status='Active'
           JOIN tbl_users u ON u.id=oa.officer_user_id
           JOIN tbl_event_attendance_schedules s ON s.id=sea.event_schedule_id
           JOIN tbl_events e ON e.id=s.event_id AND e.deleted_at IS NULL
           JOIN tbl_event_activities a ON a.id=sea.activity_id AND a.status='active'
           JOIN tbl_teams t ON t.id=sea.team_id AND t.is_active=1
+          LEFT JOIN tbl_teams scanner_team ON scanner_team.id=sea.scanner_team_id
           WHERE sea.status='active' ORDER BY s.schedule_date DESC,e.title,u.last_name")->fetchAll();
-        foreach($tasks as &$task){foreach(['id','officer_assignment_id','event_schedule_id','event_id'] as $key)$task[$key]=(int)$task[$key];$task['officer_name']=$this->name($task);}unset($task);
+        foreach($tasks as &$task){foreach(['id','officer_assignment_id','event_schedule_id','event_id'] as $key)$task[$key]=(int)$task[$key];$task['scanner_team_id']=$task['scanner_team_id']===null?null:(int)$task['scanner_team_id'];$task['officer_name']=$this->name($task);}unset($task);
         return compact('officers','events','teams','tasks');
     }
 
@@ -60,7 +61,7 @@ final class SboAssignmentRepository
         $team=(int)($input['team_id']??0);$responsibility=trim((string)($input['responsibility']??''));
         if($officer<1||$schedule<1||$team<1)throw new InvalidArgumentException('Officer, event day, and team are required.');
         if(!in_array($session,self::SESSIONS,true))throw new InvalidArgumentException('Select a valid session.');
-        if(!in_array($responsibility,self::RESPONSIBILITIES,true))throw new InvalidArgumentException('Select a valid responsibility.');
+        if(!$this->scalar('SELECT COUNT(*) FROM tbl_officer_responsibilities WHERE code=?',[$responsibility]))throw new InvalidArgumentException('Select a valid responsibility.');
         if($activityName===''||mb_strlen($activityName)>120)throw new InvalidArgumentException('Activity name is required and may not exceed 120 characters.');
         if(!$this->scalar("SELECT COUNT(*) FROM tbl_sbo_officer_assignments oa JOIN tbl_users u ON u.id=oa.officer_user_id JOIN tbl_roles r ON r.id=u.role_id AND r.name='SBO Officer' JOIN tbl_user_statuses us ON us.id=u.status AND us.label='active' WHERE oa.id=? AND oa.status='Active'",[$officer]))throw new InvalidArgumentException('Select an active SBO Officer.');
         $scheduleRow=$this->row("SELECT s.*,m.code session_mode,e.audience_type FROM tbl_event_attendance_schedules s JOIN tbl_attendance_session_modes m ON m.id=s.attendance_session_mode_id JOIN tbl_events e ON e.id=s.event_id AND e.deleted_at IS NULL WHERE s.id=?",[$schedule]);
@@ -68,6 +69,7 @@ final class SboAssignmentRepository
         $validSessions=$scheduleRow['session_mode']==='whole_day'?['whole_day']:($scheduleRow['session_mode']==='two_sessions'?['morning','afternoon']:[]);
         if(!in_array($session,$validSessions,true))throw new InvalidArgumentException('That session is not enabled for this event day.');
         if(!(new AcademicPeriodScope($this->db))->teamIsInEvent((int)$scheduleRow['event_id'],$team))throw new InvalidArgumentException('That team is outside the event academic period or participant scope.');
+        [$scannerMode,$scannerTeamId]=$this->scannerScope($input,$responsibility,(int)$scheduleRow['event_id'],$team);
 
         $this->db->beginTransaction();
         try {
@@ -81,6 +83,7 @@ final class SboAssignmentRepository
             $teamLock=$this->db->prepare('SELECT id,is_active FROM tbl_teams WHERE id=? FOR UPDATE');$teamLock->execute([$team]);$teamRow=$teamLock->fetch();
             if(!$teamRow||(int)$teamRow['is_active']!==1)throw new InvalidArgumentException('Select an active team.');
             if(!(new AcademicPeriodScope($this->db))->teamIsInEvent((int)$scheduleRow['event_id'],$team))throw new InvalidArgumentException('That team is outside the event academic period or participant scope.');
+            [$scannerMode,$scannerTeamId]=$this->scannerScope($input,$responsibility,(int)$scheduleRow['event_id'],$team,true);
             $activity=$this->row('SELECT id,status FROM tbl_event_activities WHERE event_id=? AND lower(name)=lower(?) LIMIT 1 FOR UPDATE',[(int)$scheduleRow['event_id'],$activityName]);
             if(!$activity){
                 if($scheduleRow['event_type_id']===null)throw new InvalidArgumentException('Assign an event type before adding an activity.');
@@ -93,11 +96,12 @@ final class SboAssignmentRepository
                 if($activity['status']!=='active')
                     $this->db->prepare("UPDATE tbl_event_activities SET status='active',updated_at=CURRENT_TIMESTAMP WHERE id=?")->execute([$activityId]);
             }
-            $existing=$this->db->prepare("SELECT id FROM tbl_sbo_event_assignments WHERE officer_assignment_id=? AND event_schedule_id=? AND session_code=? AND activity_id=? AND team_id=? AND responsibility=? AND status='active' FOR UPDATE");
-            $existing->execute([$officer,$schedule,$session,$activityId,$team,$responsibility]);
+            $responsibilityId=(int)$this->scalar('SELECT id FROM tbl_officer_responsibilities WHERE code=?',[$responsibility]);
+            $existing=$this->db->prepare("SELECT id FROM tbl_sbo_event_assignments WHERE officer_assignment_id=? AND event_schedule_id=? AND session_code=? AND activity_id=? AND team_id=? AND responsibility_id=? AND status='active' FOR UPDATE");
+            $existing->execute([$officer,$schedule,$session,$activityId,$team,$responsibilityId]);
             if($existingId=(int)$existing->fetchColumn()){$this->db->commit();return$existingId;}
-            $statement=$this->db->prepare("INSERT INTO tbl_sbo_event_assignments(officer_assignment_id,event_schedule_id,session_code,activity_id,team_id,responsibility,status,assigned_by,created_at,updated_at) VALUES(?,?,?,?,?,?,'active',?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)");
-            $statement->execute([$officer,$schedule,$session,$activityId,$team,$responsibility,$actorId]);
+            $statement=$this->db->prepare("INSERT INTO tbl_sbo_event_assignments(officer_assignment_id,event_schedule_id,session_code,activity_id,team_id,responsibility_id,scanner_mode,scanner_team_id,status,assigned_by,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?, 'active',?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)");
+            $statement->execute([$officer,$schedule,$session,$activityId,$team,$responsibilityId,$scannerMode,$scannerTeamId,$actorId]);
             $id=(int)$this->db->lastInsertId();
             $this->db->prepare("INSERT INTO tbl_activity_logs(actor_id,event_id,officer_assignment_id,action,acting_role,description,created_at,updated_at) VALUES(?,?,?,'sbo_event_assigned','SBO Adviser',?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)")->execute([$actorId,(int)$scheduleRow['event_id'],$officer,"Assigned $responsibility responsibility for $activityName."]);
             $this->db->commit();return$id;
@@ -125,7 +129,7 @@ final class SboAssignmentRepository
         if(!is_numeric($minimum)||!is_numeric($maximum)||(float)$minimum<0||(float)$maximum<=(float)$minimum)throw new InvalidArgumentException('Maximum score must be greater than the minimum score.');
         $this->db->beginTransaction();
         try{
-            $task=$this->row("SELECT sea.activity_id,s.event_id FROM tbl_sbo_event_assignments sea JOIN tbl_event_attendance_schedules s ON s.id=sea.event_schedule_id WHERE sea.id=? AND sea.responsibility='scoring' AND sea.status='active' FOR UPDATE",[$taskId]);
+            $task=$this->row("SELECT sea.activity_id,s.event_id FROM tbl_sbo_event_assignments sea JOIN tbl_officer_responsibilities r ON r.id=sea.responsibility_id JOIN tbl_event_attendance_schedules s ON s.id=sea.event_schedule_id WHERE sea.id=? AND r.code='scoring' AND sea.status='active' FOR UPDATE",[$taskId]);
             if(!$task)throw new InvalidArgumentException('Select an active scoring responsibility.');
             $activityLock=$this->db->prepare('SELECT id FROM tbl_event_activities WHERE id=? AND event_id=? FOR UPDATE');$activityLock->execute([(int)$task['activity_id'],(int)$task['event_id']]);
             if(!$activityLock->fetchColumn())throw new InvalidArgumentException('The scoring activity no longer exists.');
@@ -140,7 +144,7 @@ final class SboAssignmentRepository
     {
         $this->db->beginTransaction();
         try{
-            $task=$this->row("SELECT sea.activity_id,sea.team_id,s.event_id FROM tbl_sbo_event_assignments sea JOIN tbl_event_attendance_schedules s ON s.id=sea.event_schedule_id WHERE sea.id=? AND sea.responsibility='scoring' FOR UPDATE",[$taskId]);
+            $task=$this->row("SELECT sea.activity_id,sea.team_id,s.event_id FROM tbl_sbo_event_assignments sea JOIN tbl_officer_responsibilities r ON r.id=sea.responsibility_id JOIN tbl_event_attendance_schedules s ON s.id=sea.event_schedule_id WHERE sea.id=? AND r.code='scoring' FOR UPDATE",[$taskId]);
             if(!$task)throw new InvalidArgumentException('Scoring responsibility not found.');
             $sheet=$this->db->prepare('SELECT status FROM tbl_score_sheets WHERE event_id=? AND activity_id=? AND team_id=? FOR UPDATE');$sheet->execute([(int)$task['event_id'],(int)$task['activity_id'],(int)$task['team_id']]);$status=$sheet->fetchColumn();
             if($status===false)throw new InvalidArgumentException('This score sheet does not exist.');
@@ -154,6 +158,18 @@ final class SboAssignmentRepository
 
     private function row(string $sql,array $params=[]):array|false{$s=$this->db->prepare($sql);$s->execute($params);return$s->fetch();}
     private function scalar(string $sql,array $params=[]):mixed{$s=$this->db->prepare($sql);$s->execute($params);return$s->fetchColumn();}
+    private function scannerScope(array $input,string $responsibility,int $eventId,int $defaultTeamId,bool $lock=false):array
+    {
+        if($responsibility!=='attendance')return[null,null];
+        $mode=(string)($input['scanner_mode']??'specific');
+        if(!in_array($mode,['specific','general'],true))throw new InvalidArgumentException('Choose a valid attendance scanner mode.');
+        if($mode==='general')return[$mode,null];
+        $teamId=filter_var($input['scanner_team_id']??$defaultTeamId,FILTER_VALIDATE_INT);
+        if(!$teamId)throw new InvalidArgumentException('Select an allowed scanner team.');
+        $statement=$this->db->prepare('SELECT id FROM tbl_teams WHERE id=? AND is_active=1'.($lock?' FOR UPDATE':''));$statement->execute([$teamId]);
+        if(!$statement->fetchColumn()||!(new AcademicPeriodScope($this->db))->teamIsInEvent($eventId,$teamId))throw new InvalidArgumentException('The allowed scanner team must be active and eligible for this event.');
+        return[$mode,$teamId];
+    }
     private function name(array $row):string{return trim(implode(' ',array_filter([$row['first_name']??null,$row['middle_name']??null,$row['last_name']??null])));}
 }
 

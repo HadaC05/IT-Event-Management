@@ -141,6 +141,7 @@ final class EventManagementRepository
         $event['creator_name'] = $this->fullName($event, 'creator_') ?: 'System';
         $event['assigned_users'] = $this->assignedUsers($id);
         $event['activities'] = $this->activities($id);
+        $event['activity_options'] = $this->activityOptions((int) ($event['event_type_id'] ?? 0));
         $event['attendance_schedules'] = $this->schedules($id);
         $event['event_locations'] = $this->eventLocations($id);
         $event['location_ids'] = array_column($event['event_locations'], 'id');
@@ -148,6 +149,8 @@ final class EventManagementRepository
         $event['audience_team_ids'] = $this->pivotIds('tbl_event_team', 'team_id', $id);
         $event['participant_ids'] = $this->pivotIds('tbl_event_participants', 'user_id', $id);
         $event['expected_participants'] = $this->expectedParticipants($event);
+        $event['attendance_assignments'] = $this->attendanceAssignments($id);
+        $event['attendance_overview'] = $this->attendanceOverview($id, $event['expected_participants']);
         $metadata = $this->metadata();
         $assigned = array_column($event['assigned_users'], 'id');
         $metadata['available_users'] = array_values(array_filter(
@@ -159,8 +162,22 @@ final class EventManagementRepository
 
     private function activities(int $eventId): array
     {
-        $statement = $this->db->prepare('SELECT ea.id,a.label AS name,a.description,ea.status FROM tbl_event_activities ea INNER JOIN tbl_activities a ON a.id=ea.activity_id WHERE ea.event_id=? ORDER BY ea.id');
+        $statement = $this->db->prepare('SELECT ea.id,ea.activity_id AS catalog_activity_id,ea.name,ea.status FROM tbl_event_activities ea WHERE ea.event_id=? ORDER BY ea.id');
         $statement->execute([$eventId]);
+        $activities = $statement->fetchAll();
+        foreach ($activities as &$activity) {
+            $activity['id'] = (int) $activity['id'];
+            $activity['catalog_activity_id'] = (int) $activity['catalog_activity_id'];
+        }
+        unset($activity);
+        return $activities;
+    }
+
+    private function activityOptions(int $eventTypeId): array
+    {
+        if ($eventTypeId < 1) return [];
+        $statement = $this->db->prepare("SELECT id,label FROM tbl_activities WHERE event_type_id=? AND status='active' ORDER BY label,id");
+        $statement->execute([$eventTypeId]);
         $activities = $statement->fetchAll();
         foreach ($activities as &$activity) $activity['id'] = (int) $activity['id'];
         unset($activity);
@@ -170,11 +187,11 @@ final class EventManagementRepository
     public function saveActivity(int $eventId, array $input, int $actorId, ?int $activityId = null): void
     {
         $event = $this->eventRow($eventId);
-        $name = trim((string) ($input['name'] ?? ''));
-        $description = trim((string) ($input['description'] ?? ''));
+        $catalogActivityId = (int) ($input['catalog_activity_id'] ?? 0);
+        $customName = trim((string) ($input['name'] ?? ''));
         $errors = [];
-        if ($name === '' || mb_strlen($name) > 120) $errors['name'] = ['Activity name is required and may not exceed 120 characters.'];
-        if (mb_strlen($description) > 2000) $errors['description'] = ['Description may not exceed 2,000 characters.'];
+        if ($catalogActivityId < 1) $errors['catalog_activity_id'] = ['Select an activity.'];
+        if (mb_strlen($customName) > 120) $errors['name'] = ['Activity name may not exceed 120 characters.'];
         if ($errors) throw new EventValidationException($errors);
         if ($activityId !== null) {
             $activity = $this->db->prepare('SELECT id FROM tbl_event_activities WHERE id=? AND event_id=?');
@@ -188,23 +205,26 @@ final class EventManagementRepository
             $lockedEvent = $eventLock->fetch();
             if (!$lockedEvent) throw new EventValidationException(['event' => ['Event not found.']]);
             if ($lockedEvent['event_type_id'] === null) throw new EventValidationException(['event_type' => ['Assign an event type before adding an activity.']]);
-            $duplicate = $this->db->prepare('SELECT id FROM tbl_event_activities WHERE event_id=? AND LOWER(name)=LOWER(?)'.($activityId === null ? '' : ' AND id<>?'));
-            $duplicate->execute($activityId === null ? [$eventId, $name] : [$eventId, $name, $activityId]);
-            if ($duplicate->fetch()) throw new EventValidationException(['name' => ['An activity with this name already exists for this event.']]);
+            $catalog = $this->db->prepare("SELECT id,label FROM tbl_activities WHERE id=? AND event_type_id=? AND status='active' FOR UPDATE");
+            $catalog->execute([$catalogActivityId, $lockedEvent['event_type_id']]);
+            $selectedActivity = $catalog->fetch();
+            if (!$selectedActivity) throw new EventValidationException(['catalog_activity_id' => ['Select an active activity for this event type.']]);
+            $name = $customName !== '' ? $customName : $selectedActivity['label'];
+            $duplicate = $this->db->prepare('SELECT id FROM tbl_event_activities WHERE event_id=? AND activity_id=?'.($activityId === null ? '' : ' AND id<>?'));
+            $duplicate->execute($activityId === null ? [$eventId, $catalogActivityId] : [$eventId, $catalogActivityId, $activityId]);
+            if ($duplicate->fetch()) throw new EventValidationException(['catalog_activity_id' => ['This activity has already been added to the event.']]);
+            $duplicateName = $this->db->prepare('SELECT id FROM tbl_event_activities WHERE event_id=? AND LOWER(name)=LOWER(?)'.($activityId === null ? '' : ' AND id<>?'));
+            $duplicateName->execute($activityId === null ? [$eventId, $name] : [$eventId, $name, $activityId]);
+            if ($duplicateName->fetch()) throw new EventValidationException(['name' => ['An activity with this name already exists for this event.']]);
             if ($activityId === null) {
-                $catalog = $this->db->prepare("INSERT INTO tbl_activities(label,description,event_type_id,status,created_at,updated_at) VALUES(?,?,?,'active',CURRENT_TIMESTAMP,CURRENT_TIMESTAMP) ON DUPLICATE KEY UPDATE description=VALUES(description),status='active',updated_at=CURRENT_TIMESTAMP");
-                $catalog->execute([$name, $description ?: null, $lockedEvent['event_type_id']]);
-                $catalogId = (int) $this->scalar('SELECT id FROM tbl_activities WHERE event_type_id=? AND label=?', [(int) $lockedEvent['event_type_id'], $name]);
                 $statement = $this->db->prepare("INSERT INTO tbl_event_activities(event_id,activity_id,name,status,created_by,created_at,updated_at) VALUES(?,?,?,'active',?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)");
-                $statement->execute([$eventId, $catalogId, $name, $actorId]);
+                $statement->execute([$eventId, $catalogActivityId, $name, $actorId]);
             } else {
                 $activityLock = $this->db->prepare('SELECT id FROM tbl_event_activities WHERE id=? AND event_id=? FOR UPDATE');
                 $activityLock->execute([$activityId, $eventId]);
                 if (!$activityLock->fetchColumn()) throw new EventValidationException(['activity' => ['Activity not found for this event.']]);
-                $catalog = $this->db->prepare('UPDATE tbl_activities a INNER JOIN tbl_event_activities ea ON ea.activity_id=a.id SET a.label=?,a.description=?,a.updated_at=CURRENT_TIMESTAMP WHERE ea.id=? AND ea.event_id=?');
-                $catalog->execute([$name, $description ?: null, $activityId, $eventId]);
-                $statement = $this->db->prepare('UPDATE tbl_event_activities SET name=?,updated_at=CURRENT_TIMESTAMP WHERE id=? AND event_id=?');
-                $statement->execute([$name, $activityId, $eventId]);
+                $statement = $this->db->prepare('UPDATE tbl_event_activities SET activity_id=?,name=?,updated_at=CURRENT_TIMESTAMP WHERE id=? AND event_id=?');
+                $statement->execute([$catalogActivityId, $name, $activityId, $eventId]);
             }
             $this->log($actorId, $eventId, $activityId === null ? 'event_activity_created' : 'event_activity_updated', $name.' was '.($activityId === null ? 'added to ' : 'updated for ').$event['title'].'.');
             $this->db->commit();
@@ -915,6 +935,66 @@ final class EventManagementRepository
     private function expectedParticipants(array $event): int
     {
         return (int)$this->scalar('SELECT COUNT(*) FROM tbl_event_membership_snapshots WHERE event_id=?',[(int)$event['id']]);
+    }
+
+    private function attendanceAssignments(int $eventId): array
+    {
+        $statement = $this->db->prepare(
+            "SELECT sea.id,sea.session_code,sea.scanner_mode,sea.status,s.schedule_date,
+                    u.first_name,u.middle_name,u.last_name,u.username,a.name activity_name,t.name team_name,
+                    scanner_team.name scanner_team_name
+             FROM tbl_sbo_event_assignments sea
+             JOIN tbl_officer_responsibilities r ON r.id=sea.responsibility_id AND r.code='attendance'
+             JOIN tbl_event_attendance_schedules s ON s.id=sea.event_schedule_id
+             JOIN tbl_sbo_officer_assignments oa ON oa.id=sea.officer_assignment_id
+             JOIN tbl_users u ON u.id=oa.officer_user_id
+             LEFT JOIN tbl_event_activities a ON a.id=sea.activity_id
+             LEFT JOIN tbl_teams t ON t.id=sea.team_id
+             LEFT JOIN tbl_teams scanner_team ON scanner_team.id=sea.scanner_team_id
+             WHERE s.event_id=?
+             ORDER BY s.schedule_date,sea.session_code,u.last_name,u.first_name"
+        );
+        $statement->execute([$eventId]);
+        $assignments = $statement->fetchAll();
+        foreach ($assignments as &$assignment) {
+            $assignment['id'] = (int) $assignment['id'];
+            $assignment['officer_name'] = $this->fullName($assignment);
+        }
+        unset($assignment);
+        return $assignments;
+    }
+
+    private function attendanceOverview(int $eventId, int $expectedParticipants): array
+    {
+        $summary = ['expected' => $expectedParticipants, 'recorded' => 0, 'present' => 0, 'absent' => 0, 'unrecorded' => $expectedParticipants, 'days' => []];
+        $statement = $this->db->prepare(
+            "SELECT s.schedule_date,
+                    COUNT(a.id) recorded,
+                    COALESCE(SUM(CASE WHEN COALESCE(a.manual_status,a.status) IN ('present','late') THEN 1 ELSE 0 END),0) present,
+                    COALESCE(SUM(CASE WHEN COALESCE(a.manual_status,a.status) IN ('absent','excused') THEN 1 ELSE 0 END),0) absent
+             FROM tbl_event_attendance_schedules s
+             JOIN tbl_attendance_session_modes mode ON mode.id=s.attendance_session_mode_id AND mode.code<>'none'
+             LEFT JOIN tbl_attendances a ON a.event_id=s.event_id AND a.attendance_date=s.schedule_date
+             WHERE s.event_id=?
+             GROUP BY s.id,s.schedule_date
+             ORDER BY s.schedule_date"
+        );
+        $statement->execute([$eventId]);
+        foreach ($statement->fetchAll() as $day) {
+            $recorded = (int) $day['recorded'];
+            $present = (int) $day['present'];
+            $absent = (int) $day['absent'];
+            $summary['recorded'] += $recorded;
+            $summary['present'] += $present;
+            $summary['absent'] += $absent;
+            $summary['days'][] = [
+                'date' => $day['schedule_date'], 'expected' => $expectedParticipants, 'recorded' => $recorded,
+                'present' => $present, 'absent' => $absent, 'unrecorded' => max(0, $expectedParticipants - $recorded),
+            ];
+        }
+        $summary['expected'] *= count($summary['days']);
+        $summary['unrecorded'] = max(0, $summary['expected'] - $summary['recorded']);
+        return $summary;
     }
 
     private function synchronizeStatuses(): void

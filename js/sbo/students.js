@@ -6,6 +6,7 @@
     const tableBody = document.querySelector('[data-students]');
     const cards = document.querySelector('[data-student-cards]');
     const assignmentSelect = document.querySelector('[data-assignment]');
+    const upcomingNotice = document.querySelector('[data-upcoming-assignment-notice]');
     let assignmentsLoaded = false;
 
     const escapeHtml = value => SboPortal.escapeHtml(value);
@@ -39,15 +40,16 @@
             const {data} = (await axios.get(API, {params})).data;
             if (!assignmentsLoaded) {
                 assignmentSelect.innerHTML = data.assignments.length
-                    ? data.assignments.map(assignment => `<option value="${assignment.id}">${escapeHtml(assignment.event_name)} · ${escapeHtml(assignment.team_name)} · ${escapeHtml(assignment.activity_name)}</option>`).join('')
+                    ? data.assignments.map(assignment => `<option value="${assignment.id}">${assignment.assignment_state === 'upcoming' ? 'Upcoming assignment · ' : ''}${escapeHtml(assignment.event_name)} · ${escapeHtml(assignment.team_name)} · ${escapeHtml(assignment.activity_name)}</option>`).join('')
                     : '<option value="">No active assignment</option>';
                 if (data.selected) assignmentSelect.value = data.selected.id;
                 assignmentsLoaded = true;
             }
+            upcomingNotice.classList.toggle('hidden', data.selected?.assignment_state !== 'upcoming');
 
             const emptyMessage = data.assignments.length
                 ? 'No students match these filters.'
-                : 'You currently have no active event assignment.';
+                : 'You currently have no current or upcoming event assignment.';
             tableBody.innerHTML = data.students.length
                 ? data.students.map(tableRow).join('')
                 : `<tr><td colspan="5" class="p-12 text-center text-sm text-[#121017]/45">${emptyMessage}</td></tr>`;

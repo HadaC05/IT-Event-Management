@@ -8,7 +8,8 @@ final class SboScoresRepository{
   $t=$this->db->prepare('SELECT id,name,color FROM tbl_teams WHERE id=? AND is_active=1');$t->execute([$selected['team_id']]);$teams=$t->fetchAll();foreach($teams as &$v)$v['id']=(int)$v['id'];unset($v);
   $s=$this->db->prepare('SELECT team_id,score_category_id,points FROM tbl_scores WHERE event_id=? AND team_id=? AND score_category_id IN(SELECT id FROM tbl_score_categories WHERE activity_id=?)');$s->execute([$selected['event_id'],$selected['team_id'],$selected['activity_id']]);$scores=[];foreach($s as $v)$scores[$v['team_id']][$v['score_category_id']]=(float)$v['points'];$q=$this->db->prepare('SELECT * FROM tbl_score_sheets WHERE event_id=? AND activity_id=? AND team_id=?');$q->execute([$selected['event_id'],$selected['activity_id'],$selected['team_id']]);$sheet=$q->fetch()?:null;return compact('assignments','selected','categories','teams','scores','sheet');}
  public function save(int $user,array $input):string{
-  $assignment=$this->auth->assignment($user,(int)($input['assignment_id']??0),'scoring');
+ $assignment=$this->auth->assignment($user,(int)($input['assignment_id']??0),'scoring');
+  if(($assignment['assignment_state']??'')==='upcoming')throw new InvalidArgumentException('Scoring is not available until this upcoming event begins.');
   $finalize=!empty($input['finalize']);$rows=$input['scores']??null;
   if(!is_array($rows))throw new InvalidArgumentException('Score entries are required.');
   $categories=$this->map('SELECT id,min_points,max_points FROM tbl_score_categories WHERE event_id=? AND activity_id=?',[$assignment['event_id'],$assignment['activity_id']]);

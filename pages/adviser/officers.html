@@ -7,7 +7,7 @@
     <title>SBO Officer Management | CITE Events</title>
     <link rel="icon" type="image/png" sizes="512x512" href="assets/images/cite_favicon.png">
     <link rel="stylesheet" href="css/tailwind.css">
-    <link rel="stylesheet" href="css/adviser.css?v=20260917-flat-2">
+    <link rel="stylesheet" href="css/adviser.css?v=20260921-officer-tables-1">
     <script src="js/shared/notifications.js?v=20260917-7" defer></script>
     <script src="js/shared/interactions.js?v=20260917-flat-1" defer></script>
 </head>
@@ -20,32 +20,39 @@
         <main class="admin-main mx-auto w-full max-w-[1500px] px-4 py-7 sm:px-6 lg:px-10 lg:py-9 xl:px-16" data-page-content>
             <header class="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
                 <div><p class="mb-2 text-xs font-black uppercase tracking-[.14em] text-[#397565]">Account assignments</p><h1 class="text-3xl font-black tracking-tight sm:text-4xl">SBO Officer Management</h1><p class="mt-2 text-sm text-[#121017]/55">Manage officer accounts and event responsibilities.</p></div>
-                <div class="flex flex-col gap-2 sm:flex-row" data-officer-header-actions><button class="inline-flex min-h-11 items-center justify-center rounded-xl bg-[#397565] px-5 text-sm font-black text-white shadow-lg" type="button" data-dialog-open="assign-officer-dialog">+ Create Officer Access</button></div>
             </header>
 
-            <div class="mb-5 inline-flex rounded-xl border border-[#121017]/10 bg-[#F3F0E9]/55 p-1" role="tablist" aria-label="SBO officer management sections">
-                <button class="rounded-lg bg-white px-4 py-2 text-sm font-black text-[#397565] shadow-sm" type="button" role="tab" aria-selected="true" aria-controls="officer-list-panel" id="officer-list-tab" data-officer-tab="officers">Officers</button>
-                <button class="rounded-lg px-4 py-2 text-sm font-black text-[#121017]/55 transition hover:text-[#397565]" type="button" role="tab" aria-selected="false" aria-controls="officer-assignments-panel" id="officer-assignments-tab" data-officer-tab="assignments">Assignments</button>
+            <div class="mb-5 grid w-full grid-cols-2 rounded-xl border border-[#121017]/10 bg-[#F3F0E9]/55 p-1" role="tablist" aria-label="SBO officer management sections">
+                <button class="w-full rounded-lg bg-white px-4 py-2 text-sm font-black text-[#397565] shadow-sm" type="button" role="tab" aria-selected="true" aria-controls="officer-list-panel" id="officer-list-tab" data-officer-tab="officers">Officers</button>
+                <button class="w-full rounded-lg px-4 py-2 text-sm font-black text-[#121017]/55 transition hover:text-[#397565]" type="button" role="tab" aria-selected="false" aria-controls="officer-assignments-panel" id="officer-assignments-tab" data-officer-tab="assignments">Assignments</button>
             </div>
 
             <section id="officer-list-panel" role="tabpanel" aria-labelledby="officer-list-tab" data-officer-tab-panel="officers" class="overflow-hidden rounded-2xl border border-[#121017]/10 bg-white shadow-sm">
                 <header class="border-b border-[#121017]/8 px-5 py-5">
-                    <div class="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between"><div><h2 class="text-lg font-black">Officers</h2><p class="mt-1 text-xs text-[#121017]/45" data-officer-result-count></p></div><label class="inline-flex cursor-pointer items-center gap-2 text-xs font-bold text-[#121017]/50"><input class="h-4 w-4 accent-[#397565]" type="checkbox" data-select-all-officers>Select all active</label></div>
+                    <div class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between"><div><h2 class="text-lg font-black">Officers</h2><p class="mt-1 text-xs text-[#121017]/45" data-officer-result-count></p></div><button class="inline-flex min-h-10 items-center justify-center rounded-xl bg-[#397565] px-4 text-xs font-black text-white shadow-lg" type="button" data-dialog-open="assign-officer-dialog">+ Create Officer Access</button></div>
                     <form class="mt-4 grid gap-2 sm:grid-cols-[minmax(0,1fr)_180px]" data-officer-filters data-axios-form>
                         <label class="relative"><span class="sr-only">Search officers or events</span><svg class="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 fill-none stroke-[#121017]/35 stroke-2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg><input class="h-11 w-full rounded-xl border border-[#121017]/10 bg-[#F3F0E9]/45 pl-10 pr-3 text-sm outline-none transition placeholder:text-[#121017]/35 focus:border-[#397565] focus:bg-white" type="search" name="search" maxlength="100" placeholder="Search officer, event, ID, or tribe…" autocomplete="off"></label>
                         <label><span class="sr-only">Filter by assignment status</span><select class="h-11 w-full rounded-xl border border-[#121017]/10 bg-[#F3F0E9]/45 px-3 text-sm text-[#121017]/60 outline-none focus:border-[#397565] focus:bg-white" name="status"><option value="">Any status</option><option value="active">Active</option><option value="inactive">Inactive</option></select></label>
                     </form>
                 </header>
-                <form data-officer-list-form data-axios-form>
-                    <div class="hidden flex-wrap items-center justify-between gap-3 border-b border-[#397565]/15 bg-[#397565]/5 px-5 py-3.5" data-officer-selection-bar><strong class="text-xs font-black text-[#397565]" data-officer-selection-count></strong><div class="flex items-center gap-2"><button class="min-h-9 rounded-xl border border-[#FF6B2C]/25 bg-white px-4 text-xs font-black text-[#d9470a]" type="submit" data-batch-unassign>Unassign</button><button class="grid h-9 w-9 place-items-center rounded-xl text-lg text-[#121017]/45 hover:bg-white" type="button" aria-label="Clear selection" data-clear-officer-selection>×</button></div></div>
-                    <div class="divide-y divide-[#121017]/8" data-officer-list></div>
-                </form>
+                <div class="overflow-x-auto"><table class="officer-management-table w-full text-left text-sm"><colgroup><col class="w-[24%]"><col class="w-[15%]"><col class="w-[19%]"><col class="w-[14%]"><col class="w-[12%]"><col class="w-[16%]"></colgroup><thead class="border-y border-[#121017]/8 bg-[#F3F0E9]/45 text-[10px] font-black uppercase tracking-wider text-[#121017]/50"><tr><th class="px-5 py-3">Student</th><th class="px-4 py-3">Student ID</th><th class="px-4 py-3">Officer username</th><th class="px-4 py-3">Access created</th><th class="px-4 py-3">Status</th><th class="px-5 py-3 text-right">Action</th></tr></thead><tbody class="divide-y divide-[#121017]/8" data-officer-list></tbody></table></div>
                 <div class="hidden border-t border-[#121017]/8 px-5 py-4" data-officer-pagination></div>
             </section>
 
             <section id="officer-assignments-panel" role="tabpanel" aria-labelledby="officer-assignments-tab" data-officer-tab-panel="assignments" class="hidden overflow-hidden rounded-2xl border border-[#121017]/10 bg-white shadow-sm">
-                <header class="border-b border-[#121017]/8 px-5 py-5"><p class="text-xs font-black uppercase tracking-wider text-[#397565]">Backend-enforced access</p><h2 class="mt-1 text-xl font-black">Event Responsibilities</h2><p class="mt-1 text-sm text-[#121017]/55">Assign active SBO officers to event duties and manage their access.</p></header>
-                <form class="grid gap-4 p-5 sm:grid-cols-2" data-task-form>
+                <div class="flex flex-col gap-4 px-5 py-5 sm:flex-row sm:items-center sm:justify-between"><div><p class="text-xs font-black uppercase tracking-wider text-[#397565]">Backend-enforced access</p><h2 class="mt-1 text-xl font-black">Assignments</h2><p class="mt-1 text-sm text-[#121017]/55">Create and manage event duties for active SBO officers.</p></div><button class="inline-flex min-h-11 items-center justify-center rounded-xl bg-[#397565] px-5 text-sm font-black text-white shadow-lg" type="button" data-dialog-open="event-responsibilities-dialog">Event Responsibilities</button></div>
+                <section class="border-t border-[#121017]/8">
+                    <div class="px-5 py-4"><h3 class="font-black">Active responsibilities</h3></div>
+                    <div class="overflow-x-auto"><table class="officer-management-table w-full text-left text-sm"><colgroup><col class="w-[16%]"><col class="w-[22%]"><col class="w-[10%]"><col class="w-[15%]"><col class="w-[15%]"><col class="w-[12%]"><col class="w-[10%]"></colgroup><thead class="border-y border-[#121017]/8 bg-[#F3F0E9]/45 text-[10px] font-black uppercase tracking-wider text-[#121017]/50"><tr><th class="px-5 py-3">Officer</th><th class="px-4 py-3">Event</th><th class="px-4 py-3">Session</th><th class="px-4 py-3">Activity</th><th class="px-4 py-3">Team / tribe</th><th class="px-4 py-3">Responsibility</th><th class="px-5 py-3 text-right">Action</th></tr></thead><tbody class="divide-y divide-[#121017]/8" data-task-list></tbody></table></div>
+                </section>
+            </section>
+        </main>
+    </div>
+
+    <dialog class="m-auto max-h-[calc(100vh_-_2rem)] w-[min(820px,calc(100%_-_2rem))] overflow-y-auto rounded-2xl border-0 bg-white p-0 shadow-2xl backdrop:bg-[#121017]/60" id="event-responsibilities-dialog" data-modal-size="large" data-modal-kind="form">
+        <form data-task-form data-axios-form>
+            <header class="sticky top-0 z-10 flex items-start justify-between gap-4 border-b border-[#121017]/8 border-t-4 border-t-[#397565] bg-white px-6 py-5"><div><p class="text-xs font-black uppercase tracking-wider text-[#397565]">Backend-enforced access</p><h2 class="mt-1 text-2xl font-black">Event Responsibilities</h2><p class="mt-1 text-sm text-[#121017]/50">Assign active SBO officers to event duties and manage their access.</p></div><button class="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#F3F0E9] text-xl" type="button" data-dialog-close aria-label="Close">×</button></header>
+            <div class="grid gap-4 p-6 sm:grid-cols-2">
                     <div class="hidden rounded-xl bg-[#397565]/7 p-4 sm:col-span-2" data-task-officer-empty><strong class="block text-sm font-black text-[#397565]">Create Officer access first</strong><p class="mt-1 text-xs leading-5 text-[#121017]/55">No active Officer assignment exists. The student needs a separate Officer sign-in and assignment.</p><button class="mt-3 min-h-10 rounded-xl bg-[#397565] px-4 text-xs font-black text-white" type="button" data-task-create-officer>Create Officer Access</button></div>
                     <label class="grid gap-2"><span class="text-sm font-bold">SBO Officer</span><select class="h-12 rounded-xl border border-[#121017]/12 px-3" name="officer_assignment_id" required data-task-officer></select></label>
                     <label class="grid gap-2"><span class="text-sm font-bold">Event day</span><select class="h-12 rounded-xl border border-[#121017]/12 px-3" name="event_schedule_id" required data-task-event></select></label>
@@ -53,26 +60,26 @@
                     <label class="grid gap-2"><span class="text-sm font-bold">Activity</span><input class="h-12 rounded-xl border border-[#121017]/12 px-3" name="activity_name" maxlength="120" placeholder="e.g. Basketball" required></label>
                     <label class="grid gap-2"><span class="text-sm font-bold">Team / tribe</span><select class="h-12 rounded-xl border border-[#121017]/12 px-3" name="team_id" required data-task-team></select></label>
                     <label class="grid gap-2"><span class="text-sm font-bold">Responsibility</span><select class="h-12 rounded-xl border border-[#121017]/12 px-3" name="responsibility" required><option value="attendance">Attendance</option><option value="scoring">Scoring</option><option value="media">Media</option></select></label>
+                    <div class="grid gap-4 sm:col-span-2 sm:grid-cols-2" data-task-attendance-scanner>
+                        <label class="grid gap-2"><span class="text-sm font-bold">Attendance scanner access</span><select class="h-12 rounded-xl border border-[#121017]/12 px-3" name="scanner_mode"><option value="specific">Specific tribe/team only</option><option value="general">General — all eligible tribes/teams</option></select></label>
+                        <label class="grid gap-2" data-task-scanner-team-field><span class="flex items-center justify-between gap-2 text-sm font-bold">Allowed scanner team <small class="font-medium text-[#121017]/40">Permission</small></span><select class="h-12 rounded-xl border border-[#121017]/12 px-3" name="scanner_team_id" required data-task-scanner-team></select></label>
+                        <p class="hidden rounded-xl bg-[#397565]/7 px-4 py-3 text-xs leading-5 text-[#397565] sm:col-span-2" data-task-scanner-general-note>General access can scan any student eligible for this event. Specific access is limited to the chosen team.</p>
+                    </div>
                     <div class="flex justify-end sm:col-span-2"><button class="min-h-11 rounded-xl bg-[#397565] px-5 text-sm font-black text-white" type="submit" data-task-submit>Assign responsibility</button></div>
-                </form>
-                <section class="border-t border-[#121017]/8 p-5"><h3 class="mb-3 font-black">Active responsibilities</h3><div class="grid gap-2" data-task-list></div></section>
-            </section>
-        </main>
-    </div>
+            </div>
+        </form>
+    </dialog>
 
     <dialog class="m-auto max-h-[calc(100vh_-_2rem)] w-[min(680px,calc(100%_-_2rem))] overflow-y-auto rounded-2xl border-0 bg-white p-0 shadow-2xl backdrop:bg-[#121017]/60" id="assign-officer-dialog" data-modal-size="large" data-modal-kind="form">
         <form data-assign-officer-form data-axios-form>
-            <header class="sticky top-0 z-10 flex items-start justify-between border-b border-[#121017]/8 border-t-4 border-t-[#397565] bg-white px-6 py-5"><div><p class="text-xs font-black uppercase tracking-wider text-[#397565]">Separate officer sign-in</p><h2 class="mt-1 text-2xl font-black">Create Officer Access</h2><p class="mt-1 text-sm text-[#121017]/50">Choose an existing student and define their officer responsibility.</p></div><button class="grid h-10 w-10 place-items-center rounded-xl bg-[#F3F0E9] text-xl" type="button" data-dialog-close aria-label="Close">×</button></header>
+            <header class="sticky top-0 z-10 flex items-start justify-between border-b border-[#121017]/8 border-t-4 border-t-[#397565] bg-white px-6 py-5"><div><p class="text-xs font-black uppercase tracking-wider text-[#397565]">Separate officer sign-in</p><h2 class="mt-1 text-2xl font-black">Create Officer Access</h2><p class="mt-1 text-sm text-[#121017]/50">Choose one or more students to create separate Officer sign-ins.</p></div><button class="grid h-10 w-10 place-items-center rounded-xl bg-[#F3F0E9] text-xl" type="button" data-dialog-close aria-label="Close">×</button></header>
             <div class="grid gap-5 p-6">
-                <fieldset class="grid gap-3"><legend class="text-sm font-bold">Select student</legend>
+                <fieldset class="grid gap-3"><legend class="text-sm font-bold">Select students</legend>
                     <div class="grid gap-2 sm:grid-cols-[minmax(0,1fr)_180px]"><label class="relative"><span class="sr-only">Search students</span><svg class="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 fill-none stroke-[#397565] stroke-2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg><input class="h-11 w-full rounded-xl border border-[#121017]/12 bg-[#F3F0E9]/45 pl-10 pr-3 text-sm outline-none focus:border-[#397565] focus:bg-white focus:ring-4 focus:ring-[#397565]/10" type="search" placeholder="Name, ID, or email…" autocomplete="off" data-officer-student-search></label><label><span class="sr-only">Filter by year level</span><select class="h-11 w-full rounded-xl border border-[#121017]/12 bg-[#F3F0E9]/45 px-3 text-sm outline-none focus:border-[#397565] focus:bg-white" data-officer-year-filter><option value="">All year levels</option></select></label></div>
+                    <div class="flex justify-end"><button class="min-h-10 rounded-xl border border-[#397565]/25 px-4 text-xs font-black text-[#397565] hover:bg-[#397565]/5" type="button" data-select-filtered-students>Select filtered</button></div>
                     <div class="max-h-52 space-y-2 overflow-y-auto rounded-xl border border-[#121017]/10 bg-[#F3F0E9]/25 p-2" data-officer-student-list></div>
                     <p class="text-[10px] font-bold text-[#397565]" data-selected-student-label aria-live="polite">Select one student to continue.</p>
                 </fieldset>
-                <div class="grid gap-4 sm:grid-cols-2"><label class="grid gap-2"><span class="text-sm font-bold">Officer position</span><input class="h-12 rounded-xl border border-[#121017]/12 px-3 text-sm outline-none focus:border-[#397565]" name="position" placeholder="e.g. Attendance Officer" maxlength="100" required></label><label class="grid gap-2"><span class="flex items-center justify-between gap-2 text-sm font-bold">Home tribe <small class="font-medium text-[#121017]/40">Identity only</small></span><select class="h-12 rounded-xl border border-[#121017]/12 px-3 text-sm outline-none focus:border-[#397565]" name="team_id" required><option value="">Select a home tribe</option></select></label></div>
-                <label class="grid gap-2"><span class="flex items-center justify-between gap-3 text-sm font-bold">Assignment period <small class="font-medium text-[#121017]/40">Set by the tribe's school year</small></span><input class="h-12 rounded-xl border border-[#121017]/8 bg-[#F3F0E9]/55 px-3 text-sm font-bold text-[#121017]/65 outline-none" name="term" placeholder="Select a tribe first" readonly required data-officer-assignment-period></label>
-                <div class="grid gap-4 sm:grid-cols-2"><label class="grid gap-2"><span class="text-sm font-bold">Attendance scanner access</span><select class="h-12 rounded-xl border border-[#121017]/12 px-3 text-sm outline-none focus:border-[#397565]" name="scanner_mode"><option value="specific">Specific tribe/team only</option><option value="general">General — all eligible tribes/teams</option></select></label><label class="grid gap-2" data-assign-scanner-team-field><span class="flex items-center justify-between gap-2 text-sm font-bold">Allowed scanner team <small class="font-medium text-[#121017]/40">Permission</small></span><select class="h-12 rounded-xl border border-[#121017]/12 px-3 text-sm outline-none focus:border-[#397565]" name="scanner_team_id" required><option value="">Select an allowed team</option></select></label></div>
-                <p class="hidden rounded-xl bg-[#397565]/7 px-4 py-3 text-xs leading-5 text-[#397565]" data-assign-scanner-general-note>General access applies only inside assigned event responsibilities. It does not change the officer's home tribe.</p>
                 <div class="rounded-xl bg-[#397565]/7 px-4 py-3 text-xs leading-5 text-[#397565]"><strong class="block text-sm">The student login will not change.</strong><span class="mt-1 block">The system will create a separate Officer username and one-time password after you confirm. The officer must replace that password at first sign-in.</span></div>
             </div>
             <footer class="sticky bottom-0 flex justify-end gap-2 border-t border-[#121017]/8 bg-white/95 px-6 py-4"><button class="min-h-11 rounded-xl border border-[#121017]/12 px-4 text-sm font-bold" type="button" data-dialog-close>Cancel</button><button class="min-h-11 rounded-xl px-5 text-sm font-black" type="submit" data-modal-primary>Create Officer Access</button></footer>
@@ -88,6 +95,7 @@
                     <div class="grid gap-1 sm:grid-cols-2 sm:items-center"><dt class="text-[10px] font-black uppercase tracking-wider text-[#121017]/45">Officer username</dt><dd><code class="break-words text-sm font-black text-[#121017]" data-credential-username></code></dd></div>
                     <div class="grid gap-1 border-t border-[#121017]/8 pt-3 sm:grid-cols-2 sm:items-center"><dt class="text-[10px] font-black uppercase tracking-wider text-[#121017]/45">One-time password</dt><dd><code class="break-words text-sm font-black text-[#121017]" data-credential-password></code></dd></div>
                 </dl>
+                <div class="hidden grid gap-3" data-credential-list></div>
                 <p class="text-xs leading-5 text-[#121017]/55">The student username and password are unchanged. Give these Officer credentials only to the selected student; they will be required to create a new private password at first sign-in.</p>
                 <p class="hidden rounded-xl bg-[#397565]/8 px-4 py-3 text-xs font-bold text-[#397565]" data-credential-feedback role="status" aria-live="polite"></p>
             </div>
@@ -102,8 +110,6 @@
                 <dl class="divide-y divide-[#121017]/8">
                     <div class="grid gap-1 py-4 sm:grid-cols-[170px_minmax(0,1fr)]"><dt class="text-[10px] font-black uppercase tracking-wider text-[#121017]/40">Student identity</dt><dd><strong class="block text-sm font-black" data-details-student-name></strong><span class="mt-1 block text-xs text-[#121017]/55" data-details-student-email></span></dd></div>
                     <div class="grid gap-1 py-4 sm:grid-cols-[170px_minmax(0,1fr)]"><dt class="text-[10px] font-black uppercase tracking-wider text-[#121017]/40">Officer login</dt><dd><div class="flex flex-wrap items-center gap-3"><strong class="text-sm font-black" data-details-officer-username></strong><span class="rounded-full bg-[#397565]/8 px-3 py-1 text-[10px] font-black uppercase text-[#397565]" data-details-status></span></div><span class="mt-1.5 block text-xs text-[#121017]/50" data-details-password-state></span></dd></div>
-                    <div class="grid gap-1 py-4 sm:grid-cols-[170px_minmax(0,1fr)]"><dt class="text-[10px] font-black uppercase tracking-wider text-[#121017]/40">Assignment</dt><dd class="grid gap-1 text-sm font-bold"><span data-details-position></span><span data-details-term></span><span data-details-team></span></dd></div>
-                    <div class="grid gap-1 py-4 sm:grid-cols-[170px_minmax(0,1fr)]"><dt class="text-[10px] font-black uppercase tracking-wider text-[#121017]/40">Scanner access</dt><dd><form class="grid gap-3" data-scanner-config-form data-axios-form><input type="hidden" name="assignment_id"><label class="grid gap-1 text-xs font-bold">Mode<select class="h-11 rounded-xl border border-[#121017]/12 px-3 text-sm" name="scanner_mode"><option value="specific">Specific tribe/team only</option><option value="general">General — all eligible tribes/teams</option></select></label><label class="grid gap-1 text-xs font-bold" data-scanner-team-field>Allowed scanner team<select class="h-11 rounded-xl border border-[#121017]/12 px-3 text-sm" name="scanner_team_id"></select></label><p class="hidden rounded-xl bg-[#397565]/7 px-4 py-3 text-xs leading-5 text-[#397565]" data-scanner-general-note>General access can scan any eligible student for assigned event responsibilities. The officer's home tribe is unchanged.</p><button class="min-h-10 rounded-xl bg-[#397565] px-4 text-sm font-bold text-white" type="submit">Save scanner access</button></form></dd></div>
                     <div class="grid gap-1 py-4 sm:grid-cols-[170px_minmax(0,1fr)]"><dt class="text-[10px] font-black uppercase tracking-wider text-[#121017]/40">Events in charge</dt><dd class="grid gap-2" data-details-event-responsibilities></dd></div>
                     <div class="grid gap-1 py-4 sm:grid-cols-[170px_minmax(0,1fr)]"><dt class="text-[10px] font-black uppercase tracking-wider text-[#121017]/40">Account separation</dt><dd class="text-xs leading-5 text-[#121017]/55">Changing the SBO password does not change the student's own account password.</dd></div>
                 </dl>
@@ -132,8 +138,8 @@
     <script src="js/vendor/axios.min.js"></script>
     <script src="js/shared/password-gate.js?v=20260917-1"></script>
     <script src="js/shared/navigation.js?v=20260921-adviser-sections-1"></script>
-    <script src="js/adviser/officers.js?v=20260921-officer-accordion-1"></script>
-    <script src="js/adviser/sbo-assignments.js?v=20260921-officer-tabs-1"></script>
+    <script src="js/adviser/officers.js?v=20260921-officer-table-1"></script>
+    <script src="js/adviser/sbo-assignments.js?v=20260921-officer-modal-2"></script>
     <script src="js/adviser/sbo-scoring-admin.js"></script>
 </body>
 </html>

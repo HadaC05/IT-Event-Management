@@ -381,6 +381,18 @@ details[open] > .attendance-scan-summary .attendance-scan-chevron {
   white-space: nowrap;
 }
 
+.officer-management-table {
+  width: 100%;
+  min-width: 980px;
+  table-layout: fixed;
+}
+
+.officer-management-table th,
+.officer-management-table td {
+  overflow: hidden;
+  vertical-align: middle;
+}
+
 @media (max-width: 767px) {
   .event-detail-hero {
     min-height: 0;

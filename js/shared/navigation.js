@@ -35,6 +35,7 @@
       ['officers','SBO Officers','pages/adviser/officers.html','M12 3 4 7v5c0 4.6 3.2 7.8 8 9 4.8-1.2 8-4.4 8-9V7l-8-4Zm-3 9 2 2 4-5'],
       ['teams','Team Management','pages/adviser/teams.html','M8 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6Zm8 0a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM2 20v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2'],
       ['events','Events','pages/adviser/events.html','M6 2v4m12-4v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14H3V6a2 2 0 0 1 2-2Z'],
+      ['activities','Activities','pages/adviser/activities.html','M4 5h16v14H4V5Zm4 4h8m-8 3h8m-8 3h5'],
       ['locations','Locations','pages/adviser/locations.html','M20 10c0 5-8 11-8 11S4 15 4 10a8 8 0 1 1 16 0ZM12 10h.01'],
       ['attendance','Attendance','pages/adviser/attendance.html','M9 11l2 2 4-4m6 3a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z'],
       ['scores','Scores','pages/adviser/scores.html','M8 21h8M12 17v4M7 4h10v4a5 5 0 0 1-10 0V4Z'],
@@ -47,7 +48,7 @@
   const ADVISER_NAVIGATION_SECTIONS = [
     {items: ['dashboard']},
     {title: 'User Management', items: ['users', 'officers']},
-    {title: 'Event Management', items: ['teams', 'events', 'locations', 'attendance', 'scores', 'leaderboard', 'announcements', 'reports', 'posts']},
+    {title: 'Event Management', items: ['teams', 'events', 'activities', 'locations', 'attendance', 'scores', 'leaderboard', 'announcements', 'reports', 'posts']},
   ];
 
   const esc = value => String(value ?? '').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;').replaceAll("'",'&#039;');

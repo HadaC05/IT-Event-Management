@@ -18,7 +18,7 @@ $exists->execute([$scratch]);
 if($exists->fetchColumn())throw new RuntimeException('Test database name already exists.');
 $tables=['tbl_roles','tbl_user_statuses','tbl_users','tbl_teams','tbl_team_user','tbl_locations',
     'tbl_events','tbl_event_locations','tbl_attendance_session_modes','tbl_event_attendance_schedules','tbl_event_activities',
-    'tbl_event_team','tbl_event_year_level','tbl_event_participants','tbl_sbo_officer_assignments',
+    'tbl_event_team','tbl_event_year_level','tbl_event_participants','tbl_sbo_officer_assignments','tbl_officer_responsibilities',
     'tbl_sbo_event_assignments','tbl_attendances','tbl_attendance_entries','tbl_attendance_qr_tokens',
     'tbl_activity_logs','tbl_sbo_scan_rate_limits'];
 $assert=function(bool $ok,string $label):void{if(!$ok)throw new RuntimeException('FAIL: '.$label);echo 'PASS: '.$label,PHP_EOL;};
@@ -50,7 +50,7 @@ try {
         ->execute([$third,$start,$end]);$day3=(int)$db->lastInsertId();
     $db->exec("INSERT INTO tbl_event_activities(event_id,name,status,created_by,created_at,updated_at) VALUES(1,'Attendance Test','active',14,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)");
     $activity=(int)$db->lastInsertId();
-    $addAssignment=$db->prepare("INSERT INTO tbl_sbo_event_assignments(officer_assignment_id,event_schedule_id,session_code,activity_id,team_id,responsibility,status,assigned_by,created_at,updated_at) VALUES(1,?,'whole_day',?,?,'attendance','active',14,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)");
+    $addAssignment=$db->prepare("INSERT INTO tbl_sbo_event_assignments(officer_assignment_id,event_schedule_id,session_code,activity_id,team_id,responsibility_id,status,assigned_by,created_at,updated_at) VALUES(1,?,'whole_day',?,?,(SELECT id FROM tbl_officer_responsibilities WHERE code='attendance'),'active',14,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)");
     $addAssignment->execute([1,$activity,1]);$assignment=(int)$db->lastInsertId();
     $auth=new SboAuthorization($db);$repository=new SboAttendanceRepository($db,$auth);
     $officer=15;

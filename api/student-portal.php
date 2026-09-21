@@ -164,11 +164,15 @@ final class StudentPortalRepository
         unset($score);
 
         $leaders = $this->db->prepare(
-            "SELECT soa.position, u.first_name, u.middle_name, u.last_name
-             FROM tbl_sbo_officer_assignments soa
-             JOIN tbl_users u ON u.id = soa.officer_user_id
-             WHERE soa.team_id = ? AND LOWER(soa.status) = 'active'
-             ORDER BY soa.position"
+            "SELECT GROUP_CONCAT(DISTINCT responsibility.label ORDER BY responsibility.label SEPARATOR ', ') AS position,
+                    u.first_name, u.middle_name, u.last_name
+             FROM tbl_sbo_event_assignments event_assignment
+             JOIN tbl_sbo_officer_assignments officer_assignment ON officer_assignment.id=event_assignment.officer_assignment_id AND LOWER(officer_assignment.status)='active'
+             JOIN tbl_officer_responsibilities responsibility ON responsibility.id=event_assignment.responsibility_id
+             JOIN tbl_users u ON u.id=officer_assignment.officer_user_id
+             WHERE event_assignment.team_id=? AND event_assignment.status='active'
+             GROUP BY u.id,u.first_name,u.middle_name,u.last_name
+             ORDER BY position,u.last_name,u.first_name"
         );
         $leaders->execute([$teamId]);
         $team['leaders'] = $leaders->fetchAll();

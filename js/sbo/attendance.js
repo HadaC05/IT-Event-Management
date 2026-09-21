@@ -215,7 +215,9 @@
   }
   function renderCounts(counts){$('[data-scan-counts]').textContent=`${counts.total} timed in · ${counts.checked_out||0} timed out · ${counts.remaining} remaining ${selected?.scanner_mode==='general'?'eligible students':'from your assigned team'}`;}
   function renderPhaseStatus(){
-    $('[data-session-state]').textContent=selected?.[`${checkpoint}_window_open`]
+    $('[data-session-state]').textContent=selected?.assignment_state==='upcoming'
+      ?'This is an upcoming assignment. Attendance scanning is not available until the scheduled event session.'
+      :selected?.[`${checkpoint}_window_open`]
       ?`Time ${checkpoint==='in'?'In':'Out'} scanning is open.`
       :selected?.is_session_active?'The other checkpoint is open. Select it above.'
         :'No QR is scannable now. Wait for the next window or ask the adviser to extend it.';
@@ -242,7 +244,8 @@
     if(!selected)return;
     const assignmentSummary=$('[data-assignment-summary]');
     const detailsOpen=Boolean(assignmentSummary.querySelector('details')?.open);
-    assignmentSummary.innerHTML=[
+    const upcoming=selected.assignment_state==='upcoming';
+    assignmentSummary.innerHTML=(upcoming?`<div class="sm:col-span-2 lg:col-span-3 rounded-xl border border-[#397565]/25 bg-[#C6F24E]/20 p-3 text-sm text-[#397565]"><strong>Upcoming assignment.</strong> This responsibility is for an upcoming event. Attendance scanning will be available when its scheduled session opens.</div>`:'')+[
       ['Event',selected.event_name],['Scanner access',selected.scanner_mode==='general'?'General · all teams':`Specific · ${selected.scanner_team_name}`],
       ['Event day',`Day ${selected.day_number} · ${date(selected.schedule_date)}`],
       ['Session',`${selected.session_name} · ${time(selected.session_start)}–${time(selected.session_end)}`],
@@ -259,7 +262,7 @@
     const data=response.data.data;assignments=data.assignments;
     $('[data-no-assignment]').classList.toggle('hidden',assignments.length>0);
     $('[data-attendance-workspace]').classList.toggle('hidden',assignments.length===0);
-    selector.innerHTML=assignments.map(a=>`<option value="${a.id}">${esc(a.event_name)} · Day ${a.day_number} · ${esc(a.session_name)} · ${esc(a.team_name)}</option>`).join('');
+    selector.innerHTML=assignments.map(a=>`<option value="${a.id}">${a.assignment_state==='upcoming'?'Upcoming assignment · ':''}${esc(a.event_name)} · Day ${a.day_number} · ${esc(a.session_name)} · ${esc(a.team_name)}</option>`).join('');
     $('[data-assignment-selector-wrap]').classList.toggle('hidden',assignments.length<2);
     $('[data-assignment-selector-wrap]').classList.toggle('grid',assignments.length>1);
     selected=data.selected_assignment||(requested?assignments.find(a=>a.id===Number(requested)):assignments[0])||null;

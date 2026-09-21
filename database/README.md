@@ -15,6 +15,26 @@ Override any default with the `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, and
 Application tables use the `tbl_` prefix, such as `tbl_users`, `tbl_roles`, and
 `tbl_posts`.
 
+Import `database/2026_09_21_normalize_officer_responsibilities.sql` once after
+the SBO migrations. It creates `tbl_officer_responsibilities`, seeds Attendance,
+Scoring, and Media, and converts each existing SBO event assignment to the new
+required `responsibility_id` foreign key without removing assignment records.
+
+Then import `database/2026_09_21_add_event_assignment_scanner_scope.sql`. It
+stores Attendance scanner scope directly on each event responsibility and
+copies the existing Officer scanner setting into each historical Attendance
+assignment.
+
+Finally, import `database/2026_09_21_remove_officer_assignment_scanner_scope.sql`.
+It removes the superseded scanner columns from `tbl_sbo_officer_assignments`,
+leaving the subsequent simplification migration to remove the remaining
+home-tribe and term metadata.
+
+Import `database/2026_09_21_simplify_officer_access_records.sql` after that to
+remove the remaining position, home-tribe, and term fields. The table then
+records only creation and lifecycle of SBO Officer access; every event duty,
+team, and Attendance scanner scope belongs to `tbl_sbo_event_assignments`.
+
 Import `database/2026_09_21_add_activity_catalog.sql` once to create the
 activity catalog (`tbl_activities`) grouped by event type. It migrates existing
 event activities to the catalog, removes the legacy event-activity description,
@@ -29,9 +49,9 @@ makes SBO score-sheet finalization team-scoped.
 
 Then import
 `database/2026_09_20_separate_officer_home_tribe_and_scanner_scope.sql` once.
-It preserves `team_id` as the officer's home tribe and stores attendance
-scanner permission separately in `scanner_team_id`, so changing scanner scope
-cannot silently move the officer to another tribe.
+It preserves `team_id` as the officer's home tribe. Its legacy scanner columns
+are subsequently migrated to event responsibilities and removed by the
+2026_09_21 scanner-scope migrations above.
 
 Import `database/2026_09_20_separate_attendance_corrections_and_finalize_scores.sql`
 once to keep scanner attendance evidence immutable while storing Adviser

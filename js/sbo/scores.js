@@ -18,14 +18,15 @@
 
   function render() {
     select.innerHTML = state.assignments.length
-      ? state.assignments.map(assignment => `<option value="${assignment.id}">${esc(assignment.event_name)} · ${esc(assignment.session_name)} · ${esc(assignment.team_name)} · ${esc(assignment.activity_name)}</option>`).join('')
+      ? state.assignments.map(assignment => `<option value="${assignment.id}">${assignment.assignment_state === 'upcoming' ? 'Upcoming assignment · ' : ''}${esc(assignment.event_name)} · ${esc(assignment.session_name)} · ${esc(assignment.team_name)} · ${esc(assignment.activity_name)}</option>`).join('')
       : '<option value="">No scoring assignment</option>';
     if (state.selected) select.value = state.selected.id;
 
-    const locked = state.sheet?.status === 'finalized';
+    const upcoming = state.selected?.assignment_state === 'upcoming';
+    const locked = state.sheet?.status === 'finalized' || upcoming;
     form.querySelector('footer').classList.toggle('hidden', !state.selected || locked);
     if (!state.selected) {
-      grid.innerHTML = '<p class="p-12 text-center text-sm text-[#121017]/45">You currently have no active scoring assignment.</p>';
+      grid.innerHTML = '<p class="p-12 text-center text-sm text-[#121017]/45">You currently have no scoring assignment.</p>';
       return;
     }
     if (!state.categories.length) {
@@ -46,7 +47,7 @@
       <td class="p-4 font-black text-[#397565]" data-label="Total" data-total="${team.id}">0.00</td>
     </tr>`).join('');
 
-    grid.innerHTML = `${locked ? '<p class="bg-[#C6F24E]/25 p-3 text-center text-xs font-black text-[#397565]">Finalized — only the adviser can reopen this score sheet.</p>' : ''}
+    grid.innerHTML = `${upcoming ? '<p class="bg-[#C6F24E]/25 p-3 text-center text-xs font-black text-[#397565]">Upcoming assignment — scoring will be available when the event begins.</p>' : locked ? '<p class="bg-[#C6F24E]/25 p-3 text-center text-xs font-black text-[#397565]">Finalized — only the adviser can reopen this score sheet.</p>' : ''}
       <table class="w-full min-w-[760px] text-left"><thead class="bg-[#397565] text-xs text-white"><tr><th class="p-4">Team</th>${heading}<th class="p-4">Total</th></tr></thead><tbody>${rows}</tbody></table>`;
     syncTotals();
   }

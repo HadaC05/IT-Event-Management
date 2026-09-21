@@ -432,7 +432,7 @@ final class MediaRepository
         if (!$events) return [];
         $eventIds = array_map('intval', array_column($events, 'id'));
         $marks = implode(',', array_fill(0, count($eventIds), '?'));
-        $statement = $this->db->prepare("SELECT ea.id,ea.event_id,a.label AS name,a.description FROM tbl_event_activities ea INNER JOIN tbl_activities a ON a.id=ea.activity_id WHERE ea.status='active' AND ea.event_id IN ($marks) ORDER BY ea.event_id,ea.id");
+        $statement = $this->db->prepare("SELECT ea.id,ea.event_id,ea.name,a.description FROM tbl_event_activities ea INNER JOIN tbl_activities a ON a.id=ea.activity_id WHERE ea.status='active' AND ea.event_id IN ($marks) ORDER BY ea.event_id,ea.id");
         $statement->execute($eventIds);
         $activities = [];
         foreach ($statement->fetchAll() as $activity) {
@@ -450,7 +450,7 @@ final class MediaRepository
 
     private function officerEvents(int $userId): array
     {
-        $statement = $this->db->prepare("SELECT DISTINCT e.id,e.title,e.start_at,e.end_at,e.poster_path,e.is_featured FROM tbl_sbo_event_assignments sea JOIN tbl_sbo_officer_assignments oa ON oa.id=sea.officer_assignment_id AND oa.status='Active' JOIN tbl_event_attendance_schedules s ON s.id=sea.event_schedule_id JOIN tbl_events e ON e.id=s.event_id AND e.deleted_at IS NULL WHERE oa.officer_user_id=? AND sea.status='active' AND sea.responsibility='media' AND e.end_at>=CURRENT_TIMESTAMP ORDER BY e.start_at,e.id");
+        $statement = $this->db->prepare("SELECT DISTINCT e.id,e.title,e.start_at,e.end_at,e.poster_path,e.is_featured FROM tbl_sbo_event_assignments sea JOIN tbl_officer_responsibilities r ON r.id=sea.responsibility_id AND r.code='media' JOIN tbl_sbo_officer_assignments oa ON oa.id=sea.officer_assignment_id AND oa.status='Active' JOIN tbl_event_attendance_schedules s ON s.id=sea.event_schedule_id JOIN tbl_events e ON e.id=s.event_id AND e.deleted_at IS NULL WHERE oa.officer_user_id=? AND sea.status='active' AND e.end_at>=CURRENT_TIMESTAMP ORDER BY e.start_at,e.id");
         $statement->execute([$userId]);
         return $this->normalizeEvents($statement->fetchAll());
     }
@@ -475,7 +475,7 @@ final class MediaRepository
 
     private function assertOfficerEvent(int $userId, int $eventId): void
     {
-        $statement = $this->db->prepare("SELECT 1 FROM tbl_sbo_event_assignments sea JOIN tbl_sbo_officer_assignments oa ON oa.id=sea.officer_assignment_id AND oa.status='Active' JOIN tbl_event_attendance_schedules s ON s.id=sea.event_schedule_id WHERE oa.officer_user_id=? AND s.event_id=? AND sea.status='active' AND sea.responsibility='media' LIMIT 1");
+        $statement = $this->db->prepare("SELECT 1 FROM tbl_sbo_event_assignments sea JOIN tbl_officer_responsibilities r ON r.id=sea.responsibility_id AND r.code='media' JOIN tbl_sbo_officer_assignments oa ON oa.id=sea.officer_assignment_id AND oa.status='Active' JOIN tbl_event_attendance_schedules s ON s.id=sea.event_schedule_id WHERE oa.officer_user_id=? AND s.event_id=? AND sea.status='active' LIMIT 1");
         $statement->execute([$userId, $eventId]);
         if (!$statement->fetchColumn()) throw new MediaForbiddenException('You may manage media only for an event assigned to you.');
     }
