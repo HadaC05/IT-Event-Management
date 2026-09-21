@@ -114,12 +114,12 @@ final class SboAttendanceRepository {
                     ->execute([$now,$attendanceId]);
             }
             $this->db->prepare("INSERT INTO tbl_attendance_entries
-                (attendance_id,event_schedule_id,sbo_event_assignment_id,session_code,phase,activity_id,team_id,recorded_by,scanned_at,status,
-                scan_latitude,scan_longitude,location_accuracy_m,distance_from_venue_m,location_status,location_captured_at,location_unavailable_reason,
+                (attendance_id,event_schedule_id,sbo_event_assignment_id,session_code,phase,activity_id,team_id,recorded_by,scanner_mode_snapshot,scanned_at,status,
+                scan_latitude,scan_longitude,location_accuracy_m,distance_from_venue_m,distance_from_venue_box_m,location_status,location_captured_at,location_unavailable_reason,
                 venue_location_id,venue_name_snapshot,venue_latitude_snapshot,venue_longitude_snapshot,venue_radius_snapshot_m,created_at,updated_at)
-                VALUES(?,?,?,?,?,?,?,?,?,'present',?,?,?,?,?,?,?,?,?,?,?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)")
-                ->execute([$attendanceId,$a['event_schedule_id'],$id,$a['session_code'],$checkpoint,$a['activity_id'],$membership['id'],$officer,$now,
-                    $location['latitude'],$location['longitude'],$location['accuracy_m'],$location['distance_m'],$location['status'],$location['captured_at'],$location['reason'],
+                VALUES(?,?,?,?,?,?,?,?,?,?,'present',?,?,?,?,?,?,?,?,?,?,?,?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)")
+                ->execute([$attendanceId,$a['event_schedule_id'],$id,$a['session_code'],$checkpoint,$a['activity_id'],$membership['id'],$officer,$a['scanner_mode']==='general'?'general':'specific',$now,
+                    $location['latitude'],$location['longitude'],$location['accuracy_m'],$location['distance_m'],$location['distance_from_box_m'],$location['status'],$location['captured_at'],$location['reason'],
                     $location['venue_id'],$location['venue_name'],$location['venue_latitude'],$location['venue_longitude'],$location['venue_radius_m']]);
             if($mode==='qr'){
                 $used=$this->db->prepare('UPDATE tbl_attendance_qr_tokens SET used_at=?,updated_at=CURRENT_TIMESTAMP WHERE id=? AND used_at IS NULL');
@@ -175,7 +175,7 @@ final class SboAttendanceRepository {
         $reason=is_array($raw)?trim((string)($raw['unavailable_reason']??'')):'not_provided';
         if(!in_array($reason,['','not_provided','permission_denied','location_timeout','geolocation_unavailable','location_unavailable','stale_location','insecure_context'],true))
             $reason='invalid_location';
-        $r=['latitude'=>null,'longitude'=>null,'accuracy_m'=>null,'distance_m'=>null,'status'=>'unavailable','captured_at'=>null,'reason'=>$reason?:'not_provided',
+        $r=['latitude'=>null,'longitude'=>null,'accuracy_m'=>null,'distance_m'=>null,'distance_from_box_m'=>null,'status'=>'unavailable','captured_at'=>null,'reason'=>$reason?:'not_provided',
             'venue_id'=>null,'venue_name'=>null,'venue_latitude'=>null,'venue_longitude'=>null,'venue_radius_m'=>null,'venue_match'=>null];
         if(is_array($raw)&&isset($raw['latitude'],$raw['longitude'],$raw['accuracy_m'],$raw['timestamp_ms'])){
             $lat=filter_var($raw['latitude'],FILTER_VALIDATE_FLOAT);$lon=filter_var($raw['longitude'],FILTER_VALIDATE_FLOAT);
@@ -198,6 +198,7 @@ final class SboAttendanceRepository {
                     $matched=$candidates[0]??null;
                     if($matched){
                         $venue=$matched['venue'];$r['distance_m']=round($matched['distance'],2);$r['status']=$inside?'inside':'outside';
+                        $r['distance_from_box_m']=$inside?0:round($this->distanceFromBox($lat,$lon,(float)$venue['latitude'],(float)$venue['longitude'],(float)$venue['radius']),2);
                         $r['venue_id']=$venue['id'];$r['venue_name']=$venue['name'];$r['venue_latitude']=$venue['latitude'];
                         $r['venue_longitude']=$venue['longitude'];$r['venue_radius_m']=$venue['radius'];$r['venue_match']=$inside?'matched':'nearest';
                     }else $r['reason']='venue_not_configured';
@@ -223,6 +224,13 @@ final class SboAttendanceRepository {
     private function distance(float $a,float $b,float $c,float $d):float {
         $h=sin(deg2rad($c-$a)/2)**2+cos(deg2rad($a))*cos(deg2rad($c))*sin(deg2rad($d-$b)/2)**2;
         return 6371000*2*asin(min(1,sqrt($h)));
+    }
+    private function distanceFromBox(float $latitude,float $longitude,float $centerLatitude,float $centerLongitude,float $radius):float {
+        $northOutside=max(abs($latitude-$centerLatitude)*111320-$radius,0);
+        $longitudeDifference=fmod(abs($longitude-$centerLongitude),360.0);
+        if($longitudeDifference>180)$longitudeDifference=360-$longitudeDifference;
+        $eastOutside=max($longitudeDifference*111320*max(cos(deg2rad($centerLatitude)),0.000001)-$radius,0);
+        return sqrt($northOutside**2+$eastOutside**2);
     }
     private function recent(array $a):array {
         $q=$this->db->prepare('SELECT ae.id,ae.phase,ae.scanned_at,ae.status,ae.location_status,ae.venue_name_snapshot,u.id_number,u.first_name,u.middle_name,u.last_name,t.name team_name

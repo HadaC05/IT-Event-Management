@@ -147,21 +147,127 @@ dialog[data-activity-dialog]::backdrop {
   pointer-events: none;
 }
 
-.attendance-map-team {
-  display: flex;
-  align-items: center;
-  gap: 0.35rem;
-  margin-bottom: 0.2rem;
-  color: #5f5b63;
-  font-size: 0.7rem;
-  font-weight: 700;
+.attendance-marker-distance-dot {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  width: 13px;
+  height: 13px;
+  border: 2px solid #fff;
+  border-radius: 9999px;
+  background: var(--distance-status-color, #737078);
+  box-shadow: 0 2px 5px rgb(18 16 23 / 28%);
+  pointer-events: none;
 }
 
-.attendance-map-team i {
+.attendance-map-popup .leaflet-popup-content-wrapper {
+  overflow: hidden;
+  border-left: 5px solid var(--attendance-popup-edge, #737078);
+}
+
+.attendance-map-popup.attendance-popup-inside {
+  --attendance-popup-edge: #218739;
+}
+
+.attendance-map-popup.attendance-popup-nearby {
+  --attendance-popup-edge: #d97706;
+}
+
+.attendance-map-popup.attendance-popup-far {
+  --attendance-popup-edge: #d92d20;
+}
+
+.attendance-map-popup.attendance-popup-unavailable {
+  --attendance-popup-edge: #737078;
+}
+
+.attendance-far-indicators {
+  position: absolute;
+  z-index: 800;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.attendance-far-indicator {
+  position: absolute;
+  display: grid;
+  min-width: 46px;
+  min-height: 46px;
+  padding: 5px 7px;
+  place-items: center;
+  transform: translate(-50%, -50%);
+  border: 3px solid #fff;
+  border-radius: 9999px;
+  background: #d92d20;
+  color: #fff;
+  box-shadow: 0 5px 18px rgb(18 16 23 / 38%);
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+.attendance-far-indicator:hover,
+.attendance-far-indicator:focus-visible {
+  background: #b42318;
+  transform: translate(-50%, -50%) scale(1.06);
+}
+
+.attendance-far-indicator svg {
+  width: 18px;
+  height: 18px;
+  fill: currentColor;
+}
+
+.attendance-far-indicator i {
+  position: absolute;
+  top: -3px;
+  right: -3px;
+  width: 15px;
+  height: 15px;
+  border: 3px solid #fff;
+  border-radius: 9999px;
+  background: var(--tribe-color, #397565);
+  box-shadow: 0 2px 5px rgb(18 16 23 / 25%);
+}
+
+.attendance-far-indicator small {
+  margin-top: -2px;
+  font-size: 0.55rem;
+  font-weight: 900;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.attendance-team-badge {
+  display: inline-flex;
+  min-width: 0;
+  max-width: 100%;
+  align-items: center;
+  gap: 0.35rem;
+  margin: 0.18rem 0;
+  padding: 0.18rem 0.45rem;
+  border: 1px solid color-mix(in srgb, var(--team-badge-color) 45%, white);
+  border-radius: 9999px;
+  background: color-mix(in srgb, var(--team-badge-color) 14%, white);
+  color: #38343b;
+  font-size: 0.68rem;
+  font-weight: 900;
+  line-height: 1.15;
+}
+
+.attendance-team-badge i {
   width: 0.55rem;
   height: 0.55rem;
   flex: none;
   border-radius: 9999px;
+  background: var(--team-badge-color);
+  box-shadow: 0 0 0 2px #fff;
+}
+
+.attendance-team-badge b {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .attendance-distance-filter[open] {
@@ -170,6 +276,77 @@ dialog[data-activity-dialog]::backdrop {
 
 .attendance-distance-menu {
   z-index: 1001;
+}
+
+.attendance-distance-count {
+  min-width: 1.6rem;
+  text-align: right;
+}
+
+.attendance-distance-meta-nearby {
+  color: #b45309;
+}
+
+.attendance-distance-meta-far {
+  color: #d92d20;
+}
+
+.attendance-distance-alert {
+  display: inline-grid;
+  width: 1.15rem;
+  height: 1.15rem;
+  flex: none;
+  place-items: center;
+  border-radius: 9999px;
+  background: #d92d20;
+  color: #fff;
+  font-size: 0.72rem;
+  font-style: normal;
+  font-weight: 900;
+  line-height: 1;
+  box-shadow: 0 0 0 0 rgb(217 45 32 / 45%);
+  animation: attendance-distance-alert-pulse 1.35s ease-out infinite;
+}
+
+.attendance-distance-alert.hidden {
+  display: none;
+}
+
+@keyframes attendance-distance-alert-pulse {
+  0% { box-shadow: 0 0 0 0 rgb(217 45 32 / 45%); transform: scale(1); }
+  55% { box-shadow: 0 0 0 0.35rem rgb(217 45 32 / 0%); transform: scale(1.08); }
+  100% { box-shadow: 0 0 0 0 rgb(217 45 32 / 0%); transform: scale(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .attendance-distance-alert { animation: none; }
+}
+
+[data-latest-scan-map] {
+  scroll-margin-top: 1rem;
+}
+
+.attendance-far-warning {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 0.25rem;
+  margin-left: 0.25rem;
+  color: #d92d20;
+  font-weight: 900;
+}
+
+.attendance-far-warning i {
+  display: inline-grid;
+  width: 1rem;
+  height: 1rem;
+  place-items: center;
+  border-radius: 9999px;
+  background: #d92d20;
+  color: #fff;
+  font-size: 0.65rem;
+  font-style: normal;
+  line-height: 1;
 }
 
 @media (min-width: 1024px) {
