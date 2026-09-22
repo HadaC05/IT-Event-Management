@@ -7,7 +7,7 @@
     const pagination = document.querySelector('[data-student-pagination]');
     const assignmentSelect = document.querySelector('[data-assignment]');
     const upcomingNotice = document.querySelector('[data-upcoming-assignment-notice]');
-    const desktop = matchMedia('(min-width: 640px)');
+    const desktop = matchMedia('(min-width: 1024px)');
     let assignmentsLoaded = false;
     let currentPage = 1;
     let latestData = null;
@@ -16,21 +16,22 @@
 
     const escapeHtml = value => SboPortal.escapeHtml(value ?? '');
     const visibleEmail = student => /@pending\.invalid$/i.test(String(student?.email || '')) ? '' : String(student?.email || '');
-    const statusBadge = student => `<span class="shrink-0 rounded-full px-3 py-1 text-[10px] font-black uppercase ${student.attendance_status === 'not_recorded' ? 'bg-[#121017]/7 text-[#121017]/45' : 'bg-[#C6F24E]/35 text-[#397565]'}">${escapeHtml(student.attendance_status.replace('_', ' '))}</span>`;
+    const initials = name => { const words=String(name||'').trim().split(/\s+/).filter(Boolean); return (words.length>1?`${words[0][0]}${words[words.length-1][0]}`:(words[0]||'CU').slice(0,2)).toUpperCase(); };
+    const statusBadge = student => { const status=String(student.attendance_status||'not_recorded'); return `<span class="sbo-student-status ${status === 'not_recorded' ? 'sbo-student-status--waiting' : 'sbo-student-status--recorded'}">${escapeHtml(status.replace('_', ' '))}</span>`; };
 
     const tableRow = student => `
-        <tr>
+        <tr class="sbo-student-row">
             <td class="p-4 text-sm font-bold">${escapeHtml(student.id_number)}</td>
-            <td class="p-4"><strong class="text-sm">${escapeHtml(student.full_name)}</strong>${visibleEmail(student) ? `<span class="block text-xs text-[#121017]/45">${escapeHtml(visibleEmail(student))}</span>` : ''}</td>
+            <td class="p-4"><div class="sbo-student-person"><span class="sbo-student-avatar" aria-hidden="true">${escapeHtml(initials(student.full_name))}</span><span><strong class="text-sm">${escapeHtml(student.full_name)}</strong>${visibleEmail(student) ? `<small>${escapeHtml(visibleEmail(student))}</small>` : ''}</span></div></td>
             <td class="p-4 text-sm">CITE · ${escapeHtml(student.year_level || 'Not specified')}</td>
             <td class="p-4 text-sm font-bold text-[#397565]">${escapeHtml(student.team_name)}</td>
             <td class="p-4">${statusBadge(student)}</td>
         </tr>`;
 
     const mobileCard = student => `
-        <article class="min-w-0 rounded-2xl border border-[#121017]/10 bg-white p-4 shadow-sm">
+        <article class="sbo-student-card min-w-0 rounded-2xl border border-[#121017]/10 bg-white p-4 shadow-sm">
             <div class="flex min-w-0 items-start justify-between gap-3">
-                <div class="min-w-0"><strong class="block truncate text-sm">${escapeHtml(student.full_name)}</strong><span class="mt-1 block text-xs font-bold text-[#397565]">${escapeHtml(student.id_number)}</span></div>
+                <div class="sbo-student-person min-w-0"><span class="sbo-student-avatar" aria-hidden="true">${escapeHtml(initials(student.full_name))}</span><span class="min-w-0"><strong class="block truncate text-sm">${escapeHtml(student.full_name)}</strong><small>${escapeHtml(student.id_number)}</small></span></div>
                 ${statusBadge(student)}
             </div>
             <dl class="mt-4 grid grid-cols-2 gap-3 border-t border-[#121017]/8 pt-3 text-xs">
@@ -47,12 +48,12 @@
     const renderStudents = data => {
         const students = data.students;
         if (!students.length) {
-            results.innerHTML = `<div class="m-4 rounded-2xl border border-dashed border-[#121017]/15 px-5 py-10 text-center text-sm leading-6 text-[#121017]/45">${emptyMessage(data)}</div>`;
+            results.innerHTML = `<div class="sbo-workspace-empty"><span aria-hidden="true">◎</span><strong>No students to show</strong><p>${emptyMessage(data)}</p></div>`;
             return;
         }
         results.innerHTML = desktop.matches
-            ? `<div class="overflow-x-auto"><table class="w-full min-w-[760px] text-left"><thead class="bg-[#397565] text-xs uppercase tracking-wider text-white"><tr><th class="p-4">Student ID</th><th class="p-4">Name</th><th class="p-4">Course & year</th><th class="p-4">Team</th><th class="p-4">Attendance</th></tr></thead><tbody class="divide-y divide-[#121017]/8">${students.map(tableRow).join('')}</tbody></table></div>`
-            : `<div class="grid gap-3 p-4">${students.map(mobileCard).join('')}</div>`;
+            ? `<div class="overflow-x-auto"><table class="sbo-student-table w-full min-w-[760px] text-left"><thead class="text-xs uppercase tracking-wider"><tr><th class="p-4">Student ID</th><th class="p-4">Name</th><th class="p-4">Course & year</th><th class="p-4">Team</th><th class="p-4">Attendance</th></tr></thead><tbody class="divide-y divide-[#121017]/8">${students.map(tableRow).join('')}</tbody></table></div>`
+            : `<div class="sbo-student-cards grid gap-3 p-4">${students.map(mobileCard).join('')}</div>`;
     };
 
     const renderPagination = page => {
@@ -87,6 +88,8 @@
 
     const render = data => {
         latestData = data;
+        document.querySelector('[data-student-total]').textContent = Number(data.pagination?.total||0).toLocaleString('en-PH');
+        document.querySelector('[data-student-assignment-title]').textContent = data.selected ? `${data.selected.event_name} · ${data.selected.team_name}` : 'No current assignment';
         upcomingNotice.classList.toggle('hidden', data.selected?.assignment_state !== 'upcoming');
         renderStudents(data);
         renderPagination(data.pagination);

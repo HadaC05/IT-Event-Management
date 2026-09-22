@@ -8,16 +8,16 @@
   <link rel="icon" href="assets/images/cite_favicon.png">
   <link rel="stylesheet" href="css/tailwind.css">
   <link rel="stylesheet" href="css/sbo.css?v=20260919-full-width-layout">
+  <link rel="stylesheet" href="css/sbo-workspace.css?v=20260923-1">
   <script src="js/shared/notifications.js?v=20260917-7" defer></script>
 </head>
-<body class="min-h-screen bg-white font-sans text-[#121017] antialiased" data-navigation-role="sbo">
+<body class="min-h-screen bg-white font-sans text-[#121017] antialiased" data-navigation-role="sbo" data-sbo-workspace="attendance">
   <div data-sbo-sidebar-host></div><div data-sbo-header-host></div>
   <button class="mr-2 min-h-10 shrink-0 rounded-xl bg-[#397565] px-3 text-xs font-black text-white" type="button" data-gps-toggle hidden>Turn On GPS</button>
   <main class="w-auto max-w-none px-4 pb-28 pt-5 transition-[margin] duration-200 sm:px-6 lg:ml-20 lg:px-8 lg:pb-12" data-sbo-main>
-    <header class="mb-5">
-      <p class="text-xs font-black uppercase tracking-[.14em] text-[#397565]">Assigned responsibility</p>
-      <h1 class="mt-1 text-2xl font-black tracking-tight sm:text-3xl">Attendance scanning</h1>
-      <p class="mt-2 text-sm text-[#121017]/55">Scan students from your assigned team during the active event session.</p>
+    <header class="sbo-workspace-hero mb-5">
+      <div class="sbo-workspace-hero__copy"><p class="sbo-workspace-eyebrow">SBO officer / on-site operations</p><h1>Attendance, as it happens.</h1><p>Scan students during the open checkpoint, keep an eye on the session, and see each result as it comes in.</p></div>
+      <div class="sbo-workspace-hero__signal"><span>Current assignment</span><strong data-attendance-hero-state>—</strong><small data-attendance-hero-detail>Waiting for your assignment</small></div>
     </header>
     <section class="hidden rounded-2xl border border-[#FF6B2C]/20 bg-[#FF6B2C]/7 p-6 text-center" data-no-assignment>
       <strong class="text-lg font-black">You have no current or upcoming attendance assignment.</strong>
@@ -28,7 +28,7 @@
         <span class="text-sm font-bold">Active assignment</span>
         <select class="h-12 rounded-xl border border-[#121017]/12 bg-white px-3 outline-none focus:border-[#397565]" data-assignment-selector></select>
       </label>
-      <section class="sbo-assignment-summary grid gap-3 rounded-2xl border border-[#397565]/15 bg-[#F3F0E9]/35 p-4 shadow-sm sm:grid-cols-2 lg:grid-cols-3" data-assignment-summary></section>
+      <section class="sbo-assignment-summary sbo-workspace-panel grid gap-3 rounded-2xl border border-[#397565]/15 bg-[#F3F0E9]/35 p-4 shadow-sm sm:grid-cols-2 lg:grid-cols-3" data-assignment-summary></section>
       <div class="sbo-attendance-layout grid gap-4 lg:grid-cols-[minmax(0,1.3fr)_minmax(290px,.7fr)]">
         <div class="space-y-4">
           <section class="rounded-2xl border border-[#397565]/15 bg-white p-4 shadow-sm">
@@ -53,9 +53,11 @@
           </section>
         </div>
         <div class="space-y-4">
-          <section class="rounded-2xl border border-[#397565]/15 bg-[#F3F0E9]/35 p-4">
+          <section class="sbo-progress-panel rounded-2xl border border-[#397565]/15 bg-[#F3F0E9]/35 p-4">
             <h2 class="text-base font-black">Session progress</h2>
-            <p class="mt-2 text-sm" data-scan-counts>0 scanned · 0 remaining</p>
+            <div class="sbo-progress-stats"><div><strong data-scan-in>0</strong><span>Timed in</span></div><div><strong data-scan-out>0</strong><span>Timed out</span></div><div><strong data-scan-remaining>0</strong><span>Remaining</span></div></div>
+            <div class="sbo-progress-track" role="progressbar" aria-label="Students timed in" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" data-scan-progress><span data-scan-progress-fill></span></div>
+            <p class="sr-only" data-scan-counts>0 scanned · 0 remaining</p>
             <p class="mt-2 text-xs text-[#121017]/55" data-next-session></p>
           </section>
           <section class="rounded-2xl border border-[#121017]/10 bg-white p-4 shadow-sm">

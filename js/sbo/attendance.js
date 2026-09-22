@@ -64,6 +64,11 @@
 
   function renderLocation(){
     const locationCard=$('[data-location-card]');
+    if(selected?.assignment_state==='upcoming'){
+      locationCard.innerHTML='<p class="rounded-xl border border-[#397565]/15 bg-[#397565]/5 p-3 text-sm leading-5 text-[#397565]">GPS and venue checks begin when this assignment becomes active.</p>';
+      updateControls();
+      return;
+    }
     const detailsOpen=Boolean(locationCard.querySelector('details')?.open);
     const match=detectedVenue();
     const venue=match?.venue.name||selected?.venue_name||selected?.location||'Not configured';
@@ -105,7 +110,7 @@
     openButton.disabled=!active||locationBlocked||!window.isSecureContext||!navigator.mediaDevices;
     cameraButton.disabled=openButton.disabled;
     manualButton.disabled=!active||locationBlocked;
-    gpsToggle.hidden=false;
+    gpsToggle.hidden=!selected||selected.assignment_state==='upcoming';
     gpsToggle.textContent=gpsEnabled?'Turn Off GPS':window.isSecureContext?'Turn On GPS':'GPS needs HTTPS';
     gpsToggle.classList.toggle('bg-[#397565]',!gpsEnabled);
     gpsToggle.classList.toggle('bg-[#FF6B2C]',gpsEnabled);
@@ -207,14 +212,23 @@
     return {unavailable_reason:position?'stale_location':locationReason||'not_provided'};
   }
   function renderRecent(rows){
-    $('[data-recent-scans]').innerHTML=rows.length?rows.map(row=>`<article class="flex flex-wrap items-center gap-3 p-4">
+    $('[data-recent-scans]').innerHTML=rows.length?rows.map(row=>`<article class="sbo-scan-item flex flex-wrap items-center gap-3 p-4">
       <span class="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#C6F24E]/35 text-xs font-black text-[#397565]">✓</span>
       <div class="min-w-0 flex-1"><strong class="block truncate text-sm">${esc(row.full_name)}</strong>
         <span class="block text-xs text-[#121017]/45">${esc(row.id_number)} · ${esc(row.team_name)} · ${esc(row.venue_name_snapshot||'Venue unavailable')}</span></div>
       <div class="text-right"><time class="block text-xs font-bold text-[#397565]">${row.phase==='out'?'Out':'In'} ${clock(row.scanned_at)}</time>
         <small class="text-xs text-[#121017]/50">${esc(row.location_status)}</small></div></article>`).join(''):'<p class="p-8 text-center text-sm text-[#121017]/45">No attendance scans yet.</p>';
   }
-  function renderCounts(counts){$('[data-scan-counts]').textContent=`${counts.total} timed in · ${counts.checked_out||0} timed out · ${counts.remaining} remaining ${selected?.scanner_mode==='general'?'eligible students':'from your assigned team'}`;}
+  function renderCounts(counts){
+    const timedIn=Number(counts.total)||0, timedOut=Number(counts.checked_out)||0, remaining=Number(counts.remaining)||0;
+    $('[data-scan-in]').textContent=timedIn.toLocaleString('en-PH');
+    $('[data-scan-out]').textContent=timedOut.toLocaleString('en-PH');
+    $('[data-scan-remaining]').textContent=remaining.toLocaleString('en-PH');
+    const percentage=Math.round(timedIn/Math.max(1,timedIn+remaining)*100);
+    $('[data-scan-progress]').setAttribute('aria-valuenow',String(percentage));
+    $('[data-scan-progress-fill]').style.width=`${percentage}%`;
+    $('[data-scan-counts]').textContent=`${timedIn} timed in · ${timedOut} timed out · ${remaining} remaining ${selected?.scanner_mode==='general'?'eligible students':'from your assigned team'}`;
+  }
   function renderPhaseStatus(){
     $('[data-session-state]').textContent=selected?.assignment_state==='upcoming'
       ?'This is an upcoming assignment. Attendance scanning is not available until the scheduled event session.'
@@ -243,6 +257,8 @@
   document.querySelectorAll('[data-checkpoint-option]').forEach(button=>button.addEventListener('click',()=>setCheckpoint(button.dataset.checkpointOption)));
   function renderAssignment(next){
     if(!selected)return;
+    $('[data-attendance-hero-state]').textContent=selected.assignment_state==='upcoming'?'Upcoming':selected.is_session_active?'Session open':'Session closed';
+    $('[data-attendance-hero-detail]').textContent=`${selected.event_name} · Day ${selected.day_number} · ${selected.session_name}`;
     const assignmentSummary=$('[data-assignment-summary]');
     const detailsOpen=Boolean(assignmentSummary.querySelector('details')?.open);
     const upcoming=selected.assignment_state==='upcoming';
@@ -270,7 +286,7 @@
     if(selected){
       selector.value=selected.id;renderAssignment(data.next_session);renderRecent(data.recent_scans);renderCounts(data.counts);
       const policyChanged=previousEventId!==null&&Number(previousEventId)===Number(selected.event_id)&&previousPolicy!==selected.location_policy;
-      autoStartGps().then(()=>{if(policyChanged||!freshPosition())showGpsPolicyNotice(policyChanged);}).catch(()=>showGpsPolicyNotice(policyChanged));
+      if(selected.assignment_state!=='upcoming')autoStartGps().then(()=>{if(policyChanged||!freshPosition())showGpsPolicyNotice(policyChanged);}).catch(()=>showGpsPolicyNotice(policyChanged));
     }
     else{await stop();turnOffGps();updateControls();}
   }

@@ -24,18 +24,23 @@
 
     const upcoming = state.selected?.assignment_state === 'upcoming';
     const locked = state.sheet?.status === 'finalized' || upcoming;
+    const stage = !state.selected ? 'Unassigned' : upcoming ? 'Upcoming' : state.sheet?.status === 'finalized' ? 'Finalized' : 'In progress';
+    document.querySelector('[data-score-hero-state]').textContent = stage;
+    document.querySelector('[data-score-hero-detail]').textContent = state.selected ? `${state.selected.event_name} · ${state.selected.activity_name}` : 'Ask the adviser for a scoring assignment';
+    document.querySelector('[data-score-sheet-title]').textContent = state.selected ? `${state.selected.activity_name} scores` : 'Team scores';
+    document.querySelector('[data-score-sheet-status]').textContent = state.selected ? `${state.teams.length} teams · ${state.categories.length} criteria · ${stage}` : 'No assignment';
     form.querySelector('footer').classList.toggle('hidden', !state.selected || locked);
     if (!state.selected) {
-      grid.innerHTML = '<p class="p-12 text-center text-sm text-[#121017]/45">You currently have no scoring assignment.</p>';
+      grid.innerHTML = '<div class="sbo-workspace-empty"><span aria-hidden="true">◇</span><strong>No score sheet assigned</strong><p>Ask the SBO Adviser to assign an activity before entering scores.</p></div>';
       return;
     }
     if (!state.categories.length) {
-      grid.innerHTML = '<p class="p-12 text-center text-sm text-[#121017]/45">The adviser has not created criteria for this activity.</p>';
+      grid.innerHTML = '<div class="sbo-workspace-empty"><span aria-hidden="true">◇</span><strong>Criteria are not ready</strong><p>The adviser has not created scoring criteria for this activity yet.</p></div>';
       return;
     }
 
     const heading = state.categories.map(category => `<th class="p-4">${esc(category.name)}<small class="block font-normal opacity-70">${category.min_points}–${category.max_points}</small></th>`).join('');
-    const rows = state.teams.map(team => `<tr class="border-b border-[#121017]/8">
+    const rows = state.teams.map(team => `<tr class="sbo-score-row border-b border-[#121017]/8">
       <th class="p-4" scope="row">${esc(team.name)}</th>
       ${state.categories.map(category => `<td class="p-3" data-label="${esc(category.name)}">
         <input class="h-11 w-28 rounded-xl border border-[#121017]/12 px-3" type="number" step="0.01"
@@ -48,7 +53,7 @@
     </tr>`).join('');
 
     grid.innerHTML = `${upcoming ? '<p class="bg-[#C6F24E]/25 p-3 text-center text-xs font-black text-[#397565]">Upcoming assignment — scoring will be available when the event begins.</p>' : locked ? '<p class="bg-[#C6F24E]/25 p-3 text-center text-xs font-black text-[#397565]">Finalized — only the adviser can reopen this score sheet.</p>' : ''}
-      <table class="w-full min-w-[760px] text-left"><thead class="bg-[#397565] text-xs text-white"><tr><th class="p-4">Team</th>${heading}<th class="p-4">Total</th></tr></thead><tbody>${rows}</tbody></table>`;
+      <table class="sbo-score-table w-full min-w-[760px] text-left"><thead class="text-xs"><tr><th class="p-4">Team</th>${heading}<th class="p-4">Total</th></tr></thead><tbody>${rows}</tbody></table>`;
     syncTotals();
   }
 

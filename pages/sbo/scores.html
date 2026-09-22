@@ -8,21 +8,19 @@
   <link rel="icon" href="assets/images/cite_favicon.png">
   <link rel="stylesheet" href="css/tailwind.css">
   <link rel="stylesheet" href="css/sbo.css?v=20260919-full-width-layout">
+  <link rel="stylesheet" href="css/sbo-workspace.css?v=20260923-1">
   <script src="js/shared/notifications.js?v=20260917-7" defer></script>
 </head>
-<body class="min-h-screen bg-white font-sans text-[#121017] antialiased" data-navigation-role="sbo">
+<body class="min-h-screen bg-white font-sans text-[#121017] antialiased" data-navigation-role="sbo" data-sbo-workspace="scores">
   <div data-sbo-sidebar-host></div><div data-sbo-header-host></div>
   <main class="w-auto max-w-none px-4 pb-28 pt-5 transition-[margin] duration-200 sm:px-6 lg:ml-20 lg:px-8">
-    <header>
-      <p class="text-xs font-black uppercase tracking-wider text-[#397565]">Assigned activities</p>
-      <h1 class="mt-2 text-3xl font-black">Scores</h1>
-      <p class="mt-2 text-sm text-[#121017]/55">Enter scores for your assigned activity, then save or finalize.</p>
+    <header class="sbo-workspace-hero">
+      <div class="sbo-workspace-hero__copy"><p class="sbo-workspace-eyebrow">SBO officer / scoring desk</p><h1>Make every point count.</h1><p>Enter scores for your assigned activity. Save a draft while you work, then finalize when every team is ready.</p></div>
+      <div class="sbo-workspace-hero__signal"><span>Score sheet</span><strong data-score-hero-state>—</strong><small data-score-hero-detail>Select an assignment to begin</small></div>
     </header>
-    <label class="mt-5 grid max-w-xl gap-2">
-      <span class="text-sm font-bold">Scoring assignment</span>
-      <select class="h-12 rounded-xl border border-[#121017]/12 bg-white px-3" data-assignment></select>
-    </label>
-    <form class="mt-4 overflow-hidden rounded-2xl border border-[#121017]/10 bg-white shadow-sm" data-score-form>
+    <section class="sbo-workspace-panel sbo-score-selector mt-5"><div><p class="sbo-workspace-eyebrow">Working on</p><h2>Choose an assignment</h2><p>Only activities assigned to you appear here.</p></div><label class="grid gap-2"><span class="text-sm font-bold">Scoring assignment</span><select class="h-12 rounded-xl border border-[#121017]/12 bg-white px-3" data-assignment></select></label></section>
+    <form class="sbo-workspace-panel mt-4 overflow-hidden rounded-2xl border border-[#121017]/10 bg-white shadow-sm" data-score-form>
+      <div class="sbo-score-heading"><div><p class="sbo-workspace-eyebrow">Score sheet</p><h2 data-score-sheet-title>Team scores</h2></div><span data-score-sheet-status>Loading…</span></div>
       <div class="overflow-x-auto" data-score-grid></div>
       <footer class="flex flex-wrap justify-end gap-2 border-t border-[#121017]/8 p-4">
         <button class="min-h-11 rounded-xl border border-[#397565]/25 px-5 text-sm font-black text-[#397565]" type="submit" data-finalize="false">Save draft</button>

@@ -8,21 +8,22 @@
     <link rel="icon" href="assets/images/cite_favicon.png">
     <link rel="stylesheet" href="css/tailwind.css">
     <link rel="stylesheet" href="css/sbo.css?v=20260919-full-width-layout">
+    <link rel="stylesheet" href="css/sbo-workspace.css?v=20260923-1">
     <script src="js/shared/notifications.js?v=20260917-7" defer></script>
 </head>
-<body class="min-h-screen overflow-x-hidden bg-white font-sans text-[#121017] antialiased" data-navigation-role="sbo">
+<body class="min-h-screen overflow-x-hidden bg-white font-sans text-[#121017] antialiased" data-navigation-role="sbo" data-sbo-workspace="students">
     <div data-sbo-sidebar-host></div>
     <div data-sbo-header-host></div>
 
     <main class="w-auto max-w-none px-4 pb-28 pt-5 transition-[margin] duration-200 sm:px-6 lg:ml-20 lg:px-8">
-        <header>
-            <p class="text-[10px] font-black uppercase tracking-[.14em] text-[#397565] sm:text-xs">Assigned roster</p>
-            <h1 class="mt-2 text-3xl font-black tracking-tight sm:text-4xl">Students</h1>
-            <p class="mt-2 max-w-2xl text-sm leading-6 text-[#121017]/55">Only students in your assigned event and team are shown.</p>
+        <header class="sbo-workspace-hero">
+            <div class="sbo-workspace-hero__copy"><p class="sbo-workspace-eyebrow">SBO officer / assigned roster</p><h1>Students, in context.</h1><p>Find the people on your assigned team, check who has been recorded, and stay focused on the event you are working.</p></div>
+            <div class="sbo-workspace-hero__signal"><span>Students in view</span><strong data-student-total>—</strong><small data-student-assignment-title>Choose an assignment to view its roster</small></div>
         </header>
 
-        <section class="mt-6 overflow-hidden rounded-2xl border border-[#121017]/10 bg-white shadow-sm sm:mt-7">
-            <form class="grid gap-3 border-b border-[#121017]/8 bg-[#F3F0E9]/35 p-4 sm:grid-cols-3 sm:p-5" data-filters>
+        <section class="sbo-workspace-panel mt-6 overflow-hidden rounded-2xl border border-[#121017]/10 bg-white shadow-sm sm:mt-7">
+            <div class="sbo-workspace-panel__heading"><div><p class="sbo-workspace-eyebrow">Find your people</p><h2>Assigned student directory</h2></div><span>View only</span></div>
+            <form class="sbo-student-filters grid gap-3 border-b border-[#121017]/8 bg-[#F3F0E9]/35 p-4 sm:grid-cols-3 sm:p-5" data-filters>
                 <label class="grid gap-1.5"><span class="text-[10px] font-black uppercase tracking-wider text-[#397565]">Assignment</span><select class="h-12 min-w-0 rounded-xl border border-[#121017]/12 bg-white px-3 text-sm outline-none focus:border-[#397565]" name="assignment_id" data-assignment></select></label>
                 <label class="grid gap-1.5"><span class="text-[10px] font-black uppercase tracking-wider text-[#397565]">Search</span><input class="h-12 min-w-0 rounded-xl border border-[#121017]/12 bg-white px-3 text-sm outline-none focus:border-[#397565]" name="search" placeholder="Name or Student ID"></label>
                 <label class="grid gap-1.5"><span class="text-[10px] font-black uppercase tracking-wider text-[#397565]">Attendance</span><select class="h-12 min-w-0 rounded-xl border border-[#121017]/12 bg-white px-3 text-sm outline-none focus:border-[#397565]" name="status"><option value="">All attendance</option><option value="present">Recorded</option><option value="not_recorded">Not recorded</option></select></label>
