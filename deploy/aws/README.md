@@ -1,11 +1,15 @@
 # AWS automatic deployment
 
+Production site: https://cite-events.duckdns.org/ITEventManagement/
+
 The production server checks the public GitHub `main` branch about once per
 minute. A new commit is unpacked into a separate release, PHP syntax is checked,
 the live database is backed up, new additive SQL migrations are applied, and the
 web symlink is switched. The new release stays live only if its homepage, session
 API, protected API, and SQL-file access checks pass. Uploaded media and the
 production database connection file live outside the Git releases.
+The server reads the public repository directly, so no GitHub secret or webhook
+is needed.
 
 The one-time server installation places `cite-events-deploy.sh` at
 `/usr/local/sbin/cite-events-deploy` and the service/timer under
