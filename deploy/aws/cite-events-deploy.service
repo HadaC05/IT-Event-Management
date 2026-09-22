@@ -1,0 +1,12 @@
+[Unit]
+Description=Deploy CITE Events latest GitHub main commit
+After=network-online.target apache2.service mysql.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/cite-events-deploy
+TimeoutStartSec=600
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7

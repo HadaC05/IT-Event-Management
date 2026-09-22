@@ -1,0 +1,5 @@
+deploy/aws/*.sh text eol=lf
+deploy/aws/*.service text eol=lf
+deploy/aws/*.timer text eol=lf
+deploy/aws/*.conf text eol=lf
+database/deploy_migrations/*.sql text eol=lf
