@@ -5,6 +5,10 @@ window.SharedNavigation.ready.then(async session => {
   const esc = value => window.SharedNavigation.escapeHtml(value ?? '');
   const notify = (type, message) => window.Notifications?.[type]?.(message) || (type === 'error' ? alert(message) : null);
   const formatDate = value => value ? new Intl.DateTimeFormat('en-PH', {month:'long', year:'numeric'}).format(new Date(value.replace(' ', 'T'))) : 'Not available';
+  const MAX_PHOTO_BYTES = 5 * 1024 * 1024;
+  const PHOTO_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+  const safeColor = value => /^#[0-9a-f]{6}$/i.test(value || '') ? value : '#397565';
+  const teamCoverColor = profile => safeColor(profile.team_color);
   let data;
   let postForm;
 
@@ -25,34 +29,45 @@ window.SharedNavigation.ready.then(async session => {
 
   function render() {
     const profile = data.profile;
+    const coverColor = teamCoverColor(profile);
     const avatar = profile.profile_photo_path
-      ? `<img class="h-full w-full rounded-full object-cover" src="${esc(profile.profile_photo_path)}" alt="${esc(profile.full_name)} profile picture">`
-      : `<span class="text-3xl font-black text-[#121017]">${esc(profile.initials)}</span>`;
+      ? `<img src="${esc(profile.profile_photo_path)}" alt="${esc(profile.full_name)} profile picture">`
+      : `<span class="text-2xl font-black text-[#121017] sm:text-3xl">${esc(profile.initials)}</span>`;
     const totalPosts = Object.values(data.post_counts).reduce((total, count) => total + Number(count || 0), 0);
     root.innerHTML = `
       <section class="overflow-hidden bg-white shadow-sm sm:mx-4 sm:mt-5 sm:rounded-2xl">
-        <div class="student-profile-cover relative overflow-hidden bg-[#397565]">
-          <div class="absolute inset-0 opacity-90" style="background:radial-gradient(circle at 18% 25%,#C6F24E 0 8%,transparent 8.5%),radial-gradient(circle at 82% 30%,#2F3AE0 0 12%,transparent 12.5%),linear-gradient(135deg,#121017 0%,#397565 58%,#C6F24E 140%)"></div>
-          <div class="absolute inset-x-0 bottom-0 h-28" style="background:linear-gradient(to top,rgba(0,0,0,.3),transparent)"></div>
+        <div class="student-profile-cover relative overflow-hidden" style="--team-cover:${coverColor}">
+          <div class="student-profile-cover-pattern absolute inset-0"></div>
+          <div class="absolute inset-x-0 bottom-0 h-28" style="background:linear-gradient(to top,rgba(0,0,0,.22),transparent)"></div>
         </div>
-        <div class="relative px-5 pb-5 sm:px-8 sm:pb-7">
-          <div class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-            <div class="flex min-w-0 flex-col sm:flex-row sm:items-end sm:gap-5">
-              <div class="student-profile-avatar -mt-16 grid h-32 w-32 shrink-0 place-items-center overflow-hidden rounded-full border-white bg-[#C6F24E] shadow-lg sm:-mt-20 sm:h-40 sm:w-40">${avatar}</div>
+        <div class="student-profile-summary relative px-5 pb-5 sm:px-8 sm:pb-7">
+          <div class="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
+            <div class="student-profile-identity flex min-w-0 flex-col sm:flex-row sm:items-end sm:gap-5">
+              <div class="student-profile-avatar relative -mt-14 grid h-28 w-28 shrink-0 place-items-center border-white bg-[#C6F24E] shadow-lg sm:-mt-20 sm:h-40 sm:w-40">${avatar}</div>
               <div class="min-w-0 pt-2 sm:pb-2"><h1 class="truncate text-2xl font-black tracking-tight sm:text-3xl">${esc(profile.full_name)}</h1><p class="mt-1 text-sm font-bold text-[#121017]/50">${esc(profile.year_level_label || 'Student')}${profile.team_name ? ` · ${esc(profile.team_name)}` : ''}</p><p class="mt-1 text-xs text-[#121017]/38">${totalPosts} post${totalPosts === 1 ? '' : 's'}</p></div>
             </div>
-            <div class="flex flex-wrap gap-2 sm:pb-2"><button class="inline-flex min-h-11 items-center gap-2 rounded-xl bg-[#397565] px-4 text-sm font-black text-white" type="button" data-change-photo><svg class="h-4 w-4 fill-none stroke-current stroke-2" viewBox="0 0 24 24"><path d="M4 7h3l2-3h6l2 3h3v12H4V7Zm8 9a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z"></path></svg>Change profile picture</button><a class="inline-flex min-h-11 items-center rounded-xl border border-[#121017]/12 px-4 text-sm font-black" href="pages/student/home.html">Media feed</a></div>
+            <div class="student-profile-actions flex gap-2 sm:pb-2"><button class="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-[#397565] px-4 text-sm font-black text-white disabled:cursor-wait disabled:opacity-65" type="button" data-change-photo><svg class="h-4 w-4 fill-none stroke-current stroke-2" viewBox="0 0 24 24"><path d="M4 7h3l2-3h6l2 3h3v12H4V7Zm8 9a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z"></path></svg><span data-change-photo-label>Change photo</span></button><a class="inline-flex min-h-11 items-center justify-center rounded-xl border border-[#121017]/12 px-4 text-sm font-black" href="pages/student/home.html">Media feed</a></div>
           </div>
-          <form class="hidden" data-photo-form><input type="file" name="photo" accept="image/jpeg,image/png,image/webp" data-photo-input></form>
+          <form class="hidden" data-photo-form><input type="file" name="photo" accept="image/jpeg,image/png,image/webp" data-photo-input aria-label="Choose a profile picture"></form>
         </div>
       </section>
       <div class="student-profile-layout grid items-start gap-5 px-4 py-5">
         <aside class="space-y-5 lg:sticky lg:top-24">
-          <section class="rounded-2xl border border-[#397565]/15 bg-white p-5 shadow-sm"><h2 class="text-lg font-black">Intro</h2>${profile.bio ? `<p class="mt-3 whitespace-pre-line text-sm leading-6 text-[#121017]/65">${esc(profile.bio)}</p>` : '<p class="mt-3 text-sm text-[#121017]/45">CITE student profile</p>'}<dl class="mt-4 grid gap-3 border-t border-[#121017]/8 pt-4 text-sm"><div class="flex gap-3"><dt class="w-24 shrink-0 text-[#121017]/40">Student ID</dt><dd class="font-bold">${esc(profile.id_number)}</dd></div><div class="flex gap-3"><dt class="w-24 shrink-0 text-[#121017]/40">Year level</dt><dd class="font-bold">${esc(profile.year_level_label || 'Not set')}</dd></div><div class="flex gap-3"><dt class="w-24 shrink-0 text-[#121017]/40">Team</dt><dd class="font-bold">${esc(profile.team_name || 'Not assigned')}</dd></div><div class="flex gap-3"><dt class="w-24 shrink-0 text-[#121017]/40">Joined</dt><dd class="font-bold">${esc(formatDate(profile.created_at))}</dd></div></dl></section>
+          <section class="flex items-center justify-between gap-4 rounded-2xl border border-[#397565]/15 bg-white p-5 shadow-sm"><div class="min-w-0"><p class="text-[9px] font-black uppercase tracking-[.14em] text-[#397565]">Student profile</p><h2 class="mt-1 text-lg font-black">About me</h2></div><button class="shrink-0 rounded-xl border border-[#397565]/20 px-4 py-2.5 text-xs font-black text-[#397565] transition hover:bg-[#397565]/8" type="button" data-profile-details-open>View details</button></section>
           <section class="rounded-2xl border border-[#397565]/15 bg-white p-5 shadow-sm"><h2 class="font-black">Post overview</h2><div class="mt-4 grid grid-cols-2 gap-3"><div class="rounded-xl bg-[#397565]/7 p-3"><strong class="block text-xl font-black text-[#397565]">${data.post_counts.approved}</strong><span class="text-[10px] font-bold text-[#121017]/45">Published</span></div><div class="rounded-xl bg-[#C6F24E]/20 p-3"><strong class="block text-xl font-black text-[#397565]">${data.post_counts.pending}</strong><span class="text-[10px] font-bold text-[#121017]/45">In review</span></div></div></section>
         </aside>
         <div class="min-w-0 space-y-5"><div data-profile-post-form></div>${pendingMarkup(data.own_posts)}<section><div class="mb-3 flex items-center justify-between"><div><p class="text-[9px] font-black uppercase tracking-[.14em] text-[#397565]">Timeline</p><h2 class="mt-1 text-xl font-black">My posts</h2></div></div><div class="space-y-5" data-profile-posts></div></section></div>
-      </div>`;
+      </div>
+      <dialog class="student-profile-dialog" data-profile-details-dialog aria-labelledby="student-profile-details-title">
+        <div class="student-profile-dialog-accent" style="background-color:${coverColor}"></div>
+        <header><div><p>Student profile</p><h2 id="student-profile-details-title">Profile details</h2></div><button type="button" data-profile-details-close aria-label="Close profile details">&times;</button></header>
+        <div class="student-profile-dialog-body">
+          <div class="student-profile-dialog-person"><span class="student-profile-dialog-avatar">${avatar}</span><div class="min-w-0"><strong>${esc(profile.full_name)}</strong><span>${esc(profile.year_level_label || 'Student')}${profile.team_name ? ` · ${esc(profile.team_name)}` : ''}</span></div></div>
+          <p class="student-profile-dialog-bio">${profile.bio ? esc(profile.bio) : 'CITE student profile'}</p>
+          <dl><div><dt>Student ID</dt><dd>${esc(profile.id_number)}</dd></div><div><dt>Year level</dt><dd>${esc(profile.year_level_label || 'Not set')}</dd></div><div><dt>Team</dt><dd><i style="background-color:${coverColor}"></i>${esc(profile.team_name || 'Not assigned')}</dd></div><div><dt>Joined</dt><dd>${esc(formatDate(profile.created_at))}</dd></div></dl>
+        </div>
+        <footer><button type="button" data-profile-details-close>Close</button></footer>
+      </dialog>`;
 
     postForm = CiteMediaPostForm.mount(root.querySelector('[data-profile-post-form]'), {events:data.post_events,viewer:data.viewer,onSaved:load,notify});
     const posts = root.querySelector('[data-profile-posts]');
@@ -60,18 +75,42 @@ window.SharedNavigation.ready.then(async session => {
     else posts.innerHTML = '<div class="rounded-2xl border border-dashed border-[#397565]/25 bg-white px-6 py-14 text-center"><h3 class="font-black">No published posts yet</h3><p class="mt-1 text-sm text-[#121017]/45">Your approved posts will appear on your profile.</p></div>';
 
     const photoInput = root.querySelector('[data-photo-input]');
-    root.querySelector('[data-change-photo]').onclick = () => photoInput.click();
+    const photoButtons = [...root.querySelectorAll('[data-change-photo]')];
+    photoButtons.forEach(button => button.onclick = () => photoInput.click());
     photoInput.onchange = async () => {
-      if (!photoInput.files?.[0]) return;
-      const body = new FormData(); body.append('photo', photoInput.files[0]);
+      const photo = photoInput.files?.[0];
+      if (!photo) return;
+      if (!PHOTO_TYPES.includes(photo.type)) {
+        notify('error', 'Choose a JPG, PNG, or WebP image.');
+        photoInput.value = '';
+        return;
+      }
+      if (photo.size > MAX_PHOTO_BYTES) {
+        notify('error', 'Choose a profile picture no larger than 5 MB.');
+        photoInput.value = '';
+        return;
+      }
+      const body = new FormData(); body.append('photo', photo);
+      photoButtons.forEach(button => { button.disabled = true; });
+      root.querySelectorAll('[data-change-photo-label]').forEach(label => { label.textContent = 'Uploading…'; });
       try {
         const response = await axios.post('api/student-profile.php', body, {headers:{'X-CSRF-Token':session.csrfToken}});
-        notify('success', response.data.message);
+        window.Notifications?.success?.(response.data.message || 'Profile picture updated.', {title:'Profile updated'});
         const headerAvatar = document.querySelector('[data-shared-account-initials]');
-        if (headerAvatar) headerAvatar.innerHTML = `<img class="h-full w-full rounded-full object-cover" src="${esc(response.data.profile_photo_path)}" alt="">`;
+        if (headerAvatar) headerAvatar.innerHTML = `<img src="${esc(response.data.profile_photo_path)}" alt="">`;
         await load();
-      } catch (error) { notify('error', error.response?.data?.message || 'The profile picture could not be updated.'); }
+      } catch (error) {
+        notify('error', error.response?.data?.message || 'The profile picture could not be updated.');
+        photoButtons.forEach(button => { button.disabled = false; });
+        root.querySelectorAll('[data-change-photo-label]').forEach(label => { label.textContent = 'Change photo'; });
+      } finally {
+        photoInput.value = '';
+      }
     };
+    const detailsDialog = root.querySelector('[data-profile-details-dialog]');
+    root.querySelector('[data-profile-details-open]').onclick = () => detailsDialog.showModal();
+    detailsDialog.querySelectorAll('[data-profile-details-close]').forEach(button => button.onclick = () => detailsDialog.close());
+    detailsDialog.onclick = event => { if (event.target === detailsDialog) detailsDialog.close(); };
     root.querySelectorAll('[data-profile-edit]').forEach(button => button.onclick = () => { const post=data.own_posts.find(item=>item.id===Number(button.dataset.profileEdit)); if(post)postForm.edit(post); });
     root.querySelectorAll('[data-profile-delete]').forEach(button => button.onclick = () => execute({action:'delete',id:button.dataset.profileDelete},{confirm:'Delete this post?'}));
   }

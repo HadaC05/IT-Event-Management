@@ -63,5 +63,12 @@
     article.querySelectorAll("[data-post-menu] button").forEach((button) => button.addEventListener("click", () => button.closest("details").removeAttribute("open")));
     return article;
   }
+
+  document.addEventListener("click", (event) => {
+    document.querySelectorAll(".cite-post-menu[open]").forEach((menu) => {
+      if (!menu.contains(event.target)) menu.removeAttribute("open");
+    });
+  });
+
   window.CiteMediaPostCard = { create };
 })();

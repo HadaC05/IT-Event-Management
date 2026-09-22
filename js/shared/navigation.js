@@ -53,6 +53,25 @@
   ];
 
   const esc = value => String(value ?? '').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;').replaceAll("'",'&#039;');
+  const parseLocalDate = value => value ? new Date(String(value).replace(' ', 'T')) : null;
+  const notificationTime = value => {
+    const date = parseLocalDate(value);
+    if (!date || Number.isNaN(date.getTime())) return '';
+    const elapsed = Math.max(0, Date.now() - date.getTime());
+    const minutes = Math.floor(elapsed / 60000);
+    if (minutes < 1) return 'Just now';
+    if (minutes < 60) return `${minutes} min${minutes === 1 ? '' : 's'} ago`;
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) return `${hours}h${minutes % 60 ? ` ${minutes % 60}m` : ''} ago`;
+    const days = Math.floor(hours / 24);
+    if (days < 7) return `${days}d${hours % 24 ? ` ${hours % 24}h` : ''} ago`;
+    if (days < 30) return `${Math.floor(days / 7)}w ago`;
+    return new Intl.DateTimeFormat('en-PH', {month:'short',day:'numeric',year:date.getFullYear() === new Date().getFullYear() ? undefined : 'numeric'}).format(date);
+  };
+  const notificationDateTitle = value => {
+    const date = parseLocalDate(value);
+    return date && !Number.isNaN(date.getTime()) ? new Intl.DateTimeFormat('en-PH', {dateStyle:'medium',timeStyle:'short'}).format(date) : '';
+  };
   const portalForSession = sessionRole => ROLE_HOME[SESSION_ROLE_PORTAL[sessionRole]] || './';
   const icon = (path, mobile = false) => `<svg class="${mobile ? 'h-5 w-5' : 'h-6 w-6'} shrink-0 fill-none stroke-current stroke-2" viewBox="0 0 24 24" aria-hidden="true"><path d="${path}"></path></svg>`;
   const activePage = role => {
@@ -64,7 +83,7 @@
   };
   const ensureStyles = () => {
     if (document.querySelector('link[href^="css/navigation.css"]')) return;
-    const link = document.createElement('link'); link.rel = 'stylesheet'; link.href = 'css/navigation.css?v=20260921-adviser-sections-1'; document.head.append(link);
+    const link = document.createElement('link'); link.rel = 'stylesheet'; link.href = 'css/navigation.css?v=20260922-profile-avatar-1'; document.head.append(link);
   };
   const clone = (documentFragment, selector) => documentFragment.querySelector(selector).content.firstElementChild.cloneNode(true);
   const linkMarkup = (item, active, mobile = false) => {
@@ -85,12 +104,14 @@
   const studentNotifications = async (header, csrf) => {
     const slot = header.querySelector('[data-shared-notification-slot]');
     slot.innerHTML = `<details class="group relative" data-notification-menu><summary class="relative grid h-11 w-11 cursor-pointer list-none place-items-center rounded-full bg-[#121017]/8 text-[#121017]" aria-label="Notifications"><svg class="h-5 w-5 fill-current" viewBox="0 0 24 24"><path d="M12 22a2.5 2.5 0 0 0 2.35-1.65h-4.7A2.5 2.5 0 0 0 12 22Zm7-6.5-1.5-2V9a5.5 5.5 0 0 0-4.25-5.35V3a1.25 1.25 0 0 0-2.5 0v.65A5.5 5.5 0 0 0 6.5 9v4.5l-1.5 2V18h14v-2.5Z"></path></svg><span class="absolute -right-1 -top-1 hidden min-h-5 min-w-5 place-items-center rounded-full border-2 border-white bg-[#FF4D4F] px-1 text-[9px] font-black text-white" data-notification-count>0</span></summary><div class="absolute right-0 top-[calc(100%+.65rem)] w-[min(22rem,calc(100vw-1rem))] overflow-hidden rounded-2xl border border-[#121017]/10 bg-white shadow-2xl"><div class="flex items-center justify-between border-b px-4 py-3"><div><strong class="block text-sm font-black">Notifications</strong><span class="text-[10px] text-[#121017]/45" data-notification-summary>No unread notifications</span></div><button class="hidden text-[10px] font-black text-[#397565]" type="button" data-mark-all-notifications>Mark all read</button></div><div class="max-h-80 overflow-y-auto" data-notification-list></div></div></details>`;
+    const refreshTimes = () => slot.querySelectorAll('[data-notification-time]').forEach(node => { node.textContent = notificationTime(node.dataset.notificationTime); });
     const load = async () => {
       const response = await axios.get('api/student-home.php'), data = response.data.data, count = Number(data.unread_notifications || 0);
       const badge = slot.querySelector('[data-notification-count]'); badge.textContent = count > 9 ? '9+' : count; badge.classList.toggle('hidden', !count); badge.classList.toggle('grid', !!count);
       slot.querySelector('[data-notification-summary]').textContent = count ? `${count} unread notification${count === 1 ? '' : 's'}` : 'No unread notifications';
       slot.querySelector('[data-mark-all-notifications]').classList.toggle('hidden', !count);
-      slot.querySelector('[data-notification-list]').innerHTML = data.notifications?.length ? data.notifications.map(item => `<article class="flex gap-3 border-b px-4 py-3 ${item.is_read ? '' : 'bg-[#C6F24E]/10'}"><p class="min-w-0 flex-1 text-xs font-bold leading-5">${esc(item.message)}</p>${item.is_read ? '' : `<button class="shrink-0 text-[10px] font-black text-[#397565]" data-mark-notification="${esc(item.id)}">Mark read</button>`}</article>`).join('') : '<p class="px-6 py-10 text-center text-xs text-[#121017]/45">No notifications yet.</p>';
+      slot.querySelector('[data-notification-list]').innerHTML = data.notifications?.length ? data.notifications.map(item => `<article class="grid grid-cols-[minmax(0,1fr)_auto] gap-x-3 gap-y-1 border-b px-4 py-3 ${item.is_read ? '' : 'bg-[#C6F24E]/10'}"><p class="min-w-0 text-xs font-bold leading-5">${esc(item.message)}</p>${item.is_read ? '' : `<button class="row-span-2 shrink-0 self-center text-[10px] font-black text-[#397565]" data-mark-notification="${esc(item.id)}">Mark read</button>`}<time class="text-[10px] font-semibold text-[#121017]/40" datetime="${esc(item.created_at)}" title="${esc(notificationDateTitle(item.created_at))}" data-notification-time="${esc(item.created_at)}">${esc(notificationTime(item.created_at))}</time></article>`).join('') : '<p class="px-6 py-10 text-center text-xs text-[#121017]/45">No notifications yet.</p>';
+      refreshTimes();
     };
     const mark = async id => { await axios.post('api/student-home.php',{action:'mark_notifications_read',...(id ? {notification_id:id} : {})},{headers:{'X-CSRF-Token':csrf}}); await load(); };
     slot.querySelector('[data-mark-all-notifications]').onclick = () => mark();
@@ -98,6 +119,7 @@
     const menu = slot.querySelector('[data-notification-menu]');
     document.addEventListener('click', event => { if (menu.open && !menu.contains(event.target)) menu.removeAttribute('open'); });
     await load();
+    window.setInterval(refreshTimes, 60000);
   };
 
   async function mount() {
@@ -125,7 +147,7 @@
     if (role === 'adviser') sidebar.querySelector('[data-shared-sidebar-name]')?.closest('[data-shared-sidebar-label]')?.remove();
     header.querySelector('[data-shared-home-link]').href = ROLE_HOME[role];
     const accountAvatar = header.querySelector('[data-shared-account-initials]');
-    if (user.profile_photo_path) accountAvatar.innerHTML = `<img class="h-full w-full rounded-full object-cover" src="${esc(user.profile_photo_path)}" alt="">`;
+    if (user.profile_photo_path) accountAvatar.innerHTML = `<img src="${esc(user.profile_photo_path)}" alt="${esc(name)} profile picture">`;
     else accountAvatar.textContent = initials;
     header.querySelector('[data-shared-account-name]').textContent = name;
     header.querySelector('[data-shared-account-role]').textContent = expected;

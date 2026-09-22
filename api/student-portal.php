@@ -53,25 +53,24 @@ final class StudentPortalRepository
     {
         $summaryStatement = $this->db->prepare(
             "SELECT COUNT(*) AS total,
-                    SUM(effective_status = 'present') AS present,
-                    SUM(effective_status = 'late') AS late,
-                    SUM(effective_status = 'absent') AS absent,
-                    SUM(effective_status = 'excused') AS excused
+                    SUM(effective_status IN ('present', 'late')) AS present,
+                    SUM(effective_status IN ('absent', 'excused')) AS absent
              FROM vw_attendance_effective
              WHERE user_id = ?"
         );
         $summaryStatement->execute([$userId]);
         $summary = $summaryStatement->fetch() ?: [];
-        foreach (['total', 'present', 'late', 'absent', 'excused'] as $field) {
+        foreach (['total', 'present', 'absent'] as $field) {
             $summary[$field] = (int) ($summary[$field] ?? 0);
         }
-        $attended = $summary['present'] + $summary['late'];
         $summary['rate'] = $summary['total'] > 0
-            ? (int) round(($attended / $summary['total']) * 100)
+            ? (int) round(($summary['present'] / $summary['total']) * 100)
             : 0;
 
         $history = $this->db->prepare(
-            "SELECT a.id, a.attendance_date, a.effective_status status, a.manual_status, a.checked_in_at,
+            "SELECT a.id, a.attendance_date,
+                    CASE WHEN a.effective_status IN ('present', 'late') THEN 'present' ELSE 'absent' END status,
+                    a.manual_status, a.checked_in_at,
                     a.morning_in_at, a.morning_out_at,
                     a.afternoon_in_at, a.afternoon_out_at, a.notes,
                     e.title AS event_title, e.start_at, asm.code AS attendance_mode

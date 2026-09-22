@@ -5,7 +5,7 @@
   const formatDate = value => value ? new Intl.DateTimeFormat('en-PH',{dateStyle:'medium',timeStyle:'short'}).format(new Date(value.replace(' ','T'))) : '';
   const state = {data:null,eventId:null,form:null,root:null,carouselTimer:null,pending:new Set()};
 
-  const notify = (message,type='success') => {
+  const notify = (type,message) => {
     if(window.Notifications?.[type]){window.Notifications[type](message);return;}
     let toast=document.querySelector('[data-shared-media-toast]');
     if(!toast){toast=document.createElement('div');toast.dataset.sharedMediaToast='';toast.className='fixed bottom-24 right-4 z-[100] max-w-sm rounded-xl px-4 py-3 text-sm font-bold text-white shadow-2xl lg:bottom-5';document.body.append(toast);}
@@ -18,7 +18,7 @@
     const key=[value.action,value.post_id||value.id||'',value.comment_id||'',value.event_id||'',value.active??value.pin??''].join(':');
     if(state.pending.has(key))return;
     state.pending.add(key);
-    try{const response=await CiteMediaApi.send(payload);notify(response.message);await load();}catch(error){notify(error.response?.data?.message||'The media request failed.','error');}finally{state.pending.delete(key);}
+    try{const response=await CiteMediaApi.send(payload);notify('success',response.message||'Media action completed.');await load();}catch(error){notify('error',error.response?.data?.message||'The media request failed.');}finally{state.pending.delete(key);}
   }
 
   function featuredMarkup(events) {

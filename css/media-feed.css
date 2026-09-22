@@ -25,6 +25,8 @@
 
 .cite-post-menu > summary {
   list-style: none;
+  border: 1px solid transparent;
+  transition: border-color 160ms ease, background-color 160ms ease, color 160ms ease;
 }
 
 .cite-post-menu > summary::-webkit-details-marker {
@@ -32,13 +34,52 @@
 }
 
 .cite-post-menu > div {
+  right: 0;
+  top: calc(100% + .35rem);
+  width: 12.5rem;
   min-width: 10rem;
+  max-width: calc(100vw - 2rem);
+  transform-origin: top right;
+}
+
+.cite-post-menu[open] {
+  z-index: 40;
+}
+
+.cite-post-menu[open] > summary {
+  border-color: #397565;
+  background: rgba(57, 117, 101, .08);
+  color: #397565;
+}
+
+.cite-post-menu[open] > div {
+  animation: cite-post-menu-in 160ms cubic-bezier(.2, .8, .2, 1);
+}
+
+@keyframes cite-post-menu-in {
+  from {
+    opacity: 0;
+    transform: translateY(-.4rem) scale(.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 
 @media (max-width: 639px) {
   .cite-post-menu > div {
-    position: fixed;
-    inset: auto 1rem 5rem;
-    z-index: 90;
+    position: absolute;
+    right: 0;
+    top: calc(100% + .35rem);
+    bottom: auto;
+    left: auto;
+    z-index: 40;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cite-post-menu[open] > div {
+    animation: none;
   }
 }

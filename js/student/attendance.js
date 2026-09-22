@@ -12,19 +12,21 @@
 
     const statusTone = status => ({
         present: 'bg-[#397565]/10 text-[#397565]',
-        late: 'bg-[#C6F24E]/30 text-[#397565]',
         absent: 'bg-[#FF6B2C]/12 text-[#c84510]',
-        excused: 'bg-[#121017]/7 text-[#516078]',
     })[status] || 'bg-[#121017]/7 text-[#121017]/50';
 
-    const record = item => `
+    const attendanceStatus = status => ['present', 'late'].includes(String(status || '').toLowerCase()) ? 'present' : 'absent';
+
+    const record = item => {
+        const status = attendanceStatus(item.status);
+        return `
         <article class="p-5 sm:px-7 sm:py-6">
             <div class="flex flex-wrap items-start justify-between gap-3">
                 <div>
                     <h3 class="font-black">${escapeHtml(item.event_title)}</h3>
                     <p class="mt-1 text-xs text-[#121017]/45">${formatDate(item.attendance_date || item.start_at, false)}${item.manual_status ? ' · Adviser corrected' : ''}</p>
                 </div>
-                <span class="rounded-full px-3 py-1 text-[9px] font-black uppercase ${statusTone(item.status)}">${escapeHtml(item.status)}</span>
+                <span class="rounded-full px-3 py-1 text-[9px] font-black uppercase ${statusTone(status)}">${escapeHtml(status)}</span>
             </div>
             <dl class="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
                 ${(item.attendance_mode === 'whole_day' ? [
@@ -43,6 +45,7 @@
             </dl>
             ${item.notes ? `<p class="mt-3 text-xs text-[#121017]/50"><strong>Note:</strong> ${escapeHtml(item.notes)}</p>` : ''}
         </article>`;
+    };
 
     const nextEvent = event => event ? `
         <div class="mt-6 border-t border-[#121017]/8 pt-5">
@@ -118,11 +121,11 @@
         const response = await axios.get('api/student-portal.php', {params: {page: 'attendance'}});
         const {summary, current_event: event, records} = response.data.data;
 
+        const present = Number(summary.present || 0) + Number(summary.late || 0);
+        const absent = Number(summary.absent || 0) + Number(summary.excused || 0);
         document.querySelector('[data-attendance-summary]').innerHTML = [
-            summaryItem('Present', summary.present, 'text-[#397565]', '✓'),
-            summaryItem('Late', summary.late, 'text-[#9A6A12]', '◷'),
-            summaryItem('Absent', summary.absent, 'text-[#c84510]', '×'),
-            summaryItem('Excused', summary.excused, 'text-[#516078]', '◇'),
+            summaryItem('Present', present, 'text-[#397565]', '✓'),
+            summaryItem('Absent', absent, 'text-[#c84510]', '×'),
         ].join('');
         const rate = document.querySelector('[data-attendance-rate]');
         if (summary.total > 0) {

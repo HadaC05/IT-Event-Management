@@ -1,19 +1,242 @@
 .student-profile-cover {
   height: 12rem;
+  background: var(--team-cover, #397565);
+}
+
+.student-profile-cover-pattern {
+  background:
+    radial-gradient(circle at 18% 25%, rgba(255, 255, 255, .25) 0 8%, transparent 8.5%),
+    radial-gradient(circle at 82% 30%, rgba(18, 16, 23, .18) 0 12%, transparent 12.5%),
+    linear-gradient(135deg, rgba(18, 16, 23, .46), transparent 55%, rgba(255, 255, 255, .2));
 }
 
 .student-profile-avatar {
   border-width: 5px;
+  aspect-ratio: 1;
+  overflow: hidden;
+  border-radius: 9999px !important;
+  isolation: isolate;
+}
+
+.student-profile-avatar > img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  object-fit: cover;
+  object-position: center;
 }
 
 .student-profile-layout {
   grid-template-columns: minmax(0, 1fr);
 }
 
+.student-profile-dialog {
+  width: min(31rem, calc(100% - 2rem));
+  max-height: min(44rem, calc(100dvh - 2rem));
+  margin: auto;
+  padding: 0;
+  overflow: hidden auto;
+  border: 0;
+  border-radius: 1rem !important;
+  background: #fff;
+  color: #121017;
+  box-shadow: 0 24px 70px rgba(18, 16, 23, .28);
+}
+
+.student-profile-dialog::backdrop {
+  background: rgba(18, 16, 23, .64);
+  backdrop-filter: blur(3px);
+}
+
+.student-profile-dialog-accent {
+  height: .45rem;
+}
+
+.student-profile-dialog header,
+.student-profile-dialog footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1.1rem 1.25rem;
+}
+
+.student-profile-dialog header {
+  border-bottom: 1px solid rgba(18, 16, 23, .08);
+}
+
+.student-profile-dialog header p {
+  color: #397565;
+  font-size: .6rem;
+  font-weight: 900;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+}
+
+.student-profile-dialog header h2 {
+  margin-top: .2rem;
+  font-size: 1.25rem;
+  font-weight: 900;
+}
+
+.student-profile-dialog header button {
+  display: grid;
+  width: 2.5rem;
+  height: 2.5rem;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 9999px;
+  background: rgba(18, 16, 23, .06);
+  color: rgba(18, 16, 23, .55);
+  font-size: 1.4rem;
+}
+
+.student-profile-dialog-body {
+  padding: 1.25rem;
+}
+
+.student-profile-dialog-person {
+  display: flex;
+  align-items: center;
+  gap: .9rem;
+}
+
+.student-profile-dialog-person strong,
+.student-profile-dialog-person span {
+  display: block;
+}
+
+.student-profile-dialog-person strong {
+  overflow-wrap: anywhere;
+  font-size: 1rem;
+  font-weight: 900;
+}
+
+.student-profile-dialog-person div > span {
+  margin-top: .2rem;
+  color: rgba(18, 16, 23, .48);
+  font-size: .75rem;
+  font-weight: 700;
+}
+
+.student-profile-dialog-avatar {
+  display: grid;
+  width: 3.5rem;
+  height: 3.5rem;
+  flex: 0 0 auto;
+  place-items: center;
+  overflow: hidden;
+  border-radius: 9999px;
+  background: #c6f24e;
+  font-weight: 900;
+}
+
+.student-profile-dialog-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.student-profile-dialog-bio {
+  margin-top: 1.1rem;
+  padding: .9rem;
+  border-radius: .75rem;
+  background: #f7f4ed;
+  color: rgba(18, 16, 23, .65);
+  font-size: .82rem;
+  line-height: 1.5;
+  white-space: pre-line;
+}
+
+.student-profile-dialog dl {
+  display: grid;
+  margin-top: 1rem;
+}
+
+.student-profile-dialog dl > div {
+  display: grid;
+  grid-template-columns: 7rem minmax(0, 1fr);
+  gap: 1rem;
+  padding: .85rem 0;
+  border-bottom: 1px solid rgba(18, 16, 23, .08);
+  font-size: .82rem;
+}
+
+.student-profile-dialog dt {
+  color: rgba(18, 16, 23, .42);
+}
+
+.student-profile-dialog dd {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: .5rem;
+  overflow-wrap: anywhere;
+  font-weight: 800;
+}
+
+.student-profile-dialog dd i {
+  width: .65rem;
+  height: .65rem;
+  flex: 0 0 auto;
+  border-radius: 9999px;
+}
+
+.student-profile-dialog footer {
+  justify-content: flex-end;
+  border-top: 1px solid rgba(18, 16, 23, .08);
+  background: #faf9f6;
+}
+
+.student-profile-dialog footer button {
+  min-height: 2.75rem;
+  padding: 0 1.25rem;
+  border-radius: .65rem;
+  background: #397565;
+  color: #fff;
+  font-size: .8rem;
+  font-weight: 900;
+}
+
+@media (max-width: 639px) {
+  .student-profile-cover {
+    height: 10rem;
+  }
+
+  .student-profile-identity {
+    align-items: center;
+    text-align: center;
+  }
+
+  .student-profile-identity h1 {
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  .student-profile-actions {
+    display: grid;
+    grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
+    width: 100%;
+  }
+
+  .student-profile-actions > * {
+    min-width: 0;
+    padding-right: .75rem;
+    padding-left: .75rem;
+  }
+
+  .student-profile-dialog dl > div {
+    grid-template-columns: 5.5rem minmax(0, 1fr);
+    gap: .65rem;
+  }
+}
+
 @media (min-width: 640px) {
   .student-profile-cover {
     height: 18rem;
   }
+
 }
 
 @media (min-width: 1024px) {

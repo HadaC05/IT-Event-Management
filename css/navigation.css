@@ -71,6 +71,19 @@ body[data-navigation-role]:not([data-navigation-role="adviser"]) main :is(sectio
 .shared-navigation-account-panel { width: min(17rem, calc(100vw - 1rem)); }
 .shared-navigation-account-panel [data-shared-account-menu-name],
 .shared-navigation-account-panel [data-shared-account-detail] { overflow-wrap: anywhere; }
+[data-shared-account-initials] {
+  aspect-ratio: 1;
+  overflow: hidden;
+  border-radius: 9999px !important;
+}
+[data-shared-account-initials] > img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  object-fit: cover;
+  object-position: center;
+}
 body[data-navigation-role="student"],
 body[data-navigation-role="sbo"] { padding-bottom: 4.5rem; }
 
