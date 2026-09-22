@@ -53,13 +53,33 @@ try {
     $assert($first['counts']['rejected'] === 1 && !in_array('rejected', array_column($first['posts'], 'status'), true), 'Rejected posts are counted but not sent in pending results');
     $feed = $repo->pageData($adviser);
     $assert(!array_key_exists('moderation', $feed), 'Feed response excludes the review queue');
-    $assert(count($feed['posts']) === 1 && count($feed['posts'][0]['comments']) === 1 && $feed['posts'][0]['comments'][0]['is_pinned'] === false, 'Approved posts hydrate existing unpinned comments');
+    $assert(count($feed['posts']) === 1 && $feed['posts'][0]['comments_count'] === 1 && !array_key_exists('comments', $feed['posts'][0]), 'Approved feed returns comment counts without eager comments');
     $studentHome = (new StudentHomeRepository($db))->pageData((int)$ids['Student']);
-    $assert(count($studentHome['posts']) === 1 && count($studentHome['posts'][0]['comments']) === 1, 'Student home also loads approved posts with comments');
+    $assert(count($studentHome['posts']) === 1 && $studentHome['posts'][0]['comments_count'] === 1 && !array_key_exists('comments',$studentHome['posts'][0]), 'Legacy student home response also defers comments');
     $studentProfile = $repo->studentProfileData($student);
-    $assert(count($studentProfile['posts']) === 1 && count($studentProfile['posts'][0]['comments']) === 1, 'Student profile loads approved posts with comments');
+    $assert(count($studentProfile['posts']) === 1 && !array_key_exists('comments', $studentProfile['posts'][0]), 'Student profile defers comments too');
+    $assert(count($repo->commentsPage($approvedId)['comments']) === 1, 'Comments load only from their dedicated request');
     $repo->pinComment((int)$ids['Student'], $approvedId, $commentId, true);
     $assert((int)$db->query('SELECT is_pinned FROM tbl_post_comments WHERE id='.$commentId)->fetchColumn() === 1, 'Existing comments can be pinned after migration');
+    $addComment = $db->prepare('INSERT INTO tbl_post_comments(post_id,user_id,body,created_at,updated_at) VALUES(?,?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)');
+    for ($number=1;$number<=24;$number++) $addComment->execute([$approvedId,(int)$ids['Student'],'Comment '.$number]);
+    $commentsFirst = $repo->commentsPage($approvedId);
+    $commentsLast = $repo->commentsPage($approvedId,$commentsFirst['next_cursor']);
+    $assert(count($commentsFirst['comments']) === 20 && count($commentsLast['comments']) === 5 && $commentsLast['next_cursor'] === null, 'Busy posts load comments in bounded pages');
+    $assert($commentsFirst['comments'][0]['id'] === $commentId && $commentsFirst['comments'][0]['is_pinned'], 'Pinned comments remain first');
+    for ($number=1;$number<=104;$number++) $insert->execute([(int)$ids['Student'],'Older approved '.$number,'approved']);
+    $cursor = null;$seen=[];
+    do {
+        $page = $repo->postsPage($adviser,null,$cursor);
+        $seen = array_merge($seen,array_column($page['posts'],'id'));
+        $cursor = $page['next_cursor'];
+        $assert(count($page['posts']) <= 20, 'Approved feed page is bounded to 20 posts');
+    } while ($cursor !== null);
+    $assert(count($seen) === 105 && count(array_unique($seen)) === 105 && in_array($approvedId,$seen,true), 'Every approved post beyond the former 100-post cap remains reachable once');
+    $ownPage=$repo->postsPage($student,null,null,true);
+    $assert(count($ownPage['posts']) === 20 && $ownPage['next_cursor'] !== null, 'Student profile can page through their approved posts');
+    try {$repo->postsPage($adviser,null,'invalid!');$assert(false,'Malformed feed cursors are rejected');}
+    catch (InvalidArgumentException) {$assert(true,'Malformed feed cursors are rejected');}
     $notificationData = (new StudentHomeRepository($db))->notificationData((int)$ids['Student']);
     $assert(array_keys($notificationData) === ['notifications','unread_notifications'], 'Notification request returns only notification data');
     try { $repo->moderationPage($student); $assert(false, 'Student cannot read review queue'); }

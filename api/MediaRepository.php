@@ -44,6 +44,7 @@ final class MediaRepository
         $userId = (int) $actor['id'];
         $permissions = new MediaPermissions((string) $actor['role']);
         $activeEvents = $this->activeEvents(4);
+        $feed = $this->postsPage($actor, $eventId);
         return [
             'viewer' => [
                 'id' => $userId,
@@ -53,7 +54,8 @@ final class MediaRepository
             'permissions' => $permissions->values(),
             'active_events' => $activeEvents,
             'post_events' => $permissions->isOfficer() ? $this->officerEvents($userId) : $this->activeEvents(null),
-            'posts' => $this->approvedPosts($userId, $eventId),
+            'posts' => $feed['posts'],
+            'next_cursor' => $feed['next_cursor'],
             'own_posts' => $this->ownPosts($userId),
             'event_program' => $this->eventProgram(),
             'carousel_events' => $permissions->canManageCarousel()
@@ -109,6 +111,7 @@ final class MediaRepository
         $countStatement->execute([$userId]);
         foreach ($countStatement->fetchAll() as $row) $counts[(string) $row['status']] = (int) $row['total'];
 
+        $feed = $this->postsPage($actor, null, null, true);
         return [
             'viewer' => [
                 'id' => $userId,
@@ -120,7 +123,8 @@ final class MediaRepository
             'post_counts' => $counts,
             'permissions' => $permissions->values(),
             'post_events' => $this->activeEvents(null),
-            'posts' => $this->approvedPosts($userId, null, $userId),
+            'posts' => $feed['posts'],
+            'next_cursor' => $feed['next_cursor'],
             'own_posts' => $this->ownPosts($userId),
         ];
     }
@@ -395,15 +399,87 @@ final class MediaRepository
         if ($newPath && $oldPath && $newPath !== $oldPath) $this->removeUpload($oldPath);
     }
 
-    private function approvedPosts(int $viewerId, ?int $eventId, ?int $authorId = null): array
+    public function postsPage(array $actor, ?int $eventId = null, ?string $cursor = null, bool $mine = false): array
     {
+        if ($mine && (string) $actor['role'] !== 'Student') throw new MediaForbiddenException('Only students can open their profile posts.');
         $where = "p.status='approved' AND p.deleted_at IS NULL";
-        $params = [$viewerId];
+        $params = [(int) $actor['id']];
         if ($eventId !== null && $eventId > 0) { $where .= ' AND p.event_id=?'; $params[] = $eventId; }
-        if ($authorId !== null && $authorId > 0) { $where .= ' AND p.user_id=?'; $params[] = $authorId; }
-        $statement = $this->db->prepare("SELECT p.id,p.user_id,p.event_id,p.content,p.image_path,p.video_path,'approved' status,p.created_at,p.updated_at,p.reviewed_at,p.is_official,e.title event_title,e.end_at,u.first_name,u.middle_name,u.last_name,u.profile_photo_path,r.name author_role,(SELECT pr.type FROM tbl_post_reactions pr WHERE pr.post_id=p.id AND pr.user_id=? LIMIT 1) viewer_reaction,(SELECT COUNT(*) FROM tbl_post_reactions pr WHERE pr.post_id=p.id) reactions_count,(SELECT COUNT(*) FROM tbl_post_comments pc WHERE pc.post_id=p.id) comments_count FROM tbl_posts p JOIN tbl_users u ON u.id=p.user_id JOIN tbl_roles r ON r.id=u.role_id LEFT JOIN tbl_events e ON e.id=p.event_id WHERE $where ORDER BY COALESCE(p.reviewed_at,p.created_at) DESC,p.id DESC LIMIT 100");
+        if ($mine) { $where .= ' AND p.user_id=?'; $params[] = (int) $actor['id']; }
+        if ($cursor !== null && $cursor !== '') {
+            $position = $this->decodeCursor($cursor, ['at','id']);
+            if (!preg_match('/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/', (string) $position['at']) || !filter_var($position['id'], FILTER_VALIDATE_INT, ['options'=>['min_range'=>1]])) {
+                throw new InvalidArgumentException('Choose a valid feed position.');
+            }
+            $where .= ' AND (COALESCE(p.reviewed_at,p.created_at) < ? OR (COALESCE(p.reviewed_at,p.created_at) = ? AND p.id < ?))';
+            array_push($params, $position['at'], $position['at'], (int) $position['id']);
+        }
+        $statement = $this->db->prepare("SELECT p.id,p.user_id,p.event_id,p.content,p.image_path,p.video_path,'approved' status,p.created_at,p.updated_at,p.reviewed_at,p.is_official,COALESCE(p.reviewed_at,p.created_at) sort_at,e.title event_title,e.end_at,u.first_name,u.middle_name,u.last_name,u.profile_photo_path,r.name author_role,(SELECT pr.type FROM tbl_post_reactions pr WHERE pr.post_id=p.id AND pr.user_id=? LIMIT 1) viewer_reaction,(SELECT COUNT(*) FROM tbl_post_reactions pr WHERE pr.post_id=p.id) reactions_count,(SELECT COUNT(*) FROM tbl_post_comments pc WHERE pc.post_id=p.id) comments_count FROM tbl_posts p JOIN tbl_users u ON u.id=p.user_id JOIN tbl_roles r ON r.id=u.role_id LEFT JOIN tbl_events e ON e.id=p.event_id WHERE $where ORDER BY sort_at DESC,p.id DESC LIMIT 21");
         $statement->execute($params);
-        return $this->hydratePosts($statement->fetchAll());
+        $rows = $statement->fetchAll();
+        $hasMore = count($rows) > 20;
+        if ($hasMore) array_pop($rows);
+        $last = $rows ? $rows[count($rows)-1] : null;
+        $nextCursor = $hasMore && $last ? $this->encodeCursor(['at'=>$last['sort_at'],'id'=>(int)$last['id']]) : null;
+        return ['posts'=>$this->hydratePosts($rows),'next_cursor'=>$nextCursor];
+    }
+
+    public function approvedPost(array $actor, int $postId): array
+    {
+        if ($postId < 1) throw new InvalidArgumentException('Choose a valid post.');
+        $statement = $this->db->prepare("SELECT p.id,p.user_id,p.event_id,p.content,p.image_path,p.video_path,'approved' status,p.created_at,p.updated_at,p.reviewed_at,p.is_official,e.title event_title,e.end_at,u.first_name,u.middle_name,u.last_name,u.profile_photo_path,r.name author_role,(SELECT pr.type FROM tbl_post_reactions pr WHERE pr.post_id=p.id AND pr.user_id=? LIMIT 1) viewer_reaction,(SELECT COUNT(*) FROM tbl_post_reactions pr WHERE pr.post_id=p.id) reactions_count,(SELECT COUNT(*) FROM tbl_post_comments pc WHERE pc.post_id=p.id) comments_count FROM tbl_posts p JOIN tbl_users u ON u.id=p.user_id JOIN tbl_roles r ON r.id=u.role_id LEFT JOIN tbl_events e ON e.id=p.event_id WHERE p.id=? AND p.status='approved' AND p.deleted_at IS NULL LIMIT 1");
+        $statement->execute([(int)$actor['id'],$postId]);
+        $posts = $this->hydratePosts($statement->fetchAll());
+        if (!$posts) throw new InvalidArgumentException('This post is no longer available.');
+        return $posts[0];
+    }
+
+    public function commentsPage(int $postId, ?string $cursor = null): array
+    {
+        if ($postId < 1) throw new InvalidArgumentException('Choose a valid post.');
+        $exists = $this->db->prepare("SELECT id FROM tbl_posts WHERE id=? AND status='approved' AND deleted_at IS NULL LIMIT 1");
+        $exists->execute([$postId]);
+        if (!$exists->fetchColumn()) throw new InvalidArgumentException('This post is no longer available.');
+        $where = 'c.post_id=?';
+        $params = [$postId];
+        if ($cursor !== null && $cursor !== '') {
+            $position = $this->decodeCursor($cursor, ['pin','at','id']);
+            if (!in_array($position['pin'], [0,1], true) || !preg_match('/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/', (string)$position['at']) || !filter_var($position['id'], FILTER_VALIDATE_INT, ['options'=>['min_range'=>1]])) {
+                throw new InvalidArgumentException('Choose a valid comment position.');
+            }
+            $where .= ' AND (c.is_pinned < ? OR (c.is_pinned=? AND (c.created_at > ? OR (c.created_at=? AND c.id > ?))))';
+            array_push($params,$position['pin'],$position['pin'],$position['at'],$position['at'],(int)$position['id']);
+        }
+        $statement = $this->db->prepare("SELECT c.id,c.post_id,c.user_id,c.body,c.is_pinned,c.created_at,c.updated_at,u.first_name,u.middle_name,u.last_name,r.name author_role FROM tbl_post_comments c JOIN tbl_users u ON u.id=c.user_id JOIN tbl_roles r ON r.id=u.role_id WHERE $where ORDER BY c.is_pinned DESC,c.created_at,c.id LIMIT 21");
+        $statement->execute($params);
+        $rows = $statement->fetchAll();
+        $hasMore = count($rows) > 20;
+        if ($hasMore) array_pop($rows);
+        $last = $rows ? $rows[count($rows)-1] : null;
+        $nextCursor = $hasMore && $last ? $this->encodeCursor(['pin'=>(int)$last['is_pinned'],'at'=>$last['created_at'],'id'=>(int)$last['id']]) : null;
+        foreach ($rows as &$comment) {
+            foreach (['id','post_id','user_id'] as $field) $comment[$field] = (int)$comment[$field];
+            $comment['is_pinned'] = (bool)$comment['is_pinned'];
+            $comment['author_name'] = $this->name($comment);
+            $comment['author_initials'] = $this->initials($comment);
+            foreach (['first_name','middle_name','last_name'] as $field) unset($comment[$field]);
+        }
+        unset($comment);
+        return ['comments'=>$rows,'next_cursor'=>$nextCursor];
+    }
+
+    private function encodeCursor(array $position): string
+    {
+        return rtrim(strtr(base64_encode(json_encode($position, JSON_THROW_ON_ERROR)), '+/', '-_'), '=');
+    }
+
+    private function decodeCursor(string $cursor, array $keys): array
+    {
+        if (strlen($cursor) > 200 || !preg_match('/^[A-Za-z0-9_-]+$/', $cursor)) throw new InvalidArgumentException('Choose a valid page position.');
+        $decoded = base64_decode(strtr($cursor, '-_', '+/'), true);
+        $position = $decoded === false ? null : json_decode($decoded, true);
+        if (!is_array($position) || array_keys($position) !== $keys) throw new InvalidArgumentException('Choose a valid page position.');
+        return $position;
     }
 
     private function hydratePosts(array $posts): array
@@ -415,17 +491,6 @@ final class MediaRepository
         $reactions->execute($ids);
         $reactionCounts = [];
         foreach ($reactions->fetchAll() as $row) $reactionCounts[(int) $row['post_id']][$row['type']] = (int) $row['total'];
-        $commentsStatement = $this->db->prepare("SELECT c.id,c.post_id,c.user_id,c.body,c.is_pinned,c.created_at,c.updated_at,u.first_name,u.middle_name,u.last_name,r.name author_role FROM tbl_post_comments c JOIN tbl_users u ON u.id=c.user_id JOIN tbl_roles r ON r.id=u.role_id WHERE c.post_id IN ($marks) ORDER BY c.post_id,c.is_pinned DESC,c.created_at,c.id");
-        $commentsStatement->execute($ids);
-        $comments = [];
-        foreach ($commentsStatement->fetchAll() as $comment) {
-            foreach (['id','post_id','user_id'] as $field) $comment[$field] = (int) $comment[$field];
-            $comment['is_pinned'] = (bool) $comment['is_pinned'];
-            $comment['author_name'] = $this->name($comment);
-            $comment['author_initials'] = $this->initials($comment);
-            foreach (['first_name','middle_name','last_name'] as $field) unset($comment[$field]);
-            $comments[$comment['post_id']][] = $comment;
-        }
         foreach ($posts as &$post) {
             foreach (['id','user_id','event_id'] as $field) $post[$field] = $post[$field] === null ? null : (int) $post[$field];
             $post['is_official'] = (bool) $post['is_official'];
@@ -434,7 +499,7 @@ final class MediaRepository
             $post['author_name'] = $this->name($post);
             $post['author_initials'] = $this->initials($post);
             $post['reaction_counts'] = $reactionCounts[$post['id']] ?? [];
-            $post['comments'] = $comments[$post['id']] ?? [];
+            unset($post['sort_at']);
             foreach (['first_name','middle_name','last_name'] as $field) unset($post[$field]);
         }
         unset($post);

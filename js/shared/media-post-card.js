@@ -25,6 +25,7 @@
   function create(post, context) {
     const { viewer, permissions, action, edit } = context;
     const article = document.createElement("article");
+    article.dataset.postId = String(post.id);
     article.className = "overflow-visible rounded-xl border border-[#397565]/15 bg-white shadow-[0_14px_38px_rgba(18,16,23,.07)]";
     const role = CiteMediaPermissions.roleLabel(post.author_role);
     const tone = CiteMediaPermissions.roleTone(post.author_role);
@@ -40,21 +41,60 @@
 
     const engagement = document.createElement("div");
     engagement.className = "px-4 pb-4 pt-4 sm:px-5 sm:pb-5";
-    engagement.innerHTML = `<div class="flex items-center justify-between text-xs text-[#121017]/50"><span>${post.reactions_count} like${post.reactions_count === 1 ? "" : "s"}</span><span>${post.comments_count} comment${post.comments_count === 1 ? "" : "s"}</span></div><div class="mt-2 flex items-center gap-2 border-y border-[#397565]/10 py-2">${reactionMarkup(post)}<button class="min-h-10 rounded-xl px-3 text-xs font-bold text-[#121017]/55 hover:bg-[#F3F0E9]" type="button" data-comment-focus>Comment</button></div><div class="grid gap-3 pt-4" data-comments></div><form class="mt-4 flex items-start gap-2 border-t border-[#397565]/10 pt-4" data-comment-form><textarea class="min-h-10 min-w-0 flex-1 resize-none border-0 bg-transparent px-1 py-2 text-sm outline-none placeholder:text-[#121017]/45" name="body" rows="1" maxlength="1000" placeholder="Add a comment…" required></textarea><button class="min-h-10 rounded-lg bg-[#397565] px-4 text-xs font-bold text-white">Post</button></form>`;
+    engagement.innerHTML = `<div class="flex items-center justify-between text-xs text-[#121017]/50"><span>${post.reactions_count} like${post.reactions_count === 1 ? "" : "s"}</span><span>${post.comments_count} comment${post.comments_count === 1 ? "" : "s"}</span></div><div class="mt-2 flex items-center gap-2 border-y border-[#397565]/10 py-2">${reactionMarkup(post)}<button class="min-h-10 rounded-xl px-3 text-xs font-bold text-[#121017]/55 hover:bg-[#F3F0E9]" type="button" data-comment-focus aria-expanded="false">${post.comments_count ? `View comments (${post.comments_count})` : 'Comment'}</button></div><div class="hidden" data-comments-panel><div class="grid gap-3 pt-4" data-comments></div><button class="mt-3 hidden min-h-10 rounded-xl border border-[#397565]/20 px-4 text-xs font-black text-[#397565]" type="button" data-more-comments>Load more comments</button><form class="mt-4 flex items-start gap-2 border-t border-[#397565]/10 pt-4" data-comment-form><textarea class="min-h-10 min-w-0 flex-1 resize-none border-0 bg-transparent px-1 py-2 text-sm outline-none placeholder:text-[#121017]/45" name="body" rows="1" maxlength="1000" placeholder="Add a comment…" required></textarea><button class="min-h-10 rounded-lg bg-[#397565] px-4 text-xs font-bold text-white">Post</button></form></div>`;
     const comments = engagement.querySelector("[data-comments]");
-    (post.comments || []).forEach((comment) => {
-      const item = document.createElement("div");
-      item.className = "flex gap-2";
-      item.innerHTML = `<span class="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-[#397565]/10 text-[10px] font-black text-[#397565]">${esc(comment.author_initials)}</span><div class="min-w-0 flex-1"><div class="rounded-lg bg-[#F7F4ED] px-3 py-2"><div class="flex flex-wrap items-center gap-2"><strong class="text-xs">${esc(comment.author_name)}</strong>${Number(comment.user_id) === Number(post.user_id) ? '<span class="rounded bg-[#397565]/10 px-1.5 py-0.5 text-[9px] font-black text-[#397565]">Author</span>' : ""}${comment.is_pinned ? '<span class="text-[9px] font-black text-[#397565]" aria-label="Pinned comment">📌 Pinned</span>' : ""}</div><p class="mt-1 whitespace-pre-wrap break-words text-xs leading-5">${esc(comment.body)}</p></div><div class="mt-1 flex gap-2">${Number(comment.user_id) === Number(viewer.id) ? `<button class="px-2 text-[10px] font-bold text-[#397565]" type="button" data-edit-comment="${comment.id}">Edit</button><button class="px-2 text-[10px] font-bold text-[#FF6B2C]" type="button" data-delete-comment="${comment.id}">Delete</button>` : ""}${Number(post.user_id) === Number(viewer.id) ? `<button class="px-2 text-[10px] font-bold text-[#397565]" type="button" data-pin-comment="${comment.id}" data-pin="${comment.is_pinned ? "0" : "1"}">${comment.is_pinned ? "Unpin" : "Pin"}</button>` : ""}</div></div>`;
-      comments.append(item);
-    });
+    const panel = engagement.querySelector("[data-comments-panel]");
+    const toggle = engagement.querySelector("[data-comment-focus]");
+    const more = engagement.querySelector("[data-more-comments]");
+    let loadedComments = [];
+    let nextCursor = null;
+    let loading = false;
+    let opened = false;
+    const renderComments = () => {
+      comments.replaceChildren();
+      loadedComments.forEach(comment => {
+        const item = document.createElement("div");
+        item.className = "flex gap-2";
+        item.innerHTML = `<span class="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-[#397565]/10 text-[10px] font-black text-[#397565]">${esc(comment.author_initials)}</span><div class="min-w-0 flex-1"><div class="rounded-lg bg-[#F7F4ED] px-3 py-2"><div class="flex flex-wrap items-center gap-2"><strong class="text-xs">${esc(comment.author_name)}</strong>${Number(comment.user_id) === Number(post.user_id) ? '<span class="rounded bg-[#397565]/10 px-1.5 py-0.5 text-[9px] font-black text-[#397565]">Author</span>' : ""}${comment.is_pinned ? '<span class="text-[9px] font-black text-[#397565]" aria-label="Pinned comment">📌 Pinned</span>' : ""}</div><p class="mt-1 whitespace-pre-wrap break-words text-xs leading-5">${esc(comment.body)}</p></div><div class="mt-1 flex gap-2">${Number(comment.user_id) === Number(viewer.id) ? `<button class="px-2 text-[10px] font-bold text-[#397565]" type="button" data-edit-comment="${comment.id}">Edit</button><button class="px-2 text-[10px] font-bold text-[#FF6B2C]" type="button" data-delete-comment="${comment.id}">Delete</button>` : ""}${Number(post.user_id) === Number(viewer.id) ? `<button class="px-2 text-[10px] font-bold text-[#397565]" type="button" data-pin-comment="${comment.id}" data-pin="${comment.is_pinned ? "0" : "1"}">${comment.is_pinned ? "Unpin" : "Pin"}</button>` : ""}</div></div>`;
+        item.querySelector('[data-delete-comment]')?.addEventListener('click', () => action({action:'comment_delete',post_id:post.id,comment_id:comment.id}));
+        item.querySelector('[data-edit-comment]')?.addEventListener('click', async () => { const body = await window.Notifications.prompt({title:'Edit comment',message:'Update your comment below.',label:'Comment',value:comment.body,action:'Save comment',required:true,maxLength:1000}); if(body) action({action:'comment_update',post_id:post.id,comment_id:comment.id,body}); });
+        item.querySelector('[data-pin-comment]')?.addEventListener('click', () => action({action:'comment_pin',post_id:post.id,comment_id:comment.id,pin:!comment.is_pinned}));
+        comments.append(item);
+      });
+    };
+    const loadComments = async (cursor = null) => {
+      if (loading) return;
+      loading = true;
+      more.disabled = true;
+      if (!cursor) comments.innerHTML = '<p class="text-xs text-[#121017]/45">Loading comments…</p>';
+      try {
+        const result = await CiteMediaApi.comments(post.id, cursor);
+        const seen = new Set(cursor ? loadedComments.map(comment => comment.id) : []);
+        loadedComments = cursor ? [...loadedComments, ...result.comments.filter(comment => !seen.has(comment.id))] : result.comments;
+        nextCursor = result.next_cursor;
+        renderComments();
+        more.classList.toggle('hidden', !nextCursor);
+      } catch (error) {
+        if (!cursor) comments.innerHTML = '<p class="text-xs text-[#c84510]">Comments could not be loaded. Close and reopen to retry.</p>';
+        else more.textContent = 'Retry loading comments';
+      } finally { loading = false; more.disabled = false; }
+    };
+    article.openComments = async () => {
+      if (opened) return;
+      opened = true;
+      panel.classList.remove('hidden');
+      toggle.setAttribute('aria-expanded', 'true');
+      toggle.textContent = 'Hide comments';
+      await loadComments();
+    };
+    toggle.onclick = async () => {
+      if (opened) { opened = false; panel.classList.add('hidden'); toggle.setAttribute('aria-expanded', 'false'); toggle.textContent = post.comments_count ? `View comments (${post.comments_count})` : 'Comment'; }
+      else { await article.openComments(); if (!post.comments_count) engagement.querySelector('textarea').focus(); }
+    };
+    more.onclick = () => { more.textContent = 'Load more comments'; if (nextCursor) loadComments(nextCursor); };
 
     engagement.querySelector("[data-reaction]").onclick = (event) => action({ action: "reaction_toggle", post_id: post.id, type: event.currentTarget.dataset.reaction, active: !Boolean(post.viewer_reaction) });
-    engagement.querySelector("[data-comment-focus]").onclick = () => engagement.querySelector("textarea").focus();
     engagement.querySelector("form").onsubmit = (event) => { event.preventDefault(); const body = event.currentTarget.elements.body.value.trim(); if (body) action({ action: "comment_create", post_id: post.id, body }); };
-    engagement.querySelectorAll("[data-delete-comment]").forEach((button) => button.onclick = () => action({ action: "comment_delete", post_id: post.id, comment_id: button.dataset.deleteComment }));
-    engagement.querySelectorAll("[data-edit-comment]").forEach((button) => button.onclick = async () => { const comment = (post.comments || []).find((item) => item.id === Number(button.dataset.editComment)); const body = await window.Notifications.prompt({ title: "Edit comment", message: "Update your comment below.", label: "Comment", value: comment?.body || "", action: "Save comment", required: true, maxLength: 1000 }); if (body) action({ action: "comment_update", post_id: post.id, comment_id: button.dataset.editComment, body }); });
-    engagement.querySelectorAll("[data-pin-comment]").forEach((button) => button.onclick = () => action({ action: "comment_pin", post_id: post.id, comment_id: button.dataset.pinComment, pin: button.dataset.pin === "1" }));
     article.append(engagement);
 
     article.querySelector("[data-own-edit]")?.addEventListener("click", () => edit(post));

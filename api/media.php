@@ -11,12 +11,27 @@ $repository = new MediaRepository((new Database())->connection());
 
 try {
     if ($_SERVER['REQUEST_METHOD'] === 'GET') {
-        if (($_GET['action'] ?? '') === 'moderation') {
+        $getAction = (string) ($_GET['action'] ?? '');
+        if ($getAction === 'moderation') {
             $page = filter_var($_GET['page'] ?? 1, FILTER_VALIDATE_INT);
             if ($page === false || $page < 1) throw new InvalidArgumentException('Choose a valid review page.');
             JsonResponse::send(['success'=>true,'data'=>$repository->moderationPage($actor, $page)]);
         }
+        if ($getAction === 'comments') {
+            $postId = filter_var($_GET['post_id'] ?? null, FILTER_VALIDATE_INT);
+            if ($postId === false || $postId === null || $postId < 1) throw new InvalidArgumentException('Choose a valid post.');
+            JsonResponse::send(['success'=>true,'data'=>$repository->commentsPage($postId, isset($_GET['cursor']) ? (string)$_GET['cursor'] : null)]);
+        }
+        if ($getAction === 'post') {
+            $postId = filter_var($_GET['post_id'] ?? null, FILTER_VALIDATE_INT);
+            if ($postId === false || $postId === null || $postId < 1) throw new InvalidArgumentException('Choose a valid post.');
+            JsonResponse::send(['success'=>true,'data'=>$repository->approvedPost($actor, $postId)]);
+        }
         $eventId = filter_var($_GET['event_id'] ?? null, FILTER_VALIDATE_INT) ?: null;
+        if ($getAction === 'posts') {
+            JsonResponse::send(['success'=>true,'data'=>$repository->postsPage($actor, $eventId, isset($_GET['cursor']) ? (string)$_GET['cursor'] : null, ($_GET['scope'] ?? '') === 'mine')]);
+        }
+        if ($getAction !== '') throw new InvalidArgumentException('Unknown media action.');
         JsonResponse::send(['success'=>true,'data'=>$repository->pageData($actor, $eventId)]);
     }
     if ($_SERVER['REQUEST_METHOD'] !== 'POST') JsonResponse::send(['success'=>false,'message'=>'Method not allowed.'], 405);

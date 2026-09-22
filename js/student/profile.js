@@ -11,6 +11,7 @@ window.SharedNavigation.ready.then(async session => {
   const teamCoverColor = profile => safeColor(profile.team_color);
   let data;
   let postForm;
+  let profileRequest = 0;
 
   CiteMediaApi.configure(session.csrfToken);
 
@@ -56,7 +57,7 @@ window.SharedNavigation.ready.then(async session => {
           <section class="flex items-center justify-between gap-4 rounded-2xl border border-[#397565]/15 bg-white p-5 shadow-sm"><div class="min-w-0"><p class="text-[9px] font-black uppercase tracking-[.14em] text-[#397565]">Student profile</p><h2 class="mt-1 text-lg font-black">About me</h2></div><button class="shrink-0 rounded-xl border border-[#397565]/20 px-4 py-2.5 text-xs font-black text-[#397565] transition hover:bg-[#397565]/8" type="button" data-profile-details-open>View details</button></section>
           <section class="rounded-2xl border border-[#397565]/15 bg-white p-5 shadow-sm"><h2 class="font-black">Post overview</h2><div class="mt-4 grid grid-cols-2 gap-3"><div class="rounded-xl bg-[#397565]/7 p-3"><strong class="block text-xl font-black text-[#397565]">${data.post_counts.approved}</strong><span class="text-[10px] font-bold text-[#121017]/45">Published</span></div><div class="rounded-xl bg-[#C6F24E]/20 p-3"><strong class="block text-xl font-black text-[#397565]">${data.post_counts.pending}</strong><span class="text-[10px] font-bold text-[#121017]/45">In review</span></div></div></section>
         </aside>
-        <div class="min-w-0 space-y-5"><div data-profile-post-form></div>${pendingMarkup(data.own_posts)}<section><div class="mb-3 flex items-center justify-between"><div><p class="text-[9px] font-black uppercase tracking-[.14em] text-[#397565]">Timeline</p><h2 class="mt-1 text-xl font-black">My posts</h2></div></div><div class="space-y-5" data-profile-posts></div></section></div>
+        <div class="min-w-0 space-y-5"><div data-profile-post-form></div>${pendingMarkup(data.own_posts)}<section><div class="mb-3 flex items-center justify-between"><div><p class="text-[9px] font-black uppercase tracking-[.14em] text-[#397565]">Timeline</p><h2 class="mt-1 text-xl font-black">My posts</h2></div></div><div class="space-y-5" data-profile-posts></div><div class="mt-5 text-center"><button class="${data.next_cursor ? '' : 'hidden'} min-h-11 rounded-xl border border-[#397565]/25 bg-white px-6 text-sm font-black text-[#397565] disabled:opacity-60" type="button" data-more-profile-posts>Load more posts</button></div></section></div>
       </div>
       <dialog class="student-profile-dialog" data-profile-details-dialog aria-labelledby="student-profile-details-title">
         <div class="student-profile-dialog-accent" style="background-color:${coverColor}"></div>
@@ -71,8 +72,9 @@ window.SharedNavigation.ready.then(async session => {
 
     postForm = CiteMediaPostForm.mount(root.querySelector('[data-profile-post-form]'), {events:data.post_events,viewer:data.viewer,onSaved:load,notify});
     const posts = root.querySelector('[data-profile-posts]');
-    if (data.posts.length) data.posts.forEach(post => posts.append(CiteMediaPostCard.create(post, {viewer:data.viewer,permissions:data.permissions,action:execute,edit:item=>postForm.edit(item)})));
+    if (data.posts.length) data.posts.forEach(post => posts.append(makeProfileCard(post)));
     else posts.innerHTML = '<div class="rounded-2xl border border-dashed border-[#397565]/25 bg-white px-6 py-14 text-center"><h3 class="font-black">No published posts yet</h3><p class="mt-1 text-sm text-[#121017]/45">Your approved posts will appear on your profile.</p></div>';
+    root.querySelector('[data-more-profile-posts]').onclick = loadMorePosts;
 
     const photoInput = root.querySelector('[data-photo-input]');
     const photoButtons = [...root.querySelectorAll('[data-change-photo]')];
@@ -115,17 +117,49 @@ window.SharedNavigation.ready.then(async session => {
     root.querySelectorAll('[data-profile-delete]').forEach(button => button.onclick = () => execute({action:'delete',id:button.dataset.profileDelete},{confirm:'Delete this post?'}));
   }
 
+  function makeProfileCard(post) {
+    return CiteMediaPostCard.create(post, {viewer:data.viewer,permissions:data.permissions,action:execute,edit:item=>postForm.edit(item)});
+  }
+
+  async function loadMorePosts() {
+    const button=root.querySelector('[data-more-profile-posts]');
+    if(!button || button.disabled || !data.next_cursor)return;
+    const request=profileRequest,cursor=data.next_cursor;
+    button.disabled=true;button.textContent='Loading posts…';
+    try {
+      const page=await CiteMediaApi.posts({mine:true,cursor});
+      if(request!==profileRequest)return;
+      const seen=new Set(data.posts.map(post=>post.id));
+      page.posts.filter(post=>!seen.has(post.id)).forEach(post=>{data.posts.push(post);root.querySelector('[data-profile-posts]').append(makeProfileCard(post));});
+      data.next_cursor=page.next_cursor;
+      button.classList.toggle('hidden',!data.next_cursor);
+    } catch(error) { notify('error',error.response?.data?.message||'Older posts could not be loaded.'); }
+    finally { if(request===profileRequest){button.disabled=false;button.textContent='Load more posts';} }
+  }
+
   async function execute(payload, options = {}) {
     if (options.confirm) {
       const accepted = await window.Notifications.confirm({title:'Delete post?',message:options.confirm,action:'Delete'});
       if (!accepted) return;
     }
-    try { const response=await CiteMediaApi.send(payload); notify('success',response.message); await load(); }
-    catch(error){ notify('error',error.response?.data?.message||'The post action could not be completed.'); }
+    let saved=false;
+    try {
+      const response=await CiteMediaApi.send(payload);saved=true;notify('success',response.message);
+      if(['reaction_toggle','comment_create','comment_update','comment_delete','comment_pin'].includes(payload.action)) {
+        const oldCard=root.querySelector(`[data-profile-posts] [data-post-id="${Number(payload.post_id)}"]`);
+        const commentsOpen=oldCard?.querySelector('[data-comment-focus]')?.getAttribute('aria-expanded')==='true';
+        const fresh=await CiteMediaApi.post(Number(payload.post_id));
+        const index=data.posts.findIndex(post=>post.id===fresh.id);
+        if(index>=0)data.posts[index]=fresh;
+        if(oldCard){const newCard=makeProfileCard(fresh);oldCard.replaceWith(newCard);if(commentsOpen)await newCard.openComments();}
+      } else await load();
+    }
+    catch(error){ notify('error',saved?'Your action was saved, but the post could not refresh. Reload the page.':error.response?.data?.message||'The post action could not be completed.'); }
   }
 
   async function load() {
-    try { data=(await axios.get('api/student-profile.php')).data.data; render(); }
+    const request=++profileRequest;
+    try { const result=(await axios.get('api/student-profile.php')).data.data;if(request===profileRequest){data=result;render();} }
     catch(error){ root.innerHTML=`<div class="m-4 rounded-2xl border border-[#FF6B2C]/20 bg-white p-8 text-center text-sm font-bold text-[#c84510]">${esc(error.response?.data?.message||'Your profile could not be loaded.')}</div>`; }
   }
 

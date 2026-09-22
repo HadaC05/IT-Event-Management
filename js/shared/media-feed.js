@@ -3,7 +3,7 @@
   const esc = value => String(value ?? '').replace(/[&<>'"]/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[char]));
   const statusTone = status => ({pending:'bg-[#C6F24E]/35 text-[#397565]',approved:'bg-[#397565]/10 text-[#397565]',rejected:'bg-[#FF6B2C]/12 text-[#c84510]',hidden:'bg-[#121017]/10 text-[#121017]/60'}[status]||'bg-[#F3F0E9]');
   const formatDate = value => value ? new Intl.DateTimeFormat('en-PH',{dateStyle:'medium',timeStyle:'short'}).format(new Date(value.replace(' ','T'))) : '';
-  const state = {data:null,eventId:null,form:null,root:null,carouselTimer:null,pending:new Set(),queuePage:1,queueRequest:0};
+  const state = {data:null,eventId:null,form:null,root:null,carouselTimer:null,pending:new Set(),queuePage:1,queueRequest:0,feedRequest:0,nextCursor:null};
 
   const notify = (type,message) => {
     if(window.Notifications?.[type]){window.Notifications[type](message);return;}
@@ -18,17 +18,26 @@
     const key=[value.action,value.post_id||value.id||'',value.comment_id||'',value.event_id||'',value.active??value.pin??''].join(':');
     if(state.pending.has(key))return;
     state.pending.add(key);
+    let saved=false;
     try{
       const response=await CiteMediaApi.send(payload);
+      saved=true;
       notify('success',response.message||'Media action completed.');
       if(value.action==='approve'||value.action==='reject'){
         await loadModeration(state.queuePage);
         if(value.action==='approve'){
           try{await refreshPublicFeed();}catch{notify('error','Post approved, but the public feed could not refresh. Reload the page to see it.');}
         }
+      }else if(['reaction_toggle','comment_create','comment_update','comment_delete','comment_pin'].includes(value.action)) {
+        const oldCard=state.root.querySelector(`[data-public-feed] [data-post-id="${Number(value.post_id)}"]`);
+        const commentsOpen=oldCard?.querySelector('[data-comment-focus]')?.getAttribute('aria-expanded')==='true';
+        const fresh=await CiteMediaApi.post(Number(value.post_id));
+        const index=state.data.posts.findIndex(post=>post.id===fresh.id);
+        if(index>=0)state.data.posts[index]=fresh;
+        if(oldCard){const newCard=makePostCard(fresh);oldCard.replaceWith(newCard);if(commentsOpen)await newCard.openComments();}
       }else await load();
     }catch(error){
-      notify('error',error.response?.data?.message||'The media request failed.');
+      notify('error',saved?'Your action was saved, but the post could not refresh. Reload the page.':error.response?.data?.message||'The media request failed.');
       if(value.action==='approve'||value.action==='reject')await loadModeration(state.queuePage);
     }finally{state.pending.delete(key);}
   }
@@ -115,10 +124,11 @@
 
   function render() {
     const data=state.data, root=state.root;
-    root.innerHTML=`<div class="cite-media-shell mx-auto w-full space-y-5"><header class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between"><div><p class="text-[10px] font-black uppercase tracking-[.15em] text-[#397565]">CITE community</p><h1 class="mt-1 text-3xl font-black tracking-tight">Media feed</h1><p class="mt-2 text-sm text-[#121017]/50">Stories and updates from active and completed CITE events.</p></div><span class="self-start rounded-full bg-[#C6F24E]/35 px-3 py-1.5 text-[10px] font-black text-[#397565]">Approved posts only</span></header>${moderationMarkup(data)}${featuredMarkup(data.featured_events)}<div class="cite-media-layout grid items-start gap-6"><div class="min-w-0 space-y-5"><div data-shared-post-form-host></div>${data.own_posts.length?`<details class="rounded-xl border border-[#397565]/15 bg-white p-4" data-post-status><summary class="cursor-pointer text-sm font-black text-[#397565]">Pending and rejected posts (${data.own_posts.length})</summary><div class="mt-3 grid gap-2 sm:grid-cols-2" data-own-posts>${ownPostsMarkup(data.own_posts,data.viewer)}</div></details>`:''}<section><div class="mb-4 flex gap-2 overflow-x-auto pb-1" data-event-filters><button class="shrink-0 rounded-xl px-4 py-2 text-xs font-black ${state.eventId?'bg-white text-[#397565]':'bg-[#397565] text-white'}" type="button" data-event-filter="">Mixed feed</button>${data.active_events.map(event=>`<button class="shrink-0 rounded-xl px-4 py-2 text-xs font-black ${Number(state.eventId)===event.id?'bg-[#397565] text-white':'bg-white text-[#397565]'}" type="button" data-event-filter="${event.id}">${esc(event.title)}</button>`).join('')}</div><div class="w-full space-y-5" data-public-feed></div></section></div><aside class="space-y-5 lg:sticky lg:top-24">${carouselManagerMarkup(data)}${eventProgramMarkup(data.event_program||[])}</aside></div></div>`;
+    root.innerHTML=`<div class="cite-media-shell mx-auto w-full space-y-5"><header class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between"><div><p class="text-[10px] font-black uppercase tracking-[.15em] text-[#397565]">CITE community</p><h1 class="mt-1 text-3xl font-black tracking-tight">Media feed</h1><p class="mt-2 text-sm text-[#121017]/50">Stories and updates from active and completed CITE events.</p></div><span class="self-start rounded-full bg-[#C6F24E]/35 px-3 py-1.5 text-[10px] font-black text-[#397565]">Approved posts only</span></header>${moderationMarkup(data)}${featuredMarkup(data.featured_events)}<div class="cite-media-layout grid items-start gap-6"><div class="min-w-0 space-y-5"><div data-shared-post-form-host></div>${data.own_posts.length?`<details class="rounded-xl border border-[#397565]/15 bg-white p-4" data-post-status><summary class="cursor-pointer text-sm font-black text-[#397565]">Pending and rejected posts (${data.own_posts.length})</summary><div class="mt-3 grid gap-2 sm:grid-cols-2" data-own-posts>${ownPostsMarkup(data.own_posts,data.viewer)}</div></details>`:''}<section><div class="mb-4 flex gap-2 overflow-x-auto pb-1" data-event-filters><button class="shrink-0 rounded-xl px-4 py-2 text-xs font-black ${state.eventId?'bg-white text-[#397565]':'bg-[#397565] text-white'}" type="button" data-event-filter="">Mixed feed</button>${data.active_events.map(event=>`<button class="shrink-0 rounded-xl px-4 py-2 text-xs font-black ${Number(state.eventId)===event.id?'bg-[#397565] text-white':'bg-white text-[#397565]'}" type="button" data-event-filter="${event.id}">${esc(event.title)}</button>`).join('')}</div><div class="w-full space-y-5" data-public-feed></div><div class="mt-5 text-center"><button class="hidden min-h-11 rounded-xl border border-[#397565]/25 bg-white px-6 text-sm font-black text-[#397565] shadow-sm hover:bg-[#397565]/5 disabled:opacity-60" type="button" data-more-posts>Load more posts</button></div></section></div><aside class="space-y-5 lg:sticky lg:top-24">${carouselManagerMarkup(data)}${eventProgramMarkup(data.event_program||[])}</aside></div></div>`;
     bindCarousel(root);
     state.form=CiteMediaPostForm.mount(root.querySelector('[data-shared-post-form-host]'),{events:data.post_events,viewer:data.viewer,onSaved:load,notify});
     renderPublicFeed();
+    root.querySelector('[data-more-posts]').onclick=loadMorePosts;
     root.querySelectorAll('[data-event-filter]').forEach(button=>button.onclick=()=>{state.eventId=Number(button.dataset.eventFilter)||null;load();});
     root.querySelectorAll('[data-own-posts] [data-own-edit]').forEach(button=>button.onclick=()=>{button.closest('details')?.removeAttribute('open');const post=data.own_posts.find(item=>item.id===Number(button.dataset.ownEdit));if(post)state.form.edit(post);});
     root.querySelectorAll('[data-own-posts] [data-own-delete]').forEach(button=>button.onclick=()=>execute({action:'delete',id:button.dataset.ownDelete},{confirm:'Delete this post?'}));
@@ -126,22 +136,49 @@
     if(carouselForm){const select=carouselForm.elements.event_id,check=carouselForm.elements.is_featured;const sync=()=>{check.checked=select.selectedOptions[0]?.dataset.featured==='1';};select.onchange=sync;sync();carouselForm.onsubmit=async event=>{event.preventDefault();if(!select.value)return;const data=new FormData(carouselForm);data.set('action','carousel_update');if(!check.checked)data.set('is_featured','0');await execute(data);};}
   }
 
+  function makePostCard(post) {
+    return CiteMediaPostCard.create(post,{viewer:state.data.viewer,permissions:state.data.permissions,action:execute,edit:own=>state.form.edit(own)});
+  }
+
   function renderPublicFeed() {
     const feed=state.root.querySelector('[data-public-feed]'),data=state.data;
     if(!feed)return;
     feed.replaceChildren();
-    if(data.posts.length)data.posts.forEach(post=>feed.append(CiteMediaPostCard.create(post,{viewer:data.viewer,permissions:data.permissions,action:execute,edit:own=>state.form.edit(own)})));
+    if(data.posts.length)data.posts.forEach(post=>feed.append(makePostCard(post)));
     else feed.innerHTML='<div class="rounded-xl border border-dashed border-[#397565]/25 bg-[#397565]/5 px-6 py-16 text-center"><span class="text-3xl">🌿</span><h3 class="mt-3 font-black">The feed is ready for its first story</h3><p class="mt-1 text-sm text-[#121017]/45">No approved posts match this event.</p></div>';
+    state.nextCursor=data.next_cursor;
+    state.root.querySelector('[data-more-posts]').classList.toggle('hidden',!state.nextCursor);
+  }
+
+  async function loadMorePosts() {
+    const button=state.root.querySelector('[data-more-posts]');
+    if(!button || button.disabled || !state.nextCursor)return;
+    const request=state.feedRequest,cursor=state.nextCursor,eventId=state.eventId;
+    button.disabled=true;button.textContent='Loading posts…';
+    try{
+      const page=await CiteMediaApi.posts({eventId,cursor});
+      if(request!==state.feedRequest)return;
+      const feed=state.root.querySelector('[data-public-feed]');
+      const seen=new Set(state.data.posts.map(post=>post.id));
+      page.posts.filter(post=>!seen.has(post.id)).forEach(post=>{state.data.posts.push(post);feed.append(makePostCard(post));});
+      state.nextCursor=page.next_cursor;
+      button.classList.toggle('hidden',!state.nextCursor);
+    }catch(error){notify('error',error.response?.data?.message||'Older posts could not be loaded. Please try again.');}
+    finally{if(request===state.feedRequest){button.disabled=false;button.textContent='Load more posts';}}
   }
 
   async function refreshPublicFeed() {
+    const request=++state.feedRequest;
     const updated=await CiteMediaApi.load(state.eventId);
+    if(request!==state.feedRequest)return;
     state.data.posts=updated.posts;
+    state.data.next_cursor=updated.next_cursor;
     renderPublicFeed();
   }
 
   async function load() {
-    try{state.data=await CiteMediaApi.load(state.eventId);state.queueRequest++;render();await loadModeration(state.queuePage);}catch(error){state.root.innerHTML=`<div class="rounded-xl border border-[#FF6B2C]/20 bg-[#FF6B2C]/7 p-6 text-center text-sm font-bold text-[#c84510]">${esc(error.response?.data?.message||'The media feed could not be loaded.')}</div>`;}
+    const request=++state.feedRequest;
+    try{const data=await CiteMediaApi.load(state.eventId);if(request!==state.feedRequest)return;state.data=data;state.queueRequest++;render();await loadModeration(state.queuePage);}catch(error){if(request===state.feedRequest)state.root.innerHTML=`<div class="rounded-xl border border-[#FF6B2C]/20 bg-[#FF6B2C]/7 p-6 text-center text-sm font-bold text-[#c84510]">${esc(error.response?.data?.message||'The media feed could not be loaded.')}</div>`;}
   }
 
   async function initialize(root, session) {

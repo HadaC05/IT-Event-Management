@@ -290,19 +290,6 @@ final class StudentHomeRepository
         $reactionRows->execute($ids);
         $counts = [];
         foreach ($reactionRows->fetchAll() as $reaction) $counts[(int) $reaction['post_id']][$reaction['type']] = (int) $reaction['total'];
-        $commentRows = $this->db->prepare("SELECT c.id,c.post_id,c.user_id,c.body,c.is_pinned,c.created_at,c.updated_at,u.first_name,u.middle_name,u.last_name,u.profile_photo_path,r.name author_role FROM tbl_post_comments c JOIN tbl_users u ON u.id=c.user_id LEFT JOIN tbl_roles r ON r.id=u.role_id WHERE c.post_id IN ($marks) ORDER BY c.post_id,c.is_pinned DESC,c.created_at,c.id");
-        $commentRows->execute($ids);
-        $comments = [];
-        foreach ($commentRows->fetchAll() as $comment) {
-            $comment['id'] = (int) $comment['id'];
-            $comment['post_id'] = (int) $comment['post_id'];
-            $comment['user_id'] = (int) $comment['user_id'];
-            $comment['is_pinned'] = (bool) $comment['is_pinned'];
-            $comment['author_name'] = $this->fullName($comment);
-            $comment['author_initials'] = $this->initials($comment);
-            foreach (['first_name','middle_name','last_name'] as $field) unset($comment[$field]);
-            $comments[$comment['post_id']][] = $comment;
-        }
         foreach ($posts as &$post) {
             $post['id'] = (int) $post['id'];
             $post['user_id'] = (int) $post['user_id'];
@@ -312,7 +299,6 @@ final class StudentHomeRepository
             $post['author_name'] = $this->fullName($post);
             $post['author_initials'] = $this->initials($post);
             $post['reaction_counts'] = $counts[$post['id']] ?? [];
-            $post['comments'] = $comments[$post['id']] ?? [];
             foreach (['first_name','middle_name','last_name'] as $field) unset($post[$field]);
         }
         unset($post);
