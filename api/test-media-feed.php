@@ -55,6 +55,12 @@ try {
     $assert($db->query("SELECT status FROM tbl_posts WHERE id=$studentPost")->fetchColumn() === 'pending', 'Student post defaults to Pending');
     $facultyPost = $repo->create($faculty, ['content'=>'Published faculty media test','event_id'=>$assignedEvent], []);
     $assert($db->query("SELECT status FROM tbl_posts WHERE id=$facultyPost")->fetchColumn() === 'approved', 'Faculty post publishes automatically');
+    $fixtureImage = 'assets/uploads/posts/media-edit-smoke-'.bin2hex(random_bytes(8)).'.png';
+    $db->prepare('UPDATE tbl_posts SET image_path=? WHERE id=?')->execute([$fixtureImage, $facultyPost]);
+    $repo->update($faculty, ['id'=>$facultyPost,'content'=>'Edited faculty text','event_id'=>$assignedEvent], []);
+    $assert($db->query("SELECT image_path FROM tbl_posts WHERE id=$facultyPost")->fetchColumn() === $fixtureImage, 'Text-only edit keeps the existing photo');
+    $repo->update($faculty, ['id'=>$facultyPost,'content'=>'Edited faculty text','event_id'=>$assignedEvent,'remove_media'=>'1'], []);
+    $assert($db->query("SELECT image_path FROM tbl_posts WHERE id=$facultyPost")->fetchColumn() === null, 'Media is removed only when explicitly requested');
     $officerPost = $repo->create($officer, ['content'=>'Published officer media test','event_id'=>$assignedEvent], []);
     $assert($db->query("SELECT status FROM tbl_posts WHERE id=$officerPost")->fetchColumn() === 'approved', 'Assigned Officer post publishes automatically');
     $expect(fn()=>$repo->create($officer,['content'=>'Unauthorized event post','event_id'=>$otherEvent],[]), MediaForbiddenException::class, 'Officer cannot post to an unassigned event');
