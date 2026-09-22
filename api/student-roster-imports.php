@@ -187,7 +187,6 @@ final class RosterSpreadsheetReader
 
 final class StudentRosterImportService
 {
-    private const ACCEPTED = ['ready', 'warning'];
     private const TEAM_COLORS = [
         'Titan Slayers' => '#397565',
         'Demon Slayers' => '#2F3AE0',
@@ -283,8 +282,8 @@ final class StudentRosterImportService
             'filename' => basename($filename),
             'sha256' => $hash,
             'summary' => ['total' => count($validated)] + $counts + [
-                'importable' => $counts['ready'] + $counts['warning'],
-                'excluded' => $counts['review'] + $counts['blocked'],
+                'importable' => count($validated),
+                'excluded' => 0,
             ],
             'flag_counts' => array_values($flagCounts),
             'flagged_rows' => $this->flaggedRows($batchId, '', 1, 25),
@@ -300,12 +299,12 @@ final class StudentRosterImportService
         if ($batch['status'] !== 'previewed') {
             throw new InvalidArgumentException('Only a previewed import can be applied.');
         }
-        if ((int) $batch['ready_rows'] + (int) $batch['warning_rows'] === 0) {
-            throw new InvalidArgumentException('This import has no validated student rows to apply.');
+        if ((int) $batch['total_rows'] === 0) {
+            throw new InvalidArgumentException('This import has no student rows to apply.');
         }
 
         $rowsStatement = $this->db->prepare("SELECT * FROM tbl_student_import_rows
-            WHERE batch_id=? AND validation_status IN ('ready','warning') ORDER BY source_row");
+            WHERE batch_id=? ORDER BY source_row");
         $rowsStatement->execute([$batchId]);
         $rows = $rowsStatement->fetchAll();
 
@@ -325,12 +324,24 @@ final class StudentRosterImportService
                 $yearLevelIds[$this->yearNumber((string) $level['label'])] = (int) $level['id'];
             }
 
+            $defaultPeriodSource = 'SY '.date('Y').'-'.((int) date('Y') + 1).' First Semester';
+            $periodSourceByRow = [];
+            foreach ($rows as $row) {
+                $sourcePeriod = trim((string) $row['school_year']);
+                try {
+                    AcademicPeriodLabel::parse($sourcePeriod);
+                } catch (InvalidArgumentException) {
+                    $sourcePeriod = $defaultPeriodSource;
+                }
+                $periodSourceByRow[(int) $row['id']] = $sourcePeriod;
+            }
+
             $schoolYearIds = [];
             $periodsBySource = [];
             $schoolYearInsert = $this->db->prepare('INSERT INTO tbl_school_years (label,created_at,updated_at) VALUES (?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)');
             $periodInsert = $this->db->prepare('INSERT INTO tbl_academic_periods (school_year_id,term_code,term_name,is_active,created_at,updated_at) VALUES (?,?,?,1,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)');
             $createdPeriods = [];
-            foreach (array_values(array_unique(array_filter(array_map(static fn (array $row): string => trim((string) $row['school_year']), $rows)))) as $sourcePeriod) {
+            foreach (array_values(array_unique($periodSourceByRow)) as $sourcePeriod) {
                 $period = AcademicPeriodLabel::parse($sourcePeriod);
                 $yearLabel = $period['school_year_label'];
                 if (!isset($schoolYearIds[$yearLabel])) {
@@ -348,7 +359,7 @@ final class StudentRosterImportService
             $teamIds = [];
             $teamInsert = $this->db->prepare('INSERT INTO tbl_teams (school_year_id,name,color,is_active,created_at,updated_at) VALUES (?,?,?,1,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)');
             foreach ($rows as $row) {
-                $sourcePeriod = trim((string) $row['school_year']);
+                $sourcePeriod = $periodSourceByRow[(int) $row['id']];
                 $schoolYear = $periodsBySource[$sourcePeriod]['school_year_label'] ?? '';
                 $tribe = trim((string) $row['tribe']);
                 if ($tribe === '' || !isset($schoolYearIds[$schoolYear])) continue;
@@ -371,26 +382,55 @@ final class StudentRosterImportService
             $rowUpdate = $this->db->prepare('UPDATE tbl_student_import_rows SET user_id=?,updated_at=CURRENT_TIMESTAMP WHERE id=?');
 
             $imported = 0;
+            $usedStudentIds = [];
+            $usedEmails = [];
+            $usedRecordKeys = [];
             foreach ($rows as $row) {
                 $studentId = trim((string) $row['student_id']);
+                if ($studentId === '') {
+                    $studentId = trim((string) $row['record_key']);
+                }
+                if ($studentId === '') {
+                    $studentId = 'PENDING-ROW-'.(int) $row['source_row'];
+                }
+                $baseStudentId = $studentId;
+                $suffix = 1;
+                while (isset($usedStudentIds[mb_strtoupper($studentId)])) {
+                    $studentId = $baseStudentId.'-R'.(int) $row['source_row'].($suffix > 1 ? '-'.$suffix : '');
+                    $suffix++;
+                }
+                $usedStudentIds[mb_strtoupper($studentId)] = true;
+
                 [$firstName, $lastName] = $this->splitOfficialName((string) $row['official_name']);
                 $yearNumber = (int) $row['year_level'];
                 $email = mb_strtolower(trim((string) $row['email']));
-                if ($email === '') {
-                    $email = mb_strtolower(preg_replace('/[^A-Za-z0-9]+/', '.', $studentId) ?? $studentId).'@pending.invalid';
+                if (!filter_var($email, FILTER_VALIDATE_EMAIL) || isset($usedEmails[$email])) {
+                    $email = 'pending.'.(int) $row['id'].'@pending.invalid';
                 }
+                $usedEmails[$email] = true;
+
+                $recordKey = trim((string) $row['record_key']);
+                if ($recordKey === '') $recordKey = 'ROW:'.(int) $row['source_row'];
+                $baseRecordKey = $recordKey;
+                $recordSuffix = 1;
+                while (isset($usedRecordKeys[mb_strtoupper($recordKey)])) {
+                    $recordKey = $baseRecordKey.':'.(int) $row['source_row'].':'.$recordSuffix++;
+                }
+                $usedRecordKeys[mb_strtoupper($recordKey)] = true;
+
                 $temporaryPassword = StudentInitialCredential::temporaryPassword($studentId, $lastName);
                 $userInsert->execute([
                     $studentRoleId, $studentId, $firstName, null, $lastName, $yearLevelIds[$yearNumber] ?? null,
                     $studentId, password_hash($temporaryPassword, PASSWORD_BCRYPT, ['cost' => 10]), $activeStatusId, $email,
                 ]);
                 $userId = (int) $this->db->lastInsertId();
+                $sourcePeriod = $periodSourceByRow[(int) $row['id']];
                 $profileInsert->execute([
-                    $userId, (string) $row['record_key'], $row['gender'], $row['campus'], $row['program'],
-                    $row['section_name'], $periodsBySource[trim((string) $row['school_year'])]['label'], $row['enrollment_status'], $row['source_files'], $batchId,
+                    $userId, $recordKey, $row['gender'], $row['campus'], $row['program'],
+                    $row['section_name'], $periodsBySource[$sourcePeriod]['label'], $row['enrollment_status'], $row['source_files'], $batchId,
                 ]);
                 $tribe = trim((string) $row['tribe']);
-                $schoolYear = $periodsBySource[trim((string) $row['school_year'])]['school_year_label'];
+                $schoolYear = $periodsBySource[$sourcePeriod]['school_year_label'];
                 $teamKey = $schoolYear.'|'.mb_strtolower($tribe);
                 if ($tribe !== '' && isset($teamIds[$teamKey])) {
                     $membershipInsert->execute([$teamIds[$teamKey], $userId]);
@@ -399,7 +439,7 @@ final class StudentRosterImportService
                 $imported++;
             }
 
-            $skipped = (int) $batch['review_rows'] + (int) $batch['blocked_rows'];
+            $skipped = 0;
             $complete = $this->db->prepare("UPDATE tbl_student_import_batches
                 SET status='completed',imported_rows=?,skipped_rows=?,applied_at=CURRENT_TIMESTAMP WHERE id=?");
             $complete->execute([$imported, $skipped, $batchId]);
@@ -416,7 +456,8 @@ final class StudentRosterImportService
         return [
             'batch_id' => $batchId,
             'imported' => $imported,
-            'flagged' => $skipped,
+            'flagged' => (int) $batch['warning_rows'] + (int) $batch['review_rows'] + (int) $batch['blocked_rows'],
+            'skipped' => 0,
             'temporary_password_rule' => StudentInitialCredential::RULE_DESCRIPTION,
             'must_change_password' => true,
         ];
@@ -460,34 +501,34 @@ final class StudentRosterImportService
         $sourceStatus = mb_strtoupper($this->clean($record['row_status'] ?? ''));
         $resolution = mb_strtolower($this->clean($record['review_resolution'] ?? ''));
 
-        if ($studentId === '') $add('blocked', 'missing_student_id', 'Student ID is required before an account can be created.', 'student_id');
-        elseif (!StudentId::isValid($studentId)) $add('blocked', 'invalid_student_id', StudentId::FORMAT_MESSAGE, 'student_id');
-        elseif (count($idRows[mb_strtoupper($studentId)] ?? []) > 1) $add('blocked', 'duplicate_student_id', 'The Student ID appears more than once in this workbook.', 'student_id');
-        if ($officialName === '') $add('blocked', 'missing_official_name', 'Official name is required.', 'official_name');
+        if ($studentId === '') $add('warning', 'missing_student_id', 'A stable PENDING identity will be generated until the official Student ID is supplied.', 'student_id');
+        elseif (!StudentId::isValid($studentId)) $add('warning', 'invalid_student_id', 'The supplied nonstandard Student ID will be retained and should be verified.', 'student_id');
+        elseif (count($idRows[mb_strtoupper($studentId)] ?? []) > 1) $add('warning', 'duplicate_student_id', 'A row-based suffix will keep duplicate Student IDs separate for review.', 'student_id');
+        if ($officialName === '') $add('warning', 'missing_official_name', 'A placeholder student name will be used.', 'official_name');
         elseif (!str_contains($officialName, ',')) $add('warning', 'name_format', 'Official name does not use the expected LAST, FIRST format.', 'official_name');
-        if (!in_array((int) $year, [1, 2, 3, 4], true)) $add('review', 'invalid_year_level', 'Year level must be 1, 2, 3, or 4.', 'year_level');
+        if (!in_array((int) $year, [1, 2, 3, 4], true)) $add('warning', 'invalid_year_level', 'The account will be imported without a year level until this is corrected.', 'year_level');
         $sourcePeriod = $this->clean($record['school_year'] ?? '');
         if ($sourcePeriod === '') {
-            $add('review', 'missing_school_year', 'School year and semester are required for tribe membership.', 'school_year');
+            $add('warning', 'missing_school_year', 'The current academic period will be used until this is corrected.', 'school_year');
         } else {
             try {
                 AcademicPeriodLabel::parse($sourcePeriod);
             } catch (InvalidArgumentException $error) {
-                $add('review', 'invalid_academic_period', $error->getMessage(), 'school_year');
+                $add('warning', 'invalid_academic_period', 'The current academic period will be used until this is corrected.', 'school_year');
             }
         }
         if ($email === '') $add('warning', 'missing_email', 'Email is missing; a pending placeholder will be used.', 'email');
-        elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) $add('review', 'invalid_email', 'Email address is not valid.', 'email');
-        elseif (count($emailRows[$email] ?? []) > 1) $add('review', 'duplicate_email', 'Email is assigned to more than one Student ID.', 'email');
+        elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) $add('warning', 'invalid_email', 'A unique pending email will be used until this is corrected.', 'email');
+        elseif (count($emailRows[$email] ?? []) > 1) $add('warning', 'duplicate_email', 'A unique pending email will prevent account collisions.', 'email');
         if ($this->clean($record['tribe'] ?? '') === '') $add('warning', 'missing_tribe', 'No tribe membership will be created until a tribe is confirmed.', 'tribe');
         foreach (['gender' => 'Gender', 'campus' => 'Campus', 'section' => 'Section'] as $field => $label) {
             if ($this->clean($record[$field] ?? '') === '') $add('warning', 'missing_'.$field, $label.' is missing.', $field);
         }
-        if (in_array($sourceStatus, ['BLOCKED'], true)) $add('blocked', 'source_blocked', 'The master roster marked this row as blocked.', 'row_status');
-        elseif ($sourceStatus === 'REVIEW') $add('review', 'source_review', 'The master roster marked this row for human review.', 'row_status');
-        elseif (!in_array($sourceStatus, ['READY', 'READY WITH GAPS'], true)) $add('review', 'unknown_source_status', 'The row has an unknown import status.', 'row_status');
+        if (in_array($sourceStatus, ['BLOCKED'], true)) $add('warning', 'source_blocked', 'The source marked this row for correction; it will still be imported with safe placeholders.', 'row_status');
+        elseif ($sourceStatus === 'REVIEW') $add('warning', 'source_review', 'The source marked this row for review; it will still be included.', 'row_status');
+        elseif (!in_array($sourceStatus, ['READY', 'READY WITH GAPS'], true)) $add('warning', 'unknown_source_status', 'The row has an unknown source status but will still be included.', 'row_status');
         if ($resolution === 'pending' || ($this->clean($record['source_issues'] ?? '') !== '' && !in_array($resolution, ['confirmed', 'corrected', 'not applicable'], true))) {
-            $add('review', 'unresolved_source_issue', 'A source conflict still needs a documented resolution.', 'review_resolution');
+            $add('warning', 'unresolved_source_issue', 'The unresolved source issue remains visible after import.', 'review_resolution');
         }
 
         $rank = ['ready' => 0, 'warning' => 1, 'review' => 2, 'blocked' => 3];
@@ -667,7 +708,7 @@ try {
         $data = $service->preview((string) $upload['tmp_name'], (string) $upload['name'], $actorId);
         JsonResponse::send([
             'success' => true,
-            'message' => 'Preview complete. No accounts changed yet; confirm the replacement below to import the validated roster.',
+            'message' => 'Preview complete. Every student row will be imported; correction warnings remain visible.',
             'data' => $data,
         ]);
     }
@@ -678,7 +719,7 @@ try {
         $data = $service->applyReplacement((int) ($input['batch_id'] ?? 0), $actorId);
         JsonResponse::send([
             'success' => true,
-            'message' => 'The validated roster was imported. Students must replace their one-time password at first sign-in.',
+            'message' => 'The complete roster was imported with no excluded student rows. Students must replace their one-time password at first sign-in.',
             'data' => $data,
         ]);
     }

@@ -639,8 +639,10 @@ window.SharedNavigation.ready.then(() => {
         const canApply = (batch?.status || 'previewed') === 'previewed' && Number(summary.importable || 0) > 0;
         rosterApply.disabled = !canApply;
         note.textContent = batch?.status === 'completed'
-            ? `${Number(batch.imported_rows).toLocaleString()} accounts imported; ${Number(batch.skipped_rows).toLocaleString()} rows remain safely flagged for review.`
-            : `${Number(summary.importable || 0).toLocaleString()} validated rows can be imported; ${Number(summary.excluded || 0).toLocaleString()} review/blocked rows will be excluded and retained.`;
+            ? Number(batch.skipped_rows || 0) > 0
+                ? `${Number(batch.imported_rows).toLocaleString()} accounts were imported by the previous policy; ${Number(batch.skipped_rows).toLocaleString()} rows were excluded. Preview the workbook again to include every row.`
+                : `${Number(batch.imported_rows).toLocaleString()} accounts imported. Correction warnings remain visible; no student rows were excluded.`
+            : `${Number(summary.total || 0).toLocaleString()} student rows will be imported. Incomplete values receive stable pending identities and remain visible as warnings.`;
         results.classList.remove('hidden');
     };
 
@@ -681,7 +683,7 @@ window.SharedNavigation.ready.then(() => {
             const response = await axios.post('api/student-roster-imports.php?action=preview', body, { headers: { 'X-CSRF-Token': csrfToken } });
             rosterStatusFilter.value = '';
             renderRosterImport(response.data.data);
-            notify('success', response.data.message || 'Preview complete. No accounts changed yet; confirm the replacement below to import the validated roster.');
+            notify('success', response.data.message || 'Preview complete. Every student row will be imported; correction warnings remain visible.');
         } catch (error) {
             const note = rosterDialog.querySelector('[data-roster-import-note]');
             if (note) note.textContent = 'The selected workbook was not previewed. No accounts or existing roster data were changed.';
@@ -696,7 +698,7 @@ window.SharedNavigation.ready.then(() => {
         const accepted = window.Notifications?.confirm
             ? await window.Notifications.confirm({
                 title: 'Replace current operational data?',
-                message: 'This removes current demo users, teams, events, attendance, scores, and posts. The SBO Adviser account, system settings, import audit, and flagged rows are preserved.',
+                message: 'This replaces current operational data and imports every student row. Missing IDs receive PENDING identities, and data-quality warnings remain visible for correction. The SBO Adviser account and import audit are preserved.',
                 action: 'Replace data',
             })
             : confirm('Replace current operational data with this validated roster?');
@@ -705,7 +707,7 @@ window.SharedNavigation.ready.then(() => {
         window.Notifications?.setLoading(rosterApply, true, 'Importing…');
         try {
             const response = await axios.post('api/student-roster-imports.php', { action: 'apply', batch_id: activeRosterBatchId }, { headers: { 'X-CSRF-Token': csrfToken }, timeout: 600000 });
-            notify('success', response.data.message || 'Roster imported. Students must replace their one-time password at first sign-in.');
+            notify('success', response.data.message || 'Complete roster imported with no excluded student rows. Students must replace their one-time password at first sign-in.');
             await loadLatestRosterImport();
             currentPage = 1;
             await loadUsers();
