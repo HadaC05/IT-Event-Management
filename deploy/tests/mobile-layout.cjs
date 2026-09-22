@@ -84,6 +84,8 @@ const event = {
           clippedNavLabels: [...document.querySelectorAll('[data-shared-mobile-links] a span')].filter(node => node.scrollWidth > node.clientWidth + 1).map(node => node.textContent),
           navReady: Boolean(window.SharedNavigation),
           navHosts: document.querySelectorAll('[data-shared-navigation-host]').length,
+          teamSearchTop: name === 'team' ? document.querySelector('[data-member-search]')?.getBoundingClientRect().top ?? null : null,
+          mobileNavTop: document.querySelector('[data-shared-mobile-links]')?.getBoundingClientRect().top ?? null,
           loaded: Boolean(document.querySelector(role === 'student' ? ({
             team: '[data-team-page] h1',
             events: '[data-active-events] article',
@@ -99,11 +101,12 @@ const event = {
           }).slice(0, 12).map(node => ({tag: node.tagName.toLowerCase(), cls: String(node.className).slice(0, 80), text: node.textContent.trim().slice(0, 40), bounds: [Math.round(node.getBoundingClientRect().left), Math.round(node.getBoundingClientRect().right)]})),
         }), {name, role});
         const expectedNavItems = role === 'student' ? 5 : role === 'sbo' ? 4 : 0;
-        const bad = result.scrollWidth > width + 1 || result.navItems !== expectedNavItems || result.clippedNavLabels.length > 0 || !result.loaded;
+        const teamSearchHiddenOnPhone = role === 'student' && name === 'team' && width <= 430 && (result.teamSearchTop === null || result.mobileNavTop === null || result.teamSearchTop >= result.mobileNavTop);
+        const bad = result.scrollWidth > width + 1 || result.navItems !== expectedNavItems || result.clippedNavLabels.length > 0 || !result.loaded || teamSearchHiddenOnPhone;
         if (bad) failures++;
         console.log(JSON.stringify({page: name, width, bad, ...result}));
-        if (process.env.CITE_SCREENSHOT && name === 'team' && width === Number(process.env.CITE_SCREENSHOT_WIDTH || 360)) {
-          await page.screenshot({path: process.env.CITE_SCREENSHOT});
+        if (process.env.CITE_SCREENSHOT && name === (process.env.CITE_SCREENSHOT_PAGE || 'team') && width === Number(process.env.CITE_SCREENSHOT_WIDTH || 360)) {
+          await page.screenshot({path: process.env.CITE_SCREENSHOT, fullPage: process.env.CITE_SCREENSHOT_FULLPAGE === '1'});
         }
       }
       await context.close();

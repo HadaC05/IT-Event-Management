@@ -55,13 +55,32 @@ final class MediaRepository
             'post_events' => $permissions->isOfficer() ? $this->officerEvents($userId) : $this->activeEvents(null),
             'posts' => $this->approvedPosts($userId, $eventId),
             'own_posts' => $this->ownPosts($userId),
-            'moderation' => $permissions->canModerate() ? $this->moderationQueue() : [],
-            'moderation_counts' => $permissions->canModerate() ? $this->moderationCounts() : [],
             'event_program' => $this->eventProgram(),
             'carousel_events' => $permissions->canManageCarousel()
                 ? ($permissions->isOfficer() ? $this->officerEvents($userId) : $this->activeEvents(null))
                 : [],
             'featured_events' => $this->carouselEvents(),
+        ];
+    }
+
+    public function moderationPage(array $actor, int $requestedPage = 1): array
+    {
+        $permissions = new MediaPermissions((string) $actor['role']);
+        if (!$permissions->canModerate()) throw new MediaForbiddenException('Only an Admin or SBO Adviser may review student posts.');
+        if ($requestedPage < 1) throw new InvalidArgumentException('Choose a valid review page.');
+
+        $perPage = 20;
+        $counts = $this->moderationCounts();
+        $total = $counts['pending'];
+        $pageCount = max(1, (int) ceil($total / $perPage));
+        $page = min($requestedPage, $pageCount);
+        return [
+            'posts' => $this->moderationQueue($perPage, ($page - 1) * $perPage),
+            'counts' => $counts,
+            'total' => $total,
+            'page' => $page,
+            'page_count' => $pageCount,
+            'per_page' => $perPage,
         ];
     }
 
@@ -432,9 +451,12 @@ final class MediaRepository
         return $posts;
     }
 
-    private function moderationQueue(): array
+    private function moderationQueue(int $limit, int $offset): array
     {
-        $statement = $this->db->query("SELECT p.id,p.user_id,p.event_id,p.content,p.image_path,p.video_path,p.status,p.rejection_reason,p.created_at,p.updated_at,e.title event_title,u.first_name,u.middle_name,u.last_name,r.name author_role FROM tbl_posts p JOIN tbl_users u ON u.id=p.user_id JOIN tbl_roles r ON r.id=u.role_id AND r.name='Student' LEFT JOIN tbl_events e ON e.id=p.event_id WHERE p.deleted_at IS NULL AND p.status IN ('pending','rejected','hidden') ORDER BY FIELD(p.status,'pending','rejected','hidden'),p.created_at ASC LIMIT 100");
+        $statement = $this->db->prepare("SELECT p.id,p.user_id,p.event_id,p.content,p.image_path,p.video_path,p.status,p.created_at,e.title event_title,u.first_name,u.middle_name,u.last_name FROM tbl_posts p JOIN tbl_users u ON u.id=p.user_id JOIN tbl_roles r ON r.id=u.role_id AND r.name='Student' LEFT JOIN tbl_events e ON e.id=p.event_id WHERE p.deleted_at IS NULL AND p.status='pending' ORDER BY p.created_at ASC,p.id ASC LIMIT ? OFFSET ?");
+        $statement->bindValue(1, $limit, PDO::PARAM_INT);
+        $statement->bindValue(2, $offset, PDO::PARAM_INT);
+        $statement->execute();
         $posts = $statement->fetchAll();
         foreach ($posts as &$post) { foreach (['id','user_id','event_id'] as $field) $post[$field] = $post[$field] === null ? null : (int) $post[$field]; $post['author_name'] = $this->name($post); $post['author_initials'] = $this->initials($post); foreach (['first_name','middle_name','last_name'] as $field) unset($post[$field]); }
         unset($post);

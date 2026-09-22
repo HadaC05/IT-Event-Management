@@ -2,6 +2,7 @@ DirectoryIndex pages/home.html
 Options -Indexes
 
 RewriteEngine On
+RewriteRule ^pages/student/?$ /ITEventManagement/pages/student/home.html [R=302,L]
 # Mobile camera and geolocation require a trusted HTTPS origin. Keep ordinary
 # localhost development working while redirecting non-localhost SBO scanning.
 # Cloudflare terminates HTTPS before forwarding the request to Apache over HTTP,

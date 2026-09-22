@@ -10,10 +10,12 @@
     const safeColor = value => /^#[0-9a-f]{6}$/i.test(value || '') ? value : '#397565';
 
     const emptyTeam = () => `
-        <div class="mx-auto max-w-xl rounded-3xl border border-dashed border-[#397565]/25 bg-white px-6 py-16 text-center">
-            <span class="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-[#397565]/10 text-2xl text-[#397565]">◎</span>
-            <h1 class="mt-4 text-xl font-black">No team assigned</h1>
-            <p class="mt-2 text-sm text-[#121017]/45">An adviser will assign your team for the current school year.</p>
+        <div class="student-stage">
+            <p class="student-stage__eyebrow">Your people / Team assignment</p>
+            <h1 class="student-stage__title">Your team is taking shape.</h1>
+            <p class="student-stage__copy">No team assigned yet. An adviser will assign yours for the current school year. You can still explore events while you wait.</p>
+            <div class="student-stage__actions"><a class="student-stage__action student-stage__action--primary" href="pages/student/events.html">Explore events <span aria-hidden="true">→</span></a></div>
+            <span class="student-stage__number" aria-hidden="true">05</span>
         </div>`;
 
     const member = (person, isCurrent = false) => `
@@ -96,85 +98,43 @@
             page: 1,
             pagination: {current_page: 1, last_page: 1, total: Math.max(0, team.members_count - 1)},
         };
-        const scores = team.scores.length
-            ? team.scores.map(score => `
-                <div class="rounded-2xl border border-[#121017]/7 bg-[#F7F4ED]/60 p-4">
-                    <span class="text-[10px] font-black uppercase text-[#121017]/40">${escapeHtml(score.category)}</span>
-                    <strong class="mt-1 block text-xl text-[#397565]">${score.points.toFixed(1)} pts</strong>
-                </div>`).join('')
-            : '<p class="col-span-full text-sm text-[#121017]/45">No scores have been recorded yet.</p>';
-        const leaders = team.leaders.length
-            ? team.leaders.map(leader => `<div><strong class="block text-xs">${escapeHtml(leader.full_name)}</strong><span class="text-[10px] font-bold text-[#397565]">${escapeHtml(leader.position)}</span></div>`).join('')
-            : '<p class="text-xs text-[#121017]/45">No active team officers listed.</p>';
-        const activities = team.activities.length
-            ? team.activities.map(activity => `<div><strong class="block text-xs">${escapeHtml(activity.title)}</strong><span class="text-[10px] text-[#121017]/40">${formatDate(activity.start_at)} · ${escapeHtml(activity.location || 'CITE Campus')}</span></div>`).join('')
-            : '<p class="text-xs text-[#121017]/45">Nothing scheduled specifically for this team.</p>';
+        const maxScore = Math.max(1, ...team.scores.map(score => Number(score.points) || 0));
+        const scores = team.scores.map(score => `
+            <div class="student-score-row">
+                <div class="flex items-center justify-between gap-3"><span class="text-sm font-bold">${escapeHtml(score.category)}</span><strong class="text-sm text-[#397565]">${(Number(score.points) || 0).toFixed(1)} pts</strong></div>
+                <div class="student-score-track"><span style="width:${Math.max(0, Math.min(100, (Number(score.points) || 0) / maxScore * 100))}%"></span></div>
+            </div>`).join('');
+        const leaders = team.leaders.map(leader => `<div class="border-b border-[#121017]/10 py-2 last:border-0"><strong class="block text-sm">${escapeHtml(leader.full_name)}</strong><span class="text-xs font-bold text-[#397565]">${escapeHtml(leader.position)}</span></div>`).join('');
+        const activities = team.activities.map(activity => `<div class="border-b border-[#121017]/10 py-2 last:border-0"><strong class="block text-sm">${escapeHtml(activity.title)}</strong><span class="text-xs text-[#121017]/55">${formatDate(activity.start_at)} · ${escapeHtml(activity.location || 'CITE Campus')}</span></div>`).join('');
+        const hasUpdates = team.scores.length || team.leaders.length || team.activities.length;
 
         return `
-            <header class="overflow-hidden rounded-3xl border border-[#121017]/8 bg-white">
-                <div class="h-3" style="background-color:${color}"></div>
-                <div class="flex flex-col gap-5 p-6 sm:flex-row sm:items-center">
-                    <span class="grid h-20 w-20 place-items-center rounded-3xl text-3xl font-black text-white shadow-lg" style="background-color:${color}">${escapeHtml(team.name.charAt(0).toUpperCase())}</span>
-                    <div class="min-w-0 flex-1">
-                        <p class="text-[10px] font-black uppercase tracking-[.15em] text-[#397565]">Your team · ${escapeHtml(team.school_year)}</p>
-                        <h1 class="mt-1 text-3xl font-black">${escapeHtml(team.name)}</h1>
-                        <p class="mt-1 text-sm text-[#121017]/45">${team.members_count} members united for CITE activities.</p>
-                    </div>
-                    <div class="grid grid-cols-2 gap-2">
-                        <div class="rounded-2xl bg-[#F7F4ED] p-4 text-center">
-                            <span class="block text-[9px] font-black uppercase text-[#121017]/40">Rank</span>
-                            <strong class="mt-1 block text-2xl">${team.rank ? `#${team.rank}` : '—'}</strong>
-                        </div>
-                        <div class="rounded-2xl bg-[#397565] p-4 text-center text-white">
-                            <span class="block text-[9px] font-black uppercase text-white/60">Total</span>
-                            <strong class="mt-1 block text-2xl">${team.total_score.toFixed(1)}</strong>
-                        </div>
-                    </div>
-                </div>
+            <header class="student-team-hero" style="--team-accent:${color}" data-initial="${escapeHtml(team.name.charAt(0).toUpperCase())}">
+                <div><p class="student-stage__eyebrow">Your people / ${escapeHtml(team.school_year)}</p><h1>${escapeHtml(team.name)}</h1><p class="mt-4 text-sm leading-6 text-white/75">${team.members_count} members. One team. Every moment counts.</p></div>
+                <dl class="student-team-hero__metrics"><div><dt>Members</dt><dd>${team.members_count}</dd></div><div><dt>Standing</dt><dd>${team.rank ? `#${team.rank}` : '—'}</dd></div><div><dt>Finalized score</dt><dd>${team.total_score.toFixed(1)} <small>pts</small></dd></div></dl>
             </header>
-
-            <div class="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
-                <div class="min-w-0 space-y-6">
-                    <section class="rounded-3xl border border-[#121017]/8 bg-white p-5">
-                        <h2 class="text-lg font-black">Activity category scores</h2>
-                        <div class="mt-4 grid gap-3 sm:grid-cols-2">${scores}</div>
-                    </section>
-                    ${currentMember ? `
-                    <section class="rounded-3xl border border-[#397565]/15 bg-white p-5">
-                        <p class="text-[10px] font-black uppercase tracking-[.14em] text-[#397565]">Your place in the team</p>
-                        <div class="mt-3">${member(currentMember, true)}</div>
-                    </section>` : ''}
-                    <section class="rounded-3xl border border-[#121017]/8 bg-white p-5" data-team-directory>
+            ${currentMember ? `<div class="student-team-note"><span class="student-team-note__icon" aria-hidden="true">✓</span><div><p class="student-section-kicker">You belong here</p><p class="text-sm leading-6 text-[#121017]/70">${escapeHtml(currentMember.full_name)} · ${escapeHtml(currentMember.year_level || 'Student')}</p></div></div>` : ''}
+            <section class="student-team-directory" data-team-directory id="student-team-directory">
+                        <div class="student-section-heading mb-5"><div><p class="student-section-kicker">The people beside you</p><h2>Meet your teammates</h2><span class="mt-1 block text-xs text-[#121017]/50" data-member-count></span></div></div>
                         <div class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-                            <div>
-                                <h2 class="text-lg font-black">Team directory</h2>
-                                <span class="mt-1 block text-xs text-[#121017]/40" data-member-count></span>
-                            </div>
                             <label class="relative block w-full sm:max-w-md">
                                 <span class="sr-only">Find a teammate</span>
                                 <svg class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 fill-none stroke-[#121017]/35 stroke-2" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>
-                                <input class="h-11 w-full rounded-xl border border-[#121017]/10 bg-[#F7F4ED]/60 pl-10 pr-3 text-sm outline-none placeholder:text-[#121017]/35 focus:border-[#397565] focus:ring-4 focus:ring-[#397565]/10" type="search" placeholder="Find a teammate…" data-member-search>
+                                <input class="h-11 w-full rounded-xl border border-[#121017]/15 bg-white pl-10 pr-3 text-sm outline-none placeholder:text-[#121017]/40 focus:border-[#397565] focus:ring-4 focus:ring-[#397565]/10" type="search" placeholder="Find a teammate…" data-member-search>
                             </label>
                         </div>
-                        <div class="mt-4 grid gap-2 sm:grid-cols-2" data-member-list></div>
+                        <div class="mt-5 grid gap-2 sm:grid-cols-2 lg:grid-cols-3" data-member-list></div>
                         <nav class="mt-5 flex items-center justify-between gap-3 border-t border-[#121017]/7 pt-4" aria-label="Team directory pages">
                             <button class="min-h-10 rounded-xl border border-[#121017]/10 px-4 text-xs font-black text-[#397565] disabled:cursor-not-allowed disabled:opacity-40" type="button" data-member-previous>Previous</button>
                             <span class="text-xs font-bold text-[#121017]/45" data-member-page-label></span>
                             <button class="min-h-10 rounded-xl border border-[#121017]/10 px-4 text-xs font-black text-[#397565] disabled:cursor-not-allowed disabled:opacity-40" type="button" data-member-next>Next</button>
                         </nav>
-                    </section>
-                </div>
-                <aside class="min-w-0 space-y-5">
-                    <section class="rounded-3xl border border-[#121017]/8 bg-white p-5">
-                        <h2 class="font-black">Team leaders</h2>
-                        <div class="mt-3 space-y-3">${leaders}</div>
-                    </section>
-                    <section class="rounded-3xl border border-[#121017]/8 bg-white p-5">
-                        <h2 class="font-black">Upcoming activities</h2>
-                        <div class="mt-3 space-y-3">${activities}</div>
-                    </section>
-                </aside>
-            </div>`;
+            </section>
+            ${hasUpdates ? `<div class="mt-9 grid gap-8 md:grid-cols-2">
+                ${team.scores.length ? `<section><div class="student-section-heading"><div><p class="student-section-kicker">On the board</p><h2>Category scores</h2></div></div><div class="student-section-rule"></div><div class="space-y-5">${scores}</div></section>` : ''}
+                ${team.activities.length ? `<section><div class="student-section-heading"><div><p class="student-section-kicker">Coming up</p><h2>Team activities</h2></div></div><div class="student-section-rule"></div><div>${activities}</div></section>` : ''}
+                ${team.leaders.length ? `<section><div class="student-section-heading"><div><p class="student-section-kicker">The crew</p><h2>Team leaders</h2></div></div><div class="student-section-rule"></div><div>${leaders}</div></section>` : ''}
+            </div>` : `<section class="student-team-note mt-6"><span class="student-team-note__icon" aria-hidden="true">✦</span><div><p class="student-section-kicker">The season starts here</p><h2 class="text-lg font-black">More to come from ${escapeHtml(team.name)}</h2><p class="mt-1 text-sm leading-6 text-[#121017]/60">Finalized scores, team leaders, and activities will appear as they’re announced.</p></div></section>`}`;
     };
 
     const load = async () => {

@@ -26,22 +26,35 @@
         }).join('');
     };
 
-    const activeCard = event => `
-        <article class="overflow-hidden rounded-3xl border border-[#121017]/8 bg-white">
-            ${event.poster_path
-                ? `<img class="h-44 w-full object-cover" src="${escapeHtml(event.poster_path)}" alt="${escapeHtml(event.title)} poster">`
-                : '<div class="h-24 bg-[#397565]"></div>'}
-            <div class="p-5">
+    const eventDate = value => {
+        const date = new Date(`${String(value || '').slice(0, 10)}T00:00:00`);
+        return Number.isNaN(date.getTime())
+            ? {day: '—', month: 'Date TBA'}
+            : {day: new Intl.DateTimeFormat('en-PH', {day: '2-digit'}).format(date), month: new Intl.DateTimeFormat('en-PH', {month: 'short'}).format(date)};
+    };
+
+    const activeCard = (event, index) => {
+        const date = eventDate(event.start_at);
+        return `
+        <article class="student-event-card ${index === 0 ? 'student-event-primary' : ''} overflow-hidden rounded-3xl border border-[#121017]/8 bg-white">
+            <div class="student-event-art ${event.poster_path ? '' : 'student-event-art--plain'}">
+                ${event.poster_path
+                    ? `<img class="h-44 w-full object-cover" src="${escapeHtml(event.poster_path)}" alt="${escapeHtml(event.title)} poster">`
+                    : '<span class="absolute bottom-5 right-5 text-xs font-black uppercase tracking-[.2em] text-white/70">CITE / Events</span>'}
+                <span class="student-event-date absolute bottom-4 left-4 z-10"><strong>${date.day}</strong><span>${date.month}</span></span>
+            </div>
+            <div class="p-5 sm:p-7">
                 <div class="flex flex-wrap items-center gap-2">
                     <span class="rounded-full bg-[#C6F24E]/30 px-2.5 py-1 text-[9px] font-black uppercase text-[#397565]">${escapeHtml(event.schedule_state)}</span>
                     ${event.type ? `<span class="text-[9px] font-black uppercase text-[#121017]/35">${escapeHtml(event.type)}</span>` : ''}
                 </div>
-                <h3 class="mt-3 text-xl font-black">${escapeHtml(event.title)}</h3>
-                <p class="mt-2 text-xs leading-5 text-[#121017]/45">${formatDate(event.start_at)}<br>${escapeHtml(event.location || 'CITE Campus')}</p>
+                <h3 class="mt-3 text-2xl font-black tracking-tight">${escapeHtml(event.title)}</h3>
+                <p class="mt-2 text-xs font-bold leading-5 text-[#397565]">${formatDate(event.start_at)} · ${escapeHtml(event.location || 'CITE Campus')}</p>
                 <p class="mt-4 text-sm leading-6 text-[#121017]/65">${escapeHtml(event.description || 'More details will be announced soon.')}</p>
                 ${schedule(event)}
             </div>
         </article>`;
+    };
 
     const pastCard = event => `
         <article class="flex min-w-0 gap-4 rounded-2xl border border-[#121017]/8 bg-white p-4">

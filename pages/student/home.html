@@ -8,14 +8,15 @@
     <title>Home | CITE Events</title>
     <link rel="icon" type="image/png" href="assets/images/cite_favicon.png">
     <link rel="stylesheet" href="css/tailwind.css">
-    <link rel="stylesheet" href="css/media-feed.css?v=20260922-mobile-menu-1">
+    <link rel="stylesheet" href="css/media-feed.css?v=20260923-review-1">
+    <link rel="stylesheet" href="css/student-experience.css?v=20260923-1">
     <script src="js/vendor/axios.min.js" defer></script>
     <script src="js/shared/password-gate.js?v=20260917-1"></script>
     <script src="js/shared/navigation.js?v=20260923-mobile-nav-1" defer></script>
     <script src="js/shared/interactions.js" defer></script>
     <script src="js/shared/notifications.js?v=20260917-7" defer></script>
 </head>
-<body class="student-shell app-shell min-h-screen bg-[#F7F4ED] font-sans text-[#121017] antialiased" data-student-shell data-navigation-role="student">
+<body class="student-shell app-shell min-h-screen bg-[#F7F4ED] font-sans text-[#121017] antialiased" data-student-shell data-navigation-role="student" data-student-page="home">
     <span
         class="route-progress"
         data-route-progress
@@ -32,15 +33,26 @@
         data-page-content
         data-student-sidebar-content
     >
+        <header class="student-stage mx-auto mb-8 w-full max-w-[1180px]" aria-labelledby="student-home-title">
+            <p class="student-stage__eyebrow">CITE campus / Your front row</p>
+            <h1 class="student-stage__title" id="student-home-title">Where campus comes alive.</h1>
+            <p class="student-stage__copy">The people, events, and moments that make this school year yours. Start with what’s happening next.</p>
+            <div class="student-stage__actions">
+                <a class="student-stage__action student-stage__action--primary" href="pages/student/events.html">Explore events <span aria-hidden="true">→</span></a>
+                <a class="student-stage__action" href="pages/student/attendance.html">Check attendance <span aria-hidden="true">→</span></a>
+            </div>
+            <span class="student-stage__number" aria-hidden="true">01</span>
+        </header>
+        <div class="student-section-heading mx-auto mb-4 w-full max-w-[1180px]"><div><p class="student-section-kicker">The campus pulse</p><h2>Stories &amp; moments</h2></div></div>
         <div data-media-feed-root aria-live="polite">Loading media feed…</div>
     </main>
 
     <div class="pointer-events-none fixed right-4 top-20 z-[80] grid w-[min(380px,calc(100%_-_2rem))] gap-2.5" data-notification-region aria-live="polite" aria-atomic="true"></div>
-    <script src="js/shared/media-api.js?v=20260919-1"></script>
+    <script src="js/shared/media-api.js?v=20260923-review-1"></script>
     <script src="js/shared/media-permissions.js?v=20260919-2"></script>
     <script src="js/shared/media-post-form.js?v=20260923-toasts-1"></script>
     <script src="js/shared/media-post-card.js?v=20260922-mobile-menu-1"></script>
-    <script src="js/shared/media-feed.js?v=20260923-toasts-1"></script>
+    <script src="js/shared/media-feed.js?v=20260923-review-1"></script>
     <script src="js/shared/media-page.js?v=20260919-1"></script>
 </body>
 </html>

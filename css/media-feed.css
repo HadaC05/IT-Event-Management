@@ -2,6 +2,128 @@
   max-width: 1180px;
 }
 
+.cite-review-desk {
+  overflow: hidden;
+  border: 1px solid rgba(57, 117, 101, .2);
+  border-radius: 1.25rem;
+  background: #fff;
+  box-shadow: 0 16px 48px rgba(18, 16, 23, .07);
+}
+
+.cite-review-intro {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1.5rem;
+  background: linear-gradient(115deg, #eaf2ed, #fbfaf5 70%);
+  border-bottom: 1px solid rgba(57, 117, 101, .12);
+}
+
+.cite-review-eyebrow {
+  color: #397565;
+  font-size: .65rem;
+  font-weight: 900;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+}
+
+.cite-review-intro h2 {
+  display: flex;
+  align-items: center;
+  gap: .65rem;
+  margin-top: .3rem;
+  font-size: clamp(1.45rem, 3vw, 2rem);
+  font-weight: 900;
+  letter-spacing: -.04em;
+}
+
+.cite-review-intro p:last-child {
+  margin-top: .3rem;
+  color: #5d6963;
+  font-size: .85rem;
+}
+
+.cite-review-count {
+  display: inline-grid;
+  min-width: 2rem;
+  height: 2rem;
+  place-items: center;
+  padding: 0 .5rem;
+  border-radius: 99px;
+  background: #c6f24e;
+  color: #203527;
+  font-size: .8rem;
+  letter-spacing: 0;
+}
+
+.cite-review-refresh,
+.cite-review-pagination button {
+  min-height: 2.75rem;
+  padding: .5rem .85rem;
+  border: 1px solid rgba(57, 117, 101, .3);
+  border-radius: .7rem;
+  background: #fff;
+  color: #326555;
+  font-size: .75rem;
+  font-weight: 800;
+}
+
+.cite-review-refresh:hover,
+.cite-review-pagination button:not(:disabled):hover {
+  background: #eaf2ed;
+}
+
+.cite-review-body {
+  display: grid;
+  gap: 1rem;
+  padding: 1rem;
+  color: #5d6963;
+  font-size: .85rem;
+}
+
+.cite-review-card {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  padding: 1rem;
+  border: 1px solid #e5e9e3;
+  border-radius: .9rem;
+  background: #fff;
+  color: #121017;
+}
+
+.cite-review-card-meta { display: flex; align-items: center; gap: .7rem; }
+.cite-review-card-meta strong { display: block; overflow-wrap: anywhere; font-size: .8rem; }
+.cite-review-card-meta p { margin-top: .15rem; color: #66736d; font-size: .68rem; }
+.cite-review-avatar { display: grid; width: 2.5rem; height: 2.5rem; flex: none; place-items: center; border-radius: 50%; background: #c6f24e; color: #243928; font-size: .7rem; font-weight: 900; }
+.cite-review-content { margin: 1rem 0; overflow-wrap: anywhere; white-space: pre-wrap; font-size: .88rem; line-height: 1.6; }
+.cite-review-media { display: block; width: 100%; max-height: 22rem; border-radius: .6rem; background: #121017; object-fit: contain; }
+.cite-review-actions { display: flex; gap: .6rem; margin-top: auto; padding-top: 1rem; }
+.cite-review-actions button { min-height: 2.75rem; flex: 1; border-radius: .65rem; font-size: .78rem; font-weight: 800; }
+.cite-review-actions button:first-child { background: #397565; color: #fff; }
+.cite-review-actions button:last-child { border: 1px solid #f2ab91; color: #ad431d; }
+.cite-review-actions button:hover { filter: brightness(.94); }
+.cite-review-empty { grid-column: 1 / -1; display: grid; justify-items: center; gap: .25rem; padding: 2.5rem 1rem; text-align: center; }
+.cite-review-empty span { display: grid; width: 2.7rem; height: 2.7rem; place-items: center; border-radius: 50%; background: #eaf2ed; color: #397565; font-size: 1.4rem; }
+.cite-review-empty strong { margin-top: .4rem; color: #121017; font-size: 1rem; }
+.cite-review-error { grid-column: 1 / -1; padding: 1rem; color: #ad431d; }
+.cite-review-error button { text-decoration: underline; font-weight: 800; }
+.cite-review-pagination { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .75rem; padding: .8rem 1rem; border-top: 1px solid #e5e9e3; color: #66736d; font-size: .75rem; }
+.cite-review-pagination > div { display: flex; align-items: center; gap: .5rem; }
+.cite-review-pagination button:disabled { opacity: .4; cursor: not-allowed; }
+
+@media (min-width: 720px) {
+  .cite-review-body { grid-template-columns: repeat(2, minmax(0, 1fr)); padding: 1.5rem; }
+}
+
+@media (max-width: 480px) {
+  .cite-review-intro { padding: 1.1rem; }
+  .cite-review-refresh { width: 100%; }
+  .cite-review-pagination, .cite-review-pagination > div { width: 100%; justify-content: space-between; }
+}
+
 .cite-media-layout {
   grid-template-columns: minmax(0, 1fr);
 }

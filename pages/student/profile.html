@@ -9,14 +9,16 @@
     <link rel="stylesheet" href="css/tailwind.css">
     <link rel="stylesheet" href="css/media-feed.css?v=20260922-mobile-menu-1">
     <link rel="stylesheet" href="css/student-profile.css?v=20260922-4">
+    <link rel="stylesheet" href="css/student-experience.css?v=20260923-1">
     <script src="js/vendor/axios.min.js" defer></script>
     <script src="js/shared/password-gate.js?v=20260917-1"></script>
     <script src="js/shared/navigation.js?v=20260923-mobile-nav-1" defer></script>
     <script src="js/shared/notifications.js?v=20260917-7" defer></script>
 </head>
-<body class="student-shell app-shell min-h-screen bg-[#F3F0E9] font-sans text-[#121017] antialiased" data-navigation-role="student">
+<body class="student-shell app-shell min-h-screen bg-[#F3F0E9] font-sans text-[#121017] antialiased" data-navigation-role="student" data-student-page="profile">
     <div data-shared-navigation-host></div>
     <main class="w-auto pb-28 transition-[margin] duration-200 lg:ml-20 lg:pb-12" data-page-content>
+        <header class="mx-auto max-w-6xl px-4 pt-8 sm:px-6 lg:pt-10"><p class="student-section-kicker">Your space / 06</p><p class="text-3xl font-black tracking-tight sm:text-4xl">A little more about you.</p><p class="mt-2 text-sm text-[#121017]/55">Your identity, posts, and place in the CITE community.</p></header>
         <div class="mx-auto min-h-[60vh] w-full max-w-6xl" data-student-profile-root aria-live="polite">
             <div class="px-4 py-16 text-center text-sm font-bold text-[#121017]/45">Loading your profile…</div>
         </div>

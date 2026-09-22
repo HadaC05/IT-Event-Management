@@ -85,6 +85,15 @@ try {
     $assert((bool) array_filter($studentPage['own_posts'], fn(array $post): bool => $post['status'] === 'pending'), 'Pending student posts remain in the personal status area');
     $assert(count($page['featured_events']) > 0, 'The feed carousel falls back to available events');
     $assert(array_key_exists('event_program', $page), 'The feed provides active event activities for the sidebar');
+    $expect(fn()=>$repo->moderationPage($faculty), MediaForbiddenException::class, 'Faculty cannot access the moderation queue');
+    $insertPending = $db->prepare("INSERT INTO tbl_posts(user_id,event_id,category,content,status,is_official,created_at,updated_at) VALUES(?,?,'general',?,'pending',0,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)");
+    for ($number = 1; $number <= 105; $number++) $insertPending->execute([(int)$student['id'],$otherEvent,'Queue pagination test '.$number]);
+    $firstQueue = $repo->moderationPage($adviser, 1);
+    $lastQueue = $repo->moderationPage($adviser, 999);
+    $assert($firstQueue['total'] > 100 && count($firstQueue['posts']) === 20, 'Moderation returns a bounded first page beyond 100 pending posts');
+    $assert($lastQueue['page'] === $lastQueue['page_count'] && count($lastQueue['posts']) < 20, 'Out-of-range moderation pages clamp to the final page');
+    $assert(count(array_intersect(array_column($firstQueue['posts'], 'id'), array_column($lastQueue['posts'], 'id'))) === 0, 'Moderation pages do not duplicate posts');
+    $assert(!array_key_exists('moderation', $repo->pageData($adviser)), 'Feed response no longer embeds the moderation queue');
     $repo->hide($adviser,$facultyPost,'Moderation test');
     $hiddenPage = $repo->pageData($faculty);
     $assert(!(bool) array_filter($hiddenPage['posts'], fn(array $post): bool => $post['id'] === $facultyPost), 'Hidden posts do not appear publicly');

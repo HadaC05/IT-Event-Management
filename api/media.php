@@ -11,6 +11,11 @@ $repository = new MediaRepository((new Database())->connection());
 
 try {
     if ($_SERVER['REQUEST_METHOD'] === 'GET') {
+        if (($_GET['action'] ?? '') === 'moderation') {
+            $page = filter_var($_GET['page'] ?? 1, FILTER_VALIDATE_INT);
+            if ($page === false || $page < 1) throw new InvalidArgumentException('Choose a valid review page.');
+            JsonResponse::send(['success'=>true,'data'=>$repository->moderationPage($actor, $page)]);
+        }
         $eventId = filter_var($_GET['event_id'] ?? null, FILTER_VALIDATE_INT) ?: null;
         JsonResponse::send(['success'=>true,'data'=>$repository->pageData($actor, $eventId)]);
     }
