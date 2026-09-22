@@ -3,7 +3,7 @@ window.SharedNavigation.ready.then(() => {
   const id = Number(new URLSearchParams(location.search).get("id")),
     toast = (type, message) =>
       window.Notifications?.[type]?.(message) ||
-      (type === "error" && alert(message));
+      undefined;
   const $ = (selector) => document.querySelector(selector);
   function initializeShell() {
     const sidebar = $("#sidebar"),

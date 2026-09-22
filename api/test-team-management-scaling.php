@@ -16,6 +16,10 @@ $index = $repository->index([]);
 teamScalingAssert(!array_key_exists('students', $index), 'Team index must not contain the full student roster.');
 foreach ($index['teams'] as $team) {
     teamScalingAssert(count($team['members']) <= 3, 'Team cards may contain at most three preview members.');
+    teamScalingAssert(count(array_unique(array_column($team['members'], 'id'))) === count($team['members']), 'Team card previews must not contain duplicate students.');
+    foreach ($team['members'] as $member) {
+        teamScalingAssert(trim((string) $member['full_name']) !== '', 'Team card previews must include each student full name.');
+    }
 }
 
 $yearId = (int) ($database->query('SELECT id FROM tbl_school_years ORDER BY id DESC LIMIT 1')->fetchColumn() ?: 0);
@@ -29,6 +33,10 @@ if ($teamId > 0) {
     $expectedMembers = $database->prepare("SELECT COUNT(*) FROM tbl_team_user tu JOIN tbl_users u ON u.id=tu.user_id JOIN tbl_roles r ON r.id=u.role_id AND r.name='Student' WHERE tu.team_id=?");
     $expectedMembers->execute([$teamId]);
     teamScalingAssert(count($selection['member_ids']) === (int) $expectedMembers->fetchColumn(), 'Lazy team selection must include every current student member.');
+
+    $editor = $repository->teamEditor($teamId, ['school_year_id' => $yearId]);
+    teamScalingAssert($editor['member_ids'] === $selection['member_ids'], 'The combined team editor payload must include the complete member selection.');
+    teamScalingAssert(count($editor['students']) <= 24, 'The combined team editor payload may contain only one eligible-student page.');
 
     $first = $repository->studentCandidates(['school_year_id' => $yearId, 'team_id' => $teamId]);
     teamScalingAssert(count($first['students']) <= 24, 'Eligible-student pages may contain at most 24 records.');

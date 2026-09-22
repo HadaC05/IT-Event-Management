@@ -34,7 +34,7 @@ window.SharedNavigation.ready.then(() => {
         ? ''
         : String(person?.email || person?.student_email || '');
     const errorMessage = error => error.response?.data?.message || 'Unable to complete the request.';
-    const notify = (type, message) => window.Notifications?.[type]?.(message) || (type === 'error' ? alert(message) : null);
+    const notify = (type, message) => window.Notifications?.[type]?.(message);
 
     const button = (label, classes, handler) => {
         const element = document.createElement('button');
@@ -47,7 +47,7 @@ window.SharedNavigation.ready.then(() => {
 
     const confirmAction = async options => window.Notifications?.confirm
         ? window.Notifications.confirm(options)
-        : confirm(options.message);
+        : false;
 
     const credentialSlip = credentials => [
         'CITE Events — SBO Officer Access',

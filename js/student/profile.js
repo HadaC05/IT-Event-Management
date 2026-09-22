@@ -3,7 +3,7 @@ window.SharedNavigation.ready.then(async session => {
 
   const root = document.querySelector('[data-student-profile-root]');
   const esc = value => window.SharedNavigation.escapeHtml(value ?? '');
-  const notify = (type, message) => window.Notifications?.[type]?.(message) || (type === 'error' ? alert(message) : null);
+  const notify = (type, message) => window.Notifications?.[type]?.(message);
   const formatDate = value => value ? new Intl.DateTimeFormat('en-PH', {month:'long', year:'numeric'}).format(new Date(value.replace(' ', 'T'))) : 'Not available';
   const MAX_PHOTO_BYTES = 5 * 1024 * 1024;
   const PHOTO_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
@@ -117,7 +117,7 @@ window.SharedNavigation.ready.then(async session => {
 
   async function execute(payload, options = {}) {
     if (options.confirm) {
-      const accepted = window.Notifications?.confirm ? await window.Notifications.confirm({title:'Delete post?',message:options.confirm,action:'Delete'}) : confirm(options.confirm);
+      const accepted = await window.Notifications.confirm({title:'Delete post?',message:options.confirm,action:'Delete'});
       if (!accepted) return;
     }
     try { const response=await CiteMediaApi.send(payload); notify('success',response.message); await load(); }

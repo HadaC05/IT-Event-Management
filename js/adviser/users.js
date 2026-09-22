@@ -27,6 +27,11 @@ window.SharedNavigation.ready.then(() => {
     const rosterStatusFilter = rosterDialog?.querySelector('[data-roster-status-filter]');
     const rosterPrevious = rosterDialog?.querySelector('[data-roster-page-previous]');
     const rosterNext = rosterDialog?.querySelector('[data-roster-page-next]');
+    const facultyImportDialog = document.querySelector('#faculty-import-dialog');
+    const facultyImportForm = facultyImportDialog?.querySelector('[data-faculty-import-form]');
+    const facultyImportApply = facultyImportDialog?.querySelector('[data-faculty-apply]');
+    let facultyImportToken = '';
+    let facultyImportPending = false;
     let activeRosterBatchId = null;
     let activeRosterPage = 1;
     let rosterImportPending = false;
@@ -42,7 +47,7 @@ window.SharedNavigation.ready.then(() => {
     const loginLabel = user => user.id_number && user.username === user.id_number
         ? `${user.role === 'Faculty' ? 'Faculty' : 'Student'} ID: ${user.id_number}`
         : `@${user.username}${user.id_number ? ` / ${user.id_number}` : ''}`;
-    const notify = (type, message) => window.Notifications?.[type]?.(message) || (type === 'error' ? alert(message) : null);
+    const notify = (type, message) => window.Notifications?.[type]?.(message);
     const showError = error => notify('error', error.response?.data?.message || 'Unable to complete the request.');
 
     // The directory is rendered from the API. Remove legacy server-rendered edit
@@ -116,11 +121,11 @@ window.SharedNavigation.ready.then(() => {
         idNumber.required = student || faculty;
         if (faculty) {
             if (idLabel) idLabel.textContent = 'Faculty ID';
-            idNumber.placeholder = '2x-xxx-F';
-            idNumber.maxLength = 8;
+            idNumber.placeholder = '23-2324-F';
+            idNumber.maxLength = 11;
             idNumber.inputMode = 'text';
-            idNumber.pattern = '2[0-9]-[0-9]{3}-F';
-            idNumber.title = 'Use the Faculty ID format 2x-xxx-F.';
+            idNumber.pattern = '2[0-9]-[0-9]{3,6}-[A-Za-z]';
+            idNumber.title = 'Use two digits starting with 2, 3–6 middle digits, and one final letter.';
             userForm.elements.username.value = idNumber.value.toUpperCase();
         } else if (student || !role) {
             if (idLabel) idLabel.textContent = student ? 'Student ID' : 'ID number';
@@ -192,7 +197,7 @@ window.SharedNavigation.ready.then(() => {
                     : `${user.full_name} will regain access to the system.`,
                 action: `${action[0].toUpperCase()}${action.slice(1)}`,
             })
-            : confirm(`${action[0].toUpperCase()}${action.slice(1)} ${user.full_name}?`);
+            : false;
         if (!accepted) return;
         try {
             const response = await axios.post('api/users.php', { action: 'toggle', id: user.id, active: user.status !== 'inactive' ? false : true }, {
@@ -299,7 +304,7 @@ window.SharedNavigation.ready.then(() => {
                 message: `${user.full_name} will no longer be assigned to ${event.title}.`,
                 action: 'Remove assignment',
             })
-            : confirm(`Remove ${user.full_name} from ${event.title}?`);
+            : false;
         if (!accepted) return;
         try {
             const response = await axios.post('api/users.php', { action: 'unassign_event', id: user.id, event_id: event.id }, {
@@ -752,7 +757,7 @@ window.SharedNavigation.ready.then(() => {
                 message: 'This replaces current operational data and imports every student row. Missing IDs receive PENDING identities, and data-quality warnings remain visible for correction. The SBO Adviser account and import audit are preserved.',
                 action: 'Replace data',
             })
-            : confirm('Replace current operational data with this validated roster?');
+            : false;
         if (!accepted) return;
         rosterImportPending = true;
         window.Notifications?.setLoading(rosterApply, true, 'Importing…');
@@ -770,6 +775,103 @@ window.SharedNavigation.ready.then(() => {
         }
     });
 
+    const clearFacultyPreview = (message = 'Preview the selected workbook before importing faculty accounts.') => {
+        facultyImportToken = '';
+        facultyImportApply.disabled = true;
+        facultyImportDialog?.querySelector('[data-faculty-results]')?.classList.add('hidden');
+        const note = facultyImportDialog?.querySelector('[data-faculty-note]');
+        if (note) note.textContent = message;
+    };
+
+    const renderFacultyPreview = data => {
+        facultyImportToken = data.token || '';
+        const summary = data.summary || {};
+        const cards = [['Total rows', summary.total, '#121017'], ['Ready', summary.ready, '#397565'], ['Blocked', summary.blocked, '#C2410C']];
+        const summaryHost = facultyImportDialog.querySelector('[data-faculty-summary]');
+        summaryHost.replaceChildren(...cards.map(([label, value, color]) => {
+            const card = document.createElement('div');
+            card.className = 'rounded-xl border border-[#121017]/9 bg-white p-3.5';
+            const count = document.createElement('strong');
+            count.className = 'block text-xl font-black';
+            count.style.color = color;
+            count.textContent = Number(value || 0).toLocaleString();
+            const caption = document.createElement('span');
+            caption.className = 'mt-1 block text-[10px] font-black uppercase tracking-[.1em] text-[#121017]/40';
+            caption.textContent = label;
+            card.append(count, caption);
+            return card;
+        }));
+        const rowsHost = facultyImportDialog.querySelector('[data-faculty-rows]');
+        rowsHost.replaceChildren(...(data.rows || []).map(item => {
+            const row = document.createElement('tr');
+            [item.source_row, `${item.name} · ${item.email}`, item.faculty_id, item.status, (item.errors || []).join(' ') || 'Ready to import.'].forEach((value, index) => {
+                const cell = document.createElement('td');
+                cell.className = index === 3 ? 'px-3 py-3 font-black capitalize' : 'px-3 py-3 align-top text-[#121017]/65';
+                if (index === 3) cell.style.color = item.status === 'ready' ? '#397565' : '#C2410C';
+                cell.textContent = value;
+                row.append(cell);
+            });
+            return row;
+        }));
+        facultyImportApply.disabled = !facultyImportToken || Number(summary.ready || 0) < 1;
+        facultyImportDialog.querySelector('[data-faculty-note]').textContent = `${Number(summary.ready || 0).toLocaleString()} valid Faculty account${Number(summary.ready || 0) === 1 ? '' : 's'} will be added. Faculty start without a team assignment.`;
+        facultyImportDialog.querySelector('[data-faculty-results]').classList.remove('hidden');
+    };
+
+    document.querySelector('[data-faculty-import-open]')?.addEventListener('click', () => {
+        clearFacultyPreview();
+        facultyImportForm?.reset();
+        facultyImportDialog.showModal();
+    });
+    facultyImportDialog?.querySelectorAll('[data-faculty-import-close]').forEach(button => button.addEventListener('click', () => facultyImportDialog.close()));
+    facultyImportForm?.querySelector('input[type="file"]')?.addEventListener('change', () => clearFacultyPreview());
+    facultyImportForm?.addEventListener('submit', async event => {
+        event.preventDefault();
+        if (facultyImportPending || !facultyImportForm.reportValidity()) return;
+        const submit = facultyImportForm.querySelector('[data-faculty-preview]');
+        const body = new FormData(facultyImportForm);
+        body.append('action', 'preview');
+        facultyImportPending = true;
+        clearFacultyPreview('Validating the faculty workbook…');
+        window.Notifications?.setLoading(submit, true, 'Validating…');
+        try {
+            const response = await axios.post('api/faculty-imports.php?action=preview', body, { headers: { 'X-CSRF-Token': csrfToken } });
+            renderFacultyPreview(response.data.data);
+            notify('success', response.data.message || 'Faculty workbook validated.');
+        } catch (error) {
+            clearFacultyPreview('The workbook was not imported. Correct the file and preview it again.');
+            showError(error);
+        } finally {
+            facultyImportPending = false;
+            window.Notifications?.setLoading(submit, false);
+        }
+    });
+    facultyImportApply?.addEventListener('click', async () => {
+        if (!facultyImportToken || facultyImportPending) return;
+        const accepted = await window.Notifications.confirm({
+            title: 'Import valid faculty?',
+            message: 'Valid rows will be added with the Faculty role and no team assignment. Existing users and blocked rows will remain unchanged.',
+            action: 'Import faculty',
+        });
+        if (!accepted) return;
+        facultyImportPending = true;
+        window.Notifications?.setLoading(facultyImportApply, true, 'Importing…');
+        try {
+            const response = await axios.post('api/faculty-imports.php', { action: 'apply', token: facultyImportToken }, { headers: { 'X-CSRF-Token': csrfToken } });
+            notify('success', response.data.message || 'Faculty accounts imported.');
+            facultyImportToken = '';
+            facultyImportApply.disabled = true;
+            facultyImportDialog.querySelector('[data-faculty-note]').textContent = 'Import complete. Faculty must change their temporary password at first sign-in.';
+            currentPage = 1;
+            await loadUsers();
+        } catch (error) {
+            showError(error);
+        } finally {
+            facultyImportPending = false;
+            window.Notifications?.setLoading(facultyImportApply, false);
+        }
+    });
+
     document.querySelector('[data-dialog-open="add-user-dialog"]')?.addEventListener('click', () => {
         prepareForm();
         addDialog.showModal();
@@ -778,10 +880,12 @@ window.SharedNavigation.ready.then(() => {
     userForm?.elements.role_id.addEventListener('change', refreshRoleFields);
     userForm?.elements.id_number.addEventListener('input', event => {
         if (selectedRoleName() === 'Faculty') {
-            const digits = event.target.value.replace(/\D/g, '').slice(0, 5);
-            event.target.value = digits.length <= 2
-                ? digits
-                : `${digits.slice(0, 2)}-${digits.slice(2)}${digits.length === 5 ? '-F' : ''}`;
+            const cleaned = event.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 9);
+            const prefix = cleaned.slice(0, 2);
+            const remainder = cleaned.slice(2);
+            const digits = (remainder.match(/^\d{0,6}/)?.[0] || '');
+            const suffix = remainder.slice(digits.length).replace(/[^A-Z]/g, '').slice(0, 1);
+            event.target.value = prefix + (digits || remainder.length ? `-${digits}` : '') + (suffix ? `-${suffix}` : '');
             userForm.elements.username.value = event.target.value;
             return;
         }

@@ -316,7 +316,7 @@ window.SharedNavigation.ready.then(() => {
           message: `${category.name} and its ${category.scores_count} score entries will be permanently removed.`,
           action: "Remove criterion",
         })
-      : confirm(`Remove ${category.name}? Its ${category.scores_count} score entries will be permanently removed.`);
+      : false;
     if (!accepted) return;
     try {
       const response = await post("category-delete", {
@@ -493,7 +493,7 @@ window.SharedNavigation.ready.then(() => {
             message: "Finalized scores become official in Leaderboard and Reports. Reopen scoring if a correction is later required.",
             action: "Finalize results",
           })
-        : confirm("Finalize these results and publish them to Leaderboard and Reports?");
+        : false;
       if (!accepted) return;
       finalize.disabled = true;
       try {
@@ -513,7 +513,7 @@ window.SharedNavigation.ready.then(() => {
             message: "These results will immediately disappear from Leaderboard and Reports until finalized again.",
             action: "Reopen scoring",
           })
-        : confirm("Reopen scoring and hide these results from official views?");
+        : false;
       if (!accepted) return;
       reopen.disabled = true;
       try {

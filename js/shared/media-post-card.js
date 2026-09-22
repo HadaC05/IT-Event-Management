@@ -53,13 +53,13 @@
     engagement.querySelector("[data-comment-focus]").onclick = () => engagement.querySelector("textarea").focus();
     engagement.querySelector("form").onsubmit = (event) => { event.preventDefault(); const body = event.currentTarget.elements.body.value.trim(); if (body) action({ action: "comment_create", post_id: post.id, body }); };
     engagement.querySelectorAll("[data-delete-comment]").forEach((button) => button.onclick = () => action({ action: "comment_delete", post_id: post.id, comment_id: button.dataset.deleteComment }));
-    engagement.querySelectorAll("[data-edit-comment]").forEach((button) => button.onclick = () => { const comment = (post.comments || []).find((item) => item.id === Number(button.dataset.editComment)); const body = prompt("Edit comment:", comment?.body || ""); if (body?.trim()) action({ action: "comment_update", post_id: post.id, comment_id: button.dataset.editComment, body: body.trim() }); });
+    engagement.querySelectorAll("[data-edit-comment]").forEach((button) => button.onclick = async () => { const comment = (post.comments || []).find((item) => item.id === Number(button.dataset.editComment)); const body = await window.Notifications.prompt({ title: "Edit comment", message: "Update your comment below.", label: "Comment", value: comment?.body || "", action: "Save comment", required: true, maxLength: 1000 }); if (body) action({ action: "comment_update", post_id: post.id, comment_id: button.dataset.editComment, body }); });
     engagement.querySelectorAll("[data-pin-comment]").forEach((button) => button.onclick = () => action({ action: "comment_pin", post_id: post.id, comment_id: button.dataset.pinComment, pin: button.dataset.pin === "1" }));
     article.append(engagement);
 
     article.querySelector("[data-own-edit]")?.addEventListener("click", () => edit(post));
     article.querySelector("[data-own-delete]")?.addEventListener("click", () => action({ action: "delete", id: post.id }, { confirm: "Delete this post?" }));
-    article.querySelector("[data-hide]")?.addEventListener("click", () => { const reason = prompt("Reason for hiding this post:"); if (reason) action({ action: "hide", post_id: post.id, reason }); });
+    article.querySelector("[data-hide]")?.addEventListener("click", async () => { const reason = await window.Notifications.prompt({ title: "Hide this post?", message: "Explain why this post is being hidden. This is retained for moderation records.", label: "Reason", placeholder: "Enter the moderation reason…", action: "Hide post", required: true, maxLength: 1000 }); if (reason) action({ action: "hide", post_id: post.id, reason }); });
     article.querySelectorAll("[data-post-menu] button").forEach((button) => button.addEventListener("click", () => button.closest("details").removeAttribute("open")));
     return article;
   }

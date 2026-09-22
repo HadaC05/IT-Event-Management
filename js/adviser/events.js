@@ -21,12 +21,12 @@ window.SharedNavigation.ready.then((context) => {
   document.body.append(actionMenu);
   const toast = (type, message) =>
     window.Notifications?.[type]?.(message) ||
-    (type === "error" && alert(message));
+    undefined;
   filters.dataset.axiosForm = "";
   const confirmAction = (options) =>
     window.Notifications?.confirm
       ? window.Notifications.confirm(options)
-      : Promise.resolve(confirm(options.message));
+      : Promise.resolve(false);
   const formatDate = (value) =>
     new Intl.DateTimeFormat("en-US", {
       month: "short",

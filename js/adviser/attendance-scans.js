@@ -86,7 +86,7 @@ window.SharedNavigation.ready.then(() => {
   scanDetails?.addEventListener('toggle',event=>{
     if(event.target.open){requestAnimationFrame(()=>scanMap.invalidateSize());load();}
   });
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
+  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{
     maxNativeZoom:19,
     maxZoom:22,
     attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'

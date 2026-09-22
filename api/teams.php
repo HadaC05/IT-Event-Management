@@ -10,6 +10,7 @@ final class TeamManagementRepository
     private const PER_PAGE = 9;
     private const STUDENT_PER_PAGE = 24;
     private const UNASSIGNED_PER_PAGE = 25;
+    private const WRITE_BATCH_SIZE = 500;
 
     public function __construct(private readonly PDO $db) {}
 
@@ -43,7 +44,8 @@ final class TeamManagementRepository
               FROM tbl_teams t JOIN tbl_school_years sy ON sy.id=t.school_year_id
               $whereSql ORDER BY t.is_active DESC,t.name LIMIT :limit OFFSET :offset";
         $st=$this->db->prepare($sql);foreach($params as $k=>$v)$st->bindValue(':'.$k,$v);$st->bindValue(':limit',$perPage,PDO::PARAM_INT);$st->bindValue(':offset',($page-1)*$perPage,PDO::PARAM_INT);$st->execute();$teams=$st->fetchAll();
-        foreach($teams as &$team){$team['id']=(int)$team['id'];$team['school_year_id']=(int)$team['school_year_id'];$team['is_active']=(bool)$team['is_active'];$team['members_count']=(int)$team['members_count'];$m=$this->db->prepare("SELECT u.id,u.first_name,u.middle_name,u.last_name,u.id_number,yl.label year_level_label FROM tbl_team_user tu JOIN tbl_users u ON u.id=tu.user_id JOIN tbl_roles r ON r.id=u.role_id AND r.name='Student' LEFT JOIN tbl_year_levels yl ON yl.id=u.year_level WHERE tu.team_id=? ORDER BY u.last_name,u.first_name LIMIT 3");$m->execute([$team['id']]);$team['members']=$m->fetchAll();foreach($team['members'] as &$member){$member['id']=(int)$member['id'];$member['full_name']=$this->fullName($member);}unset($member);}unset($team);
+        $previews=$this->memberPreviews(array_map('intval',array_column($teams,'id')));
+        foreach($teams as &$team){$team['id']=(int)$team['id'];$team['school_year_id']=(int)$team['school_year_id'];$team['is_active']=(bool)$team['is_active'];$team['members_count']=(int)$team['members_count'];$team['members']=$previews[$team['id']]??[];}unset($team);
         $studentRole=(int)$this->value("SELECT id FROM tbl_roles WHERE name='Student'");$active=(int)$this->value("SELECT id FROM tbl_user_statuses WHERE label='active'");
         $yearClause=$schoolYear?' WHERE school_year_id=?':'';
         $activeYearClause=$schoolYear?' AND school_year_id=?':'';
@@ -72,6 +74,14 @@ final class TeamManagementRepository
         $statement=$this->db->prepare("SELECT tu.user_id FROM tbl_team_user tu JOIN tbl_users u ON u.id=tu.user_id JOIN tbl_roles r ON r.id=u.role_id AND r.name='Student' WHERE tu.team_id=? ORDER BY tu.user_id");
         $statement->execute([$teamId]);
         return ['team_id'=>$teamId,'school_year_id'=>(int)$team['school_year_id'],'member_ids'=>array_map('intval',$statement->fetchAll(PDO::FETCH_COLUMN))];
+    }
+
+    public function teamEditor(int $teamId,array $filters=[]): array
+    {
+        $selection=$this->teamSelection($teamId);
+        $filters['team_id']=$teamId;
+        $filters['school_year_id']=(int)($filters['school_year_id']??$selection['school_year_id']);
+        return $selection+$this->studentCandidates($filters);
     }
 
     public function studentCandidates(array $filters): array
@@ -126,7 +136,7 @@ final class TeamManagementRepository
             if($members){$memberLock=$this->db->prepare('SELECT id FROM tbl_users WHERE id IN ('.implode(',',array_fill(0,count($members),'?')).') FOR UPDATE');$memberLock->execute($members);$memberLock->fetchAll();$this->validateMembers($members,$year,$id);}
             if($id){$st=$this->db->prepare('UPDATE tbl_teams SET name=?,school_year_id=?,color=?,updated_at=CURRENT_TIMESTAMP WHERE id=?');$st->execute([$name,$year,$color,$id]);$this->db->prepare("DELETE tu FROM tbl_team_user tu JOIN tbl_users u ON u.id=tu.user_id JOIN tbl_roles r ON r.id=u.role_id AND r.name='Student' WHERE tu.team_id=?")->execute([$id]);$action='team_updated';$description="$name was updated with ".count($members).' members.';
             }else{$st=$this->db->prepare('INSERT INTO tbl_teams(school_year_id,name,color,is_active,created_at,updated_at) VALUES(?,?,?,1,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)');$st->execute([$year,$name,$color]);$id=(int)$this->db->lastInsertId();$action='team_created';$description="$name was created with ".count($members).' members.';}
-            $attach=$this->db->prepare('INSERT INTO tbl_team_user(team_id,user_id,created_at,updated_at) VALUES(?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)');foreach($members as $member)$attach->execute([$id,$member]);
+            $this->insertMemberships(array_map(static fn(int $member):array=>[$id,$member],$members));
             $this->log($actorId,$action,$description);$this->db->commit();return $id;
         }catch(Throwable $e){if($this->db->inTransaction())$this->db->rollBack();throw $e;}
     }
@@ -157,8 +167,9 @@ final class TeamManagementRepository
             $students=$this->db->query("SELECT u.id FROM tbl_users u JOIN tbl_roles r ON r.id=u.role_id JOIN tbl_user_statuses s ON s.id=u.status WHERE r.name='Student' AND s.label='active' FOR UPDATE")->fetchAll(PDO::FETCH_COLUMN);
             if(!$students)throw new InvalidArgumentException('There are no active students to distribute.');
             shuffle($students);
-            $all=$this->db->prepare('DELETE FROM tbl_team_user WHERE team_id IN (SELECT id FROM tbl_teams WHERE school_year_id=?) AND user_id=?');foreach($students as $student)$all->execute([$year,$student]);
-            $insert=$this->db->prepare('INSERT INTO tbl_team_user(team_id,user_id,created_at,updated_at) VALUES(?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)');foreach($students as $i=>$student)$insert->execute([$teamIds[$i%count($teamIds)],$student]);
+            $this->db->prepare("DELETE tu FROM tbl_team_user tu JOIN tbl_teams t ON t.id=tu.team_id JOIN tbl_users u ON u.id=tu.user_id JOIN tbl_roles r ON r.id=u.role_id AND r.name='Student' JOIN tbl_user_statuses s ON s.id=u.status AND s.label='active' WHERE t.school_year_id=?")->execute([$year]);
+            $memberships=[];foreach($students as $i=>$student)$memberships[]=[(int)$teamIds[$i%count($teamIds)],(int)$student];
+            $this->insertMemberships($memberships);
             $this->db->prepare('UPDATE tbl_school_years SET teams_randomized_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP WHERE id=?')->execute([$year]);
             $this->log($actorId,'team_members_randomized',count($students).' active students were distributed across '.count($teamIds)." tribes for SY {$sy['label']}.");
             $this->db->commit();return ['students'=>count($students),'teams'=>count($teamIds),'school_year'=>$sy['label']];
@@ -169,7 +180,6 @@ final class TeamManagementRepository
     {
         $studentIds=array_values(array_unique(array_filter(array_map('intval',$studentIds))));
         if(!$studentIds)throw new InvalidArgumentException('Select at least one unassigned student.');
-        $insert=$this->db->prepare('INSERT INTO tbl_team_user(team_id,user_id,created_at,updated_at) VALUES(?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)');
         $this->db->beginTransaction();
         try{
             $yearLock=$this->db->prepare('SELECT id FROM tbl_school_years WHERE id=? FOR UPDATE');$yearLock->execute([$year]);if(!$yearLock->fetchColumn())throw new InvalidArgumentException('Select a valid school year.');
@@ -178,7 +188,7 @@ final class TeamManagementRepository
             if(!(bool)$team['is_active'])throw new InvalidArgumentException('Students can only be assigned to an active tribe.');
             $lock=$this->db->prepare('SELECT id FROM tbl_users WHERE id IN ('.implode(',',array_fill(0,count($studentIds),'?')).') FOR UPDATE');$lock->execute($studentIds);$lock->fetchAll();
             $studentIds=$this->unassignedIds($year,$studentIds);
-            foreach($studentIds as $studentId)$insert->execute([$teamId,$studentId]);
+            $this->insertMemberships(array_map(static fn(int $studentId):array=>[$teamId,$studentId],$studentIds));
             $this->log($actorId,'unassigned_students_assigned',count($studentIds).' unassigned '.(count($studentIds)===1?'student was':'students were').' assigned to '.$team['name'].'.');
             $this->db->commit();
             return count($studentIds);
@@ -200,11 +210,12 @@ final class TeamManagementRepository
             if(!$students)throw new InvalidArgumentException('There are no unassigned students to randomize for this school year.');
             shuffle($students);
             $loads=[];foreach($teamRows as $team)$loads[(int)$team['id']]=(int)$team['members_count'];
-            $insert=$this->db->prepare('INSERT INTO tbl_team_user(team_id,user_id,created_at,updated_at) VALUES(?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)');
+            $memberships=[];
             foreach($students as $studentId){
                 asort($loads,SORT_NUMERIC);$teamId=(int)array_key_first($loads);
-                $insert->execute([$teamId,$studentId]);$loads[$teamId]++;
+                $memberships[]=[$teamId,$studentId];$loads[$teamId]++;
             }
+            $this->insertMemberships($memberships);
             $label=(string)$this->value('SELECT label FROM tbl_school_years WHERE id=?',[$year]);
             $this->log($actorId,'unassigned_students_randomized',count($students)." unassigned students were distributed across active tribes for {$label} without changing existing assignments.");
             $this->db->commit();
@@ -228,6 +239,34 @@ final class TeamManagementRepository
         if($requestedIds&&count($ids)!==count($requestedIds))throw new InvalidArgumentException('One or more selected students are no longer unassigned. Refresh the review list and try again.');
         return $ids;
     }
+    private function memberPreviews(array $teamIds): array
+    {
+        if(!$teamIds)return [];
+        $marks=implode(',',array_fill(0,count($teamIds),'?'));
+        $sql="SELECT ranked.team_id,ranked.id,ranked.first_name,ranked.middle_name,ranked.last_name,ranked.id_number,ranked.year_level_label
+          FROM (
+            SELECT tu.team_id,u.id,u.first_name,u.middle_name,u.last_name,u.id_number,yl.label year_level_label,
+              ROW_NUMBER() OVER(PARTITION BY tu.team_id ORDER BY u.last_name,u.first_name,u.id) member_rank
+            FROM tbl_team_user tu
+            JOIN tbl_users u ON u.id=tu.user_id
+            JOIN tbl_roles r ON r.id=u.role_id AND r.name='Student'
+            LEFT JOIN tbl_year_levels yl ON yl.id=u.year_level
+            WHERE tu.team_id IN ($marks)
+          ) ranked
+          WHERE ranked.member_rank<=3
+          ORDER BY ranked.team_id,ranked.member_rank";
+        $statement=$this->db->prepare($sql);$statement->execute($teamIds);$previews=[];
+        foreach($statement->fetchAll() as $member){$teamId=(int)$member['team_id'];unset($member['team_id']);$member['id']=(int)$member['id'];$member['full_name']=$this->fullName($member);$previews[$teamId][]=$member;}
+        return $previews;
+    }
+    private function insertMemberships(array $memberships): void
+    {
+        foreach(array_chunk($memberships,self::WRITE_BATCH_SIZE) as $batch){
+            $values=implode(',',array_fill(0,count($batch),'(?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)'));
+            $params=[];foreach($batch as [$teamId,$userId])array_push($params,(int)$teamId,(int)$userId);
+            $this->db->prepare("INSERT INTO tbl_team_user(team_id,user_id,created_at,updated_at) VALUES {$values}")->execute($params);
+        }
+    }
     private function team(int $id): array{$st=$this->db->prepare('SELECT * FROM tbl_teams WHERE id=?');$st->execute([$id]);$row=$st->fetch();if(!$row)throw new InvalidArgumentException('Tribe not found.');return $row;}
     private function log(int $actor,string $action,string $description):void{$this->db->prepare('INSERT INTO tbl_activity_logs(actor_id,action,description,created_at,updated_at) VALUES(?,?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)')->execute([$actor,$action,$description]);}
     private function value(string $sql,array $p=[]):mixed{$st=$this->db->prepare($sql);$st->execute($p);return $st->fetchColumn();}
@@ -250,7 +289,7 @@ function validationErrors(InvalidArgumentException $exception): array
  return $field?[$field=>[$message]]:[];
 }
 try{
- if($_SERVER['REQUEST_METHOD']==='GET'){$result=match((string)($_GET['action']??'')){'team_selection'=>$repo->teamSelection((int)($_GET['id']??0)),'student_candidates'=>$repo->studentCandidates($_GET),'unassigned_students'=>$repo->unassignedStudents($_GET),default=>$repo->index($_GET)};JsonResponse::send(['success'=>true,'data'=>$result]);}
+ if($_SERVER['REQUEST_METHOD']==='GET'){$result=match((string)($_GET['action']??'')){'team_selection'=>$repo->teamSelection((int)($_GET['id']??0)),'team_editor'=>$repo->teamEditor((int)($_GET['id']??0),$_GET),'student_candidates'=>$repo->studentCandidates($_GET),'unassigned_students'=>$repo->unassignedStudents($_GET),default=>$repo->index($_GET)};JsonResponse::send(['success'=>true,'data'=>$result]);}
  if($_SERVER['REQUEST_METHOD']!=='POST')JsonResponse::send(['success'=>false,'message'=>'Method not allowed.'],405);
  if(!SessionManager::validateCsrf($_SERVER['HTTP_X_CSRF_TOKEN']??null))JsonResponse::send(['success'=>false,'message'=>'Your session expired.'],403);
  $input=json_decode(file_get_contents('php://input'),true);if(!is_array($input))$input=$_POST;$action=$input['action']??'create';

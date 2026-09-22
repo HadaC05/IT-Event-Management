@@ -22,10 +22,10 @@ final class ScoreManagementRepository
         if ($timing !== '' && !in_array($timing, ['upcoming', 'ongoing', 'completed'], true)) throw new InvalidArgumentException('Invalid timing filter.');
 
         $where = ['e.deleted_at IS NULL']; $params = [];
-        if ($search !== '') {$where[] = "(e.title LIKE :search ESCAPE '\\\\' OR e.location LIKE :search ESCAPE '\\\\')"; $params['search'] = '%'.addcslashes($search, '%_\\').'%';}
+        if ($search !== '') {$where[] = "(e.title LIKE :search_title ESCAPE '\\\\' OR e.location LIKE :search_location ESCAPE '\\\\')"; $term = '%'.addcslashes($search, '%_\\').'%'; $params['search_title'] = $term; $params['search_location'] = $term;}
         $now = (new DateTimeImmutable('now', new DateTimeZone('Asia/Manila')))->format('Y-m-d H:i:s');
         if ($timing === 'upcoming') {$where[] = 'e.start_at > :now'; $params['now'] = $now;}
-        if ($timing === 'ongoing') {$where[] = 'e.start_at <= :now AND e.end_at >= :now'; $params['now'] = $now;}
+        if ($timing === 'ongoing') {$where[] = 'e.start_at <= :now_start AND e.end_at >= :now_end'; $params['now_start'] = $now; $params['now_end'] = $now;}
         if ($timing === 'completed') {$where[] = 'e.end_at < :now'; $params['now'] = $now;}
         $whereSql = ' WHERE '.implode(' AND ', $where);
 

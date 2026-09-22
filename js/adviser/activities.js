@@ -4,7 +4,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const filters = document.querySelector('[data-activity-filters]'), rows = document.querySelector('[data-activity-rows]'), count = document.querySelector('[data-activity-count]'), pagination = document.querySelector('[data-activity-pagination]'), clear = document.querySelector('[data-clear-activity-filters]'), dialog = document.querySelector('[data-activity-dialog]'), form = document.querySelector('[data-activity-form]'), save = document.querySelector('[data-save-activity]');
   let csrfToken = '', page = 1, eventTypes = [], activities = [], searchDelay;
   const escapeHtml = value => window.SharedNavigation?.escapeHtml(value) || String(value ?? '');
-  const notify = (type, message) => window.Notifications?.show(type, message) || alert(message);
+  const notify = (type, message) => window.Notifications?.[type]?.(message);
   const options = (selected = '') => '<option value="">All event types</option>' + eventTypes.map(type => `<option value="${type.id}" ${String(type.id) === String(selected) ? 'selected' : ''}>${escapeHtml(type.label)}</option>`).join('');
   const render = data => {
     activities = data.activities || []; eventTypes = data.event_types || eventTypes;

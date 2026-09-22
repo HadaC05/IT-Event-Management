@@ -47,7 +47,7 @@ window.SharedNavigation.ready.then(() => {
           message: "Attendance changes on this page have not been saved and will be lost.",
           action: "Discard changes",
         })
-      : confirm("You have unsaved attendance changes. Discard them and continue?");
+      : false;
   };
   const localDate = (v) => new Date(String(v).replace(" ", "T"));
   const shortDate = (v) =>
@@ -377,7 +377,7 @@ window.SharedNavigation.ready.then(() => {
           message: `All ${selects.length} students shown on this page will be marked present. These changes are not recorded until you save.`,
           action: "Mark present",
         })
-      : confirm(`Mark all ${selects.length} students shown on this page as present? These changes will not be recorded until you save.`));
+      : false);
     if (accepted) {
       selects.forEach((select) => (select.value = "present"));
       refresh();

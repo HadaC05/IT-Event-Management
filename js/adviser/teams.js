@@ -26,7 +26,7 @@ window.SharedNavigation.ready.then((context) => {
   filters.status.value = initialUrl.searchParams.get("status") || "";
   page = Math.max(1, Number(initialUrl.searchParams.get("page")) || 1);
   const toast = (type, msg) =>
-    window.Notifications?.[type]?.(msg) || (type === "error" && alert(msg));
+    window.Notifications?.[type]?.(msg);
   const initials = (name) => {
     const w = name.trim().split(/\s+/).filter(Boolean);
     return (
@@ -43,9 +43,7 @@ window.SharedNavigation.ready.then((context) => {
   const api = async (payload) =>
     axios.post("api/teams.php", payload, { headers: { "X-CSRF-Token": csrf } });
   const confirmAction = (o) =>
-    window.Notifications?.confirm
-      ? window.Notifications.confirm(o)
-      : Promise.resolve(confirm(o.message));
+    window.Notifications?.confirm?.(o) ?? Promise.resolve(false);
   const button = (label, cls, fn) => {
     const b = document.createElement("button");
     b.type = "button";
@@ -145,7 +143,7 @@ window.SharedNavigation.ready.then((context) => {
       row.dataset.unassignedRow = "";
       row.dataset.search = `${student.full_name} ${student.id_number || ""} ${details}`.toLowerCase();
       row.className = "unassigned-review-row grid gap-4 border-b border-slate-100 px-5 py-4 last:border-0 sm:px-7";
-      row.innerHTML = `<div class="flex min-w-0 items-start gap-3"><input class="mt-3 h-4 w-4 shrink-0 rounded border-slate-300 accent-[#397565]" type="checkbox" data-unassigned-check><span class="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#121017] text-[10px] font-black text-white">${initials(student.full_name)}</span><span class="min-w-0"><strong class="block truncate text-sm text-[#121017]">${escapeHtml(student.full_name)}</strong><span class="mt-0.5 block truncate text-xs text-slate-500">${escapeHtml(student.id_number || "No student ID")}</span><span class="mt-0.5 block text-xs text-slate-400">${escapeHtml(details || "Program or year information unavailable")}</span></span></div><div><span class="block text-[10px] font-black uppercase tracking-[.12em] text-slate-400">Reason</span><span class="mt-1 block text-xs font-semibold text-[#c94b18]">${escapeHtml(reason)}</span></div><div class="flex gap-2"><select class="h-10 min-w-0 flex-1 rounded-xl border border-slate-200 bg-white px-3 text-xs font-bold text-slate-700 outline-none" data-row-team></select><button class="min-h-10 rounded-xl border border-[#397565]/25 px-4 text-xs font-extrabold text-[#397565] transition hover:bg-[#397565]/5 disabled:cursor-not-allowed disabled:text-slate-300" type="button" data-row-assign disabled>Assign</button></div>`;
+      row.innerHTML = `<div class="flex min-w-0 items-start gap-3"><input class="mt-3 h-4 w-4 shrink-0 rounded border-slate-300 accent-[#397565]" type="checkbox" data-unassigned-check><span class="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#121017] text-[10px] font-black text-white">${initials(student.full_name)}</span><span class="min-w-0"><strong class="block truncate text-sm text-[#121017]">${escapeHtml(student.full_name)}</strong><span class="mt-0.5 block truncate text-xs text-slate-500">${escapeHtml(student.id_number || "No student ID")}</span><span class="mt-0.5 block text-xs text-slate-400">${escapeHtml(details || "Program or year information unavailable")}</span></span></div><div class="min-w-0"><span class="block text-[10px] font-black uppercase tracking-[.12em] text-slate-400">Reason</span><span class="mt-1 block text-xs font-semibold text-[#c94b18]">${escapeHtml(reason)}</span></div><div class="min-w-0 gap-2"><select class="h-10 w-full min-w-0 rounded-xl border border-slate-200 bg-white px-3 text-xs font-bold text-slate-700 outline-none" data-row-team></select><button class="min-h-10 shrink-0 rounded-xl border border-[#397565]/25 px-4 text-xs font-extrabold text-[#397565] transition hover:bg-[#397565]/5 disabled:cursor-not-allowed disabled:text-slate-300" type="button" data-row-assign disabled>Assign</button></div>`;
       const check = row.querySelector("[data-unassigned-check]");
       check.value = student.id;
       check.checked = unassignedSelection.has(student.id);
@@ -206,12 +204,6 @@ window.SharedNavigation.ready.then((context) => {
   async function openUnassignedReview() {
     const yearSelect = $("[data-unassigned-year]");
     const yearId = filters.school_year.value || data.school_years[0]?.id || "";
-    if (!filters.school_year.value && yearId) {
-      filters.school_year.value = yearId;
-      page = 1;
-      await load();
-      syncUrl();
-    }
     yearSelect.replaceChildren();
     data.school_years.forEach((year) =>
       yearSelect.add(new Option(schoolYearLabel(year.label), year.id, false, String(year.id) === String(yearId))),
@@ -233,8 +225,7 @@ window.SharedNavigation.ready.then((context) => {
       });
       toast("success", response.data.message);
       studentIds.forEach((id) => unassignedSelection.delete(Number(id)));
-      await load();
-      await loadUnassignedStudents(unassignedPage);
+      await Promise.all([load(), loadUnassignedStudents(unassignedPage)]);
     } catch (error) {
       toast("error", error.response?.data?.message || "Unable to assign the selected students.");
     }
@@ -554,12 +545,16 @@ window.SharedNavigation.ready.then((context) => {
     if (team) {
       try {
         const response = await axios.get("api/teams.php", {
-          params: { action: "team_selection", id: team.id },
+          params: {
+            action: "team_editor",
+            id: team.id,
+            school_year_id: form.elements.school_year_id.value,
+            page: 1,
+          },
         });
         if (editing?.id !== team.id) return;
         memberSelection = new Set(response.data.data.member_ids.map(Number));
-        updateMemberCount();
-        await loadMemberCandidates(1);
+        renderMembers(response.data.data);
       } catch (error) {
         toast("error", error.response?.data?.message || "Unable to load tribe members.");
       }
@@ -734,12 +729,8 @@ window.SharedNavigation.ready.then((context) => {
     unassignedSearchTimer = setTimeout(() => loadUnassignedStudents(1), 300);
   };
   $("[data-unassigned-year]").onchange = async (event) => {
-    filters.school_year.value = event.target.value;
-    page = 1;
     unassignedPage = 1;
     unassignedSelection.clear();
-    await load();
-    syncUrl();
     await loadUnassignedStudents(1);
   };
   $("[data-unassigned-select-all]").onchange = (event) => {
@@ -785,8 +776,7 @@ window.SharedNavigation.ready.then((context) => {
       });
       toast("success", response.data.message);
       unassignedSelection.clear();
-      await load();
-      await loadUnassignedStudents(unassignedPage);
+      await Promise.all([load(), loadUnassignedStudents(unassignedPage)]);
     } catch (error) {
       toast("error", error.response?.data?.message || "Unable to randomize unassigned students.");
     }

@@ -13,7 +13,7 @@
   };
 
   async function execute(payload, options={}) {
-    if(options.confirm && !confirm(options.confirm)) return;
+    if(options.confirm && !(await window.Notifications.confirm({title:'Delete post?',message:options.confirm,action:'Delete'}))) return;
     const value=payload instanceof FormData?Object.fromEntries(payload.entries()):payload;
     const key=[value.action,value.post_id||value.id||'',value.comment_id||'',value.event_id||'',value.active??value.pin??''].join(':');
     if(state.pending.has(key))return;
@@ -72,7 +72,7 @@
     root.querySelectorAll('[data-own-posts] [data-own-edit]').forEach(button=>button.onclick=()=>{button.closest('details')?.removeAttribute('open');const post=data.own_posts.find(item=>item.id===Number(button.dataset.ownEdit));if(post)state.form.edit(post);});
     root.querySelectorAll('[data-own-posts] [data-own-delete]').forEach(button=>button.onclick=()=>execute({action:'delete',id:button.dataset.ownDelete},{confirm:'Delete this post?'}));
     root.querySelectorAll('[data-approve]').forEach(button=>button.onclick=()=>execute({action:'approve',post_id:button.dataset.approve}));
-    root.querySelectorAll('[data-reject]').forEach(button=>button.onclick=()=>{const reason=prompt('Enter the rejection reason shown to the student:');if(reason)execute({action:'reject',post_id:button.dataset.reject,reason});});
+    root.querySelectorAll('[data-reject]').forEach(button=>button.onclick=async()=>{const reason=await window.Notifications.prompt({title:'Reject student post?',message:'Explain why this post was not approved. The student will see this message.',label:'Rejection reason',placeholder:'Enter a clear reason…',action:'Reject post',required:true,maxLength:1000});if(reason)execute({action:'reject',post_id:button.dataset.reject,reason});});
     const carouselForm=root.querySelector('[data-carousel-form]');
     if(carouselForm){const select=carouselForm.elements.event_id,check=carouselForm.elements.is_featured;const sync=()=>{check.checked=select.selectedOptions[0]?.dataset.featured==='1';};select.onchange=sync;sync();carouselForm.onsubmit=async event=>{event.preventDefault();if(!select.value)return;const data=new FormData(carouselForm);data.set('action','carousel_update');if(!check.checked)data.set('is_featured','0');await execute(data);};}
   }

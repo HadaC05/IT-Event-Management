@@ -3,7 +3,7 @@ window.SharedNavigation.ready.then((context) => {
   const id = Number(new URLSearchParams(location.search).get("id")),
     toast = (type, message) =>
       window.Notifications?.[type]?.(message) ||
-      (type === "error" && alert(message));
+      undefined;
   let csrf = context.csrfToken,
     data;
   const $ = (selector) => document.querySelector(selector),
@@ -420,7 +420,7 @@ window.SharedNavigation.ready.then((context) => {
             message: "Its details and assignments will be preserved, but it will leave the active event list.",
             action: "Archive",
           })
-        : confirm("Archive this event? Its details and assignments will be preserved.");
+        : false;
       if (!accepted) return;
       try {
         await post({ action: "archive", id });

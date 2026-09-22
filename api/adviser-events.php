@@ -23,6 +23,14 @@ final class EventManagementRepository
 {
     private const PER_PAGE = 20;
     private const STUDENT_PER_PAGE = 24;
+    private const EXISTENCE_TABLES = ['tbl_event_statuses', 'tbl_event_types'];
+    private const AUDIENCE_TABLES = ['tbl_teams', 'tbl_year_levels'];
+    private const PIVOT_COLUMNS = [
+        'tbl_event_user' => 'user_id',
+        'tbl_event_team' => 'team_id',
+        'tbl_event_year_level' => 'year_level_id',
+        'tbl_event_participants' => 'user_id',
+    ];
 
     public function __construct(private readonly PDO $db)
     {
@@ -879,6 +887,7 @@ final class EventManagementRepository
             $errors[$field][] = 'Select at least one option.';
             return;
         }
+        if (!in_array($table, self::AUDIENCE_TABLES, true) || !preg_match('/^(?:1=1|is_active=1(?: AND school_year_id=\d+)?)$/D', $condition)) throw new LogicException('Unsafe audience query configuration.');
         $marks = implode(',', array_fill(0, count($ids), '?'));
         $statement = $this->db->prepare("SELECT COUNT(*) FROM $table WHERE id IN ($marks) AND $condition");
         $statement->execute($ids);
@@ -944,6 +953,7 @@ final class EventManagementRepository
 
     private function replacePivot(string $table, string $column, int $eventId, array $ids): void
     {
+        if ((self::PIVOT_COLUMNS[$table] ?? null) !== $column) throw new LogicException('Unsafe event relationship configuration.');
         $this->db->prepare("DELETE FROM $table WHERE event_id=?")->execute([$eventId]);
         if (!$ids) return;
         $statement = $this->db->prepare("INSERT INTO $table(event_id,$column,created_at,updated_at) VALUES(?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)");
@@ -1119,6 +1129,7 @@ final class EventManagementRepository
 
     private function exists(string $table, int $id): bool
     {
+        if (!in_array($table, self::EXISTENCE_TABLES, true)) throw new LogicException('Unsafe lookup table.');
         return (bool) $this->scalar("SELECT id FROM $table WHERE id=?", [$id]);
     }
 
@@ -1144,6 +1155,7 @@ final class EventManagementRepository
 
     private function pivotIds(string $table, string $column, int $eventId): array
     {
+        if ((self::PIVOT_COLUMNS[$table] ?? null) !== $column) throw new LogicException('Unsafe event relationship lookup.');
         $statement = $this->db->prepare("SELECT $column FROM $table WHERE event_id=?");
         $statement->execute([$eventId]);
         return array_map('intval', $statement->fetchAll(PDO::FETCH_COLUMN));

@@ -8,7 +8,22 @@
         info: '<svg viewBox="0 0 24 24"><path d="M12 16v-4m0-4h.01m9 4a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/></svg>',
     };
 
-    const region = () => document.querySelector('[data-notification-region]');
+    const region = () => {
+        let host = document.querySelector('[data-notification-region]');
+        if (host || !document.body) return host;
+        host = document.createElement('div');
+        host.setAttribute('data-notification-region', '');
+        host.setAttribute('aria-live', 'polite');
+        host.setAttribute('aria-atomic', 'true');
+        host.className = 'pointer-events-none fixed right-4 top-4 z-[1100] grid w-[min(380px,calc(100%_-_2rem))] gap-3';
+        Object.assign(host.style, {
+            position: 'fixed', top: '16px', right: '16px', zIndex: '1100',
+            width: 'min(380px, calc(100% - 32px))', display: 'grid', gap: '12px',
+            pointerEvents: 'none',
+        });
+        document.body.append(host);
+        return host;
+    };
     const snackbarRegion = () => document.querySelector('[data-snackbar-region]');
     const layeredNotifications = () => ['adviser', 'sbo'].includes(document.body.dataset.navigationRole);
     const managedHosts = new Set();
@@ -206,9 +221,24 @@
         return element;
     }
 
+    function createActionDialog(kind) {
+        const dialog = document.createElement('dialog');
+        dialog.className = 'm-auto w-[min(460px,calc(100%_-_2rem))] rounded-2xl border-0 bg-white p-0 text-[#121017] shadow-2xl backdrop:bg-[#121017]/60';
+        dialog.dataset.modalSize = 'small';
+        dialog.dataset.modalKind = kind === 'confirm' ? 'confirmation' : 'prompt';
+        if (kind === 'confirm') {
+            dialog.setAttribute('data-confirm-dialog', '');
+            dialog.innerHTML = '<div class="p-6"><p class="text-[10px] font-black uppercase tracking-[.14em] text-[#397565]">Please confirm</p><h2 class="mt-1 text-xl font-black" data-confirm-title></h2><p class="mt-2 text-sm leading-6 text-[#121017]/55" data-confirm-message></p><div class="mt-6 flex justify-end gap-2"><button class="min-h-11 rounded-xl border border-[#121017]/15 px-4 font-bold" type="button" data-confirm-cancel>Cancel</button><button class="min-h-11 rounded-xl bg-[#397565] px-4 font-black text-white" type="button" data-confirm-accept>Confirm</button></div></div>';
+        } else {
+            dialog.setAttribute('data-prompt-dialog', '');
+            dialog.innerHTML = '<div class="p-6"><p class="text-[10px] font-black uppercase tracking-[.14em] text-[#397565]">Action details</p><h2 class="mt-1 text-xl font-black" data-prompt-title></h2><p class="mt-2 text-sm leading-6 text-[#121017]/55" data-prompt-message></p><label class="mt-4 grid gap-2 text-xs font-black text-[#121017]/70"><span data-prompt-label>Details</span><textarea class="min-h-28 resize-y rounded-xl border border-[#121017]/15 bg-white p-3 text-sm font-normal text-[#121017] outline-none focus:border-[#397565] focus:ring-2 focus:ring-[#397565]/15" data-prompt-input></textarea></label><div class="mt-6 flex justify-end gap-2"><button class="min-h-11 rounded-xl border border-[#121017]/15 px-4 font-bold" type="button" data-prompt-cancel>Cancel</button><button class="min-h-11 rounded-xl bg-[#397565] px-4 font-black text-white" type="button" data-prompt-accept>Continue</button></div></div>';
+        }
+        document.body.append(dialog);
+        return dialog;
+    }
+
     function confirmAction(options = {}) {
-        const dialog = document.querySelector('[data-confirm-dialog]');
-        if (!dialog) return Promise.resolve(window.confirm(options.message || 'Are you sure?'));
+        const dialog = document.querySelector('[data-confirm-dialog]') || createActionDialog('confirm');
 
         dialog.querySelector('[data-confirm-title]').textContent = options.title || 'Confirm action';
         dialog.querySelector('[data-confirm-message]').textContent = options.message || 'Are you sure you want to continue?';
@@ -238,6 +268,50 @@
             dialog.addEventListener('close', onClose);
             dialog.showModal();
             cancel.focus();
+        });
+    }
+
+    function promptAction(options = {}) {
+        const dialog = document.querySelector('[data-prompt-dialog]') || createActionDialog('prompt');
+        const input = dialog.querySelector('[data-prompt-input]');
+        const accept = dialog.querySelector('[data-prompt-accept]');
+        const cancel = dialog.querySelector('[data-prompt-cancel]');
+        dialog.querySelector('[data-prompt-title]').textContent = options.title || 'Enter details';
+        dialog.querySelector('[data-prompt-message]').textContent = options.message || '';
+        dialog.querySelector('[data-prompt-label]').textContent = options.label || 'Details';
+        accept.textContent = options.action || 'Continue';
+        input.value = options.value || '';
+        input.placeholder = options.placeholder || '';
+        input.maxLength = Number(options.maxLength) > 0 ? Number(options.maxLength) : 1000;
+
+        return new Promise((resolve) => {
+            const finish = (value) => {
+                accept.removeEventListener('click', onAccept);
+                cancel.removeEventListener('click', onCancel);
+                dialog.removeEventListener('cancel', onCancel);
+                dialog.removeEventListener('close', onClose);
+                if (dialog.open) dialog.close();
+                resolve(value);
+            };
+            const onAccept = () => {
+                const value = input.value.trim();
+                if (options.required !== false && !value) {
+                    input.focus();
+                    input.setAttribute('aria-invalid', 'true');
+                    return;
+                }
+                finish(value);
+            };
+            const onCancel = (event) => { event?.preventDefault(); finish(null); };
+            const onClose = () => { if (!dialog.open) finish(null); };
+            input.removeAttribute('aria-invalid');
+            accept.addEventListener('click', onAccept);
+            cancel.addEventListener('click', onCancel);
+            dialog.addEventListener('cancel', onCancel);
+            dialog.addEventListener('close', onClose);
+            dialog.showModal();
+            input.focus();
+            input.select();
         });
     }
 
@@ -336,6 +410,7 @@
         warning: (message, options) => toast('warning', message, options),
         info: (message, options) => toast('info', message, options),
         confirm: confirmAction,
+        prompt: promptAction,
         undo,
         setLoading,
         request,

@@ -49,6 +49,7 @@ dialog[data-activity-dialog]::backdrop {
 .unassigned-review-dialog {
   width: min(1180px, calc(100% - 2rem));
   max-height: calc(100dvh - 2rem);
+  overflow-x: hidden;
   box-shadow: 0 30px 90px rgba(18, 16, 23, 0.3);
 }
 
@@ -58,7 +59,39 @@ dialog[data-activity-dialog]::backdrop {
 }
 
 .unassigned-review-shell {
+  width: 100%;
+  min-width: 0;
   max-height: calc(100dvh - 2rem);
+  overflow-x: hidden;
+}
+
+.unassigned-review-dialog [data-unassigned-list] {
+  width: 100%;
+  min-width: 0;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+
+.unassigned-review-row,
+.unassigned-review-row > * {
+  min-width: 0;
+}
+
+.unassigned-review-row > :last-child {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.unassigned-review-row [data-row-team] {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.unassigned-review-row [data-row-assign] {
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 
 @media (min-width: 64rem) {
@@ -67,7 +100,7 @@ dialog[data-activity-dialog]::backdrop {
   }
 
   .unassigned-review-row {
-    grid-template-columns: minmax(260px, 1fr) minmax(220px, 0.8fr) 300px;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 0.8fr) minmax(250px, 1fr);
     align-items: center;
   }
 }

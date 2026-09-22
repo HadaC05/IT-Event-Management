@@ -15,6 +15,15 @@ Override any default with the `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, and
 Application tables use the `tbl_` prefix, such as `tbl_users`, `tbl_roles`, and
 `tbl_posts`.
 
+For an existing installation, import `database/optimize_team_management.sql`
+to add the indexes used by the paged Team Management views. The migration is
+safe to run more than once and does not modify team or student records.
+
+Import `database/optimize_attendance_roster.sql` to add the date-scoped index
+used by the paged Adviser Attendance roster. The roster pages participants
+inside MySQL instead of loading every participant ID into PHP. The migration is
+safe to run more than once and does not modify attendance records.
+
 Student roster imports include every workbook row. They use the complete Student
 ID as the username when available; rows without an official ID receive their
 stable `PENDING-*` record key as a temporary account identity. Duplicate or
@@ -27,6 +36,13 @@ only existing Student accounts that still have a pending first-login password,
 first run `php api/reset-pending-student-temporary-passwords.php` for a dry run,
 then run `php api/reset-pending-student-temporary-passwords.php --apply`.
 Neither command prints individual credentials.
+
+Faculty imports are additive and accept `.xlsx` files whose first worksheet
+contains a name, email, and Faculty ID column. Header aliases include Faculty
+Name or Teacher Name, Gmail or PHINMA Gmail, and School ID or Faculty ID. Other
+columns are ignored. Imported accounts always use the Faculty role, start with
+no team membership, and must change the temporary Faculty-ID-plus-surname
+password at first sign-in.
 
 Import `database/2026_09_21_normalize_officer_responsibilities.sql` once after
 the SBO migrations. It creates `tbl_officer_responsibilities`, seeds Attendance,

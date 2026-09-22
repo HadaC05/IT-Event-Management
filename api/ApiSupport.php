@@ -23,11 +23,11 @@ final class StudentId
 
 final class FacultyId
 {
-    public const FORMAT_MESSAGE = 'Faculty ID numbers must use the format 2x-xxx-F.';
+    public const FORMAT_MESSAGE = 'Faculty ID numbers must use 2x-xxx-X through 2x-xxxxxx-X (for example, 23-2324-F).';
 
     public static function isValid(string $value): bool
     {
-        return preg_match('/^2\d-\d{3}-F$/', mb_strtoupper(trim($value))) === 1;
+        return preg_match('/^2\d-\d{3,6}-[A-Z]$/', mb_strtoupper(trim($value))) === 1;
     }
 }
 
@@ -42,6 +42,62 @@ final class JsonResponse
 
         echo json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
         exit;
+    }
+}
+
+final class RequestSecurity
+{
+    private const MAX_DEPTH = 12;
+    private const MAX_VALUES = 10000;
+    private const MAX_STRING_BYTES = 100000;
+    private const MAX_JSON_BYTES = 2 * 1024 * 1024;
+
+    public static function guardGlobals(): void
+    {
+        try {
+            self::assertValid($_GET, 'query');
+            self::assertValid($_POST, 'form');
+            $contentType = strtolower((string) ($_SERVER['CONTENT_TYPE'] ?? ''));
+            if (str_contains($contentType, 'application/json')) {
+                $raw = (string) file_get_contents('php://input');
+                if (strlen($raw) > self::MAX_JSON_BYTES) throw new InvalidArgumentException('The request body is too large.');
+                if ($raw !== '') {
+                    $decoded = json_decode($raw, true);
+                    if (!is_array($decoded) || json_last_error() !== JSON_ERROR_NONE) throw new InvalidArgumentException('The request body must contain valid JSON.');
+                    self::assertValid($decoded, 'JSON');
+                }
+            }
+        } catch (InvalidArgumentException $exception) {
+            JsonResponse::send(['success' => false, 'message' => $exception->getMessage()], 400);
+        }
+    }
+
+    public static function assertValid(array $input, string $source = 'request'): void
+    {
+        $count = 0;
+        self::walk($input, $source, 0, $count);
+    }
+
+    private static function walk(array $values, string $source, int $depth, int &$count): void
+    {
+        if ($depth > self::MAX_DEPTH) throw new InvalidArgumentException("The {$source} data is nested too deeply.");
+        foreach ($values as $key => $value) {
+            if (++$count > self::MAX_VALUES) throw new InvalidArgumentException("The {$source} contains too many values.");
+            self::assertString((string) $key, "{$source} field name", 128);
+            if (is_array($value)) {
+                self::walk($value, $source, $depth + 1, $count);
+                continue;
+            }
+            if (is_object($value) || is_resource($value)) throw new InvalidArgumentException("The {$source} contains an unsupported value.");
+            if (is_string($value)) self::assertString($value, "{$source} value", self::MAX_STRING_BYTES);
+        }
+    }
+
+    private static function assertString(string $value, string $label, int $maximumBytes): void
+    {
+        if (strlen($value) > $maximumBytes) throw new InvalidArgumentException("A {$label} is too long.");
+        if (!mb_check_encoding($value, 'UTF-8')) throw new InvalidArgumentException("A {$label} is not valid UTF-8.");
+        if (preg_match('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/u', $value)) throw new InvalidArgumentException("A {$label} contains unsupported control characters.");
     }
 }
 
@@ -137,4 +193,6 @@ final class AuthGuard
         return self::requireAnyRole([$role]);
     }
 }
+
+if (PHP_SAPI !== 'cli') RequestSecurity::guardGlobals();
 

@@ -23,6 +23,7 @@ final class ReportRepository
     private int $perPage = self::PAGE_SIZE;
     private const TYPES = ['attendance', 'participation', 'scores', 'rankings'];
     private const ATTENDANCE_STATUSES = ['present', 'absent'];
+    private const FILTER_TABLES = ['tbl_events', 'tbl_school_years', 'tbl_academic_periods', 'tbl_score_categories'];
 
     public function __construct(private readonly PDO $db) {}
 
@@ -220,6 +221,7 @@ final class ReportRepository
     private function optionalExistingId(mixed $value, string $table, string $field, array &$errors, string $message): ?int
     {
         if ($value === null || $value === '') return null;
+        if (!in_array($table, self::FILTER_TABLES, true)) throw new LogicException('Unsafe report filter table.');
         if (!ctype_digit((string) $value) || (int) $value < 1 || !(bool) $this->scalar("SELECT id FROM $table WHERE id=?", [(int) $value])) {$errors[$field][] = $message; return null;}
         return (int) $value;
     }
