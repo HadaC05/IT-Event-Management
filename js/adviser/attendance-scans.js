@@ -73,10 +73,12 @@ window.SharedNavigation.ready.then(() => {
   const expandedScans=new Set();
   const scanMarkers=new Map();
   const eventBoundaries=new Map();
-  const scanMap=L.map(mapCanvas,{zoomControl:true,maxZoom:22}).setView([8.4702,124.6344],16);
+  const scanMap=L.map(mapCanvas,{zoomControl:true,keyboard:false,maxZoom:22}).setView([8.4702,124.6344],16);
+  mapCanvas.tabIndex=0;
+  mapCanvas.setAttribute('aria-keyshortcuts','ArrowUp ArrowDown ArrowLeft ArrowRight W A S D');
   const farIndicatorLayer=document.createElement('div');
   farIndicatorLayer.className='attendance-far-indicators';
-  farIndicatorLayer.setAttribute('aria-label','Far scan locations outside the visible map');
+  farIndicatorLayer.setAttribute('aria-label','Scan and venue locations outside the visible map');
   mapCanvas.append(farIndicatorLayer);
   L.DomEvent.disableClickPropagation(farIndicatorLayer);
   L.DomEvent.disableScrollPropagation(farIndicatorLayer);
@@ -93,28 +95,54 @@ window.SharedNavigation.ready.then(() => {
   function renderFarIndicators(){
     if(!scanMap._loaded){farIndicatorLayer.replaceChildren();return;}
     const bounds=scanMap.getBounds(),size=scanMap.getSize(),center=L.point(size.x/2,size.y/2),margin=34;
+    const edgePosition=latLng=>{
+      const target=scanMap.latLngToContainerPoint(latLng);
+      const dx=target.x-center.x,dy=target.y-center.y;
+      const scale=Math.min((center.x-margin)/Math.max(Math.abs(dx),0.0001),(center.y-margin)/Math.max(Math.abs(dy),0.0001));
+      return {x:Math.max(margin,Math.min(size.x-margin,center.x+dx*scale)),y:Math.max(margin,Math.min(size.y-margin,center.y+dy*scale))};
+    };
     const indicators=currentMapScans.filter(scan=>scan.scan_latitude!==null&&scan.scan_longitude!==null&&isFarScan(scan))
       .filter(scan=>!bounds.contains([Number(scan.scan_latitude),Number(scan.scan_longitude)]))
       .map(scan=>{
-        const target=scanMap.latLngToContainerPoint([Number(scan.scan_latitude),Number(scan.scan_longitude)]);
-        const dx=target.x-center.x,dy=target.y-center.y;
-        const scale=Math.min((center.x-margin)/Math.max(Math.abs(dx),0.0001),(center.y-margin)/Math.max(Math.abs(dy),0.0001));
-        const x=Math.max(margin,Math.min(size.x-margin,center.x+dx*scale));
-        const y=Math.max(margin,Math.min(size.y-margin,center.y+dy*scale));
+        const {x,y}=edgePosition([Number(scan.scan_latitude),Number(scan.scan_longitude)]);
         const beyond=distanceBeyondVenue(scan);
         return `<button class="attendance-far-indicator" type="button" data-far-scan="${esc(scan.id)}" style="left:${x.toFixed(1)}px;top:${y.toFixed(1)}px;--tribe-color:${teamColor(scan)}" aria-label="View far scan by ${esc(officerLabel(scan))} from ${esc(scan.team_name||'unassigned tribe')}" title="${esc(officerLabel(scan))} · ${beyond===null?'Far from venue':`${Math.round(beyond)} m beyond venue`}"><i aria-hidden="true"></i><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a7 7 0 0 0-7 7c0 5.25 7 13 7 13s7-7.75 7-13a7 7 0 0 0-7-7Zm0 9.5A2.5 2.5 0 1 1 12 6a2.5 2.5 0 0 1 0 5.5Z"/></svg><small>FAR</small></button>`;
       });
+    eventBoundaries.forEach((entry,key)=>{
+      const venueBounds=entry.rectangle.getBounds();
+      if(bounds.intersects(venueBounds))return;
+      const {x,y}=edgePosition(venueBounds.getCenter());
+      const venueName=entry.event?.venue_name||'Event venue';
+      indicators.push(`<button class="attendance-venue-indicator" type="button" data-offscreen-venue="${esc(key)}" style="left:${x.toFixed(1)}px;top:${y.toFixed(1)}px" aria-label="View off-screen venue ${esc(venueName)}" title="${esc(venueName)}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h16M6 20V8l6-4 6 4v12M9 11h2m2 0h2m-6 4h2m2 0h2"/></svg><small>VENUE</small></button>`);
+    });
     farIndicatorLayer.innerHTML=indicators.join('');
   }
   scanMap.on('move zoom resize',renderFarIndicators);
   farIndicatorLayer.addEventListener('click',event=>{
-    const button=event.target.closest('[data-far-scan]');
+    const button=event.target.closest('[data-far-scan],[data-offscreen-venue]');
     if(!button)return;
     event.preventDefault();
     event.stopPropagation();
-    const scan=currentMapScans.find(item=>String(item.id)===button.dataset.farScan);
-    if(scan)focusScan(scan,false);
+    if(button.dataset.farScan){
+      const scan=currentMapScans.find(item=>String(item.id)===button.dataset.farScan);
+      if(scan)focusScan(scan,false);
+      return;
+    }
+    const venue=eventBoundaries.get(button.dataset.offscreenVenue);
+    if(!venue)return;
+    scanMap.fitBounds(venue.rectangle.getBounds(),{padding:[45,45],maxZoom:21});
+    venue.rectangle.openPopup();
+    mapCanvas.focus({preventScroll:true});
   });
+  mapCanvas.addEventListener('keydown',event=>{
+    if(event.target!==mapCanvas||event.altKey||event.ctrlKey||event.metaKey)return;
+    const movement={arrowup:[0,-120],w:[0,-120],arrowdown:[0,120],s:[0,120],arrowleft:[-120,0],a:[-120,0],arrowright:[120,0],d:[120,0]}[event.key.toLowerCase()];
+    if(!movement)return;
+    event.preventDefault();
+    event.stopPropagation();
+    scanMap.panBy(movement,{animate:true,duration:.18});
+  });
+  scanMap.on('click',()=>mapCanvas.focus({preventScroll:true}));
   const dateInput=form.elements.schedule_date;
   const todayIso=()=>{
     const parts=Object.fromEntries(new Intl.DateTimeFormat('en-US',{timeZone:'Asia/Manila',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date()).filter(part=>part.type!=='literal').map(part=>[part.type,part.value]));
@@ -237,7 +265,7 @@ window.SharedNavigation.ready.then(() => {
     desiredBoundaries.forEach((event,key)=>{
       const latitude=Number(event.venue_latitude),longitude=Number(event.venue_longitude),radius=Number(event.venue_radius);
       const signature=`${latitude}:${longitude}:${radius}`;
-      if(eventBoundaries.get(key)?.signature===signature)return;
+      if(eventBoundaries.get(key)?.signature===signature){eventBoundaries.get(key).event=event;return;}
       if(eventBoundaries.has(key))liveLayer.removeLayer(eventBoundaries.get(key).rectangle);
       const latitudeDelta=radius/111320;
       const longitudeDelta=radius/(111320*Math.max(Math.cos(latitude*Math.PI/180),0.000001));
@@ -245,7 +273,7 @@ window.SharedNavigation.ready.then(() => {
       const rectangle=L.rectangle(bounds,{color:'#397565',weight:2,opacity:.9,dashArray:'8 6',fillColor:'#C6F24E',fillOpacity:.13})
         .bindPopup(`<strong>${esc(event.venue_name||'Event venue')}</strong><br>${esc(event.title)}<br>Square boundary: ${radius.toFixed(0)} m from center`)
         .addTo(liveLayer);
-      eventBoundaries.set(key,{rectangle,signature});
+      eventBoundaries.set(key,{rectangle,signature,event});
       changed=true;
     });
     if(focusedScanId!==null){

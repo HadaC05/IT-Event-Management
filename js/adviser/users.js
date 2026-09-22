@@ -38,6 +38,10 @@ window.SharedNavigation.ready.then(() => {
     const creatableRoles = ['SBO Adviser', 'Faculty', 'Student'];
     const isManageable = role => manageableRoles.includes(role);
     const initials = user => `${user.first_name?.[0] || ''}${user.last_name?.[0] || ''}`.toUpperCase();
+    const visibleEmail = user => /@pending\.invalid$/i.test(String(user?.email || '')) ? '' : String(user?.email || '');
+    const loginLabel = user => user.id_number && user.username === user.id_number
+        ? `Student ID: ${user.id_number}`
+        : `@${user.username}${user.id_number ? ` / ${user.id_number}` : ''}`;
     const notify = (type, message) => window.Notifications?.[type]?.(message) || (type === 'error' ? alert(message) : null);
     const showError = error => notify('error', error.response?.data?.message || 'Unable to complete the request.');
 
@@ -203,8 +207,11 @@ window.SharedNavigation.ready.then(() => {
         viewer.querySelector('h2').textContent = user.full_name;
         viewer.querySelector('[data-value="avatar"]').textContent = initials;
         viewer.querySelector('[data-value="id"]').textContent = user.id_number || 'No school ID';
-        viewer.querySelector('[data-value="email"]').textContent = user.email || 'No email provided';
-        viewer.querySelector('[data-value="username"]').textContent = `@${user.username}`;
+        const email = visibleEmail(user);
+        const emailRow = viewer.querySelector('[data-value="email"]').closest('div');
+        emailRow.classList.toggle('hidden', !email);
+        viewer.querySelector('[data-value="email"]').textContent = email;
+        viewer.querySelector('[data-value="username"]').textContent = loginLabel(user);
         viewer.querySelector('[data-value="role"]').textContent = user.role || 'No role assigned';
         viewer.querySelector('[data-value="account-type"]').textContent = user.role === 'SBO Adviser'
             ? 'Protected adviser account'
@@ -335,8 +342,9 @@ window.SharedNavigation.ready.then(() => {
         identity.querySelector('div > span:first-child').textContent = initials(user);
         const identityText = identity.querySelectorAll('strong, small');
         identityText[0].textContent = user.full_name;
-        identityText[1].textContent = user.email || '';
-        identityText[2].textContent = `@${user.username}${user.id_number ? ` · ${user.id_number}` : ''}`;
+        const email = visibleEmail(user);
+        identityText[1].textContent = email || loginLabel(user);
+        identityText[2].textContent = email ? loginLabel(user) : '';
 
         const role = document.createElement('td');
         role.className = 'px-4 py-5';
@@ -401,7 +409,7 @@ window.SharedNavigation.ready.then(() => {
         title.textContent = user.full_name;
         const meta = document.createElement('p');
         meta.className = 'mt-1 text-xs text-slate-400';
-        meta.textContent = `${user.role || 'Unassigned'} · ${user.status || 'Unassigned'} · @${user.username}`;
+        meta.textContent = `${user.role || 'Unassigned'} · ${user.status || 'Unassigned'} · ${loginLabel(user)}`;
         card.append(title, meta);
         const responsibility = document.createElement('p');
         responsibility.className = 'mt-2 text-xs text-[#121017]/45';

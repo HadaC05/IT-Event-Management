@@ -15,12 +15,13 @@
     let searchTimer;
 
     const escapeHtml = value => SboPortal.escapeHtml(value ?? '');
+    const visibleEmail = student => /@pending\.invalid$/i.test(String(student?.email || '')) ? '' : String(student?.email || '');
     const statusBadge = student => `<span class="shrink-0 rounded-full px-3 py-1 text-[10px] font-black uppercase ${student.attendance_status === 'not_recorded' ? 'bg-[#121017]/7 text-[#121017]/45' : 'bg-[#C6F24E]/35 text-[#397565]'}">${escapeHtml(student.attendance_status.replace('_', ' '))}</span>`;
 
     const tableRow = student => `
         <tr>
             <td class="p-4 text-sm font-bold">${escapeHtml(student.id_number)}</td>
-            <td class="p-4"><strong class="text-sm">${escapeHtml(student.full_name)}</strong><span class="block text-xs text-[#121017]/45">${escapeHtml(student.email || 'No email provided')}</span></td>
+            <td class="p-4"><strong class="text-sm">${escapeHtml(student.full_name)}</strong>${visibleEmail(student) ? `<span class="block text-xs text-[#121017]/45">${escapeHtml(visibleEmail(student))}</span>` : ''}</td>
             <td class="p-4 text-sm">CITE · ${escapeHtml(student.year_level || 'Not specified')}</td>
             <td class="p-4 text-sm font-bold text-[#397565]">${escapeHtml(student.team_name)}</td>
             <td class="p-4">${statusBadge(student)}</td>
@@ -35,7 +36,7 @@
             <dl class="mt-4 grid grid-cols-2 gap-3 border-t border-[#121017]/8 pt-3 text-xs">
                 <div><dt class="text-[9px] font-black uppercase tracking-wider text-[#121017]/40">Course & year</dt><dd class="mt-1 font-bold">CITE · ${escapeHtml(student.year_level || 'Not specified')}</dd></div>
                 <div><dt class="text-[9px] font-black uppercase tracking-wider text-[#121017]/40">Team</dt><dd class="mt-1 font-bold text-[#397565]">${escapeHtml(student.team_name)}</dd></div>
-                <div class="col-span-2 min-w-0"><dt class="text-[9px] font-black uppercase tracking-wider text-[#121017]/40">Email</dt><dd class="mt-1 truncate">${escapeHtml(student.email || 'No email provided')}</dd></div>
+                ${visibleEmail(student) ? `<div class="col-span-2 min-w-0"><dt class="text-[9px] font-black uppercase tracking-wider text-[#121017]/40">Email</dt><dd class="mt-1 truncate">${escapeHtml(visibleEmail(student))}</dd></div>` : ''}
             </dl>
         </article>`;
 

@@ -238,6 +238,52 @@ dialog[data-activity-dialog]::backdrop {
   white-space: nowrap;
 }
 
+.attendance-venue-indicator {
+  position: absolute;
+  display: grid;
+  min-width: 50px;
+  min-height: 46px;
+  padding: 5px 7px;
+  place-items: center;
+  transform: translate(-50%, -50%);
+  border: 3px solid #fff;
+  border-radius: 9999px;
+  background: #397565;
+  color: #fff;
+  box-shadow: 0 5px 18px rgb(18 16 23 / 34%);
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+.attendance-venue-indicator:hover,
+.attendance-venue-indicator:focus-visible {
+  background: #2f6658;
+  transform: translate(-50%, -50%) scale(1.06);
+}
+
+.attendance-venue-indicator svg {
+  width: 19px;
+  height: 19px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.attendance-venue-indicator small {
+  margin-top: -2px;
+  font-size: 0.5rem;
+  font-weight: 900;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+[data-latest-map-canvas]:focus-visible {
+  outline: 3px solid #397565;
+  outline-offset: -3px;
+}
+
 .attendance-team-badge {
   display: inline-flex;
   min-width: 0;

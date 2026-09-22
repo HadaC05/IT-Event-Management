@@ -30,6 +30,9 @@ window.SharedNavigation.ready.then(() => {
     const logoutForm = document.querySelector('form[action="api/auth.php?action=logout"]');
 
     const initials = person => `${person.first_name?.[0] || ''}${person.last_name?.[0] || ''}`.toUpperCase();
+    const visibleEmail = person => /@pending\.invalid$/i.test(String(person?.email || person?.student_email || ''))
+        ? ''
+        : String(person?.email || person?.student_email || '');
     const errorMessage = error => error.response?.data?.message || 'Unable to complete the request.';
     const notify = (type, message) => window.Notifications?.[type]?.(message) || (type === 'error' ? alert(message) : null);
 
@@ -194,7 +197,9 @@ window.SharedNavigation.ready.then(() => {
         });
         passwordForm.elements.assignment_id.value = assignment.id;
         passwordForm.querySelector('[data-password-officer-name]').textContent = assignment.full_name;
-        passwordForm.querySelector('[data-password-student-email]').textContent = `Student email: ${assignment.student_email || 'No email provided'}`;
+        passwordForm.querySelector('[data-password-student-email]').textContent = visibleEmail(assignment)
+            ? `Student email: ${visibleEmail(assignment)}`
+            : `Student ID: ${assignment.student_id}`;
         passwordForm.querySelector('[data-password-officer-username]').textContent = `SBO username: ${assignment.username}`;
         passwordDialog.showModal();
         passwordForm.elements.password.focus();
@@ -203,7 +208,10 @@ window.SharedNavigation.ready.then(() => {
     const openDetailsDialog = assignment => {
         detailsDialog.querySelector('[data-details-student-name]').textContent = assignment.full_name;
         detailsDialog.querySelector('[data-details-student-id]').textContent = `Student ID: ${assignment.student_id}`;
-        detailsDialog.querySelector('[data-details-student-email]').textContent = `Student email: ${assignment.student_email || 'No email provided'}`;
+        const email = visibleEmail(assignment);
+        const emailDetail = detailsDialog.querySelector('[data-details-student-email]');
+        emailDetail.textContent = email ? `Student email: ${email}` : '';
+        emailDetail.classList.toggle('hidden', !email);
         detailsDialog.querySelector('[data-details-officer-username]').textContent = assignment.username;
         const status = detailsDialog.querySelector('[data-details-status]');
         status.textContent = assignment.status;
@@ -260,7 +268,7 @@ window.SharedNavigation.ready.then(() => {
             row.innerHTML = `<td class="px-5 py-4"><strong class="block whitespace-nowrap font-black"></strong><span class="mt-1 block text-xs text-[#121017]/50"></span></td><td class="whitespace-nowrap px-4 py-4 text-[#121017]/65"></td><td class="whitespace-nowrap px-4 py-4 font-bold text-[#121017]/65"></td><td class="whitespace-nowrap px-4 py-4 text-[#121017]/65"></td><td class="px-4 py-4"></td><td class="px-5 py-4 text-right"></td>`;
             const cells = row.querySelectorAll('td');
             cells[0].querySelector('strong').textContent = assignment.full_name;
-            cells[0].querySelector('span').textContent = assignment.student_email || 'No student email';
+            cells[0].querySelector('span').textContent = visibleEmail(assignment) || `Student ID: ${assignment.student_id}`;
             cells[1].textContent = assignment.student_id;
             cells[2].textContent = assignment.username;
             cells[3].textContent = new Date(assignment.assigned_at).toLocaleDateString();
@@ -390,7 +398,9 @@ window.SharedNavigation.ready.then(() => {
             details.className = 'min-w-0 flex-1';
             details.innerHTML = '<strong class="block truncate text-xs font-black"></strong><small class="mt-0.5 block truncate text-[10px] text-[#121017]/45"></small>';
             details.querySelector('strong').textContent = student.full_name;
-            details.querySelector('small').textContent = `${student.id_number} · ${student.email || 'No email provided'}`;
+            details.querySelector('small').textContent = visibleEmail(student)
+                ? `${student.id_number} · ${visibleEmail(student)}`
+                : student.id_number;
             const year = document.createElement('span');
             year.className = 'shrink-0 rounded-full bg-[#2F3AE0]/8 px-2.5 py-1 text-[9px] font-black text-[#2F3AE0]';
             year.textContent = student.year_level_label || 'No year';
