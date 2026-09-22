@@ -56,7 +56,65 @@
   async function team() {
     const {team:t}=await get();
     if (!t) {host.innerHTML=empty('No team is assigned to your Faculty account. Contact the SBO Adviser.');return;}
-    host.innerHTML=`<div class="grid gap-4 md:grid-cols-3">${card(`<p class="text-xs uppercase text-[#397565]">Assigned team</p><h2 class="mt-2 text-2xl font-black">${esc(t.name)}</h2><p class="text-sm">${esc(t.school_year)}</p>`)}${card(`<p class="text-xs uppercase text-[#397565]">Current rank</p><strong class="text-3xl">${t.rank?'#'+t.rank:'Unranked'}</strong>`)}${card(`<p class="text-xs uppercase text-[#397565]">Members</p><strong class="text-3xl">${t.members_count}</strong>`)}</div><div class="mt-4 grid gap-4 md:grid-cols-2">${card(`<div class="flex items-center justify-between gap-3"><h2 class="font-black">Member preview</h2><a class="text-xs font-bold text-[#397565]" href="pages/faculty/students.html">View all ${t.members_count}</a></div><ul class="mt-3 space-y-2 text-sm">${t.member_preview.map(m=>`<li>${esc(m.name)} · ${esc(m.id_number)}</li>`).join('') || '<li>No members yet.</li>'}</ul>`)}${card(`<h2 class="font-black">Scores</h2><ul class="mt-3 space-y-2 text-sm">${t.scores.map(s=>`<li>${esc(s.event_title)} · ${esc(s.category)}: <strong>${s.points} pts</strong></li>`).join('') || '<li>No scores yet.</li>'}</ul>`)}${card(`<h2 class="font-black">Attendance summary</h2><ul class="mt-3 space-y-2 text-sm">${t.attendance.map(a=>`<li>${esc(a.status)}: ${a.total}</li>`).join('') || '<li>No attendance yet.</li>'}</ul>`)}${card(`<h2 class="font-black">Upcoming activities</h2><ul class="mt-3 space-y-2 text-sm">${t.activities.map(a=>`<li>${esc(a.title)} · ${date(a.start_at)}</li>`).join('') || '<li>No upcoming activities.</li>'}</ul>`)}${card(`<h2 class="font-black">Announcements</h2><ul class="mt-3 space-y-3 text-sm">${t.announcements.map(a=>`<li>${esc(a.content)} <span class="text-xs text-[#121017]/45">${date(a.created_at)}</span></li>`).join('') || '<li>No announcements.</li>'}</ul>`,'md:col-span-2')}</div>`;
+    const accent=/^#[0-9a-f]{6}$/i.test(String(t.color||''))?t.color:'#397565';
+    const number=value=>Number(value||0).toLocaleString('en-PH',{maximumFractionDigits:2});
+    const initials=name=>String(name||'').trim().split(/\s+/).filter(Boolean).slice(0,2).map(part=>part[0]).join('').toUpperCase()||'TM';
+    const attendance=Object.fromEntries((t.attendance||[]).map(item=>[String(item.status||'').toLowerCase(),Number(item.total||0)]));
+    const nextActivity=t.activities?.[0]||null;
+    const memberRows=(t.member_preview||[]).map(member=>`<li class="flex items-center gap-3 border-b border-[#121017]/8 py-3 last:border-0"><span class="grid h-10 w-10 shrink-0 place-items-center rounded-full text-xs font-black" style="background:${accent}18;color:${accent}" aria-hidden="true">${esc(initials(member.name))}</span><span class="min-w-0 flex-1"><strong class="block truncate text-sm">${esc(member.name)}</strong><span class="mt-0.5 block truncate text-xs text-[#121017]/50">${esc(member.id_number)} · ${esc(member.year_level||'Year not set')}</span></span></li>`).join('');
+    const scoreRows=(t.scores||[]).slice(0,3).map(score=>`<li class="flex items-start justify-between gap-4 border-b border-[#121017]/8 py-3 last:border-0"><span class="min-w-0"><strong class="block truncate text-sm">${esc(score.event_title)}</strong><span class="text-xs text-[#121017]/50">${esc(score.category)}</span></span><strong class="shrink-0 text-sm">${number(score.points)} pts</strong></li>`).join('');
+    const announcementRows=(t.announcements||[]).map(item=>`<li class="grid gap-1 border-b border-[#121017]/8 py-3 last:border-0 sm:flex sm:items-start sm:justify-between sm:gap-5"><p class="break-words text-sm leading-6">${esc(item.content)}</p><span class="shrink-0 text-xs text-[#121017]/45">${item.event_title?`${esc(item.event_title)} · `:''}${date(item.created_at)}</span></li>`).join('');
+    host.innerHTML=`
+      <section class="relative overflow-hidden rounded-3xl border border-[#121017]/10 bg-white p-6 shadow-sm sm:p-8" style="border-top:6px solid ${accent};background:linear-gradient(135deg,${accent}16 0%,#fff 52%)">
+        <span class="pointer-events-none absolute -right-4 -top-10 select-none font-black leading-none" style="font-size:clamp(7rem,18vw,12rem);opacity:.055" aria-hidden="true">${esc(initials(t.name))}</span>
+        <div class="relative max-w-3xl">
+          <p class="text-[10px] font-black uppercase tracking-wider" style="color:${accent}">Your assigned team · ${esc(t.school_year)}</p>
+          <h2 class="mt-2 text-3xl font-black tracking-tight sm:text-4xl">${esc(t.name)}</h2>
+          <p class="mt-2 text-sm text-[#121017]/55">Faculty team overview for the current academic year.</p>
+        </div>
+        <dl class="relative mt-7 grid grid-cols-2 gap-x-5 gap-y-5 border-t border-[#121017]/10 pt-6 sm:grid-cols-4">
+          <div><dt class="text-[10px] font-black uppercase tracking-wider text-[#121017]/45">Members</dt><dd class="mt-1 text-2xl font-black">${number(t.members_count)}</dd></div>
+          <div><dt class="text-[10px] font-black uppercase tracking-wider text-[#121017]/45">Current rank</dt><dd class="mt-1 text-2xl font-black">${t.rank?`#${number(t.rank)}`:'Unranked'}</dd></div>
+          <div><dt class="text-[10px] font-black uppercase tracking-wider text-[#121017]/45">Finalized points</dt><dd class="mt-1 text-2xl font-black">${number(t.total_score)}</dd></div>
+          <div><dt class="text-[10px] font-black uppercase tracking-wider text-[#121017]/45">Attendance records</dt><dd class="mt-1 text-2xl font-black">${number(t.attendance_total)}</dd></div>
+        </dl>
+      </section>
+
+      <div class="mt-5 grid gap-5 lg:grid-cols-2">
+        <section class="rounded-3xl border border-[#397565]/15 bg-white p-5 shadow-sm sm:p-6">
+          <div class="flex items-center justify-between gap-4">
+            <div><p class="text-[10px] font-black uppercase tracking-wider text-[#397565]">Team roster</p><h2 class="mt-1 text-xl font-black">Members</h2></div>
+            <a class="rounded-xl border border-[#397565]/25 px-3 py-2 text-xs font-black text-[#397565] transition hover:bg-[#397565]/10" href="pages/faculty/students.html">View all ${number(t.members_count)}</a>
+          </div>
+          <ul class="mt-4">${memberRows||'<li class="py-8 text-center text-sm text-[#121017]/50">No members are assigned yet.</li>'}</ul>
+        </section>
+
+        <section class="rounded-3xl border border-[#397565]/15 bg-white p-5 shadow-sm sm:p-6">
+          <p class="text-[10px] font-black uppercase tracking-wider text-[#397565]">At a glance</p><h2 class="mt-1 text-xl font-black">Team performance</h2>
+          <div class="mt-5">
+            <div class="flex items-center justify-between"><h3 class="text-sm font-black">Recorded attendance</h3><span class="text-xs text-[#121017]/45">${esc(t.school_year)}</span></div>
+            <dl class="mt-3 grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
+              <div class="flex justify-between gap-2"><dt class="text-[#121017]/55">Present</dt><dd class="font-black">${number(attendance.present)}</dd></div>
+              <div class="flex justify-between gap-2"><dt class="text-[#121017]/55">Late</dt><dd class="font-black">${number(attendance.late)}</dd></div>
+              <div class="flex justify-between gap-2"><dt class="text-[#121017]/55">Absent</dt><dd class="font-black">${number(attendance.absent)}</dd></div>
+              <div class="flex justify-between gap-2"><dt class="text-[#121017]/55">Excused</dt><dd class="font-black">${number(attendance.excused)}</dd></div>
+            </dl>
+          </div>
+          <div class="mt-5 border-t border-[#121017]/10 pt-5">
+            <div class="flex items-center justify-between gap-3"><h3 class="text-sm font-black">Latest finalized scores</h3><a class="text-xs font-black text-[#397565]" href="pages/faculty/leaderboard.html">Leaderboard →</a></div>
+            <ul class="mt-2">${scoreRows||'<li class="py-4 text-sm text-[#121017]/50">No finalized scores yet.</li>'}</ul>
+          </div>
+          <div class="mt-5 border-t border-[#121017]/10 pt-5">
+            <h3 class="text-sm font-black">Next event</h3>
+            ${nextActivity?`<p class="mt-2 font-black">${esc(nextActivity.title)}</p><p class="mt-1 text-xs leading-5 text-[#121017]/50">${date(nextActivity.start_at)}${nextActivity.location?` · ${esc(nextActivity.location)}`:''}</p>`:'<p class="mt-2 text-sm text-[#121017]/50">No upcoming team events.</p>'}
+          </div>
+        </section>
+      </div>
+
+      <section class="mt-5 rounded-3xl border border-[#397565]/15 bg-white p-5 shadow-sm sm:p-6">
+        <div><p class="text-[10px] font-black uppercase tracking-wider text-[#397565]">What is happening</p><h2 class="mt-1 text-xl font-black">Team updates</h2></div>
+        <ul class="mt-3">${announcementRows||'<li class="py-6 text-sm text-[#121017]/50">No team announcements have been published yet.</li>'}</ul>
+      </section>`;
   }
 
   async function attendance() {

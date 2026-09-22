@@ -93,16 +93,26 @@ final class FacultyRepository
     {
         $teamId = $this->teamId($userId);
         if (!$teamId) return ['team'=>null];
-        $team = $this->rows('SELECT t.id,t.name,t.color,sy.label school_year FROM tbl_teams t JOIN tbl_school_years sy ON sy.id=t.school_year_id WHERE t.id=?', [$teamId])[0];
+        $team = $this->rows('SELECT t.id,t.name,t.color,t.school_year_id,sy.label school_year FROM tbl_teams t JOIN tbl_school_years sy ON sy.id=t.school_year_id WHERE t.id=?', [$teamId])[0];
         $team['members_count'] = (int) $this->rows("SELECT COUNT(*) total FROM tbl_team_user tu JOIN tbl_users u ON u.id=tu.user_id JOIN tbl_roles r ON r.id=u.role_id AND r.name='Student' WHERE tu.team_id=?",[$teamId])[0]['total'];
-        $team['member_preview'] = $this->rows("SELECT u.id_number,TRIM(CONCAT_WS(' ',u.first_name,NULLIF(u.middle_name,''),u.last_name)) name FROM tbl_team_user tu JOIN tbl_users u ON u.id=tu.user_id JOIN tbl_roles r ON r.id=u.role_id AND r.name='Student' WHERE tu.team_id=? ORDER BY u.last_name,u.first_name,u.id LIMIT 8",[$teamId]);
-        $team['scores'] = $this->rows('SELECT e.title event_title,COALESCE(c.name,\'General\') category,SUM(s.points) points FROM vw_finalized_scores s JOIN tbl_events e ON e.id=s.event_id LEFT JOIN tbl_score_categories c ON c.id=s.score_category_id WHERE s.team_id=? GROUP BY e.id,c.id ORDER BY e.start_at DESC', [$teamId]);
-        $team['attendance'] = $this->rows("SELECT a.effective_status status,COUNT(*) total FROM vw_attendance_effective a JOIN tbl_team_user tu ON tu.user_id=a.user_id JOIN tbl_users u ON u.id=a.user_id JOIN tbl_roles r ON r.id=u.role_id AND r.name='Student' WHERE tu.team_id=? GROUP BY a.effective_status", [$teamId]);
+        $team['member_preview'] = $this->rows("SELECT u.id_number,TRIM(CONCAT_WS(' ',u.first_name,NULLIF(u.middle_name,''),u.last_name)) name,yl.label year_level FROM tbl_team_user tu JOIN tbl_users u ON u.id=tu.user_id JOIN tbl_roles r ON r.id=u.role_id AND r.name='Student' LEFT JOIN tbl_year_levels yl ON yl.id=u.year_level WHERE tu.team_id=? ORDER BY u.last_name,u.first_name,u.id LIMIT 8",[$teamId]);
+        $team['scores'] = $this->rows('SELECT e.title event_title,COALESCE(c.name,\'General\') category,SUM(s.points) points FROM vw_finalized_scores s JOIN tbl_events e ON e.id=s.event_id LEFT JOIN tbl_score_categories c ON c.id=s.score_category_id WHERE s.team_id=? GROUP BY e.id,c.id ORDER BY e.start_at DESC LIMIT 5', [$teamId]);
+        foreach ($team['scores'] as &$score) $score['points'] = (float) $score['points'];
+        unset($score);
+        $team['total_score'] = (float) $this->rows('SELECT COALESCE(SUM(points),0) total FROM vw_finalized_scores WHERE team_id=?', [$teamId])[0]['total'];
+        $team['attendance'] = $this->rows("SELECT a.effective_status status,COUNT(*) total FROM vw_attendance_effective a JOIN tbl_team_user tu ON tu.user_id=a.user_id JOIN tbl_users u ON u.id=a.user_id JOIN tbl_roles r ON r.id=u.role_id AND r.name='Student' JOIN tbl_events e ON e.id=a.event_id JOIN tbl_academic_periods ap ON ap.id=e.academic_period_id WHERE tu.team_id=? AND ap.school_year_id=? GROUP BY a.effective_status", [$teamId,(int)$team['school_year_id']]);
+        $team['attendance_total'] = 0;
+        foreach ($team['attendance'] as &$attendance) {
+            $attendance['total'] = (int) $attendance['total'];
+            $team['attendance_total'] += $attendance['total'];
+        }
+        unset($attendance);
         $team['activities'] = $this->rows('SELECT e.title,e.start_at,e.location FROM tbl_event_team et JOIN tbl_events e ON e.id=et.event_id WHERE et.team_id=? AND e.deleted_at IS NULL AND e.end_at>=CURRENT_TIMESTAMP ORDER BY e.start_at LIMIT 8', [$teamId]);
         $team['announcements'] = $this->rows("SELECT p.content,p.created_at,e.title event_title FROM tbl_posts p LEFT JOIN tbl_events e ON e.id=p.event_id WHERE p.is_official=1 AND p.status='approved' AND p.deleted_at IS NULL AND (p.event_id IS NULL OR EXISTS(SELECT 1 FROM tbl_event_team et WHERE et.event_id=p.event_id AND et.team_id=?)) ORDER BY p.created_at DESC LIMIT 5", [$teamId]);
-        $ranked = $this->rows('SELECT team_id,SUM(points) points FROM vw_finalized_scores GROUP BY team_id ORDER BY points DESC');
+        $ranked = $this->rows('SELECT s.team_id,SUM(s.points) points FROM vw_finalized_scores s JOIN tbl_teams t ON t.id=s.team_id WHERE t.school_year_id=? GROUP BY s.team_id ORDER BY points DESC', [(int)$team['school_year_id']]);
         $team['rank'] = null;
         foreach ($ranked as $index=>$row) if ((int)$row['team_id']===$teamId) $team['rank']=$index+1;
+        unset($team['school_year_id']);
         return ['team'=>$team];
     }
 

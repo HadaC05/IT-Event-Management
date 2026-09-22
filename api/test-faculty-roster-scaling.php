@@ -49,5 +49,8 @@ $team=$repository->team((int)$faculty)['team'];
 facultyScalingAssert(!array_key_exists('members',$team),'Faculty team summary must not contain the full roster.');
 facultyScalingAssert($team['members_count']===$expectedTotal,'Faculty team summary must retain the exact member count.');
 facultyScalingAssert(count($team['member_preview'])<=8,'Faculty team summary may preview at most eight members.');
+facultyScalingAssert(strlen(json_encode($team))<50000,'Faculty Team Hub payload must remain below 50 KB.');
+if($team['member_preview'])facultyScalingAssert(array_key_exists('year_level',$team['member_preview'][0]),'Team Hub member previews must include the year-level label.');
+facultyScalingAssert($team['attendance_total']===array_sum(array_column($team['attendance'],'total')),'Team Hub attendance total must equal its displayed status counts.');
 
 echo "Faculty roster scaling checks passed.\n";
