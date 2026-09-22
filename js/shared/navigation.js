@@ -88,7 +88,7 @@
   const clone = (documentFragment, selector) => documentFragment.querySelector(selector).content.firstElementChild.cloneNode(true);
   const linkMarkup = (item, active, mobile = false) => {
     const [key,label,href,path] = item, selected = key === active;
-    if (mobile) return `<a class="flex min-w-0 flex-col items-center justify-center gap-1 rounded-xl text-[10px] font-black ${selected ? 'bg-[#397565] text-[#C6F24E]' : 'text-white/55'}" href="${href}" aria-current="${selected ? 'page' : 'false'}">${icon(path,true)}<span class="max-w-full truncate">${label}</span></a>`;
+    if (mobile) return `<a class="flex min-w-0 flex-col items-center justify-center gap-1 rounded-xl text-[10px] font-black ${selected ? 'bg-[#397565] text-[#C6F24E]' : 'text-white/55'}" href="${href}" aria-label="${label}" aria-current="${selected ? 'page' : 'false'}">${icon(path,true)}<span class="max-w-full truncate">${key === 'leaderboard' ? 'Ranks' : label}</span></a>`;
     return `<a class="group flex min-h-14 items-center gap-4 overflow-hidden rounded-2xl border px-3 text-sm font-black transition ${selected ? 'border-[#C6F24E]/30 bg-[#397565]/55 text-[#C6F24E] shadow-lg shadow-black/20' : 'border-white/5 bg-white/[.06] text-[#F3F0E9]/75 hover:border-[#C6F24E]/20 hover:bg-white/[.1] hover:text-[#C6F24E]'}" href="${href}" aria-label="${label}" aria-current="${selected ? 'page' : 'false'}">${icon(path)}<span class="hidden whitespace-nowrap" data-shared-sidebar-label>${label}</span></a>`;
   };
   const sidebarLinksMarkup = (role, pages, active) => {

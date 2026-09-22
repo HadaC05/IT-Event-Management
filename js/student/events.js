@@ -44,11 +44,11 @@
         </article>`;
 
     const pastCard = event => `
-        <article class="flex gap-4 rounded-2xl border border-[#121017]/8 bg-white p-4">
+        <article class="flex min-w-0 gap-4 rounded-2xl border border-[#121017]/8 bg-white p-4">
             ${event.poster_path
                 ? `<img class="h-20 w-20 shrink-0 rounded-xl object-cover" src="${escapeHtml(event.poster_path)}" alt="">`
                 : '<span class="grid h-20 w-20 shrink-0 place-items-center rounded-xl bg-[#121017]/7 text-2xl text-[#397565]">✓</span>'}
-            <div class="min-w-0">
+            <div class="min-w-0 flex-1">
                 <span class="text-[9px] font-black uppercase tracking-wider text-[#121017]/40">Completed</span>
                 <h3 class="mt-1 truncate font-black">${escapeHtml(event.title)}</h3>
                 <p class="mt-1 text-xs leading-5 text-[#121017]/50">${formatDate(event.start_at, false)} · ${escapeHtml(event.location || 'CITE Campus')}</p>

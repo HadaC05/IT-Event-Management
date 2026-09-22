@@ -21,7 +21,7 @@
             <span class="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#C6F24E] text-[10px] font-black">${escapeHtml(person.initials)}</span>
             <div class="min-w-0 flex-1">
                 <span class="flex min-w-0 items-center gap-2">
-                    <strong class="block truncate text-xs">${escapeHtml(person.full_name)}</strong>
+                    <strong class="block min-w-0 truncate text-xs">${escapeHtml(person.full_name)}</strong>
                     ${isCurrent ? '<em class="shrink-0 rounded-full bg-[#397565] px-2 py-0.5 text-[9px] font-black not-italic text-white">You</em>' : ''}
                 </span>
                 <span class="text-[10px] text-[#121017]/40">${escapeHtml(person.year_level || 'Student')}</span>
@@ -133,8 +133,8 @@
                 </div>
             </header>
 
-            <div class="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
-                <div class="space-y-6">
+            <div class="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
+                <div class="min-w-0 space-y-6">
                     <section class="rounded-3xl border border-[#121017]/8 bg-white p-5">
                         <h2 class="text-lg font-black">Activity category scores</h2>
                         <div class="mt-4 grid gap-3 sm:grid-cols-2">${scores}</div>
@@ -164,7 +164,7 @@
                         </nav>
                     </section>
                 </div>
-                <aside class="space-y-5">
+                <aside class="min-w-0 space-y-5">
                     <section class="rounded-3xl border border-[#121017]/8 bg-white p-5">
                         <h2 class="font-black">Team leaders</h2>
                         <div class="mt-3 space-y-3">${leaders}</div>

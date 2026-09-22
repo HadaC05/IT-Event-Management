@@ -9,9 +9,9 @@
     <link rel="stylesheet" href="css/tailwind.css">
     <script src="js/vendor/axios.min.js" defer></script>
     <script src="js/shared/password-gate.js?v=20260917-1"></script>
-    <script src="js/shared/navigation.js?v=20260923-notification-time-1" defer></script>
+    <script src="js/shared/navigation.js?v=20260923-mobile-nav-1" defer></script>
     <script src="js/student/portal.js" defer></script>
-    <script src="js/student/events.js" defer></script>
+    <script src="js/student/events.js?v=20260923-mobile-layout-1" defer></script>
 </head>
 <body class="min-h-screen bg-[#F7F4ED] font-sans text-[#121017] antialiased" data-navigation-role="student">
     <div data-student-sidebar-host></div>
@@ -33,7 +33,7 @@
                     </div>
                     <span class="text-xs font-bold text-[#121017]/40" data-active-count>0 events</span>
                 </div>
-                <div class="mt-5 grid gap-5 md:grid-cols-2 xl:grid-cols-3" data-active-events></div>
+                <div class="mt-5 grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3" data-active-events></div>
             </section>
 
             <section class="mt-12" aria-labelledby="past-events-heading">
@@ -44,7 +44,7 @@
                     </div>
                     <span class="text-xs font-bold text-[#121017]/40" data-past-count>0 events</span>
                 </div>
-                <div class="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-3" data-past-events></div>
+                <div class="mt-5 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3" data-past-events></div>
             </section>
         </div>
     </main>
