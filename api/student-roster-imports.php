@@ -32,16 +32,16 @@ final class RosterSpreadsheetReader
             }
 
             $sheet = simplexml_load_string($sheetXml, SimpleXMLElement::class, LIBXML_NONET | LIBXML_COMPACT);
-            if (!$sheet) {
+            if ($sheet === false) {
                 throw new InvalidArgumentException('The Master Roster worksheet is not valid XML.');
             }
 
             $headers = [];
             $records = [];
-            foreach ($sheet->sheetData->row as $row) {
+            foreach ($this->xpath($sheet, '//*[local-name()="sheetData"]/*[local-name()="row"]') as $row) {
                 $rowNumber = (int) ($row['r'] ?? 0);
                 $values = [];
-                foreach ($row->c as $cell) {
+                foreach ($this->xpath($row, './*[local-name()="c"]') as $cell) {
                     $reference = (string) ($cell['r'] ?? '');
                     $column = $this->columnIndex($reference);
                     $values[$column] = $this->cellValue($cell, $sharedStrings);
@@ -95,16 +95,16 @@ final class RosterSpreadsheetReader
 
         $workbook = simplexml_load_string($workbookXml, SimpleXMLElement::class, LIBXML_NONET | LIBXML_COMPACT);
         $relationships = simplexml_load_string($relationshipsXml, SimpleXMLElement::class, LIBXML_NONET | LIBXML_COMPACT);
-        if (!$workbook || !$relationships) {
+        if ($workbook === false || $relationships === false) {
             throw new InvalidArgumentException('The workbook structure could not be read.');
         }
 
         $relationshipTargets = [];
-        foreach ($relationships->Relationship as $relationship) {
+        foreach ($this->xpath($relationships, '//*[local-name()="Relationship"]') as $relationship) {
             $relationshipTargets[(string) $relationship['Id']] = (string) $relationship['Target'];
         }
 
-        foreach ($workbook->sheets->sheet as $sheet) {
+        foreach ($this->xpath($workbook, '//*[local-name()="sheets"]/*[local-name()="sheet"]') as $sheet) {
             if (mb_strtolower(trim((string) $sheet['name'])) !== 'master roster') {
                 continue;
             }
@@ -129,18 +129,14 @@ final class RosterSpreadsheetReader
             return [];
         }
         $document = simplexml_load_string($xml, SimpleXMLElement::class, LIBXML_NONET | LIBXML_COMPACT);
-        if (!$document) {
+        if ($document === false) {
             return [];
         }
         $strings = [];
-        foreach ($document->si as $item) {
-            if (isset($item->t)) {
-                $strings[] = (string) $item->t;
-                continue;
-            }
+        foreach ($this->xpath($document, '//*[local-name()="si"]') as $item) {
             $parts = [];
-            foreach ($item->r as $run) {
-                $parts[] = (string) $run->t;
+            foreach ($this->xpath($item, './/*[local-name()="t"]') as $text) {
+                $parts[] = (string) $text;
             }
             $strings[] = implode('', $parts);
         }
@@ -152,16 +148,14 @@ final class RosterSpreadsheetReader
     {
         $type = (string) ($cell['t'] ?? '');
         if ($type === 'inlineStr') {
-            if (isset($cell->is->t)) {
-                return (string) $cell->is->t;
-            }
             $parts = [];
-            foreach ($cell->is->r as $run) {
-                $parts[] = (string) $run->t;
+            foreach ($this->xpath($cell, './*[local-name()="is"]//*[local-name()="t"]') as $text) {
+                $parts[] = (string) $text;
             }
             return implode('', $parts);
         }
-        $value = (string) ($cell->v ?? '');
+        $valueNodes = $this->xpath($cell, './*[local-name()="v"]');
+        $value = isset($valueNodes[0]) ? (string) $valueNodes[0] : '';
         if ($type === 's') {
             return $sharedStrings[(int) $value] ?? '';
         }
@@ -169,6 +163,13 @@ final class RosterSpreadsheetReader
             return $value === '1' ? '1' : '0';
         }
         return $value;
+    }
+
+    /** @return array<int, SimpleXMLElement> */
+    private function xpath(SimpleXMLElement $node, string $expression): array
+    {
+        $matches = $node->xpath($expression);
+        return is_array($matches) ? $matches : [];
     }
 
     private function columnIndex(string $reference): int

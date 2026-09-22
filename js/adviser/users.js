@@ -551,6 +551,15 @@ window.SharedNavigation.ready.then(() => {
         excluded: (data.batch?.review_rows || 0) + (data.batch?.blocked_rows || 0),
     };
 
+    const clearRosterPreview = (message = 'Preview the selected workbook before replacing any data.') => {
+        activeRosterBatchId = null;
+        activeRosterPage = 1;
+        rosterApply.disabled = true;
+        rosterDialog.querySelector('[data-roster-import-results]')?.classList.add('hidden');
+        const note = rosterDialog.querySelector('[data-roster-import-note]');
+        if (note) note.textContent = message;
+    };
+
     const renderRosterImport = data => {
         const batch = data.batch || null;
         const summary = rosterSummary(data);
@@ -661,6 +670,9 @@ window.SharedNavigation.ready.then(() => {
         loadLatestRosterImport();
     });
     rosterDialog?.querySelectorAll('[data-dialog-close]').forEach(close => close.addEventListener('click', () => rosterDialog.close()));
+    rosterForm?.querySelector('input[type="file"]')?.addEventListener('change', event => {
+        if (event.currentTarget.files?.length) clearRosterPreview();
+    });
     rosterStatusFilter?.addEventListener('change', () => loadLatestRosterImport(1));
     rosterPrevious?.addEventListener('click', () => loadLatestRosterImport(Math.max(1, activeRosterPage - 1)));
     rosterNext?.addEventListener('click', () => loadLatestRosterImport(activeRosterPage + 1));
@@ -671,6 +683,7 @@ window.SharedNavigation.ready.then(() => {
         const body = new FormData(rosterForm);
         body.append('action', 'preview');
         rosterImportPending = true;
+        clearRosterPreview('Validating the selected workbook…');
         window.Notifications?.setLoading(submit, true, 'Validating…');
         try {
             const response = await axios.post('api/student-roster-imports.php?action=preview', body, { headers: { 'X-CSRF-Token': csrfToken } });
@@ -678,6 +691,8 @@ window.SharedNavigation.ready.then(() => {
             renderRosterImport(response.data.data);
             notify('success', response.data.message || 'Preview complete. No accounts changed yet; confirm the replacement below to import the validated roster.');
         } catch (error) {
+            const note = rosterDialog.querySelector('[data-roster-import-note]');
+            if (note) note.textContent = 'The selected workbook was not previewed. No accounts or existing roster data were changed.';
             showError(error);
         } finally {
             rosterImportPending = false;

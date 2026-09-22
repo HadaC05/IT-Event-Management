@@ -24,6 +24,8 @@ final class UserRepository
                 tbl_users.first_name,
                 tbl_users.middle_name,
                 tbl_users.last_name,
+                tbl_users.id_number,
+                tbl_users.profile_photo_path,
                 tbl_users.must_change_password,
                 tbl_roles.name AS role,
                 tbl_user_statuses.label AS status
@@ -35,6 +37,31 @@ final class UserRepository
         $statement->execute(['login' => $login]);
 
         return $statement->fetchAll();
+    }
+
+    public function findSessionAccount(int $userId, string $username, string $role): ?array
+    {
+        $statement = $this->database->prepare(
+            "SELECT tbl_users.id,tbl_users.username,tbl_users.email,tbl_users.first_name,
+                    tbl_users.middle_name,tbl_users.last_name,tbl_users.id_number,
+                    tbl_users.profile_photo_path,tbl_users.must_change_password,
+                    tbl_roles.name role,tbl_user_statuses.label status
+             FROM tbl_users
+             LEFT JOIN tbl_roles ON tbl_roles.id=tbl_users.role_id
+             LEFT JOIN tbl_user_statuses ON tbl_user_statuses.id=tbl_users.status
+             WHERE tbl_users.id=? AND tbl_users.username=? AND tbl_roles.name=? LIMIT 1"
+        );
+        $statement->execute([$userId, $username, $role]);
+        $account = $statement->fetch();
+        if (!$account || strtolower((string) ($account['status'] ?? '')) === 'inactive') return null;
+        $account['id'] = (int) $account['id'];
+        $account['must_change_password'] = (bool) $account['must_change_password'];
+        $account['full_name'] = trim(implode(' ', array_filter([
+            $account['first_name'],
+            $account['middle_name'],
+            $account['last_name'],
+        ])));
+        return $account;
     }
 
     public function replacePassword(int $userId, string $password, string $role): void
@@ -208,6 +235,26 @@ if ($action === 'session') {
     }
 
     SessionManager::start();
+    $sessionUser = $_SESSION['user'] ?? null;
+    if (is_array($sessionUser)) {
+        try {
+            $currentUser = (new UserRepository((new Database())->connection()))->findSessionAccount(
+                (int) ($sessionUser['id'] ?? 0),
+                (string) ($sessionUser['username'] ?? ''),
+                (string) ($sessionUser['role'] ?? ''),
+            );
+            if ($currentUser) {
+                $_SESSION['user'] = $currentUser;
+            } else {
+                unset($_SESSION['user']);
+                session_regenerate_id(true);
+                $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+            }
+        } catch (Throwable $exception) {
+            error_log($exception->getMessage());
+            JsonResponse::send(['success'=>false,'message'=>'Your session could not be verified.'], 500);
+        }
+    }
     JsonResponse::send([
         'success' => true,
         'authenticated' => isset($_SESSION['user']),

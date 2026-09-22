@@ -105,7 +105,7 @@
     if (role) document.body.dataset.navigationRole = role;
     if (!ROLE_PAGES[role]) return null;
     ensureStyles();
-    const [session, fragmentResponse] = await Promise.all([axios.get('api/auth.php?action=session'), axios.get('pages/shared/navigation.html?v=20260917-6',{responseType:'text'})]);
+    const [session, fragmentResponse] = await Promise.all([axios.get('api/auth.php?action=session'), axios.get('pages/shared/navigation.html?v=20260922-student-profile-1',{responseType:'text'})]);
     const expected = ROLE_LABELS[role];
     if (!session.data.authenticated || !ROLE_SESSION_ROLES[role].includes(session.data.user?.role)) {
       // Do not strand authenticated users on the public homepage when they open
@@ -124,12 +124,20 @@
     sidebar.querySelector('[data-shared-sidebar-account]').textContent = user.username ? `@${user.username}` : user.email || '';
     if (role === 'adviser') sidebar.querySelector('[data-shared-sidebar-name]')?.closest('[data-shared-sidebar-label]')?.remove();
     header.querySelector('[data-shared-home-link]').href = ROLE_HOME[role];
-    header.querySelector('[data-shared-account-initials]').textContent = initials;
+    const accountAvatar = header.querySelector('[data-shared-account-initials]');
+    if (user.profile_photo_path) accountAvatar.innerHTML = `<img class="h-full w-full rounded-full object-cover" src="${esc(user.profile_photo_path)}" alt="">`;
+    else accountAvatar.textContent = initials;
     header.querySelector('[data-shared-account-name]').textContent = name;
     header.querySelector('[data-shared-account-role]').textContent = expected;
     header.querySelector('[data-shared-account-heading]').textContent = `${expected} account`;
     header.querySelector('[data-shared-account-menu-name]').textContent = name;
-    header.querySelector('[data-shared-account-detail]').textContent = user.email || (user.username ? `Login: ${user.username}` : '');
+    const visibleEmail = /@pending\.invalid$/i.test(String(user.email || '')) ? '' : String(user.email || '');
+    header.querySelector('[data-shared-account-detail]').textContent = visibleEmail || (user.username ? `Login: ${user.username}` : '');
+    const profileLink = header.querySelector('[data-shared-profile-link]');
+    if (role === 'student') {
+      profileLink.classList.remove('hidden');
+      profileLink.classList.add('flex');
+    }
 
     document.querySelectorAll('[data-student-sidebar-host],[data-student-header-host],[data-sbo-sidebar-host],[data-sbo-header-host],[data-shared-navigation-host]').forEach(node => node.remove());
     document.body.querySelector(':scope > aside')?.remove();
@@ -185,7 +193,10 @@
       const destination = new URL(link.href,location.href), current = new URL(location.href);
       if (destination.pathname === current.pathname) event.preventDefault();
     }));
-    if (role === 'student') await studentNotifications(header,csrf);
+    if (role === 'student') {
+      try { await studentNotifications(header,csrf); }
+      catch (error) { console.warn('Student notifications could not be loaded.', error); }
+    }
     return {user,csrfToken:csrf,role};
   }
 

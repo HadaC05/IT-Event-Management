@@ -65,6 +65,47 @@ final class MediaRepository
         ];
     }
 
+    public function studentProfileData(array $actor): array
+    {
+        $userId = (int) $actor['id'];
+        $permissions = new MediaPermissions((string) $actor['role']);
+        if (!$permissions->isStudent()) throw new MediaForbiddenException('Only students can open this profile.');
+        $profileStatement = $this->db->prepare("SELECT
+                u.id,u.id_number,u.first_name,u.middle_name,u.last_name,u.bio,u.profile_photo_path,u.created_at,
+                yl.label year_level_label,
+                (SELECT t.name FROM tbl_team_user tu JOIN tbl_teams t ON t.id=tu.team_id AND t.is_active=1 WHERE tu.user_id=u.id ORDER BY t.school_year_id DESC,tu.id DESC LIMIT 1) team_name,
+                (SELECT t.color FROM tbl_team_user tu JOIN tbl_teams t ON t.id=tu.team_id AND t.is_active=1 WHERE tu.user_id=u.id ORDER BY t.school_year_id DESC,tu.id DESC LIMIT 1) team_color
+            FROM tbl_users u
+            LEFT JOIN tbl_year_levels yl ON yl.id=u.year_level
+            WHERE u.id=? LIMIT 1");
+        $profileStatement->execute([$userId]);
+        $profile = $profileStatement->fetch();
+        if (!$profile) throw new InvalidArgumentException('Your student profile was not found.');
+        $profile['id'] = (int) $profile['id'];
+        $profile['full_name'] = $this->name($profile);
+        $profile['initials'] = $this->initials($profile);
+
+        $counts = ['approved'=>0,'pending'=>0,'rejected'=>0,'hidden'=>0];
+        $countStatement = $this->db->prepare("SELECT status,COUNT(*) total FROM tbl_posts WHERE user_id=? AND deleted_at IS NULL GROUP BY status");
+        $countStatement->execute([$userId]);
+        foreach ($countStatement->fetchAll() as $row) $counts[(string) $row['status']] = (int) $row['total'];
+
+        return [
+            'viewer' => [
+                'id' => $userId,
+                'role' => $permissions->role(),
+                'full_name' => $profile['full_name'],
+                'profile_photo_path' => $profile['profile_photo_path'],
+            ],
+            'profile' => $profile,
+            'post_counts' => $counts,
+            'permissions' => $permissions->values(),
+            'post_events' => $this->activeEvents(null),
+            'posts' => $this->approvedPosts($userId, null, $userId),
+            'own_posts' => $this->ownPosts($userId),
+        ];
+    }
+
     public function create(array $actor, array $input, array $files): int
     {
         $permissions = new MediaPermissions((string) $actor['role']);
@@ -335,12 +376,13 @@ final class MediaRepository
         if ($newPath && $oldPath && $newPath !== $oldPath) $this->removeUpload($oldPath);
     }
 
-    private function approvedPosts(int $viewerId, ?int $eventId): array
+    private function approvedPosts(int $viewerId, ?int $eventId, ?int $authorId = null): array
     {
         $where = "p.status='approved' AND p.deleted_at IS NULL";
         $params = [$viewerId];
         if ($eventId !== null && $eventId > 0) { $where .= ' AND p.event_id=?'; $params[] = $eventId; }
-        $statement = $this->db->prepare("SELECT p.id,p.user_id,p.event_id,p.content,p.image_path,p.video_path,p.created_at,p.updated_at,p.reviewed_at,p.is_official,e.title event_title,e.end_at,u.first_name,u.middle_name,u.last_name,u.profile_photo_path,r.name author_role,(SELECT pr.type FROM tbl_post_reactions pr WHERE pr.post_id=p.id AND pr.user_id=? LIMIT 1) viewer_reaction,(SELECT COUNT(*) FROM tbl_post_reactions pr WHERE pr.post_id=p.id) reactions_count,(SELECT COUNT(*) FROM tbl_post_comments pc WHERE pc.post_id=p.id) comments_count FROM tbl_posts p JOIN tbl_users u ON u.id=p.user_id JOIN tbl_roles r ON r.id=u.role_id LEFT JOIN tbl_events e ON e.id=p.event_id WHERE $where ORDER BY COALESCE(p.reviewed_at,p.created_at) DESC,p.id DESC LIMIT 100");
+        if ($authorId !== null && $authorId > 0) { $where .= ' AND p.user_id=?'; $params[] = $authorId; }
+        $statement = $this->db->prepare("SELECT p.id,p.user_id,p.event_id,p.content,p.image_path,p.video_path,'approved' status,p.created_at,p.updated_at,p.reviewed_at,p.is_official,e.title event_title,e.end_at,u.first_name,u.middle_name,u.last_name,u.profile_photo_path,r.name author_role,(SELECT pr.type FROM tbl_post_reactions pr WHERE pr.post_id=p.id AND pr.user_id=? LIMIT 1) viewer_reaction,(SELECT COUNT(*) FROM tbl_post_reactions pr WHERE pr.post_id=p.id) reactions_count,(SELECT COUNT(*) FROM tbl_post_comments pc WHERE pc.post_id=p.id) comments_count FROM tbl_posts p JOIN tbl_users u ON u.id=p.user_id JOIN tbl_roles r ON r.id=u.role_id LEFT JOIN tbl_events e ON e.id=p.event_id WHERE $where ORDER BY COALESCE(p.reviewed_at,p.created_at) DESC,p.id DESC LIMIT 100");
         $statement->execute($params);
         return $this->hydratePosts($statement->fetchAll());
     }

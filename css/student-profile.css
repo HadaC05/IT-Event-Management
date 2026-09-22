@@ -1,0 +1,23 @@
+.student-profile-cover {
+  height: 12rem;
+}
+
+.student-profile-avatar {
+  border-width: 5px;
+}
+
+.student-profile-layout {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+@media (min-width: 640px) {
+  .student-profile-cover {
+    height: 18rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .student-profile-layout {
+    grid-template-columns: 340px minmax(0, 1fr);
+  }
+}

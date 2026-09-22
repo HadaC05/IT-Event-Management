@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <base href="../../">
+    <title>My Profile | CITE Events</title>
+    <link rel="icon" type="image/png" href="assets/images/cite_favicon.png">
+    <link rel="stylesheet" href="css/tailwind.css">
+    <link rel="stylesheet" href="css/media-feed.css?v=20260919-2">
+    <link rel="stylesheet" href="css/student-profile.css?v=20260922-1">
+    <script src="js/vendor/axios.min.js" defer></script>
+    <script src="js/shared/password-gate.js?v=20260917-1"></script>
+    <script src="js/shared/navigation.js?v=20260922-student-profile-2" defer></script>
+    <script src="js/shared/notifications.js?v=20260917-7" defer></script>
+</head>
+<body class="student-shell app-shell min-h-screen bg-[#F3F0E9] font-sans text-[#121017] antialiased" data-navigation-role="student">
+    <div data-shared-navigation-host></div>
+    <main class="w-auto pb-28 transition-[margin] duration-200 lg:ml-20 lg:pb-12" data-page-content>
+        <div class="mx-auto min-h-[60vh] w-full max-w-6xl" data-student-profile-root aria-live="polite">
+            <div class="px-4 py-16 text-center text-sm font-bold text-[#121017]/45">Loading your profile…</div>
+        </div>
+    </main>
+    <div class="pointer-events-none fixed right-4 top-20 z-[80] grid w-[min(380px,calc(100%_-_2rem))] gap-2.5" data-notification-region aria-live="polite" aria-atomic="true"></div>
+    <script src="js/shared/media-api.js?v=20260919-1" defer></script>
+    <script src="js/shared/media-permissions.js?v=20260919-2" defer></script>
+    <script src="js/shared/media-post-form.js?v=20260919-4" defer></script>
+    <script src="js/shared/media-post-card.js?v=20260922-profile-photo-1" defer></script>
+    <script src="js/student/profile.js?v=20260922-2" defer></script>
+</body>
+</html>
