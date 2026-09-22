@@ -28,6 +28,14 @@ final class StudentHomeRepository
         ];
     }
 
+    public function notificationData(int $userId): array
+    {
+        return [
+            'notifications' => $this->notifications($userId),
+            'unread_notifications' => $this->unreadNotifications($userId),
+        ];
+    }
+
     public function markNotificationsRead(int $userId, ?string $notificationId = null): int
     {
         $sql = "UPDATE tbl_notifications
@@ -558,7 +566,9 @@ try {
     if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         JsonResponse::send([
             'success' => true,
-            'data' => $repository->pageData((int) $actor['id']),
+            'data' => ($_GET['action'] ?? '') === 'notifications'
+                ? $repository->notificationData((int) $actor['id'])
+                : $repository->pageData((int) $actor['id']),
         ]);
     }
 
