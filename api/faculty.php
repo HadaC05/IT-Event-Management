@@ -32,7 +32,7 @@ final class FacultyRepository
         $teamId = $this->teamId($userId);
         if (!$teamId) return ['team' => null, 'students' => [], 'events' => [], 'pagination' => $this->pagination(1, 0, self::STUDENTS_PER_PAGE)];
         $team = $this->rows('SELECT id,name,color FROM tbl_teams WHERE id=?', [$teamId])[0];
-        $eventRows = $this->rows("SELECT DISTINCT e.id,e.title FROM tbl_team_user tu
+        $eventRows = $this->rows("SELECT DISTINCT e.id,e.title,e.start_at FROM tbl_team_user tu
             JOIN vw_attendance_effective a ON a.user_id=tu.user_id JOIN tbl_events e ON e.id=a.event_id
             WHERE tu.team_id=? ORDER BY e.start_at DESC,e.id DESC", [$teamId]);
         $events = [];

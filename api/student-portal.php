@@ -201,7 +201,9 @@ final class StudentPortalRepository
         $from=' FROM tbl_team_user tu JOIN tbl_users u ON u.id=tu.user_id JOIN tbl_roles r ON r.id=u.role_id LEFT JOIN tbl_year_levels yl ON yl.id=u.year_level WHERE '.implode(' AND ',$where);
         $count=$this->db->prepare('SELECT COUNT(DISTINCT u.id)'.$from);foreach($params as $key=>$value)$count->bindValue(':'.$key,$value,is_int($value)?PDO::PARAM_INT:PDO::PARAM_STR);$count->execute();$total=(int)$count->fetchColumn();
         $lastPage=max(1,(int)ceil($total/self::TEAM_MEMBERS_PER_PAGE));$page=min($page,$lastPage);$offset=($page-1)*self::TEAM_MEMBERS_PER_PAGE;
-        $statement=$this->db->prepare("SELECT DISTINCT u.id,u.first_name,u.middle_name,u.last_name,u.profile_photo_path,yl.label year_level{$from} ORDER BY yl.id,u.last_name,u.first_name,u.id LIMIT :limit OFFSET :offset");
+        // A team/user pair is unique, so DISTINCT is unnecessary. It also makes
+        // MySQL reject the year-level sort unless yl.id is in the SELECT list.
+        $statement=$this->db->prepare("SELECT u.id,u.first_name,u.middle_name,u.last_name,u.profile_photo_path,yl.label year_level{$from} ORDER BY yl.id,u.last_name,u.first_name,u.id LIMIT :limit OFFSET :offset");
         foreach($params as $key=>$value)$statement->bindValue(':'.$key,$value,is_int($value)?PDO::PARAM_INT:PDO::PARAM_STR);$statement->bindValue(':limit',self::TEAM_MEMBERS_PER_PAGE,PDO::PARAM_INT);$statement->bindValue(':offset',$offset,PDO::PARAM_INT);$statement->execute();$members=$statement->fetchAll();
         foreach($members as &$member){$member['id']=(int)$member['id'];$member['full_name']=$this->fullName($member);$member['initials']=$this->initials($member);}unset($member);
         return ['team'=>['id'=>(int)$team['id'],'name'=>$team['name']],'members'=>$members,'pagination'=>$this->pagination($page,$total,self::TEAM_MEMBERS_PER_PAGE)];
