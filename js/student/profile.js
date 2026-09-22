@@ -113,12 +113,12 @@ window.SharedNavigation.ready.then(async session => {
     root.querySelector('[data-profile-details-open]').onclick = () => detailsDialog.showModal();
     detailsDialog.querySelectorAll('[data-profile-details-close]').forEach(button => button.onclick = () => detailsDialog.close());
     detailsDialog.onclick = event => { if (event.target === detailsDialog) detailsDialog.close(); };
-    root.querySelectorAll('[data-profile-edit]').forEach(button => button.onclick = () => { const post=data.own_posts.find(item=>item.id===Number(button.dataset.profileEdit)); if(post)postForm.edit(post); });
+    root.querySelectorAll('[data-profile-edit]').forEach(button => button.onclick = () => { const post=data.own_posts.find(item=>item.id===Number(button.dataset.profileEdit)); if(post)postForm.edit(post,button.closest('article')); });
     root.querySelectorAll('[data-profile-delete]').forEach(button => button.onclick = () => execute({action:'delete',id:button.dataset.profileDelete},{confirm:'Delete this post?'}));
   }
 
   function makeProfileCard(post) {
-    return CiteMediaPostCard.create(post, {viewer:data.viewer,permissions:data.permissions,action:execute,edit:item=>postForm.edit(item)});
+    return CiteMediaPostCard.create(post, {viewer:data.viewer,permissions:data.permissions,action:execute,edit:(item,card)=>postForm.edit(item,card)});
   }
 
   async function loadMorePosts() {

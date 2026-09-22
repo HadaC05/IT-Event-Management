@@ -3,14 +3,14 @@
 <head>
   <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><base href="../../">
   <title>Faculty Attendance | CITE Events</title>
-  <link rel="icon" href="assets/images/cite_favicon.png"><link rel="stylesheet" href="css/tailwind.css"><link rel="stylesheet" href="css/sbo.css?v=20260922-faculty-scanner">
+  <link rel="icon" href="assets/images/cite_favicon.png"><link rel="stylesheet" href="css/tailwind.css"><link rel="stylesheet" href="css/sbo.css?v=20260922-faculty-scanner"><link rel="stylesheet" href="css/faculty-experience.css?v=20260923-1">
   <script src="js/shared/notifications.js?v=20260917-7" defer></script>
 </head>
-<body class="min-h-screen bg-white font-sans text-[#121017] antialiased" data-navigation-role="faculty">
+<body class="min-h-screen bg-white font-sans text-[#121017] antialiased" data-navigation-role="faculty" data-faculty-page="attendance">
   <div data-shared-navigation-host></div>
   <button class="mr-2 min-h-10 shrink-0 rounded-xl bg-[#397565] px-3 text-xs font-black text-white" type="button" data-gps-toggle hidden>Turn On GPS</button>
-  <main class="w-auto max-w-none px-4 pb-28 pt-5 transition-[margin] duration-200 sm:px-6 lg:ml-20 lg:px-8 lg:pb-12">
-    <header class="mb-5"><p class="text-xs font-black uppercase tracking-[.14em] text-[#397565]">Assigned team responsibility</p><h1 class="mt-1 text-2xl font-black tracking-tight sm:text-3xl">Attendance scanning</h1><p class="mt-2 text-sm text-[#121017]/55">Scan students from your assigned team during the active event session.</p></header>
+  <main class="faculty-attendance w-auto max-w-none px-4 pb-28 pt-5 transition-[margin] duration-200 sm:px-6 lg:ml-20 lg:px-8 lg:pb-12">
+    <header class="faculty-stage"><div class="faculty-stage__content"><p class="faculty-stage__eyebrow">Faculty workspace / 04 — Attendance</p><h1 class="faculty-stage__title">Every check-in counts.</h1><p class="faculty-stage__copy">Scan students from your assigned team during the active event session.</p></div><span class="faculty-stage__number" aria-hidden="true">04</span></header>
     <section class="hidden rounded-2xl border border-[#FF6B2C]/20 bg-[#FF6B2C]/7 p-6 text-center" data-no-assignment><strong class="text-lg font-black">You have no active team attendance session.</strong><p class="mt-2 text-sm text-[#121017]/55">Ask the SBO Adviser to assign your Faculty account to a team or configure an attendance schedule for that team.</p></section>
     <div class="hidden space-y-4" data-attendance-workspace>
       <label class="hidden max-w-xl gap-2" data-assignment-selector-wrap><span class="text-sm font-bold">Active assignment</span><select class="h-12 rounded-xl border border-[#121017]/12 bg-white px-3 outline-none focus:border-[#397565]" data-assignment-selector></select></label>

@@ -72,7 +72,7 @@
 
   function moderationMarkup(data) {
     if(!data.permissions.moderate)return '';
-    return `<section class="cite-review-desk" aria-labelledby="cite-review-title" data-moderation-workspace><div class="cite-review-intro"><div><p class="cite-review-eyebrow">Moderation workspace</p><h2 id="cite-review-title">Pending review <span class="cite-review-count" data-moderation-count>…</span></h2><p>Review student stories before they appear in the community feed.</p></div><button class="cite-review-refresh" type="button" data-review-refresh>Refresh queue</button></div><div class="cite-review-body" data-moderation-list role="status">Loading student posts…</div><div class="cite-review-pagination" data-moderation-pagination></div></section>`;
+    return `<section class="cite-review-desk" aria-labelledby="cite-review-title" data-moderation-workspace><div class="cite-review-intro"><div><p class="cite-review-eyebrow">Moderation workspace</p><h2 id="cite-review-title">Pending review <span class="cite-review-count" data-moderation-count>…</span></h2><p>Review posts before they appear in the community feed.</p></div><button class="cite-review-refresh" type="button" data-review-refresh>Refresh queue</button></div><div class="cite-review-body" data-moderation-list role="status">Loading posts…</div><div class="cite-review-pagination" data-moderation-pagination></div></section>`;
   }
 
   function queueCard(post) {
@@ -93,13 +93,13 @@
     workspace.querySelector('[data-moderation-count]').textContent=queue.total.toLocaleString('en-PH');
     const list=workspace.querySelector('[data-moderation-list]');
     list.removeAttribute('role');
-    list.innerHTML=queue.posts.length?queue.posts.map(queueCard).join(''):'<div class="cite-review-empty"><span aria-hidden="true">✓</span><strong>All caught up</strong><p>No student posts are waiting for review.</p></div>';
+    list.innerHTML=queue.posts.length?queue.posts.map(queueCard).join(''):'<div class="cite-review-empty"><span aria-hidden="true">✓</span><strong>All caught up</strong><p>No posts are waiting for review.</p></div>';
     const pagination=workspace.querySelector('[data-moderation-pagination]');
     pagination.innerHTML=queue.total?`<p>Showing ${(queue.page-1)*queue.per_page+1}–${Math.min(queue.page*queue.per_page,queue.total)} of ${queue.total} pending</p><div><button type="button" data-review-page="${queue.page-1}" ${queue.page===1?'disabled':''}>Previous</button><span>Page ${queue.page} of ${queue.page_count}</span><button type="button" data-review-page="${queue.page+1}" ${queue.page===queue.page_count?'disabled':''}>Next</button></div>`:'';
     workspace.querySelector('[data-review-refresh]').onclick=()=>loadModeration(state.queuePage);
     workspace.querySelectorAll('[data-review-page]').forEach(button=>button.onclick=()=>loadModeration(Number(button.dataset.reviewPage)));
     workspace.querySelectorAll('[data-approve]').forEach(button=>button.onclick=()=>execute({action:'approve',post_id:button.dataset.approve}));
-    workspace.querySelectorAll('[data-reject]').forEach(button=>button.onclick=async()=>{const reason=await window.Notifications.prompt({title:'Reject student post?',message:'Explain why this post was not approved. The student will see this message.',label:'Rejection reason',placeholder:'Enter a clear reason…',action:'Reject post',required:true,maxLength:1000});if(reason)execute({action:'reject',post_id:button.dataset.reject,reason});});
+    workspace.querySelectorAll('[data-reject]').forEach(button=>button.onclick=async()=>{const reason=await window.Notifications.prompt({title:'Reject post?',message:'Explain why this post was not approved. The author will see this message.',label:'Rejection reason',placeholder:'Enter a clear reason…',action:'Reject post',required:true,maxLength:1000});if(reason)execute({action:'reject',post_id:button.dataset.reject,reason});});
   }
 
   async function loadModeration(page=1) {
@@ -133,14 +133,14 @@
     renderPublicFeed();
     root.querySelector('[data-more-posts]').onclick=loadMorePosts;
     root.querySelectorAll('[data-event-filter]').forEach(button=>button.onclick=()=>{state.eventId=Number(button.dataset.eventFilter)||null;load();});
-    root.querySelectorAll('[data-own-posts] [data-own-edit]').forEach(button=>button.onclick=()=>{button.closest('details')?.removeAttribute('open');const post=data.own_posts.find(item=>item.id===Number(button.dataset.ownEdit));if(post)state.form.edit(post);});
+    root.querySelectorAll('[data-own-posts] [data-own-edit]').forEach(button=>button.onclick=()=>{button.closest('details')?.removeAttribute('open');const post=data.own_posts.find(item=>item.id===Number(button.dataset.ownEdit));if(post)state.form.edit(post,button.closest('article'));});
     root.querySelectorAll('[data-own-posts] [data-own-delete]').forEach(button=>button.onclick=()=>execute({action:'delete',id:button.dataset.ownDelete},{confirm:'Delete this post?'}));
     const carouselForm=root.querySelector('[data-carousel-form]');
     if(carouselForm){const select=carouselForm.elements.event_id,check=carouselForm.elements.is_featured;const sync=()=>{check.checked=select.selectedOptions[0]?.dataset.featured==='1';};select.onchange=sync;sync();carouselForm.onsubmit=async event=>{event.preventDefault();if(!select.value)return;const data=new FormData(carouselForm);data.set('action','carousel_update');if(!check.checked)data.set('is_featured','0');await execute(data);};}
   }
 
   function makePostCard(post) {
-    return CiteMediaPostCard.create(post,{viewer:state.data.viewer,permissions:state.data.permissions,action:execute,edit:own=>state.form.edit(own)});
+    return CiteMediaPostCard.create(post,{viewer:state.data.viewer,permissions:state.data.permissions,action:execute,edit:(own,card)=>state.form.edit(own,card)});
   }
 
   function renderPublicFeed() {

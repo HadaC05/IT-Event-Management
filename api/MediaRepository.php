@@ -70,7 +70,7 @@ final class MediaRepository
     public function moderationPage(array $actor, int $requestedPage = 1): array
     {
         $permissions = new MediaPermissions((string) $actor['role']);
-        if (!$permissions->canModerate()) throw new MediaForbiddenException('Only an Admin or SBO Adviser may review student posts.');
+        if (!$permissions->canModerate()) throw new MediaForbiddenException('Only an Admin or SBO Adviser may review posts.');
         if ($requestedPage < 1) throw new InvalidArgumentException('Choose a valid review page.');
 
         $perPage = 20;
@@ -197,8 +197,11 @@ final class MediaRepository
             $videoPath = $removeMedia ? null : $oldVideoPath;
             if ($newImage !== null) { $imagePath = $newImage; $videoPath = null; }
             if ($newVideo !== null) { $videoPath = $newVideo; $imagePath = null; }
+            // An edit to an already-published non-student post must not move it to the top of the feed.
+            $reviewedBy = $status === 'approved' ? ($post['status'] === 'approved' ? $post['reviewed_by'] : $userId) : null;
+            $reviewedAt = $status === 'approved' ? ($post['status'] === 'approved' ? $post['reviewed_at'] : date('Y-m-d H:i:s')) : null;
             $statement = $this->db->prepare('UPDATE tbl_posts SET event_id=?,content=?,image_path=?,video_path=?,status=?,rejection_reason=NULL,reviewed_by=?,reviewed_at=?,updated_at=CURRENT_TIMESTAMP WHERE id=? AND user_id=? AND deleted_at IS NULL');
-            $statement->execute([$eventId, $content, $imagePath, $videoPath, $status, $status === 'approved' ? $userId : null, $status === 'approved' ? date('Y-m-d H:i:s') : null, $postId, $userId]);
+            $statement->execute([$eventId, $content, $imagePath, $videoPath, $status, $reviewedBy, $reviewedAt, $postId, $userId]);
             if ($statement->rowCount() !== 1) throw new RuntimeException('The post was not updated.');
             $this->audit($postId, $userId, 'edited', (string) $post['status'], $status, $permissions->isStudent() ? 'Student edit requires a new review.' : null);
             if ($permissions->isStudent()) $this->notifyModerators($postId, $actor);
@@ -238,19 +241,19 @@ final class MediaRepository
     public function review(array $actor, int $postId, string $status, string $reason): void
     {
         $permissions = new MediaPermissions((string) $actor['role']);
-        if (!$permissions->canModerate()) throw new MediaForbiddenException('Only an Admin or SBO Adviser may review student posts.');
+        if (!$permissions->canModerate()) throw new MediaForbiddenException('Only an Admin or SBO Adviser may review posts.');
         if (!in_array($status, ['approved', 'rejected'], true)) throw new InvalidArgumentException('Choose approve or reject.');
         $reason = trim($reason);
-        if ($status === 'rejected' && $reason === '') throw new InvalidArgumentException('Enter a rejection reason for the student.');
+        if ($status === 'rejected' && $reason === '') throw new InvalidArgumentException('Enter a rejection reason for the author.');
         if (mb_strlen($reason) > 1000) throw new InvalidArgumentException('The rejection reason may not exceed 1,000 characters.');
         $actorId = (int) $actor['id'];
         $this->db->beginTransaction();
         try {
-            $statement = $this->db->prepare("SELECT p.*,r.name author_role FROM tbl_posts p JOIN tbl_users u ON u.id=p.user_id JOIN tbl_roles r ON r.id=u.role_id WHERE p.id=? AND p.deleted_at IS NULL FOR UPDATE");
+            $statement = $this->db->prepare('SELECT p.* FROM tbl_posts p WHERE p.id=? AND p.deleted_at IS NULL FOR UPDATE');
             $statement->execute([$postId]);
             $post = $statement->fetch();
             if (!$post) throw new InvalidArgumentException('Post not found.');
-            if ($post['author_role'] !== 'Student') throw new MediaForbiddenException('Only student posts enter the approval queue.');
+            if ((int) $post['user_id'] === $actorId) throw new MediaForbiddenException('You cannot review your own post.');
             if ($post['status'] === $status && ($status !== 'rejected' || (string) ($post['rejection_reason'] ?? '') === $reason)) {
                 $this->db->commit();
                 return;
@@ -521,7 +524,7 @@ final class MediaRepository
 
     private function moderationQueue(int $limit, int $offset): array
     {
-        $statement = $this->db->prepare("SELECT p.id,p.user_id,p.event_id,p.content,p.image_path,p.video_path,p.status,p.created_at,e.title event_title,u.first_name,u.middle_name,u.last_name,u.profile_photo_path FROM tbl_posts p JOIN tbl_users u ON u.id=p.user_id JOIN tbl_roles r ON r.id=u.role_id AND r.name='Student' LEFT JOIN tbl_events e ON e.id=p.event_id WHERE p.deleted_at IS NULL AND p.status='pending' ORDER BY p.created_at ASC,p.id ASC LIMIT ? OFFSET ?");
+        $statement = $this->db->prepare("SELECT p.id,p.user_id,p.event_id,p.content,p.image_path,p.video_path,p.status,p.created_at,e.title event_title,u.first_name,u.middle_name,u.last_name,u.profile_photo_path FROM tbl_posts p JOIN tbl_users u ON u.id=p.user_id LEFT JOIN tbl_events e ON e.id=p.event_id WHERE p.deleted_at IS NULL AND p.status='pending' ORDER BY p.created_at ASC,p.id ASC LIMIT ? OFFSET ?");
         $statement->bindValue(1, $limit, PDO::PARAM_INT);
         $statement->bindValue(2, $offset, PDO::PARAM_INT);
         $statement->execute();
@@ -534,7 +537,7 @@ final class MediaRepository
     private function moderationCounts(): array
     {
         $counts = ['pending'=>0,'rejected'=>0,'hidden'=>0];
-        $rows = $this->db->query("SELECT p.status,COUNT(*) total FROM tbl_posts p JOIN tbl_users u ON u.id=p.user_id JOIN tbl_roles r ON r.id=u.role_id AND r.name='Student' WHERE p.deleted_at IS NULL AND p.status IN ('pending','rejected','hidden') GROUP BY p.status")->fetchAll();
+        $rows = $this->db->query("SELECT p.status,COUNT(*) total FROM tbl_posts p WHERE p.deleted_at IS NULL AND p.status IN ('pending','rejected','hidden') GROUP BY p.status")->fetchAll();
         foreach ($rows as $row) $counts[$row['status']] = (int) $row['total'];
         return $counts;
     }

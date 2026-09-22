@@ -116,7 +116,7 @@
     engagement.querySelector("form").onsubmit = (event) => { event.preventDefault(); const body = event.currentTarget.elements.body.value.trim(); if (body) action({ action: "comment_create", post_id: post.id, body }); };
     article.append(engagement);
 
-    article.querySelector("[data-own-edit]")?.addEventListener("click", () => edit(post));
+    article.querySelector("[data-own-edit]")?.addEventListener("click", () => { article.querySelector('[data-post-menu]')?.removeAttribute('open'); edit(post, article); });
     article.querySelector('[data-open-post-image]')?.addEventListener('click', () => openImage(post.image_path, `${post.author_name} post image`));
     article.querySelector("[data-own-delete]")?.addEventListener("click", () => action({ action: "delete", id: post.id }, { confirm: "Delete this post?" }));
     article.querySelector("[data-hide]")?.addEventListener("click", async () => { const reason = await window.Notifications.prompt({ title: "Hide this post?", message: "Explain why this post is being hidden. This is retained for moderation records.", label: "Reason", placeholder: "Enter the moderation reason…", action: "Hide post", required: true, maxLength: 1000 }); if (reason) action({ action: "hide", post_id: post.id, reason }); });

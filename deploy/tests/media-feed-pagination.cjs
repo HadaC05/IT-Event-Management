@@ -18,7 +18,7 @@ const comments = Array.from({length: 25}, (_, index) => ({
 const viewer = {id: 1, role: 'Student', full_name: 'Test Middle Student', initials: 'TS', profile_photo_path: 'assets/images/cite_favicon.png'};
 const common = {viewer, permissions: {moderate: false, manage_carousel: false, hide: false},
   featured_events: [], active_events: [], post_events: [], carousel_events: [],
-  event_program: [], own_posts: [], posts: posts.slice(0, 20), next_cursor: 'older-posts'};
+  event_program: [], own_posts: [{id: 99, event_id: null, content: 'Pending edit', status: 'pending', created_at: '2026-09-23 08:00:00'}], posts: posts.slice(0, 20), next_cursor: 'older-posts'};
 const profile = {id: 1, full_name: 'Test Middle Student', initials: 'TS', id_number: '123',
   year_level_label: 'Fourth Year', team_name: 'Test Team', team_color: '#397565',
   profile_photo_path: viewer.profile_photo_path, created_at: '2026-09-23 08:00:00'};
@@ -110,6 +110,24 @@ const profile = {id: 1, full_name: 'Test Middle Student', initials: 'TS', id_num
       });
       assert.equal(fallbackInitials, 'BR', 'Composer fallback uses first and last names');
       assert.equal(await page.locator('[data-shared-post-form] textarea[name="content"]').evaluate(input => input.validity.valueMissing), true, 'Empty post remains subject to native validation');
+      const composerHost = page.locator(profilePage ? '[data-profile-post-form]' : '[data-shared-post-form-host]');
+      await page.locator(`${root} [data-post-id="25"] [data-post-menu] summary`).click();
+      await page.locator(`${root} [data-post-id="25"] [data-own-edit]`).click();
+      assert.equal(await composerHost.evaluate(host => host.previousElementSibling?.dataset.postId), '25', 'Editing a published post keeps the composer beside that post');
+      assert.equal(await page.locator('[data-shared-post-form] textarea[name="content"]').inputValue(), 'Approved post 25');
+      assert.equal(await page.locator('[data-submit]').textContent(), role === 'Student' ? 'Save and resubmit' : 'Save changes');
+      assert.match(await page.locator('[data-edit-review-note]').textContent(), role === 'Student' ? /Pending Review/ : /published immediately/);
+      await page.locator('[data-cancel-edit]').click();
+      assert.equal(await composerHost.evaluate(host => host.previousElementSibling?.dataset.postId || null), null, 'Cancel restores the composer to its normal position');
+      if (profilePage) await page.locator('[data-profile-edit="99"]').click();
+      else {
+        await page.locator('[data-post-status] > summary').click();
+        await page.locator('[data-own-edit="99"]').locator('..').locator('..').locator('summary').click();
+        await page.locator('[data-own-edit="99"]').click();
+      }
+      assert.equal(await composerHost.evaluate(host => host.previousElementSibling?.tagName), 'ARTICLE', 'Editing an in-review post also keeps the composer beside it');
+      assert.equal(await page.locator('[data-shared-post-form] textarea[name="content"]').inputValue(), 'Pending edit');
+      await page.locator('[data-cancel-edit]').click();
       assert.equal(await page.locator(`${root} [data-post-id]`).count(), 20);
       assert.equal(commentRequests, 0, 'Opening the feed must not request comments');
       await page.locator(profilePage ? '[data-more-profile-posts]' : '[data-more-posts]').click();
