@@ -124,31 +124,40 @@ final class FacultyRepository
         return $data;
     }
 
-    public function attendance(int $userId): array
+    public function attendance(int $userId, int $requested=0): array
     {
-        $teamId=$this->teamId($userId);
-        if (!$teamId) return ['team'=>null,'sessions'=>[],'records'=>[]];
-        $team=$this->rows('SELECT id,name FROM tbl_teams WHERE id=?',[$teamId])[0];
-        $records=$this->rows("SELECT ae.scanned_at,ae.phase,a.status,a.attendance_date,e.title event_title,u.id_number,u.first_name,u.middle_name,u.last_name
-            FROM tbl_attendance_entries ae JOIN tbl_attendances a ON a.id=ae.attendance_id JOIN tbl_events e ON e.id=a.event_id
-            JOIN tbl_users u ON u.id=a.user_id JOIN tbl_roles r ON r.id=u.role_id AND r.name='Student'
-            WHERE ae.recorded_by=? AND ae.team_id=? ORDER BY ae.scanned_at DESC LIMIT 100",[$userId,$teamId]);
-        foreach($records as &$record)$record['student_name']=trim($record['first_name'].' '.($record['middle_name']??'').' '.$record['last_name']);
-        unset($record);
-        return ['team'=>$team,'sessions'=>$this->scanSessions($userId,$teamId),'records'=>$records];
+        $assignments=$this->scanSessions($userId);$selected=null;$next=null;$now=AttendanceScanWindows::now();
+        $scanner=new SboAttendanceRepository($this->db,new SboAuthorization($this->db));
+        foreach($assignments as &$assignment){
+            $assignment+=$scanner->venue((int)$assignment['event_id']);
+            if($requested>0&&(int)$assignment['id']===$requested)$selected=$assignment;
+            $start=new DateTimeImmutable($assignment['schedule_date'].' '.$assignment['session_start'],new DateTimeZone('Asia/Manila'));
+            if($start>$now&&(!$next||$start<$next['date']))$next=['date'=>$start,'name'=>$assignment['session_name'],'event'=>$assignment['event_name']];
+        }unset($assignment);
+        if(!$selected&&$requested===0){
+            foreach($assignments as $candidate)if($candidate['is_session_active']){$selected=$candidate;break;}
+            if(!$selected&&count($assignments)===1)$selected=$assignments[0];
+        }
+        return ['assignments'=>$assignments,'selected_assignment'=>$selected,'server_now'=>$now->format('Y-m-d H:i:s'),
+            'next_session'=>$next?['name'=>$next['name'],'event'=>$next['event'],'starts_at'=>$next['date']->format('Y-m-d H:i:s')]:null,
+            'recent_scans'=>$selected?$scanner->facultyRecent($selected):[],
+            'counts'=>$selected?$scanner->facultyCounts($selected):['total'=>0,'checked_out'=>0,'remaining'=>0]];
     }
 
     public function scanSessions(int $userId, ?int $teamId=null): array
     {
         $teamId ??= $this->teamId($userId);
         if (!$teamId) return [];
-        $rows=$this->rows("SELECT s.*,e.id event_id,e.title event_name,e.audience_type,t.name scanner_team_name,m.code session_mode
+        $rows=$this->rows("SELECT s.*,e.id event_id,e.title event_name,e.location,e.audience_type,t.name scanner_team_name,m.code session_mode,
+              1+(SELECT COUNT(*) FROM tbl_event_attendance_schedules prior WHERE prior.event_id=e.id AND prior.schedule_date<s.schedule_date) day_number
             FROM tbl_event_attendance_schedules s JOIN tbl_events e ON e.id=s.event_id AND e.deleted_at IS NULL
             JOIN tbl_teams t ON t.id=? AND t.is_active=1
             JOIN tbl_attendance_session_modes m ON m.id=s.attendance_session_mode_id
-            WHERE EXISTS(SELECT 1 FROM tbl_event_user eu WHERE eu.event_id=e.id AND eu.user_id=?)
+            WHERE (e.audience_type='all_students'
+              OR (e.audience_type='selected_tribes' AND EXISTS(SELECT 1 FROM tbl_event_team et WHERE et.event_id=e.id AND et.team_id=t.id))
+              OR (e.audience_type IN ('selected_year_levels','specific_students') AND EXISTS(SELECT 1 FROM tbl_event_membership_snapshots ms WHERE ms.event_id=e.id AND ms.team_id=t.id)))
               AND s.schedule_date=CURDATE() AND CURDATE() BETWEEN DATE(e.start_at) AND DATE(e.end_at)
-            ORDER BY e.start_at,s.id",[$teamId,$userId]);
+            ORDER BY e.start_at,s.id",[$teamId]);
         $sessions=[]; $now=AttendanceScanWindows::now();
         foreach($rows as $row){
             $mode=$row['session_mode'];
@@ -158,10 +167,16 @@ final class FacultyRepository
                 $sessions[]=$row;
                 $index=array_key_last($sessions);
                 $sessions[$index]['event_schedule_id']=(int)$row['id'];
+                $sessions[$index]['id']=(int)$row['id']*10+match($session){'morning'=>2,'afternoon'=>3,default=>1};
                 $sessions[$index]['session_code']=$session;
                 $sessions[$index]['session_name']=match($session){'morning'=>'Morning Session','afternoon'=>'Afternoon Session',default=>'Whole Day Session'};
+                $sessions[$index]['session_start']=$row[$session==="whole_day"?'whole_day_in_time':$session.'_in_time'];
+                $sessions[$index]['session_end']=$row[$session==="whole_day"?'whole_day_out_time':$session.'_out_time'];
+                $sessions[$index]['day_number']=(int)$row['day_number'];
                 $sessions[$index]['scanner_mode']='specific';
                 $sessions[$index]['scanner_team_id']=$teamId;
+                $sessions[$index]['team_id']=$teamId;
+                $sessions[$index]['team_name']=$row['scanner_team_name'];
                 $sessions[$index]['activity_id']=null;
                 $sessions[$index]['in_window_open']=AttendanceScanWindows::isOpen($windows['in'],$now);
                 $sessions[$index]['out_window_open']=AttendanceScanWindows::isOpen($windows['out'],$now);
@@ -169,6 +184,8 @@ final class FacultyRepository
                 $sessions[$index]['in_closes_at']=$windows['in']['closes']->format('Y-m-d H:i:s');
                 $sessions[$index]['out_opens_at']=$windows['out']['opens']->format('Y-m-d H:i:s');
                 $sessions[$index]['out_closes_at']=$windows['out']['closes']->format('Y-m-d H:i:s');
+                $sessions[$index]['is_session_active']=$sessions[$index]['in_window_open']||$sessions[$index]['out_window_open'];
+                $sessions[$index]['assignment_state']=$sessions[$index]['is_session_active']?'active':($windows['in']['opens']>$now?'upcoming':'closed');
             }
         }
         return $sessions;
@@ -176,13 +193,18 @@ final class FacultyRepository
 
     public function scan(int $userId,array $input): array
     {
+        $assignmentId=filter_var($input['assignment_id']??null,FILTER_VALIDATE_INT);
         $scheduleId=filter_var($input['schedule_id']??null,FILTER_VALIDATE_INT);
         $session=(string)($input['session']??'');
-        if(!$scheduleId || !in_array($session,['whole_day','morning','afternoon'],true))throw new InvalidArgumentException('Select an active attendance session.');
+        if(!$assignmentId&&!$scheduleId)throw new InvalidArgumentException('Select an active attendance session.');
         $assignment=null;
-        foreach($this->scanSessions($userId) as $candidate)if((int)$candidate['event_schedule_id']===$scheduleId && $candidate['session_code']===$session){$assignment=$candidate;break;}
+        foreach($this->scanSessions($userId) as $candidate){
+            if(($assignmentId&&(int)$candidate['id']===$assignmentId)||(!$assignmentId&&(int)$candidate['event_schedule_id']===$scheduleId&&$candidate['session_code']===$session)){$assignment=$candidate;break;}
+        }
         if(!$assignment)throw new DomainException('You are not assigned to scan this event or team.');
-        return (new SboAttendanceRepository($this->db,new SboAuthorization($this->db)))->scanFaculty($userId,$input,$assignment);
+        $scanner=new SboAttendanceRepository($this->db,new SboAuthorization($this->db));
+        $assignment+=$scanner->venue((int)$assignment['event_id']);
+        return $scanner->scanFaculty($userId,$input,$assignment);
     }
 
     public function profile(int $userId): array
@@ -233,7 +255,7 @@ try {
     if ($_SERVER['REQUEST_METHOD']==='GET') {
         $data=match($page) {
             'students'=>$repo->students((int)$actor['id'],$_GET), 'student_history'=>$repo->studentAttendance((int)$actor['id'],$_GET), 'team'=>$repo->team((int)$actor['id']),
-            'leaderboard'=>$repo->leaderboard((int)$actor['id'],$_GET), 'attendance'=>$repo->attendance((int)$actor['id']),
+            'leaderboard'=>$repo->leaderboard((int)$actor['id'],$_GET), 'attendance'=>$repo->attendance((int)$actor['id'],(int)($_GET['assignment_id']??0)),
             'profile'=>$repo->profile((int)$actor['id']), default=>null,
         };
         if ($data===null) JsonResponse::send(['success'=>false,'message'=>'Unknown Faculty page.'],404);
@@ -241,7 +263,7 @@ try {
     }
     if ($_SERVER['REQUEST_METHOD']!=='POST') JsonResponse::send(['success'=>false,'message'=>'Method not allowed.'],405);
     if (!SessionManager::validateCsrf($_SERVER['HTTP_X_CSRF_TOKEN'] ?? null)) JsonResponse::send(['success'=>false,'message'=>'Your session expired.'],403);
-    if ($page==='scan') {
+    if ($page==='scan'||$page==='attendance') {
         $input=json_decode(file_get_contents('php://input'),true);
         $data=$repo->scan((int)$actor['id'],is_array($input)?$input:[]);
     }

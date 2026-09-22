@@ -54,7 +54,6 @@ final class SboAttendanceRepository {
         $a+=$this->venue((int)$a['event_id']);
         $mode=(string)($input['mode']??'qr');
         if(!in_array($mode,['qr','manual'],true))throw new InvalidArgumentException('Invalid scan mode.');
-        if($faculty && $mode!=='qr')throw new DomainException('Faculty attendance requires a student QR code.');
         $value=trim((string)($input[$mode==='manual'?'student_id':'token']??''));
         if($value===''||strlen($value)>80)throw new InvalidArgumentException($mode==='qr'?'Invalid QR code or student not found.':'Enter a valid Student ID.');
         if($mode==='qr'){
@@ -140,7 +139,8 @@ final class SboAttendanceRepository {
         catch(Throwable $e){if($this->db->inTransaction())$this->db->rollBack();throw $e;}
         return ['student'=>['id_number'=>$student['id_number'],'full_name'=>$this->name($student),'team_id'=>(int)$membership['id'],'team_name'=>$membership['name']],
             'session_name'=>$a['session_name'],'checkpoint'=>$checkpoint,'scanned_at'=>$now,'location'=>$location,
-            'recent_scans'=>$faculty?[]:$this->recent($a),'counts'=>$faculty?null:$this->counts($a)];
+            'recent_scans'=>$faculty?$this->facultyRecent($a):$this->recent($a),
+            'counts'=>$faculty?$this->facultyCounts($a):$this->counts($a)];
     }
 
     private function rateLimit(int $officer):void {
@@ -156,7 +156,7 @@ final class SboAttendanceRepository {
         }catch(Throwable $e){if($this->db->inTransaction())$this->db->rollBack();throw $e;}
     }
 
-    private function venue(int $event):array {
+    public function venue(int $event):array {
         $r=$this->row('SELECT e.attendance_location_policy,e.location_id,l.name venue_name,l.latitude venue_latitude,l.longitude venue_longitude,l.radius venue_radius FROM tbl_events e LEFT JOIN tbl_locations l ON l.id=e.location_id WHERE e.id=?',[$event]);
         if(!$r)throw new DomainException('Event venue was not found.');
         $q=$this->db->prepare('SELECT l.id,l.name,l.latitude,l.longitude,l.radius,el.is_primary FROM tbl_event_locations el JOIN tbl_locations l ON l.id=el.location_id WHERE el.event_id=? ORDER BY el.is_primary DESC,l.name');
@@ -238,6 +238,26 @@ final class SboAttendanceRepository {
             WHERE ae.sbo_event_assignment_id=? AND ae.event_schedule_id=? AND ae.session_code=? ORDER BY ae.scanned_at DESC,ae.id DESC LIMIT 12');
         $q->execute([$a['id'],$a['event_schedule_id'],$a['session_code']]);$rows=$q->fetchAll();
         foreach($rows as &$r){$r['id']=(int)$r['id'];$r['full_name']=$this->name($r);}unset($r);return $rows;
+    }
+    public function facultyRecent(array $a):array {
+        $q=$this->db->prepare('SELECT ae.id,ae.phase,ae.scanned_at,ae.status,ae.location_status,ae.venue_name_snapshot,u.id_number,u.first_name,u.middle_name,u.last_name,t.name team_name
+            FROM tbl_attendance_entries ae JOIN tbl_attendances atd ON atd.id=ae.attendance_id JOIN tbl_users u ON u.id=atd.user_id JOIN tbl_teams t ON t.id=ae.team_id
+            WHERE ae.event_schedule_id=? AND ae.session_code=? AND ae.team_id=? ORDER BY ae.scanned_at DESC,ae.id DESC LIMIT 12');
+        $q->execute([$a['event_schedule_id'],$a['session_code'],$a['scanner_team_id']]);$rows=$q->fetchAll();
+        foreach($rows as &$r){$r['id']=(int)$r['id'];$r['full_name']=$this->name($r);}unset($r);return $rows;
+    }
+    public function facultyCounts(array $a):array {
+        $q=$this->db->prepare("SELECT
+          (SELECT COUNT(*) FROM tbl_attendance_entries ae WHERE ae.event_schedule_id=? AND ae.session_code=? AND ae.team_id=? AND ae.phase='in') total,
+          (SELECT COUNT(*) FROM tbl_attendance_entries ae WHERE ae.event_schedule_id=? AND ae.session_code=? AND ae.team_id=? AND ae.phase='out') checked_out,
+          (SELECT COUNT(DISTINCT ms.user_id) FROM tbl_event_membership_snapshots ms
+             WHERE ms.event_id=? AND ms.team_id=?
+             AND NOT EXISTS(SELECT 1 FROM tbl_attendances atd JOIN tbl_attendance_entries ae ON ae.attendance_id=atd.id
+               WHERE atd.user_id=ms.user_id AND atd.event_id=? AND ae.event_schedule_id=? AND ae.session_code=? AND ae.phase='in')) remaining");
+        $q->execute([$a['event_schedule_id'],$a['session_code'],$a['scanner_team_id'],
+            $a['event_schedule_id'],$a['session_code'],$a['scanner_team_id'],
+            $a['event_id'],$a['scanner_team_id'],$a['event_id'],$a['event_schedule_id'],$a['session_code']]);
+        $r=$q->fetch();return ['total'=>(int)$r['total'],'checked_out'=>(int)$r['checked_out'],'remaining'=>(int)$r['remaining']];
     }
     private function counts(array $a):array {
         $q=$this->db->prepare("SELECT

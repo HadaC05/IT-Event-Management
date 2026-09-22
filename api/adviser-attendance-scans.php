@@ -70,12 +70,14 @@ final class AdviserAttendanceScanRepository {
             COALESCE(ae.venue_radius_snapshot_m,l.radius) venue_radius,s.schedule_date,s.id schedule_id,
             1+(SELECT COUNT(*) FROM tbl_event_attendance_schedules older WHERE older.event_id=s.event_id AND older.schedule_date<s.schedule_date) day_number,
             u.id_number,u.first_name,u.middle_name,u.last_name,t.name team_name,t.color team_color,
-            officer.first_name officer_first,officer.middle_name officer_middle,officer.last_name officer_last";
+            officer.first_name officer_first,officer.middle_name officer_middle,officer.last_name officer_last,
+            COALESCE(officer_role.name,'Recorder') recorder_role";
         $from=" FROM tbl_attendance_entries ae JOIN tbl_attendances atd ON atd.id=ae.attendance_id
             JOIN tbl_event_attendance_schedules s ON s.id=ae.event_schedule_id JOIN tbl_events e ON e.id=atd.event_id
             LEFT JOIN tbl_locations l ON l.id=COALESCE(ae.venue_location_id,e.location_id)
             JOIN tbl_users u ON u.id=atd.user_id JOIN tbl_teams t ON t.id=ae.team_id
-            LEFT JOIN tbl_users officer ON officer.id=ae.recorded_by";
+            LEFT JOIN tbl_users officer ON officer.id=ae.recorded_by
+            LEFT JOIN tbl_roles officer_role ON officer_role.id=officer.role_id";
         $count=$this->db->prepare('SELECT COUNT(*)'.$from.$where);
         $count->execute($values);$total=(int)$count->fetchColumn();
         $lastPage=max(1,(int)ceil($total/$perPage));$page=min($page,$lastPage);$offset=($page-1)*$perPage;
@@ -108,7 +110,7 @@ final class AdviserAttendanceScanRepository {
             'event_locations'=>$this->db->query('SELECT e.id event_id,s.schedule_date,l.id location_id,l.name venue_name,l.latitude venue_latitude,l.longitude venue_longitude,l.radius venue_radius,el.is_primary FROM tbl_events e JOIN tbl_event_attendance_schedules s ON s.event_id=e.id JOIN tbl_event_locations el ON el.event_id=e.id JOIN tbl_locations l ON l.id=el.location_id ORDER BY s.schedule_date,e.title,el.is_primary DESC,l.name')->fetchAll(),
             'event_types'=>$this->db->query('SELECT id,label FROM tbl_event_types ORDER BY label')->fetchAll(),
             'teams'=>$this->db->query('SELECT id,name,color FROM tbl_teams ORDER BY name')->fetchAll(),
-            'officers'=>$this->db->query("SELECT DISTINCT u.id,u.first_name,u.middle_name,u.last_name FROM tbl_users u JOIN tbl_sbo_officer_assignments oa ON oa.officer_user_id=u.id ORDER BY u.last_name,u.first_name")->fetchAll(),
+            'officers'=>$this->db->query("SELECT DISTINCT u.id,u.first_name,u.middle_name,u.last_name FROM tbl_users u JOIN tbl_attendance_entries ae ON ae.recorded_by=u.id ORDER BY u.last_name,u.first_name")->fetchAll(),
         ];
     }
     private function distanceCounts(string $from,string $where,array $values):array {

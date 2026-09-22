@@ -1,12 +1,13 @@
 (() => {
   'use strict';
-  const API='api/sbo-attendance.php';
+  const isFaculty=document.body.dataset.navigationRole==='faculty';
+  const API=isFaculty?'api/faculty.php?page=attendance':'api/sbo-attendance.php';
   const $=selector=>document.querySelector(selector);
   const selector=$('[data-assignment-selector]'),video=$('[data-scanner-video]'),cameraButton=$('[data-camera-toggle]');
   const dialog=$('[data-scanner-dialog]'),openButton=$('[data-scanner-open]'),preview=$('[data-scanner-preview]');
   const switchButton=$('[data-camera-switch]'),flashButton=$('[data-flash-toggle]'),manualButton=$('[data-manual-submit]');
   const locationRefresh=$('[data-location-refresh]'),gpsToggle=$('[data-gps-toggle]'),gpsPolicyDialog=$('[data-gps-policy-dialog]');
-  const esc=value=>window.SboPortal.escapeHtml(value);
+  const esc=value=>(isFaculty?window.SharedNavigation:window.SboPortal).escapeHtml(value);
   const notify=(type,message,options)=>window.Notifications?.[type]?.(message,options);
   let csrf='',assignments=[],selected=null,scanner=null,QrScanner=null,cameras=[],cameraIndex=0,position=null;
   let locationReason='not_provided',locationRequest=null,locationWatchId=null,gpsEnabled=false,gpsGeneration=0,gpsManuallyDisabled=false,isProcessing=false,cooldownUntil=0,lastToken='',lastTokenAt=0,lastTokenIgnoreMs=3000,lastScanToast=null,contextTimer=0,startGeneration=0,cameraHintTimer=0;
@@ -384,6 +385,7 @@
   $('[data-manual-form]').addEventListener('submit',async event=>{event.preventDefault();const field=event.currentTarget.elements.student_id;const value=field.value.trim();if(!value)return;if(await submit({mode:'manual',student_id:value}))field.value='';});
   window.addEventListener('pagehide',()=>{clearInterval(contextTimer);stopLocationWatch();if(dialog.open)dialog.close();stop();});
   document.addEventListener('visibilitychange',()=>{if(document.hidden){if(dialog.open)dialog.close();stop();}});
-  SboPortal.initialize('attendance').then(async context=>{csrf=context.csrfToken;const accountMenu=document.querySelector('[data-sbo-account-menu]');if(accountMenu){accountMenu.classList.remove('ml-auto');gpsToggle.classList.add('ml-auto');accountMenu.before(gpsToggle);}await load();if(selected?.is_session_active)loadQrModule().catch(()=>{});contextTimer=setInterval(async()=>{if(isProcessing)return;const old=selected?.id,wasActive=selected?.is_session_active;await load(old||0);if(!wasActive&&selected?.is_session_active)loadQrModule().catch(()=>{});if(!selected?.is_session_active){if(dialog.open)dialog.close();await stop();}},30000);})
+  const initialize=isFaculty?window.SharedNavigation.ready:window.SboPortal.initialize('attendance');
+  initialize.then(async context=>{csrf=context.csrfToken;const accountMenu=document.querySelector(isFaculty?'[data-shared-account-menu]':'[data-sbo-account-menu]');if(accountMenu){accountMenu.classList.remove('ml-auto');gpsToggle.classList.add('ml-auto');accountMenu.before(gpsToggle);}await load();if(selected?.is_session_active)loadQrModule().catch(()=>{});contextTimer=setInterval(async()=>{if(isProcessing)return;const old=selected?.id,wasActive=selected?.is_session_active;await load(old||0);if(!wasActive&&selected?.is_session_active)loadQrModule().catch(()=>{});if(!selected?.is_session_active){if(dialog.open)dialog.close();await stop();}},30000);})
     .catch(error=>notify('error',error.response?.data?.message||error.message));
 })();

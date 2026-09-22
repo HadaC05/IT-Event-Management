@@ -46,8 +46,9 @@ window.SharedNavigation.ready.then(() => {
   };
   const teamColor=scan=>/^#[0-9a-f]{6}$/i.test(String(scan.team_color||''))?scan.team_color:'#397565';
   const teamBadge=(scan,prefix='')=>`<span class="attendance-team-badge" style="--team-badge-color:${teamColor(scan)}"><i aria-hidden="true"></i><b>${esc(prefix)}${esc(scan.team_name||'Unassigned')}</b></span>`;
+  const recorderRole=scan=>scan.recorder_role==='Faculty'?'Faculty':scan.recorder_role==='SBO Officer'?'SBO':scan.recorder_role||'Recorder';
   const officerLabel=scan=>`${scan.officer_name} (${scan.scanner_mode==='general'?'GENERAL':'SPECIFIC'})`;
-  const scanPopup=scan=>`<strong>SBO:</strong> ${esc(officerLabel(scan))}<br>${teamBadge(scan,'Team: ')}<br><strong>Student:</strong> ${esc(scan.student_name)} &middot; ${scan.phase==='out'?'Time Out':'Time In'}<br>${esc(scan.event_name)}<br>Venue: ${esc(scan.venue_name_snapshot||'Not configured')} ${venueStatusTag(scan)}<br>${esc(when(scan.scanned_at))}<br>${accuracyBadge(scan)}`;
+  const scanPopup=scan=>`<strong>${esc(recorderRole(scan))}:</strong> ${esc(officerLabel(scan))}<br>${teamBadge(scan,'Team: ')}<br><strong>Student:</strong> ${esc(scan.student_name)} &middot; ${scan.phase==='out'?'Time Out':'Time In'}<br>${esc(scan.event_name)}<br>Venue: ${esc(scan.venue_name_snapshot||'Not configured')} ${venueStatusTag(scan)}<br>${esc(when(scan.scanned_at))}<br>${accuracyBadge(scan)}`;
   const officerInitials=name=>String(name||'SBO').trim().split(/\s+/).filter(Boolean).slice(0,2).map(part=>part[0]).join('').toUpperCase()||'S';
   const teamMarkerIcon=scan=>{
     const distanceStatus=distanceStatusMeta(scan);
@@ -177,7 +178,7 @@ window.SharedNavigation.ready.then(() => {
     optionsReady=true;
   }
   function render(scans){
-    if(!scans.length){list.innerHTML='<p class="rounded-2xl border border-[#121017]/10 bg-white p-6 text-center text-sm text-[#121017]/50">No SBO attendance scans match these filters.</p>';return;}
+    if(!scans.length){list.innerHTML='<p class="rounded-2xl border border-[#121017]/10 bg-white p-6 text-center text-sm text-[#121017]/50">No attendance scans match these filters.</p>';return;}
     const sessions={morning:'Morning',afternoon:'Afternoon',whole_day:'Whole day'};
     const statuses={inside:'Inside',outside:'Outside',unavailable:'GPS unavailable'};
     list.innerHTML=scans.map(row=>{
@@ -198,7 +199,7 @@ window.SharedNavigation.ready.then(() => {
         </summary>
         <div class="border-t border-[#121017]/8 bg-[#F3F0E9]/25 p-4">
           <div class="grid gap-2 text-xs sm:grid-cols-2 xl:grid-cols-3">
-            <p><b>SBO officer:</b> ${esc(officerLabel(row))}</p><p><b>${row.location_status==='outside'?'Nearest venue':'Detected venue'}:</b> ${esc(row.venue_name_snapshot||'Not configured')}</p>
+            <p><b>${esc(recorderRole(row))}:</b> ${esc(officerLabel(row))}</p><p><b>${row.location_status==='outside'?'Nearest venue':'Detected venue'}:</b> ${esc(row.venue_name_snapshot||'Not configured')}</p>
             <p><b>Coordinates:</b> ${esc(location)}</p><p><b>Accuracy:</b> ${accuracy}</p>
             <p><b>Distance outside venue box:</b> ${distance}</p><p><b>Location captured:</b> ${row.location_captured_at?esc(when(row.location_captured_at)):'&mdash;'}</p>
             <p><b>Unavailable reason:</b> ${esc(row.location_unavailable_reason||'—')}</p>
@@ -284,14 +285,14 @@ window.SharedNavigation.ready.then(() => {
     const officerCount=new Set(mapScans.map(scan=>scan.officer_id===null?`unknown-${scan.id}`:String(scan.officer_id))).size;
     mapUpdated.textContent=matching.length
       ? showEveryMatchingScan
-        ? `${located.length} of ${matching.length} matching scan locations from ${officerCount} SBO officer${officerCount===1?'':'s'} shown · checked ${new Intl.DateTimeFormat('en-PH',{timeStyle:'short'}).format(new Date())}`
-        : `${located.length} of ${matching.length} recent SBO scan position${matching.length===1?'':'s'} shown · checked ${new Intl.DateTimeFormat('en-PH',{timeStyle:'short'}).format(new Date())}`
+        ? `${located.length} of ${matching.length} matching scan locations from ${officerCount} recorder${officerCount===1?'':'s'} shown · checked ${new Intl.DateTimeFormat('en-PH',{timeStyle:'short'}).format(new Date())}`
+        : `${located.length} of ${matching.length} recent scan position${matching.length===1?'':'s'} shown · checked ${new Intl.DateTimeFormat('en-PH',{timeStyle:'short'}).format(new Date())}`
       : `${scheduledEvents.length} event${scheduledEvents.length===1?'':'s'} scheduled · no scans`;
     const hasMapContent=located.length>0||eventBoundaries.size>0;
     mapEmpty.classList.toggle('hidden',hasMapContent);
     mapEmptyMessage.textContent=matching.length
       ? 'The matching scans did not include GPS coordinates.'
-      : 'Matching SBO attendance scans will appear here.';
+      : 'Matching attendance scans will appear here.';
     mapDetails.classList.toggle('hidden',latestOfficerScans.length===0);
     mapDetails.classList.toggle('flex',latestOfficerScans.length>0);
     const recentPositionByOfficer=new Map();
@@ -407,7 +408,7 @@ window.SharedNavigation.ready.then(() => {
     if(distanceOptions.includes(changed)&&changed.checked)distanceAll.checked=false;
     const selected=distanceOptions.filter(input=>input.checked);
     if(!selected.length)distanceAll.checked=true;
-    distanceLabel.textContent=distanceAll.checked?'5 recent scans per SBO':selected.length===1?selected[0].closest('label').querySelector('[data-distance-option-text]').textContent.trim():`${selected.length} distance groups`;
+    distanceLabel.textContent=distanceAll.checked?'5 recent scans per recorder':selected.length===1?selected[0].closest('label').querySelector('[data-distance-option-text]').textContent.trim():`${selected.length} distance groups`;
   };
   distanceFilter.addEventListener('change',event=>syncDistanceFilter(event.target));
   document.addEventListener('click',event=>{if(distanceFilter.open&&!distanceFilter.contains(event.target))distanceFilter.removeAttribute('open');});

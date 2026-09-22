@@ -21,6 +21,16 @@ final class StudentId
     }
 }
 
+final class FacultyId
+{
+    public const FORMAT_MESSAGE = 'Faculty ID numbers must use the format 2x-xxx-F.';
+
+    public static function isValid(string $value): bool
+    {
+        return preg_match('/^2\d-\d{3}-F$/', mb_strtoupper(trim($value))) === 1;
+    }
+}
+
 final class JsonResponse
 {
     public static function send(array $payload, int $status = 200): never

@@ -38,7 +38,7 @@ final class UserManagementRepository
             $params['role'] = $role;
         }
         if ($status !== '') {
-            if (!in_array($status, ['active', 'inactive'], true)) {
+            if (!$this->value('SELECT id FROM tbl_user_statuses WHERE label = ?', [$status])) {
                 throw new InvalidArgumentException('The selected status is invalid.');
             }
             $where[] = 's.label = :status';
@@ -59,6 +59,7 @@ final class UserManagementRepository
         $sql = 'SELECT u.id, u.id_number, u.first_name, u.middle_name, u.last_name,
                     u.username, u.email, u.role_id, u.year_level, u.status AS status_id,
                     (SELECT tu.team_id FROM tbl_team_user tu WHERE tu.user_id=u.id ORDER BY tu.id DESC LIMIT 1) faculty_team_id,
+                    (SELECT t.name FROM tbl_team_user tu JOIN tbl_teams t ON t.id=tu.team_id WHERE tu.user_id=u.id ORDER BY tu.id DESC LIMIT 1) faculty_team_name,
                     r.name AS role, s.label AS status, yl.label AS year_level_label'
             .$from.' ORDER BY u.last_name, u.first_name LIMIT :limit OFFSET :offset';
         $statement = $this->db->prepare($sql);
@@ -97,7 +98,8 @@ final class UserManagementRepository
             'users' => $users,
             'summary' => $this->summary(),
             'roles' => $this->db->query('SELECT id, name FROM tbl_roles ORDER BY name')->fetchAll(),
-            'filter_roles' => $this->db->query('SELECT r.id, r.name FROM tbl_roles r WHERE EXISTS (SELECT 1 FROM tbl_users u WHERE u.role_id = r.id) ORDER BY r.name')->fetchAll(),
+            'filter_roles' => $this->db->query('SELECT id,name FROM tbl_roles ORDER BY name')->fetchAll(),
+            'filter_statuses' => $this->db->query('SELECT id,label FROM tbl_user_statuses ORDER BY label')->fetchAll(),
             'year_levels' => $this->db->query('SELECT id, label FROM tbl_year_levels ORDER BY id')->fetchAll(),
             'teams' => $this->db->query('SELECT id,name FROM tbl_teams WHERE is_active=1 ORDER BY name')->fetchAll(),
             'events' => $this->db->query("SELECT e.id, e.title, e.start_at
@@ -118,6 +120,18 @@ final class UserManagementRepository
 
     public function save(array $data, int $actorId, ?int $id = null): int
     {
+        $role = $this->value('SELECT name FROM tbl_roles WHERE id = ?', [(int) ($data['role_id'] ?? 0)]);
+        $previousRole = $id ? $this->value('SELECT r.name FROM tbl_users u JOIN tbl_roles r ON r.id=u.role_id WHERE u.id=?', [$id]) : null;
+        $allowedRoles = $id ? self::MANAGEABLE_ROLES : self::CREATABLE_ROLES;
+        if (!in_array($role, $allowedRoles, true)) {
+            throw new InvalidArgumentException('That role cannot be assigned here.');
+        }
+        if ($role === 'Faculty') {
+            $data['id_number'] = mb_strtoupper(trim((string) ($data['id_number'] ?? '')));
+            $data['username'] = $data['id_number'];
+        }
+        if ($role !== 'Student') $data['year_level'] = '';
+
         foreach (['first_name', 'last_name', 'username', 'email', 'role_id'] as $field) {
             if (trim((string) ($data[$field] ?? '')) === '') {
                 throw new InvalidArgumentException(ucfirst(str_replace('_', ' ', $field)).' is required.');
@@ -144,12 +158,6 @@ final class UserManagementRepository
             throw new InvalidArgumentException('The password confirmation does not match.');
         }
 
-        $role = $this->value('SELECT name FROM tbl_roles WHERE id = ?', [(int) $data['role_id']]);
-        $previousRole = $id ? $this->value('SELECT r.name FROM tbl_users u JOIN tbl_roles r ON r.id=u.role_id WHERE u.id=?', [$id]) : null;
-        $allowedRoles = $id ? self::MANAGEABLE_ROLES : self::CREATABLE_ROLES;
-        if (!in_array($role, $allowedRoles, true)) {
-            throw new InvalidArgumentException('That role cannot be assigned here.');
-        }
         if ($role === 'SBO Officer' && $previousRole !== 'SBO Officer') {
             throw new InvalidArgumentException('Create separate Officer access from Officer Management instead of changing the student role.');
         }
@@ -164,6 +172,9 @@ final class UserManagementRepository
         }
         if ($role === 'Student' && !StudentId::isValid((string) ($data['id_number'] ?? ''))) {
             throw new InvalidArgumentException(StudentId::FORMAT_MESSAGE);
+        }
+        if ($role === 'Faculty' && !FacultyId::isValid((string) ($data['id_number'] ?? ''))) {
+            throw new InvalidArgumentException(FacultyId::FORMAT_MESSAGE);
         }
         if (($data['year_level'] ?? '') !== '' && !$this->value('SELECT id FROM tbl_year_levels WHERE id = ?', [(int) $data['year_level']])) {
             throw new InvalidArgumentException('The selected year level is invalid.');
@@ -244,8 +255,15 @@ final class UserManagementRepository
                 $this->log($actorId, $id, 'user_created', "$fullName was added as $role.");
             }
             if ($role === 'Faculty' || $previousRole === 'Faculty') {
+                $previousFacultyTeamId = $this->value('SELECT team_id FROM tbl_team_user WHERE user_id=? ORDER BY id DESC LIMIT 1', [$id]);
                 $this->db->prepare('DELETE FROM tbl_team_user WHERE user_id=?')->execute([$id]);
-                if ($role === 'Faculty' && $facultyTeamId) $this->db->prepare('INSERT INTO tbl_team_user(team_id,user_id,created_at,updated_at) VALUES(?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)')->execute([$facultyTeamId,$id]);
+                if ($role === 'Faculty' && $facultyTeamId) {
+                    $this->db->prepare('INSERT INTO tbl_team_user(team_id,user_id,created_at,updated_at) VALUES(?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)')->execute([$facultyTeamId,$id]);
+                    if ($previousRole !== 'Faculty' || (int) $previousFacultyTeamId !== $facultyTeamId) {
+                        $teamName = (string) $this->value('SELECT name FROM tbl_teams WHERE id=?', [$facultyTeamId]);
+                        $this->log($actorId, $id, 'faculty_attendance_assigned', "Attendance responsibility was assigned for $teamName.");
+                    }
+                }
             }
             $this->db->commit();
             return $id;

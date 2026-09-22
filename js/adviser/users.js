@@ -40,7 +40,7 @@ window.SharedNavigation.ready.then(() => {
     const initials = user => `${user.first_name?.[0] || ''}${user.last_name?.[0] || ''}`.toUpperCase();
     const visibleEmail = user => /@pending\.invalid$/i.test(String(user?.email || '')) ? '' : String(user?.email || '');
     const loginLabel = user => user.id_number && user.username === user.id_number
-        ? `Student ID: ${user.id_number}`
+        ? `${user.role === 'Faculty' ? 'Faculty' : 'Student'} ID: ${user.id_number}`
         : `@${user.username}${user.id_number ? ` / ${user.id_number}` : ''}`;
     const notify = (type, message) => window.Notifications?.[type]?.(message) || (type === 'error' ? alert(message) : null);
     const showError = error => notify('error', error.response?.data?.message || 'Unable to complete the request.');
@@ -101,16 +101,37 @@ window.SharedNavigation.ready.then(() => {
     const selectedRoleName = () => roles.find(role => String(role.id) === userForm.elements.role_id.value)?.name || '';
 
     const refreshRoleFields = () => {
-        userForm.querySelector('[data-faculty-team-field]')?.classList.toggle('hidden', selectedRoleName() !== 'Faculty');
+        const role = selectedRoleName();
+        const faculty = role === 'Faculty';
+        const student = role === 'Student';
+        userForm.querySelector('[data-faculty-team-field]')?.classList.toggle('hidden', !faculty);
+        const yearLevelField = userForm.querySelector('[data-year-level-field]');
+        yearLevelField?.classList.toggle('hidden', !student);
+        userForm.elements.year_level.disabled = !student;
+        const usernameField = userForm.querySelector('[data-username-field]');
+        usernameField?.classList.toggle('hidden', faculty);
+        userForm.elements.username.disabled = faculty;
         const idNumber = userForm.elements.id_number;
-        const student = selectedRoleName() === 'Student';
-        idNumber.required = student;
-        if (student || !selectedRoleName()) {
+        const idLabel = userForm.querySelector('[data-id-number-label]');
+        idNumber.required = student || faculty;
+        if (faculty) {
+            if (idLabel) idLabel.textContent = 'Faculty ID';
+            idNumber.placeholder = '2x-xxx-F';
+            idNumber.maxLength = 8;
+            idNumber.inputMode = 'text';
+            idNumber.pattern = '2[0-9]-[0-9]{3}-F';
+            idNumber.title = 'Use the Faculty ID format 2x-xxx-F.';
+            userForm.elements.username.value = idNumber.value.toUpperCase();
+        } else if (student || !role) {
+            if (idLabel) idLabel.textContent = student ? 'Student ID' : 'ID number';
+            idNumber.placeholder = '02-xxxx-xxxxxx';
             idNumber.maxLength = 14;
             idNumber.inputMode = 'numeric';
             idNumber.pattern = '02-[0-9]{4}-[0-9]{5,6}';
             idNumber.title = 'Use 02-xxxx-xxxxx or 02-xxxx-xxxxxx.';
         } else {
+            if (idLabel) idLabel.textContent = 'ID number';
+            idNumber.placeholder = '';
             ['maxlength', 'inputmode', 'pattern', 'title'].forEach(attribute => idNumber.removeAttribute(attribute));
         }
     };
@@ -229,9 +250,11 @@ window.SharedNavigation.ready.then(() => {
             ? 'Protected account'
             : user.role === 'SBO Officer'
                 ? `${user.responsibility_events_count} active ${user.responsibility_events_count === 1 ? 'event' : 'events'}`
-                : ['SBO', 'Faculty'].includes(user.role)
-                    ? `${user.assigned_events.length} assigned ${user.assigned_events.length === 1 ? 'event' : 'events'}`
-                    : '—';
+                : user.role === 'Faculty'
+                    ? (user.faculty_team_name ? `Attendance responsibility · ${user.faculty_team_name}` : 'No team assigned')
+                    : user.role === 'SBO'
+                        ? `${user.assigned_events.length} assigned ${user.assigned_events.length === 1 ? 'event' : 'events'}`
+                        : '—';
         viewer.querySelector('[data-value="responsibility"]').textContent = responsibility;
         viewer.querySelector('[data-modal-close]').onclick = () => viewer.close();
         viewer.addEventListener('close', () => viewer.remove());
@@ -361,7 +384,14 @@ window.SharedNavigation.ready.then(() => {
 
         const responsibility = document.createElement('td');
         responsibility.className = 'min-w-72 px-4 py-5 text-xs text-slate-400';
-        if (['SBO', 'Faculty'].includes(user.role)) {
+        if (user.role === 'Faculty') {
+            const badge = document.createElement('span');
+            badge.className = 'inline-flex min-h-8 items-center rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-bold text-emerald-800';
+            badge.textContent = user.faculty_team_name
+                ? `Attendance · ${user.faculty_team_name}`
+                : 'Assign a team to enable attendance';
+            responsibility.append(badge);
+        } else if (user.role === 'SBO') {
             const assignments = document.createElement('div');
             assignments.className = 'flex flex-wrap items-center gap-2';
             user.assigned_events.forEach(event => {
@@ -417,7 +447,9 @@ window.SharedNavigation.ready.then(() => {
             ? 'Protected account'
             : user.role === 'SBO Officer'
                 ? `${Number(user.responsibility_events_count || 0)} active events`
-                : user.role === 'Student' ? '—' : `${user.assigned_events.length} assigned events`;
+                : user.role === 'Faculty'
+                    ? (user.faculty_team_name ? `Attendance · ${user.faculty_team_name}` : 'Assign a team to enable attendance')
+                    : user.role === 'Student' ? '—' : `${user.assigned_events.length} assigned events`;
         const controls = document.createElement('div');
         controls.className = 'mt-4 flex items-center gap-2 border-t border-slate-100 pt-4';
         controls.append(actionButton(isManageable(user.role) ? 'View / Edit' : 'View Details', 'min-h-10 flex-1 rounded-lg border border-[#397565]/25 bg-[#397565]/8 px-3 text-xs font-bold text-[#397565]', () => isManageable(user.role) ? editUser(user) : viewUser(user)));
@@ -507,6 +539,17 @@ window.SharedNavigation.ready.then(() => {
             const selectedRole = currentFilters.role;
             roleFilter.replaceChildren(new Option('All roles', ''));
             data.filter_roles.forEach(role => roleFilter.add(new Option(role.name, role.name, false, role.name === selectedRole)));
+        }
+        const statusFilter = filterForm?.querySelector('select[name="status"]');
+        if (statusFilter) {
+            const selectedStatus = currentFilters.status;
+            statusFilter.replaceChildren(new Option('Any status', ''));
+            data.filter_statuses.forEach(status => statusFilter.add(new Option(
+                status.label.replace(/^./, character => character.toUpperCase()),
+                status.label,
+                false,
+                status.label === selectedStatus,
+            )));
         }
         const summary = document.querySelector('[data-user-summary]');
         if (summary) {
@@ -734,6 +777,14 @@ window.SharedNavigation.ready.then(() => {
     addDialog?.querySelectorAll('[data-dialog-close]').forEach(close => close.addEventListener('click', () => addDialog.close()));
     userForm?.elements.role_id.addEventListener('change', refreshRoleFields);
     userForm?.elements.id_number.addEventListener('input', event => {
+        if (selectedRoleName() === 'Faculty') {
+            const digits = event.target.value.replace(/\D/g, '').slice(0, 5);
+            event.target.value = digits.length <= 2
+                ? digits
+                : `${digits.slice(0, 2)}-${digits.slice(2)}${digits.length === 5 ? '-F' : ''}`;
+            userForm.elements.username.value = event.target.value;
+            return;
+        }
         if (selectedRoleName() && selectedRoleName() !== 'Student') return;
         const digits = event.target.value.replace(/\D/g, '').slice(0, 12);
         event.target.value = digits.length <= 2 ? digits
