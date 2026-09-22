@@ -50,6 +50,8 @@ final class MediaRepository
                 'id' => $userId,
                 'role' => $permissions->role(),
                 'full_name' => trim((string) ($actor['full_name'] ?? ($actor['first_name'] ?? '').' '.($actor['last_name'] ?? ''))),
+                'initials' => $this->initials($actor),
+                'profile_photo_path' => $actor['profile_photo_path'] ?? null,
             ],
             'permissions' => $permissions->values(),
             'active_events' => $activeEvents,
@@ -117,6 +119,7 @@ final class MediaRepository
                 'id' => $userId,
                 'role' => $permissions->role(),
                 'full_name' => $profile['full_name'],
+                'initials' => $profile['initials'],
                 'profile_photo_path' => $profile['profile_photo_path'],
             ],
             'profile' => $profile,
@@ -518,7 +521,7 @@ final class MediaRepository
 
     private function moderationQueue(int $limit, int $offset): array
     {
-        $statement = $this->db->prepare("SELECT p.id,p.user_id,p.event_id,p.content,p.image_path,p.video_path,p.status,p.created_at,e.title event_title,u.first_name,u.middle_name,u.last_name FROM tbl_posts p JOIN tbl_users u ON u.id=p.user_id JOIN tbl_roles r ON r.id=u.role_id AND r.name='Student' LEFT JOIN tbl_events e ON e.id=p.event_id WHERE p.deleted_at IS NULL AND p.status='pending' ORDER BY p.created_at ASC,p.id ASC LIMIT ? OFFSET ?");
+        $statement = $this->db->prepare("SELECT p.id,p.user_id,p.event_id,p.content,p.image_path,p.video_path,p.status,p.created_at,e.title event_title,u.first_name,u.middle_name,u.last_name,u.profile_photo_path FROM tbl_posts p JOIN tbl_users u ON u.id=p.user_id JOIN tbl_roles r ON r.id=u.role_id AND r.name='Student' LEFT JOIN tbl_events e ON e.id=p.event_id WHERE p.deleted_at IS NULL AND p.status='pending' ORDER BY p.created_at ASC,p.id ASC LIMIT ? OFFSET ?");
         $statement->bindValue(1, $limit, PDO::PARAM_INT);
         $statement->bindValue(2, $offset, PDO::PARAM_INT);
         $statement->execute();

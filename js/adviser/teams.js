@@ -38,6 +38,10 @@ window.SharedNavigation.ready.then((context) => {
         : (w[0] || "TR").slice(0, 2)
     ).toUpperCase();
   };
+  const personInitials = name => {
+    const words = String(name || '').trim().split(/\s+/).filter(Boolean);
+    return (words.length > 1 ? `${words[0][0]}${words[words.length - 1][0]}` : (words[0] || 'ST').slice(0, 2)).toUpperCase();
+  };
   const schoolYearLabel = (label) =>
     /^SY\b/i.test(String(label || "")) ? String(label) : `SY ${label}`;
   const api = async (payload) =>
@@ -143,7 +147,7 @@ window.SharedNavigation.ready.then((context) => {
       row.dataset.unassignedRow = "";
       row.dataset.search = `${student.full_name} ${student.id_number || ""} ${details}`.toLowerCase();
       row.className = "unassigned-review-row grid gap-4 border-b border-slate-100 px-5 py-4 last:border-0 sm:px-7";
-      row.innerHTML = `<div class="flex min-w-0 items-start gap-3"><input class="mt-3 h-4 w-4 shrink-0 rounded border-slate-300 accent-[#397565]" type="checkbox" data-unassigned-check><span class="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#121017] text-[10px] font-black text-white">${initials(student.full_name)}</span><span class="min-w-0"><strong class="block truncate text-sm text-[#121017]">${escapeHtml(student.full_name)}</strong><span class="mt-0.5 block truncate text-xs text-slate-500">${escapeHtml(student.id_number || "No student ID")}</span><span class="mt-0.5 block text-xs text-slate-400">${escapeHtml(details || "Program or year information unavailable")}</span></span></div><div class="min-w-0"><span class="block text-[10px] font-black uppercase tracking-[.12em] text-slate-400">Reason</span><span class="mt-1 block text-xs font-semibold text-[#c94b18]">${escapeHtml(reason)}</span></div><div class="min-w-0 gap-2"><select class="h-10 w-full min-w-0 rounded-xl border border-slate-200 bg-white px-3 text-xs font-bold text-slate-700 outline-none" data-row-team></select><button class="min-h-10 shrink-0 rounded-xl border border-[#397565]/25 px-4 text-xs font-extrabold text-[#397565] transition hover:bg-[#397565]/5 disabled:cursor-not-allowed disabled:text-slate-300" type="button" data-row-assign disabled>Assign</button></div>`;
+      row.innerHTML = `<div class="flex min-w-0 items-start gap-3"><input class="mt-3 h-4 w-4 shrink-0 rounded border-slate-300 accent-[#397565]" type="checkbox" data-unassigned-check><span class="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#121017] text-[10px] font-black text-white">${personInitials(student.full_name)}</span><span class="min-w-0"><strong class="block truncate text-sm text-[#121017]">${escapeHtml(student.full_name)}</strong><span class="mt-0.5 block truncate text-xs text-slate-500">${escapeHtml(student.id_number || "No student ID")}</span><span class="mt-0.5 block text-xs text-slate-400">${escapeHtml(details || "Program or year information unavailable")}</span></span></div><div class="min-w-0"><span class="block text-[10px] font-black uppercase tracking-[.12em] text-slate-400">Reason</span><span class="mt-1 block text-xs font-semibold text-[#c94b18]">${escapeHtml(reason)}</span></div><div class="min-w-0 gap-2"><select class="h-10 w-full min-w-0 rounded-xl border border-slate-200 bg-white px-3 text-xs font-bold text-slate-700 outline-none" data-row-team></select><button class="min-h-10 shrink-0 rounded-xl border border-[#397565]/25 px-4 text-xs font-extrabold text-[#397565] transition hover:bg-[#397565]/5 disabled:cursor-not-allowed disabled:text-slate-300" type="button" data-row-assign disabled>Assign</button></div>`;
       const check = row.querySelector("[data-unassigned-check]");
       check.value = student.id;
       check.checked = unassignedSelection.has(student.id);
@@ -322,7 +326,7 @@ window.SharedNavigation.ready.then((context) => {
         t.members.slice(0, 3).forEach((m) => {
           const row = document.createElement("div");
           row.className = "flex min-w-0 items-center gap-3";
-          row.innerHTML = `<span class="grid h-8 w-8 shrink-0 place-items-center rounded-full text-[9px] font-black text-white" style="background:${t.color}">${initials(m.full_name)}</span><span class="min-w-0"><strong class="block truncate text-xs text-[#121017]">${escapeHtml(m.full_name)}</strong><small class="block truncate text-[10px] text-slate-400">${escapeHtml(m.id_number || m.year_level_label || "Student")}</small></span>`;
+          row.innerHTML = `<span class="grid h-8 w-8 shrink-0 place-items-center rounded-full text-[9px] font-black text-white" style="background:${t.color}">${personInitials(m.full_name)}</span><span class="min-w-0"><strong class="block truncate text-xs text-[#121017]">${escapeHtml(m.full_name)}</strong><small class="block truncate text-[10px] text-slate-400">${escapeHtml(m.id_number || m.year_level_label || "Student")}</small></span>`;
           members.append(row);
         });
         if (t.members_count > 3) {
@@ -444,7 +448,7 @@ window.SharedNavigation.ready.then((context) => {
       const av = document.createElement("span");
       av.className =
         "grid h-9 w-9 place-items-center rounded-full bg-[#121017] text-[9px] font-extrabold text-white";
-      av.textContent = initials(s.full_name);
+      av.textContent = personInitials(s.full_name);
       const tx = document.createElement("span");
       tx.className = "grid min-w-0";
       tx.innerHTML = `<strong class="truncate text-sm">${escapeHtml(s.full_name)}</strong><small class="text-slate-400">${escapeHtml(s.id_number || "No student ID")} · ${escapeHtml(s.year_level_label || "No year")}</small>`;

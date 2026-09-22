@@ -49,7 +49,7 @@ window.SharedNavigation.ready.then(() => {
   const recorderRole=scan=>scan.recorder_role==='Faculty'?'Faculty':scan.recorder_role==='SBO Officer'?'SBO':scan.recorder_role||'Recorder';
   const officerLabel=scan=>`${scan.officer_name} (${scan.scanner_mode==='general'?'GENERAL':'SPECIFIC'})`;
   const scanPopup=scan=>`<strong>${esc(recorderRole(scan))}:</strong> ${esc(officerLabel(scan))}<br>${teamBadge(scan,'Team: ')}<br><strong>Student:</strong> ${esc(scan.student_name)} &middot; ${scan.phase==='out'?'Time Out':'Time In'}<br>${esc(scan.event_name)}<br>Venue: ${esc(scan.venue_name_snapshot||'Not configured')} ${venueStatusTag(scan)}<br>${esc(when(scan.scanned_at))}<br>${accuracyBadge(scan)}`;
-  const officerInitials=name=>String(name||'SBO').trim().split(/\s+/).filter(Boolean).slice(0,2).map(part=>part[0]).join('').toUpperCase()||'S';
+  const officerInitials=name=>{const words=String(name||'SBO').trim().split(/\s+/).filter(Boolean);return (words.length>1?`${words[0][0]}${words[words.length-1][0]}`:(words[0]||'S').slice(0,2)).toUpperCase();};
   const teamMarkerIcon=scan=>{
     const distanceStatus=distanceStatusMeta(scan);
     return L.divIcon({

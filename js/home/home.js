@@ -164,6 +164,7 @@
     document.addEventListener('click', closeNav);
 
     const loginModal = document.querySelector('#login-modal');
+    const passwordChangeSuccess = loginModal?.querySelector('[data-password-change-success]');
     const authResult = document.querySelector('#auth-result');
     const showAuthResult = (type, message) => {
         loginModal?.close();
@@ -207,6 +208,7 @@
         event.preventDefault();
         const form = event.currentTarget;
         if (!form.reportValidity()) return;
+        passwordChangeSuccess?.classList.add('hidden');
         const submit = form.querySelector('[data-login-submit]');
         const original = submit.innerHTML;
         submit.disabled = true;
@@ -240,9 +242,12 @@
         state.user = response.data.user;
         const loginReason = new URLSearchParams(window.location.search).get('login');
         if (!state.user && loginReason === 'password-changed') {
+            passwordChangeSuccess?.classList.remove('hidden');
             loginModal?.showModal();
             loginModal?.querySelector('[name="login"]')?.focus();
-            window.history.replaceState({}, '', window.location.pathname + window.location.hash);
+            const cleanUrl = new URL(window.location.href);
+            cleanUrl.searchParams.delete('login');
+            window.history.replaceState({}, '', cleanUrl.pathname + cleanUrl.search + cleanUrl.hash);
         }
         if (state.user) {
             document.querySelectorAll('[data-login-open]').forEach(button => {

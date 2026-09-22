@@ -2,6 +2,75 @@
   max-width: 1180px;
 }
 
+.cite-media-preview-zoom,
+.cite-post-media-open {
+  display: block;
+  width: 100%;
+  padding: 0;
+  background: #121017;
+  cursor: zoom-in;
+}
+.cite-media-preview-zoom.hidden,
+.cite-media-preview video.hidden { display: none; }
+
+.cite-media-preview-zoom img,
+.cite-media-preview video {
+  display: block;
+  width: 100%;
+  max-height: min(20rem, 42dvh);
+  object-fit: contain;
+}
+
+.cite-post-media { background: #121017; }
+.cite-post-media-image,
+.cite-post-media-video {
+  display: block;
+  width: 100%;
+  max-height: min(27rem, 55dvh);
+  object-fit: contain;
+}
+
+.cite-media-preview-zoom:focus-visible,
+.cite-post-media-open:focus-visible {
+  outline: 3px solid #c6f24e;
+  outline-offset: -3px;
+}
+
+.cite-image-dialog {
+  position: fixed;
+  inset: 0;
+  width: min(1100px, calc(100vw - 1.5rem));
+  max-width: none;
+  max-height: calc(100dvh - 1.5rem);
+  margin: auto;
+  padding: .75rem;
+  overflow: auto;
+  border-radius: 1rem;
+  background: #121017;
+  color: #fff;
+}
+
+.cite-image-dialog::backdrop { background: rgba(10, 15, 13, .86); }
+.cite-image-dialog button {
+  display: block;
+  min-height: 2.75rem;
+  margin-left: auto;
+  padding: .5rem .75rem;
+  border-radius: .5rem;
+  color: #fff;
+  font-weight: 700;
+}
+.cite-image-dialog button:hover,
+.cite-image-dialog button:focus-visible { background: rgba(255, 255, 255, .14); }
+.cite-image-dialog img {
+  display: block;
+  width: auto;
+  max-width: 100%;
+  max-height: calc(100dvh - 5rem);
+  margin: auto;
+  object-fit: contain;
+}
+
 .cite-review-desk {
   overflow: hidden;
   border: 1px solid rgba(57, 117, 101, .2);
@@ -97,7 +166,7 @@
 .cite-review-card-meta { display: flex; align-items: center; gap: .7rem; }
 .cite-review-card-meta strong { display: block; overflow-wrap: anywhere; font-size: .8rem; }
 .cite-review-card-meta p { margin-top: .15rem; color: #66736d; font-size: .68rem; }
-.cite-review-avatar { display: grid; width: 2.5rem; height: 2.5rem; flex: none; place-items: center; border-radius: 50%; background: #c6f24e; color: #243928; font-size: .7rem; font-weight: 900; }
+.cite-review-avatar { display: grid; width: 2.5rem; height: 2.5rem; flex: none; place-items: center; border-radius: 50%; background: #c6f24e; color: #243928; font-size: .7rem; font-weight: 900; object-fit: cover; }
 .cite-review-content { margin: 1rem 0; overflow-wrap: anywhere; white-space: pre-wrap; font-size: .88rem; line-height: 1.6; }
 .cite-review-media { display: block; width: 100%; max-height: 22rem; border-radius: .6rem; background: #121017; object-fit: contain; }
 .cite-review-actions { display: flex; gap: .6rem; margin-top: auto; padding-top: 1rem; }

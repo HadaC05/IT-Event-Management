@@ -76,12 +76,15 @@
   }
 
   function queueCard(post) {
+    const avatar = post.profile_photo_path
+      ? `<img class="cite-review-avatar object-cover" src="${esc(post.profile_photo_path)}" alt="${esc(post.author_name)} profile picture" loading="lazy">`
+      : `<span class="cite-review-avatar" aria-hidden="true">${esc(post.author_initials)}</span>`;
     const media=post.image_path
       ? `<img class="cite-review-media" src="${esc(post.image_path)}" alt="Image submitted by ${esc(post.author_name)}" loading="lazy">`
       : post.video_path
         ? `<video class="cite-review-media" src="${esc(post.video_path)}" controls preload="none" playsinline aria-label="Video submitted by ${esc(post.author_name)}"></video>`
         : '';
-    return `<article class="cite-review-card"><div class="cite-review-card-meta"><span class="cite-review-avatar" aria-hidden="true">${esc(post.author_initials)}</span><div class="min-w-0"><strong>${esc(post.author_name)}</strong><p>${esc(post.event_title||'General post')} · ${esc(formatDate(post.created_at))}</p></div></div><p class="cite-review-content">${esc(post.content)}</p>${media}<div class="cite-review-actions"><button type="button" data-approve="${post.id}">Approve</button><button type="button" data-reject="${post.id}">Reject</button></div></article>`;
+    return `<article class="cite-review-card"><div class="cite-review-card-meta">${avatar}<div class="min-w-0"><strong>${esc(post.author_name)}</strong><p>${esc(post.event_title||'General post')} · ${esc(formatDate(post.created_at))}</p></div></div><p class="cite-review-content">${esc(post.content)}</p>${media}<div class="cite-review-actions"><button type="button" data-approve="${post.id}">Approve</button><button type="button" data-reject="${post.id}">Reject</button></div></article>`;
   }
 
   function renderQueue(queue) {

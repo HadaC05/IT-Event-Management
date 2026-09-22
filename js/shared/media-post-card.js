@@ -2,6 +2,25 @@
   "use strict";
   const esc = (value) => String(value ?? "").replace(/[&<>'"]/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;" })[character]);
   const time = (value) => value ? new Intl.DateTimeFormat("en-PH", { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" }).format(new Date(value.replace(" ", "T"))) : "";
+  let imageDialog;
+
+  function openImage(src, alt) {
+    if (!src) return;
+    if (!imageDialog) {
+      imageDialog = document.createElement('dialog');
+      imageDialog.className = 'cite-image-dialog';
+      imageDialog.setAttribute('aria-label', 'Full-size photo');
+      imageDialog.innerHTML = '<button type="button" aria-label="Close full-size photo">Close photo ×</button><img alt="">';
+      imageDialog.querySelector('button').onclick = () => imageDialog.close();
+      imageDialog.onclick = event => { if (event.target === imageDialog) imageDialog.close(); };
+      imageDialog.addEventListener('close', () => imageDialog.querySelector('img').removeAttribute('src'));
+      document.body.append(imageDialog);
+    }
+    const image = imageDialog.querySelector('img');
+    image.src = src;
+    image.alt = alt;
+    if (!imageDialog.open) imageDialog.showModal();
+  }
 
   function menuMarkup(post, viewer, permissions) {
     const canEdit = CiteMediaPermissions.canEdit(post, viewer);
@@ -36,8 +55,8 @@
 
     article.insertAdjacentHTML("beforeend", `<div class="px-4 pb-4 sm:px-5 sm:pb-5"><p class="whitespace-pre-line text-sm leading-6">${esc(post.content)}</p></div>`);
 
-    if (post.image_path) article.insertAdjacentHTML("beforeend", `<div class="w-full overflow-hidden bg-[#121017]"><img class="w-full object-contain" style="max-height:720px" src="${esc(post.image_path)}" alt="${esc(post.author_name)} post image"></div>`);
-    else if (post.video_path) article.insertAdjacentHTML("beforeend", `<div class="w-full overflow-hidden bg-[#121017]"><video class="w-full" style="max-height:720px" src="${esc(post.video_path)}" controls preload="metadata" playsinline></video></div>`);
+    if (post.image_path) article.insertAdjacentHTML("beforeend", `<div class="cite-post-media"><button class="cite-post-media-open" type="button" data-open-post-image aria-label="View full-size image from ${esc(post.author_name)}"><img class="cite-post-media-image" src="${esc(post.image_path)}" alt="${esc(post.author_name)} post image" loading="lazy"></button></div>`);
+    else if (post.video_path) article.insertAdjacentHTML("beforeend", `<div class="cite-post-media"><video class="cite-post-media-video" src="${esc(post.video_path)}" controls preload="metadata" playsinline></video></div>`);
 
     const engagement = document.createElement("div");
     engagement.className = "px-4 pb-4 pt-4 sm:px-5 sm:pb-5";
@@ -98,6 +117,7 @@
     article.append(engagement);
 
     article.querySelector("[data-own-edit]")?.addEventListener("click", () => edit(post));
+    article.querySelector('[data-open-post-image]')?.addEventListener('click', () => openImage(post.image_path, `${post.author_name} post image`));
     article.querySelector("[data-own-delete]")?.addEventListener("click", () => action({ action: "delete", id: post.id }, { confirm: "Delete this post?" }));
     article.querySelector("[data-hide]")?.addEventListener("click", async () => { const reason = await window.Notifications.prompt({ title: "Hide this post?", message: "Explain why this post is being hidden. This is retained for moderation records.", label: "Reason", placeholder: "Enter the moderation reason…", action: "Hide post", required: true, maxLength: 1000 }); if (reason) action({ action: "hide", post_id: post.id, reason }); });
     article.querySelectorAll("[data-post-menu] button").forEach((button) => button.addEventListener("click", () => button.closest("details").removeAttribute("open")));
@@ -110,5 +130,5 @@
     });
   });
 
-  window.CiteMediaPostCard = { create };
+  window.CiteMediaPostCard = { create, openImage };
 })();

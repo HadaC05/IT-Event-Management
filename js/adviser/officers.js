@@ -72,8 +72,10 @@ window.SharedNavigation.ready.then(() => {
         const first = credentials[0];
         currentCredentials = credentials.map(item => ({ ...item }));
         credentialsDialog.querySelector('[data-credential-name]').textContent = credentials.length === 1 ? first.officer_name : `${credentials.length} SBO Officer accounts`;
-        credentialsDialog.querySelector('[data-credential-initials]').textContent = first.officer_name
-            .split(/\s+/).filter(Boolean).slice(0, 2).map(part => part[0]).join('').toUpperCase() || 'SO';
+        const officerNames = first.officer_name.trim().split(/\s+/).filter(Boolean);
+        credentialsDialog.querySelector('[data-credential-initials]').textContent = officerNames.length > 1
+            ? `${officerNames[0][0]}${officerNames[officerNames.length - 1][0]}`.toUpperCase()
+            : (officerNames[0] || 'SO').slice(0, 2).toUpperCase();
         credentialsDialog.querySelector('[data-credential-username]').textContent = first.username;
         credentialsDialog.querySelector('[data-credential-password]').textContent = first.temporary_password;
         const list = credentialsDialog.querySelector('[data-credential-list]');

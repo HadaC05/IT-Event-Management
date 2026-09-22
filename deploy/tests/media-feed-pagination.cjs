@@ -3,30 +3,40 @@ const {chromium} = require('playwright');
 const assert = require('node:assert/strict');
 
 const base = process.env.CITE_BASE_URL || 'http://localhost/ITEventManagement';
+const portraitImage = `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="300" height="1500"><rect width="300" height="1500" fill="#397565"/></svg>')}`;
 const posts = Array.from({length: 25}, (_, index) => ({
   id: 25 - index, user_id: 1, event_id: null, content: `Approved post ${25 - index}`,
-  image_path: null, video_path: null, created_at: '2026-09-23 08:00:00',
-  is_official: false, event_title: null, author_name: 'Test Student',
-  author_initials: 'TS', author_role: 'Student', profile_photo_path: null,
+  image_path: index === 0 ? portraitImage : null, video_path: null, created_at: '2026-09-23 08:00:00',
+  is_official: false, event_title: null, author_name: 'Test Middle Student',
+  author_initials: 'TS', author_role: 'Student', profile_photo_path: 'assets/images/cite_favicon.png',
   viewer_reaction: null, reactions_count: 0, comments_count: 25,
 }));
 const comments = Array.from({length: 25}, (_, index) => ({
   id: index + 1, post_id: 25, user_id: 1, body: `Comment ${index + 1}`,
   is_pinned: false, author_name: 'Test Student', author_initials: 'TS',
 }));
-const viewer = {id: 1, role: 'Student', full_name: 'Test Student'};
+const viewer = {id: 1, role: 'Student', full_name: 'Test Middle Student', initials: 'TS', profile_photo_path: 'assets/images/cite_favicon.png'};
 const common = {viewer, permissions: {moderate: false, manage_carousel: false, hide: false},
   featured_events: [], active_events: [], post_events: [], carousel_events: [],
   event_program: [], own_posts: [], posts: posts.slice(0, 20), next_cursor: 'older-posts'};
-const profile = {id: 1, full_name: 'Test Student', initials: 'TS', id_number: '123',
+const profile = {id: 1, full_name: 'Test Middle Student', initials: 'TS', id_number: '123',
   year_level_label: 'Fourth Year', team_name: 'Test Team', team_color: '#397565',
-  profile_photo_path: null, created_at: '2026-09-23 08:00:00'};
+  profile_photo_path: viewer.profile_photo_path, created_at: '2026-09-23 08:00:00'};
 
 (async () => {
   const browser = await chromium.launch({headless: true, executablePath: process.env.CHROME_PATH || 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe', args: ['--no-sandbox']});
   try {
-    for (const pathname of ['home.html', 'profile.html']) {
+    const pages = [
+      {pathname: 'student/home.html', role: 'Student'},
+      {pathname: 'student/profile.html', role: 'Student', profilePage: true},
+      {pathname: 'faculty/posts.html', role: 'Faculty'},
+      {pathname: 'adviser/posts.html', role: 'SBO Adviser'},
+      {pathname: 'sbo/media.html', role: 'SBO Officer'},
+      {pathname: 'admin/media.html', role: 'Admin'},
+    ];
+    for (const {pathname, role, profilePage = false} of pages) {
       const page = await browser.newPage({viewport: {width: 390, height: 780}});
+      const pageViewer = {...viewer, role};
       const errors = [];
       let commentRequests = 0;
       let liked = false;
@@ -36,9 +46,9 @@ const profile = {id: 1, full_name: 'Test Student', initials: 'TS', id_number: '1
         const action = url.searchParams.get('action');
         let payload = {success: true, data: {unread_notifications: 0, notifications: []}};
         if (url.pathname.endsWith('/auth.php')) payload = {success: true, authenticated: true,
-          user: {...viewer, first_name: 'Test', last_name: 'Student', must_change_password: false}, csrf_token: 'test'};
+          user: {...pageViewer, first_name: 'Test', last_name: 'Student', must_change_password: false}, csrf_token: 'test'};
         if (url.pathname.endsWith('/student-profile.php')) payload = {success: true,
-          data: {...common, profile, post_counts: {approved: 25, pending: 0, rejected: 0, hidden: 0}}};
+          data: {...common, viewer: pageViewer, profile, post_counts: {approved: 25, pending: 0, rejected: 0, hidden: 0}}};
         if (url.pathname.endsWith('/media.php')) {
           if (route.request().method() === 'POST') {
             const input = route.request().postDataJSON();
@@ -51,16 +61,58 @@ const profile = {id: 1, full_name: 'Test Student', initials: 'TS', id_number: '1
               ? {comments: comments.slice(20), next_cursor: null}
               : {comments: comments.slice(0, 20), next_cursor: 'older-comments'}};
           } else if (action === 'post') payload = {success: true, data: {...posts.find(post => post.id === Number(url.searchParams.get('post_id'))), viewer_reaction: liked ? 'like' : null, reactions_count: liked ? 1 : 0}};
-          else payload = {success: true, data: common};
+          else payload = {success: true, data: {...common, viewer: pageViewer}};
         }
         return route.fulfill({status: 200, contentType: 'application/json', body: JSON.stringify(payload)});
       });
-      await page.goto(`${base}/pages/student/${pathname}`, {waitUntil: 'domcontentloaded'});
-      const root = pathname === 'home.html' ? '[data-public-feed]' : '[data-profile-posts]';
+      await page.goto(`${base}/pages/${pathname}`, {waitUntil: 'domcontentloaded'});
+      const root = profilePage ? '[data-profile-posts]' : '[data-public-feed]';
       await page.locator(`${root} [data-post-id]`).first().waitFor();
+      const composerPhoto = page.locator('[data-shared-post-form] img[alt="Test Middle Student profile picture"]');
+      assert.equal(await composerPhoto.getAttribute('src'), viewer.profile_photo_path, 'Composer uses the viewer profile photo');
+      assert.equal(await page.locator('[data-shared-account-initials] img').getAttribute('src'), viewer.profile_photo_path, 'Header uses the same profile photo');
+      assert.equal(await page.locator(`${root} [data-post-id="25"] header img`).getAttribute('src'), viewer.profile_photo_path, 'Published post uses the same profile photo');
+      const publishedImage = page.locator(`${root} [data-post-id="25"] .cite-post-media-image`);
+      assert.ok((await publishedImage.boundingBox()).height <= 430, 'Tall published image remains compact on mobile');
+      assert.equal(await publishedImage.evaluate(image => getComputedStyle(image).objectFit), 'contain', 'Published image is not cropped');
+      await page.locator(`${root} [data-post-id="25"] [data-open-post-image]`).click();
+      assert.equal(await page.locator('.cite-image-dialog').evaluate(dialog => dialog.open), true, 'Published image opens the full-size viewer');
+      assert.equal(await page.locator('.cite-image-dialog img').getAttribute('src'), portraitImage);
+      await page.keyboard.press('Escape');
+      assert.equal(await page.locator('.cite-image-dialog').evaluate(dialog => dialog.open), false, 'Escape closes the full-size viewer');
+      await page.evaluate(async () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = 300; canvas.height = 1500;
+        canvas.getContext('2d').fillRect(0, 0, 300, 1500);
+        const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+        const transfer = new DataTransfer();
+        transfer.items.add(new File([blob], 'portrait.png', {type: 'image/png'}));
+        const input = document.querySelector('[data-shared-post-form] input[name="image"]');
+        input.files = transfer.files;
+        input.dispatchEvent(new Event('change', {bubbles: true}));
+      });
+      const previewImage = page.locator('[data-media-preview] img');
+      await previewImage.waitFor({state: 'visible'});
+      assert.ok((await previewImage.boundingBox()).height <= 321, 'Tall upload preview remains compact on mobile');
+      assert.equal(await page.locator('[data-media-preview] video').isVisible(), false, 'Video stays hidden for image previews');
+      await page.locator('[data-preview-open-image]').click();
+      assert.equal(await page.locator('.cite-image-dialog').evaluate(dialog => dialog.open), true, 'Upload preview opens in the full-size viewer');
+      await page.keyboard.press('Escape');
+      await page.locator('[data-remove-media]').click();
+      assert.equal(await page.locator('[data-media-preview]').isVisible(), false, 'Removing the upload hides its preview');
+      await page.setViewportSize({width: 1280, height: 800});
+      assert.ok((await publishedImage.boundingBox()).height <= 433, 'Tall published image remains compact on desktop');
+      await page.setViewportSize({width: 390, height: 780});
+      const fallbackInitials = await page.evaluate(() => {
+        const host = document.createElement('div');
+        CiteMediaPostForm.mount(host, {events: [], viewer: {role: 'Student', full_name: 'Brian D. Ragasi'}, onSaved: async () => {}, notify: () => {}});
+        return host.querySelector('[data-shared-post-form] span[aria-hidden="true"]').textContent;
+      });
+      assert.equal(fallbackInitials, 'BR', 'Composer fallback uses first and last names');
+      assert.equal(await page.locator('[data-shared-post-form] textarea[name="content"]').evaluate(input => input.validity.valueMissing), true, 'Empty post remains subject to native validation');
       assert.equal(await page.locator(`${root} [data-post-id]`).count(), 20);
       assert.equal(commentRequests, 0, 'Opening the feed must not request comments');
-      await page.locator(pathname === 'home.html' ? '[data-more-posts]' : '[data-more-profile-posts]').click();
+      await page.locator(profilePage ? '[data-more-profile-posts]' : '[data-more-posts]').click();
       await page.waitForFunction(selector => document.querySelectorAll(`${selector} [data-post-id]`).length === 25, root);
       assert.equal(commentRequests, 0, 'Loading older posts must not request comments');
       const first = page.locator(`${root} [data-post-id="25"]`);

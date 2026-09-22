@@ -228,6 +228,8 @@
                     <p class="mt-2 text-sm leading-6 text-[#121017]/52">Enter your credentials to continue to the event portal.</p>
                 </header>
 
+                <p class="mt-6 hidden rounded-xl border border-[#397565]/25 bg-[#397565]/5 px-4 py-3 text-sm font-bold leading-6 text-[#397565]" data-password-change-success role="status" aria-live="polite">Password changed successfully. Sign in with your new password.</p>
+
                 
                 <form class="mt-7 grid gap-5" method="POST" action="api/auth.php?action=login" data-login-form>
                     <label class="grid gap-2">
@@ -275,6 +277,6 @@
         </dialog>
     <script src="js/vendor/axios.min.js"></script>
     <script src="js/shared/password-gate.js?v=20260917-1"></script>
-    <script src="js/home/home.js?v=20260917-student-events-1"></script>
+    <script src="js/home/home.js?v=20260923-password-confirmation-1"></script>
 </body>
 </html>

@@ -58,7 +58,7 @@
     if (!t) {host.innerHTML=empty('No team is assigned to your Faculty account. Contact the SBO Adviser.');return;}
     const accent=/^#[0-9a-f]{6}$/i.test(String(t.color||''))?t.color:'#397565';
     const number=value=>Number(value||0).toLocaleString('en-PH',{maximumFractionDigits:2});
-    const initials=name=>String(name||'').trim().split(/\s+/).filter(Boolean).slice(0,2).map(part=>part[0]).join('').toUpperCase()||'TM';
+    const initials=name=>{const words=String(name||'').trim().split(/\s+/).filter(Boolean);return (words.length>1?`${words[0][0]}${words[words.length-1][0]}`:(words[0]||'TM').slice(0,2)).toUpperCase();};
     const attendance=Object.fromEntries((t.attendance||[]).map(item=>[String(item.status||'').toLowerCase(),Number(item.total||0)]));
     const nextActivity=t.activities?.[0]||null;
     const memberRows=(t.member_preview||[]).map(member=>`<li class="flex items-center gap-3 border-b border-[#121017]/8 py-3 last:border-0"><span class="grid h-10 w-10 shrink-0 place-items-center rounded-full text-xs font-black" style="background:${accent}18;color:${accent}" aria-hidden="true">${esc(initials(member.name))}</span><span class="min-w-0 flex-1"><strong class="block truncate text-sm">${esc(member.name)}</strong><span class="mt-0.5 block truncate text-xs text-[#121017]/50">${esc(member.id_number)} · ${esc(member.year_level||'Year not set')}</span></span></li>`).join('');
