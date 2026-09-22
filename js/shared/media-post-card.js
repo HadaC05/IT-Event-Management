@@ -112,7 +112,20 @@
     };
     more.onclick = () => { more.textContent = 'Load more comments'; if (nextCursor) loadComments(nextCursor); };
 
-    engagement.querySelector("[data-reaction]").onclick = (event) => action({ action: "reaction_toggle", post_id: post.id, type: event.currentTarget.dataset.reaction, active: !Boolean(post.viewer_reaction) });
+    engagement.querySelector("[data-reaction]").onclick = async (event) => {
+      const button = event.currentTarget;
+      if (button.disabled) return;
+      button.disabled = true;
+      button.setAttribute('aria-busy', 'true');
+      try {
+        await action({ action: "reaction_toggle", post_id: post.id, type: button.dataset.reaction, active: !Boolean(post.viewer_reaction) });
+      } finally {
+        if (button.isConnected) {
+          button.disabled = false;
+          button.removeAttribute('aria-busy');
+        }
+      }
+    };
     engagement.querySelector("form").onsubmit = (event) => { event.preventDefault(); const body = event.currentTarget.elements.body.value.trim(); if (body) action({ action: "comment_create", post_id: post.id, body }); };
     article.append(engagement);
 

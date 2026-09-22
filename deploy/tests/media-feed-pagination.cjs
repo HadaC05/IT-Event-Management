@@ -39,9 +39,10 @@ const profile = {id: 1, full_name: 'Test Middle Student', initials: 'TS', id_num
       const pageViewer = {...viewer, role};
       const errors = [];
       let commentRequests = 0;
+      let reactionRequests = 0;
       let liked = false;
       page.on('pageerror', error => errors.push(error.message));
-      await page.route('**/api/**', route => {
+      await page.route('**/api/**', async route => {
         const url = new URL(route.request().url());
         const action = url.searchParams.get('action');
         let payload = {success: true, data: {unread_notifications: 0, notifications: []}};
@@ -52,7 +53,11 @@ const profile = {id: 1, full_name: 'Test Middle Student', initials: 'TS', id_num
         if (url.pathname.endsWith('/media.php')) {
           if (route.request().method() === 'POST') {
             const input = route.request().postDataJSON();
-            if (input.action === 'reaction_toggle') liked = Boolean(input.active);
+            if (input.action === 'reaction_toggle') {
+              reactionRequests++;
+              await new Promise(resolve => setTimeout(resolve, 200));
+              liked = Boolean(input.active);
+            }
             payload = {success: true, message: 'Action saved.'};
           } else if (action === 'posts') payload = {success: true, data: {posts: posts.slice(20), next_cursor: null}};
           else if (action === 'comments') {
@@ -140,8 +145,17 @@ const profile = {id: 1, full_name: 'Test Middle Student', initials: 'TS', id_num
       await first.locator('[data-more-comments]').click();
       await page.waitForFunction(() => document.querySelectorAll('[data-post-id="25"] [data-comments] > div').length === 25);
       assert.equal(commentRequests, 2);
-      await first.locator('[data-reaction]').click();
-      await page.waitForFunction(() => document.querySelector('[data-post-id="25"] [data-reaction]')?.getAttribute('aria-pressed') === 'true');
+       await page.evaluate(() => {
+         const button = document.querySelector('[data-post-id="25"] [data-reaction]');
+         button.click(); button.click(); button.click();
+       });
+       assert.equal(await first.locator('[data-reaction]').isDisabled(), true, 'Like button waits for the update to finish');
+       await page.waitForFunction(() => document.querySelector('[data-post-id="25"] [data-reaction]')?.getAttribute('aria-pressed') === 'true');
+       assert.equal(reactionRequests, 1, 'Rapid clicks make only one reaction request');
+       await first.locator('[data-reaction]').click();
+       await page.waitForFunction(() => document.querySelector('[data-post-id="25"] [data-reaction]')?.getAttribute('aria-pressed') === 'false');
+       assert.equal(reactionRequests, 2, 'The button works again after the first update');
+       assert.equal(await page.locator('[data-toast-message]').filter({hasText: 'Action saved.'}).count(), 1, 'Reaction confirmations do not stack');
       assert.equal(await page.locator(`${root} [data-post-id]`).count(), 25, 'Engagement must not discard older loaded posts');
       assert.equal(await page.locator('[data-post-id="25"] [data-comment-focus]').getAttribute('aria-expanded'), 'true');
       await page.setViewportSize({width: 320, height: 780});

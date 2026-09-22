@@ -12,6 +12,7 @@ window.SharedNavigation.ready.then(async session => {
   let data;
   let postForm;
   let profileRequest = 0;
+  let reactionToast = null;
 
   CiteMediaApi.configure(session.csrfToken);
 
@@ -144,7 +145,11 @@ window.SharedNavigation.ready.then(async session => {
     }
     let saved=false;
     try {
-      const response=await CiteMediaApi.send(payload);saved=true;notify('success',response.message);
+      const response=await CiteMediaApi.send(payload);saved=true;
+      if(payload.action==='reaction_toggle'){
+        reactionToast?.remove();
+        reactionToast=notify('success',response.message);
+      }else notify('success',response.message);
       if(['reaction_toggle','comment_create','comment_update','comment_delete','comment_pin'].includes(payload.action)) {
         const oldCard=root.querySelector(`[data-profile-posts] [data-post-id="${Number(payload.post_id)}"]`);
         const commentsOpen=oldCard?.querySelector('[data-comment-focus]')?.getAttribute('aria-expanded')==='true';

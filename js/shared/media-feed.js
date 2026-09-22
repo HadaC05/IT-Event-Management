@@ -3,13 +3,14 @@
   const esc = value => String(value ?? '').replace(/[&<>'"]/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[char]));
   const statusTone = status => ({pending:'bg-[#C6F24E]/35 text-[#397565]',approved:'bg-[#397565]/10 text-[#397565]',rejected:'bg-[#FF6B2C]/12 text-[#c84510]',hidden:'bg-[#121017]/10 text-[#121017]/60'}[status]||'bg-[#F3F0E9]');
   const formatDate = value => value ? new Intl.DateTimeFormat('en-PH',{dateStyle:'medium',timeStyle:'short'}).format(new Date(value.replace(' ','T'))) : '';
-  const state = {data:null,eventId:null,form:null,root:null,carouselTimer:null,pending:new Set(),queuePage:1,queueRequest:0,feedRequest:0,nextCursor:null};
+  const state = {data:null,eventId:null,form:null,root:null,carouselTimer:null,pending:new Set(),queuePage:1,queueRequest:0,feedRequest:0,nextCursor:null,reactionToast:null};
 
   const notify = (type,message) => {
-    if(window.Notifications?.[type]){window.Notifications[type](message);return;}
+    if(window.Notifications?.[type]) return window.Notifications[type](message);
     let toast=document.querySelector('[data-shared-media-toast]');
     if(!toast){toast=document.createElement('div');toast.dataset.sharedMediaToast='';toast.className='fixed bottom-24 right-4 z-[100] max-w-sm rounded-xl px-4 py-3 text-sm font-bold text-white shadow-2xl lg:bottom-5';document.body.append(toast);}
     toast.textContent=message;toast.classList.toggle('bg-[#c84510]',type==='error');toast.classList.toggle('bg-[#397565]',type!=='error');toast.classList.remove('hidden');clearTimeout(notify.timer);notify.timer=setTimeout(()=>toast.classList.add('hidden'),4000);
+    return toast;
   };
 
   async function execute(payload, options={}) {
@@ -22,7 +23,10 @@
     try{
       const response=await CiteMediaApi.send(payload);
       saved=true;
-      notify('success',response.message||'Media action completed.');
+      if(value.action==='reaction_toggle'){
+        state.reactionToast?.remove();
+        state.reactionToast=notify('success',response.message||'Reaction updated.');
+      }else notify('success',response.message||'Media action completed.');
       if(value.action==='approve'||value.action==='reject'){
         await loadModeration(state.queuePage);
         if(value.action==='approve'){
