@@ -53,7 +53,8 @@ final class StudentAttendanceQrRepository
                 if ($phase && !$token) { $state = $phase === 'in' ? 'already_in' : 'already_out'; $phase = null; }
                 $cards[] = [
                     'event_name' => $schedule['title'], 'schedule_date' => $today, 'session' => $session,
-                    'state' => $state, 'phase' => $phase, 'token' => $token,
+                    'state' => $state, 'phase' => $phase, 'token' => $token['value'] ?? null,
+                    'token_expires_at' => $token['expires_at'] ?? null,
                     'in_at' => $inAt, 'out_at' => $outAt,
                     'in_opens_at' => $windows['in']['opens']->format('Y-m-d H:i:s'),
                     'in_closes_at' => $windows['in']['closes']->format('Y-m-d H:i:s'),
@@ -66,7 +67,7 @@ final class StudentAttendanceQrRepository
     }
 
     private function token(int $eventId,int $studentId,string $session,string $phase,string $date,
-        DateTimeImmutable $now,string $inColumn,string $outColumn): ?string
+        DateTimeImmutable $now,string $inColumn,string $outColumn): ?array
     {
         $stamp = $now->format('Y-m-d H:i:s');
         $this->db->beginTransaction();
@@ -86,16 +87,16 @@ final class StudentAttendanceQrRepository
                 $this->db->commit(); return null;
             }
             if ($saved && $saved['schedule_date'] === $date && !$saved['used_at'] && $saved['expires_at'] > $stamp) {
-                $this->db->commit(); return (string) $saved['token'];
+                $this->db->commit(); return ['value' => (string) $saved['token'], 'expires_at' => (string) $saved['expires_at']];
             }
             $newToken = rtrim(strtr(base64_encode(random_bytes(24)), '+/', '-_'), '=');
-            $expires = $now->modify('+30 seconds')->format('Y-m-d H:i:s');
+            $expires = $now->modify('+60 seconds')->format('Y-m-d H:i:s');
             if ($saved) $this->db->prepare('UPDATE tbl_attendance_qr_tokens SET token=?,schedule_date=?,issued_at=?,expires_at=?,used_at=NULL,updated_at=CURRENT_TIMESTAMP WHERE id=?')
                 ->execute([$newToken,$date,$stamp,$expires,$saved['id']]);
             else $this->db->prepare('INSERT INTO tbl_attendance_qr_tokens(event_id,user_id,session,phase,schedule_date,token,issued_at,expires_at,created_at,updated_at)
                 VALUES(?,?,?,?,?,?,?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)')
                 ->execute([$eventId,$studentId,$session,$phase,$date,$newToken,$stamp,$expires]);
-            $this->db->commit(); return $newToken;
+            $this->db->commit(); return ['value' => $newToken, 'expires_at' => $expires];
         } catch (Throwable $exception) {
             if ($this->db->inTransaction()) $this->db->rollBack();
             throw $exception;

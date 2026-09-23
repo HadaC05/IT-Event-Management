@@ -148,13 +148,39 @@
     let lastQrFingerprint = '';
     let lastRecordedFingerprint = '';
     let qrReady = null;
+    let qrTimer = null;
+
+    const scheduleQrRefresh = delay => {
+        clearTimeout(qrTimer);
+        if (!document.hidden) qrTimer = setTimeout(loadQr, delay);
+    };
+
+    const nextQrRefreshDelay = (cards, serverNow) => {
+        const serverTime = Date.parse(String(serverNow).replace(' ', 'T'));
+        const remaining = cards.filter(card => card.token && card.token_expires_at)
+            .map(card => Date.parse(card.token_expires_at.replace(' ', 'T')) - serverTime)
+            .filter(Number.isFinite);
+        if (remaining.length) {
+            // Renew well before expiry, and spread students' requests across several seconds.
+            return Math.max(1000, Math.min(45000, Math.min(...remaining) - 15000 - Math.random() * 20000));
+        }
+        const nextOpening = cards.flatMap(card => [card.in_opens_at, card.out_opens_at])
+            .filter(Boolean)
+            .map(value => Date.parse(value.replace(' ', 'T')) - serverTime)
+            .filter(value => Number.isFinite(value) && value > 0);
+        const idleDelay = 45000 + Math.random() * 15000;
+        return nextOpening.length ? Math.max(1000, Math.min(idleDelay, Math.min(...nextOpening) + Math.random() * 10000)) : idleDelay;
+    };
 
     const loadQr = async () => {
         if (qrBusy || document.hidden) return;
+        clearTimeout(qrTimer);
         qrBusy = true;
+        let nextDelay = 20000 + Math.random() * 10000;
         try {
             const response = await axios.post('api/student-attendance-qr.php', {}, {headers: {'X-CSRF-Token': StudentPortal.csrfToken}});
             const cards = response.data.data.sessions || [];
+            nextDelay = nextQrRefreshDelay(cards, response.data.data.server_now);
             const fingerprint = JSON.stringify(cards.map(card => [card.event_name, card.session, card.state, card.phase, card.token, card.in_at, card.out_at, card.in_opens_at, card.out_opens_at]));
             if (fingerprint === lastQrFingerprint && !state.qrError) return;
             const recordedFingerprint = JSON.stringify(cards.map(card => [card.in_at, card.out_at]));
@@ -178,6 +204,7 @@
             renderAction();
         } finally {
             qrBusy = false;
+            scheduleQrRefresh(nextDelay);
         }
     };
 
@@ -193,8 +220,11 @@
         }).format(new Date());
         loadQr();
         await refreshHistory();
-        setInterval(loadQr, 5000);
-        document.addEventListener('visibilitychange', () => { if (!document.hidden) loadQr(); });
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden) clearTimeout(qrTimer);
+            else loadQr();
+        });
+        window.addEventListener('pagehide', () => clearTimeout(qrTimer), {once: true});
     };
 
     load().catch(() => {
