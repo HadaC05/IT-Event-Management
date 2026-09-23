@@ -52,43 +52,54 @@ final class StudentPortalRepository
 
     public function attendance(int $userId): array
     {
-        $summaryStatement = $this->db->prepare(
-            "SELECT COUNT(*) AS total,
-                    SUM(effective_status IN ('present', 'late')) AS present,
-                    SUM(effective_status IN ('absent', 'excused')) AS absent
-             FROM vw_attendance_effective
-             WHERE user_id = ?"
-        );
-        $summaryStatement->execute([$userId]);
-        $summary = $summaryStatement->fetch() ?: [];
-        foreach (['total', 'present', 'absent'] as $field) {
-            $summary[$field] = (int) ($summary[$field] ?? 0);
-        }
-        $summary['rate'] = $summary['total'] > 0
-            ? (int) round(($summary['present'] / $summary['total']) * 100)
-            : 0;
-
+        $now = new DateTimeImmutable('now', new DateTimeZone('Asia/Manila'));
         $history = $this->db->prepare(
-            "SELECT a.id, a.attendance_date,
-                    CASE WHEN a.effective_status IN ('present', 'late') THEN 'present' ELSE 'absent' END status,
-                    a.manual_status, a.checked_in_at,
-                    a.morning_in_at, a.morning_out_at,
-                    a.afternoon_in_at, a.afternoon_out_at, a.notes,
-                    e.title AS event_title, e.start_at, asm.code AS attendance_mode
-             FROM vw_attendance_effective a
-             JOIN tbl_events e ON e.id = a.event_id
-             LEFT JOIN tbl_event_attendance_schedules eas ON eas.event_id=a.event_id AND eas.schedule_date=a.attendance_date
-             LEFT JOIN tbl_attendance_session_modes asm ON asm.id=eas.attendance_session_mode_id
-             WHERE a.user_id = ?
-             ORDER BY a.attendance_date DESC, a.updated_at DESC
-             LIMIT 50"
+            "SELECT eas.id schedule_id,e.id event_id,e.title event_title,e.start_at,eas.schedule_date attendance_date,
+                    asm.code attendance_mode,
+                    eas.whole_day_out_time,eas.morning_out_time,eas.afternoon_out_time,
+                    a.id,a.effective_status,a.manual_status,a.notes,
+                    (SELECT MIN(scan_in.scanned_at) FROM tbl_attendance_entries scan_in WHERE scan_in.attendance_id=a.id AND scan_in.phase='in') time_in_at,
+                    (SELECT MAX(scan_out.scanned_at) FROM tbl_attendance_entries scan_out WHERE scan_out.attendance_id=a.id AND scan_out.phase='out') time_out_at,
+                    EXISTS(SELECT 1 FROM tbl_attendance_entries scan_in WHERE scan_in.attendance_id=a.id AND scan_in.phase='in') has_time_in,
+                    EXISTS(SELECT 1 FROM tbl_attendance_entries scan_out WHERE scan_out.attendance_id=a.id AND scan_out.phase='out') has_time_out
+             FROM tbl_events e
+             JOIN tbl_event_attendance_schedules eas ON eas.event_id=e.id
+             JOIN tbl_attendance_session_modes asm ON asm.id=eas.attendance_session_mode_id
+             LEFT JOIN vw_attendance_effective a ON a.event_id=e.id AND a.user_id=? AND a.attendance_date=eas.schedule_date
+             WHERE e.deleted_at IS NULL AND eas.schedule_date<=?
+               AND {$this->eligibleEventSql('e')}
+             ORDER BY eas.schedule_date DESC,e.start_at DESC"
         );
-        $history->execute([$userId]);
+        $history->execute([$userId, $now->format('Y-m-d'), $userId, $userId]);
         $records = $history->fetchAll();
+        $summary = ['total' => count($records), 'present' => 0, 'absent' => 0, 'pending' => 0, 'rate' => 0];
         foreach ($records as &$record) {
-            $record['id'] = (int) $record['id'];
+            $record['id'] = $record['id'] === null ? null : (int) $record['id'];
+            $record['schedule_id'] = (int) $record['schedule_id'];
+            $record['event_id'] = (int) $record['event_id'];
+            $record['has_time_in'] = (bool) $record['has_time_in'];
+            $record['has_time_out'] = (bool) $record['has_time_out'];
+            $closeTime = match ($record['attendance_mode']) {
+                'whole_day' => $record['whole_day_out_time'],
+                'two_sessions' => $record['afternoon_out_time'] ?: $record['morning_out_time'],
+                default => null,
+            };
+            $closed = $closeTime
+                ? $now >= new DateTimeImmutable($record['attendance_date'].' '.$closeTime, new DateTimeZone('Asia/Manila'))
+                : false;
+            if ($record['manual_status'] !== null) {
+                $record['status'] = in_array($record['effective_status'], ['present', 'late'], true) ? 'present' : 'absent';
+            } elseif ($record['has_time_in'] && $record['has_time_out']) {
+                $record['status'] = in_array($record['effective_status'], ['present', 'late'], true) ? 'present' : 'absent';
+            } else {
+                $record['status'] = $closed ? 'absent' : 'pending';
+            }
+            $summary[$record['status']]++;
+            unset($record['effective_status'], $record['whole_day_out_time'], $record['morning_out_time'], $record['afternoon_out_time']);
         }
         unset($record);
+        $finalized = $summary['present'] + $summary['absent'];
+        $summary['rate'] = $finalized > 0 ? (int) round(($summary['present'] / $finalized) * 100) : 0;
 
         $events = $this->events($userId);
         return [

@@ -7,7 +7,7 @@
     <title>SBO Officer Management | CITE Events</title>
     <link rel="icon" type="image/png" sizes="512x512" href="assets/images/cite_favicon.png">
     <link rel="stylesheet" href="css/tailwind.css">
-    <link rel="stylesheet" href="css/adviser.css?v=20260923-responsibility-mobile-1">
+    <link rel="stylesheet" href="css/adviser.css?v=20260924-multi-day-1">
     <script src="js/shared/notifications.js?v=20260917-7" defer></script>
     <script src="js/shared/interactions.js?v=20260917-flat-1" defer></script>
 </head>
@@ -51,11 +51,11 @@
 
     <dialog class="m-auto max-h-[calc(100vh_-_2rem)] w-[min(820px,calc(100%_-_2rem))] overflow-y-auto rounded-2xl border-0 bg-white p-0 shadow-2xl backdrop:bg-[#121017]/60" id="event-responsibilities-dialog" data-modal-size="large" data-modal-kind="form">
         <form data-task-form data-axios-form>
-            <header class="sticky top-0 z-10 flex items-start justify-between gap-3 border-b border-[#121017]/8 border-t-4 border-t-[#397565] bg-white px-4 py-4 sm:px-6 sm:py-5"><div class="min-w-0"><p class="text-xs font-black uppercase tracking-wider text-[#397565]">Backend-enforced access</p><h2 class="mt-1 text-xl font-black sm:text-2xl" data-task-dialog-title>Event Responsibilities</h2><p class="mt-1 text-sm text-[#121017]/50">Assign an SBO officer to an event day. Attendance, scoring, and media access are included automatically.</p></div><button class="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#F3F0E9] text-xl" type="button" data-dialog-close aria-label="Close">×</button></header>
+            <header class="sticky top-0 z-10 flex items-start justify-between gap-3 border-b border-[#121017]/8 border-t-4 border-t-[#397565] bg-white px-4 py-4 sm:px-6 sm:py-5"><div class="min-w-0"><p class="text-xs font-black uppercase tracking-wider text-[#397565]">Backend-enforced access</p><h2 class="mt-1 text-xl font-black sm:text-2xl" data-task-dialog-title>Event Responsibilities</h2><p class="mt-1 text-sm text-[#121017]/50">Assign an SBO officer to one or more event days. Attendance, scoring, and media access are included automatically.</p></div><button class="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#F3F0E9] text-xl" type="button" data-dialog-close aria-label="Close">×</button></header>
             <div class="grid min-w-0 grid-cols-1 gap-4 p-4 sm:grid-cols-2 sm:p-6">
                     <div class="hidden rounded-xl bg-[#397565]/7 p-4 sm:col-span-2" data-task-officer-empty><strong class="block text-sm font-black text-[#397565]">Create Officer access first</strong><p class="mt-1 text-xs leading-5 text-[#121017]/55">No active Officer assignment exists. The student needs a separate Officer sign-in and assignment.</p><button class="mt-3 min-h-10 rounded-xl bg-[#397565] px-4 text-xs font-black text-white" type="button" data-task-create-officer>Create Officer Access</button></div>
-                    <label class="grid gap-2"><span class="text-sm font-bold">SBO Officer</span><select class="h-12 rounded-xl border border-[#121017]/12 px-3" name="officer_assignment_id" required data-task-officer></select></label>
-                    <label class="grid gap-2"><span class="text-sm font-bold">Event day</span><select class="h-12 rounded-xl border border-[#121017]/12 px-3" name="event_schedule_id" required data-task-event></select></label>
+                    <label class="grid gap-2 sm:col-span-2"><span class="text-sm font-bold">SBO Officer</span><select class="h-12 rounded-xl border border-[#121017]/12 px-3" name="officer_assignment_id" required data-task-officer></select></label>
+                    <fieldset class="grid gap-2 sm:col-span-2"><legend class="text-sm font-bold">Event days <span class="text-[#d9470a]">*</span></legend><p class="text-xs text-[#121017]/45">Select days to add or update. Existing days stay assigned until you use End on that day.</p><div class="task-event-days" data-task-events></div></fieldset>
                     <div class="grid gap-2 sm:col-span-2" data-task-attendance-scanner>
                         <label class="grid gap-2"><span class="text-sm font-bold">Attendance scanner access</span><select class="h-12 rounded-xl border border-[#121017]/12 px-3" name="scanner_mode"><option value="specific">Specific tribe/team only</option><option value="general">General — all eligible tribes/teams</option></select></label>
                         <p class="rounded-xl bg-[#397565]/7 px-4 py-3 text-xs leading-5 text-[#397565] sm:col-span-2" data-task-scanner-general-note>Specific access uses the officer's own tribe. General access can scan any student eligible for the event.</p>
@@ -135,7 +135,7 @@
     <script src="js/shared/password-gate.js?v=20260917-1"></script>
     <script src="js/shared/navigation.js?v=20260923-dev-tag-1"></script>
     <script src="js/adviser/officers.js?v=20260924-table-compact-1"></script>
-    <script src="js/adviser/sbo-assignments.js?v=20260923-simplified-access-1"></script>
+    <script src="js/adviser/sbo-assignments.js?v=20260924-multi-day-1"></script>
     <script src="js/adviser/sbo-scoring-admin.js"></script>
 </body>
 </html>
