@@ -212,19 +212,27 @@ final class AdviserDashboardRepository
     private function leaderboard(): array
     {
         $rows = $this->database->query(
-            "SELECT tbl_teams.id, tbl_teams.name, COUNT(DISTINCT tbl_team_user.user_id) AS members_count, SUM(tbl_scores.points) AS total_score
+            "SELECT tbl_teams.id, tbl_teams.name, tbl_teams.color,
+                    (SELECT COUNT(DISTINCT tbl_team_user.user_id) FROM tbl_team_user WHERE tbl_team_user.team_id=tbl_teams.id) AS members_count,
+                    tbl_scores.total_score
              FROM tbl_teams
-             JOIN (SELECT team_id,points FROM vw_finalized_scores UNION ALL SELECT team_id,overall_points AS points FROM tbl_activity_score_results) AS tbl_scores ON tbl_scores.team_id = tbl_teams.id
-             LEFT JOIN tbl_team_user ON tbl_team_user.team_id = tbl_teams.id
+             JOIN (
+                 SELECT finalized_scores.team_id,SUM(finalized_scores.points) AS total_score
+                 FROM (SELECT team_id,points FROM vw_finalized_scores UNION ALL SELECT team_id,overall_points AS points FROM tbl_activity_score_results) AS finalized_scores
+                 GROUP BY finalized_scores.team_id
+             ) AS tbl_scores ON tbl_scores.team_id = tbl_teams.id
              WHERE tbl_teams.is_active = 1
-             GROUP BY tbl_teams.id
-             ORDER BY total_score DESC, tbl_teams.name
+             ORDER BY tbl_scores.total_score DESC, tbl_teams.name
              LIMIT 5"
         )->fetchAll();
+        $previousScore = null;
+        $previousRank = null;
         foreach ($rows as $index => &$row) {
-            $row['rank'] = $index + 1;
             $row['members_count'] = (int) $row['members_count'];
             $row['total_score'] = (float) $row['total_score'];
+            $row['rank'] = $previousScore !== null && abs($row['total_score'] - $previousScore) < 0.00001 ? $previousRank : $index + 1;
+            $previousScore = $row['total_score'];
+            $previousRank = $row['rank'];
         }
         return $rows;
     }

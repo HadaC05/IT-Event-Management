@@ -124,22 +124,18 @@ window.SharedNavigation.ready.then(() => {
   function statusBadge(status) {
     const tone = status === "present"
       ? "bg-[#C6F24E]/35 text-[#397565]"
-      : "bg-[#FF6B2C]/10 text-[#FF6B2C]";
-    return `<span class="rounded-full px-2.5 py-1 text-[9px] font-black uppercase tracking-wider ${tone}">${escapeHtml(status)}</span>`;
+      : status === "incomplete"
+        ? "bg-amber-50 text-amber-700"
+        : "bg-[#FF6B2C]/10 text-[#FF6B2C]";
+    return `<span class="rounded-full px-2.5 py-1 text-[9px] font-black uppercase tracking-wider ${tone}">${escapeHtml(status === "incomplete" ? "Incomplete scan" : status)}</span>`;
   }
 
   function attendanceTable(rows) {
     const body = rows.map((row) => {
-      const detail = [row.id_number, row.team_name, row.year_level].filter(Boolean).join(" · "),
-        hasScan = Number(row.has_scan_evidence) === 1;
-      const source = row.manual_status !== null
-        ? `Adviser correction${hasScan ? " over scan" : ""}`
-        : hasScan
-          ? "Verified scan"
-          : "Manual record";
-      return `<tr class="transition hover:bg-[#397565]/[.025]"><td class="px-6 py-4"><strong class="block text-xs">${escapeHtml(row.student_name || "Deleted user")}</strong><small class="mt-0.5 block text-[10px] text-[#121017]/38">${escapeHtml(detail || "No student details")}</small></td><td class="px-3 py-4 text-xs font-bold">${escapeHtml(row.event_title || "Deleted event")}<small class="mt-0.5 block text-[10px] font-medium text-[#121017]/38">${escapeHtml(row.academic_period_label || "Period not set")}</small></td><td class="px-3 py-4 text-xs text-[#121017]/55">${formatDate(row.attendance_date)}</td><td class="px-3 py-4">${statusBadge(row.status)}</td><td class="px-3 py-4"><span class="rounded-full ${row.manual_status !== null ? "bg-[#FF6B2C]/10 text-[#b94312]" : "bg-[#397565]/10 text-[#397565]"} px-2.5 py-1 text-[9px] font-black uppercase tracking-wide">${escapeHtml(source)}</span></td><td class="px-6 py-4 text-xs text-[#121017]/48">${formatTime(row.checked_in_at)}</td></tr>`;
+      const detail = [row.id_number, row.team_name, row.year_level].filter(Boolean).join(" · ");
+      return `<tr class="transition hover:bg-[#397565]/[.025]"><td class="px-6 py-4"><strong class="block text-xs">${escapeHtml(row.student_name || "Deleted user")}</strong><small class="mt-0.5 block text-[10px] text-[#121017]/38">${escapeHtml(detail || "No student details")}</small></td><td class="px-3 py-4 text-xs font-bold">${escapeHtml(row.event_title || "Deleted event")}<small class="mt-0.5 block text-[10px] font-medium text-[#121017]/38">${escapeHtml(row.academic_period_label || "Period not set")}</small></td><td class="px-3 py-4 text-xs text-[#121017]/55">${formatDate(row.attendance_date)}</td><td class="px-3 py-4">${statusBadge(row.status)}</td><td class="px-3 py-4 text-xs text-[#121017]/48">${row.time_in_at ? formatTime(row.time_in_at) : "Not scanned"}</td><td class="px-6 py-4 text-xs text-[#121017]/48">${row.time_out_at ? formatTime(row.time_out_at) : "Not scanned"}</td></tr>`;
     }).join("");
-    return `<div class="overflow-x-auto"><table class="w-full min-w-[980px] text-left"><thead><tr class="bg-[#121017]/[.025] text-[9px] font-black uppercase tracking-[.14em] text-[#121017]/38"><th class="px-6 py-3.5">Student</th><th class="px-3 py-3.5">Event</th><th class="px-3 py-3.5">Date</th><th class="px-3 py-3.5">Status</th><th class="px-3 py-3.5">Source</th><th class="px-6 py-3.5">Scan evidence</th></tr></thead><tbody class="divide-y divide-[#121017]/7">${body}</tbody></table></div>`;
+    return `<div class="overflow-x-auto"><table class="w-full min-w-[960px] text-left"><thead><tr class="bg-[#121017]/[.025] text-[9px] font-black uppercase tracking-[.14em] text-[#121017]/38"><th class="px-6 py-3.5">Student</th><th class="px-3 py-3.5">Event</th><th class="px-3 py-3.5">Date</th><th class="px-3 py-3.5">Status</th><th class="px-3 py-3.5">Time In</th><th class="px-6 py-3.5">Time Out</th></tr></thead><tbody class="divide-y divide-[#121017]/7">${body}</tbody></table></div>`;
   }
 
   function participationTable(rows) {

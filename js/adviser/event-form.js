@@ -368,7 +368,7 @@
     const scheduleSection = form.querySelector("[data-attendance-schedule]"),
       scheduleList = scheduleSection.querySelector("[data-schedules]"),
       modes = metadata.attendance_modes,
-      modeDefault = modes.find((mode) => mode.code === "whole_day") || modes[0];
+      modeDefault = modes.find((mode) => mode.code === "whole_day");
     const rows = () => [
       ...scheduleList.querySelectorAll("[data-schedule-row]"),
     ];
@@ -380,11 +380,6 @@
       morning_in_close: row.querySelector('[data-checkpoint="morning_in_close"]').value,
       morning_out_open: row.querySelector('[data-checkpoint="morning_out_open"]').value,
       morning_out: row.querySelector('[data-checkpoint="morning_out"]').value,
-      afternoon_in: row.querySelector('[data-checkpoint="afternoon_in"]').value,
-      afternoon_in_close: row.querySelector('[data-checkpoint="afternoon_in_close"]').value,
-      afternoon_out_open: row.querySelector('[data-checkpoint="afternoon_out_open"]').value,
-      afternoon_out: row.querySelector('[data-checkpoint="afternoon_out"]')
-        .value,
     });
     const syncSchedules = () => {
       rows().forEach((row, index) => {
@@ -407,64 +402,20 @@
           .filter((day) => day.date)
           .sort((a, b) => a.date.localeCompare(b.date)),
         first = days[0],
-        last = days.at(-1),
-        firstMode = modes.find(
-          (mode) => String(mode.id) === first?.attendance_session_mode_id,
-        ),
-        lastMode = modes.find(
-          (mode) => String(mode.id) === last?.attendance_session_mode_id,
-        );
+        last = days.at(-1);
       form.elements.start_date.value = first?.date || "";
-      form.elements.start_time.value = first
-        ? firstMode?.code === "none"
-          ? "00:00"
-          : first.morning_in
-        : "";
+      form.elements.start_time.value = first?.morning_in || "";
       form.elements.end_date.value = last?.date || "";
-      form.elements.end_time.value = last
-        ? lastMode?.code === "two_sessions"
-          ? last.afternoon_out
-          : lastMode?.code === "whole_day"
-            ? last.morning_out
-            : "23:59"
-        : "";
+      form.elements.end_time.value = last?.morning_out || "";
       readiness();
       checkConflicts();
     };
-    const applyMode = (row, defaults = false) => {
-      const mode =
-          modes.find(
-            (item) =>
-              String(item.id) ===
-              row.querySelector("[data-session-mode]").value,
-          ) || modes[0],
-        enabled = mode.code !== "none",
-        split = mode.code === "two_sessions";
-      row.querySelectorAll("[data-primary]").forEach((field) => {
-        field.hidden = !enabled;
-        field.querySelector("input").disabled = !enabled;
-        field.querySelector("input").required = enabled;
-      });
-      row.querySelectorAll("[data-secondary]").forEach((field) => {
-        field.hidden = !split;
-        field.querySelector("input").disabled = !split;
-        field.querySelector("input").required = split;
-        if (!split) field.querySelector("input").value = "";
-      });
-      if (defaults && enabled) {
+    const applyDefaults = (row, defaults = false) => {
+      if (defaults) {
         row.querySelector('[data-checkpoint="morning_in"]').value = "08:00";
         row.querySelector('[data-checkpoint="morning_in_close"]').value = "10:00";
-        row.querySelector('[data-checkpoint="morning_out_open"]').value = split ? "10:30" : "17:00";
-        row.querySelector('[data-checkpoint="morning_out"]').value = split
-          ? "11:00"
-          : "18:00";
-        if (split) {
-          row.querySelector('[data-checkpoint="afternoon_in"]').value = "13:00";
-          row.querySelector('[data-checkpoint="afternoon_in_close"]').value = "14:00";
-          row.querySelector('[data-checkpoint="afternoon_out_open"]').value = "17:00";
-          row.querySelector('[data-checkpoint="afternoon_out"]').value =
-            "18:00";
-        }
+        row.querySelector('[data-checkpoint="morning_out_open"]').value = "17:00";
+        row.querySelector('[data-checkpoint="morning_out"]').value = "18:00";
       }
       syncSchedules();
     };
@@ -474,15 +425,11 @@
         today = new Date().toLocaleDateString("en-CA");
       row.dataset.scheduleRow = "";
       row.className = "rounded-xl border border-slate-200 bg-white p-4";
-      row.innerHTML = `<input type="hidden" name="attendance_days[${index}][id]" value="${day.id || ""}"><div class="mb-3 flex items-center justify-between"><strong class="text-xs font-extrabold text-slate-600" data-schedule-number>Schedule ${index + 1}</strong><button class="text-xs font-bold text-rose-600" type="button" data-remove-schedule>Remove</button></div><div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4"><label class="grid gap-2"><span class="text-xs font-bold">Date *</span><input class="h-11 min-w-0 rounded-xl border border-slate-200 px-3 text-sm" type="date" min="${day.date && day.date < today ? day.date : today}" name="attendance_days[${index}][date]" value="${day.date || day.schedule_date || ""}" required data-schedule-date></label><label class="grid gap-2"><span class="text-xs font-bold">Session *</span><select class="h-11 min-w-0 rounded-xl border border-slate-200 bg-white px-3 text-sm" name="attendance_days[${index}][attendance_session_mode_id]" data-session-mode>${modes.map((mode) => `<option value="${mode.id}">${escapeHtml(mode.name)}</option>`).join("")}</select></label>${[
+      row.innerHTML = `<input type="hidden" name="attendance_days[${index}][id]" value="${day.id || ""}"><input type="hidden" name="attendance_days[${index}][attendance_session_mode_id]" value="${modeDefault?.id || ""}" data-session-mode><div class="mb-3 flex items-center justify-between"><strong class="text-xs font-extrabold text-slate-600" data-schedule-number>Schedule ${index + 1}</strong><button class="text-xs font-bold text-rose-600" type="button" data-remove-schedule>Remove</button></div><div class="event-schedule-fields grid gap-4 sm:grid-cols-2"><label class="grid gap-2"><span class="text-xs font-bold">Date *</span><input class="h-11 min-w-0 rounded-xl border border-slate-200 px-3 text-sm" type="date" min="${day.date && day.date < today ? day.date : today}" name="attendance_days[${index}][date]" value="${day.date || day.schedule_date || ""}" required data-schedule-date></label>${[
         ["morning_in", "Time In opens", "data-primary"],
         ["morning_in_close", "Time In closes", "data-primary"],
         ["morning_out_open", "Time Out opens", "data-primary"],
         ["morning_out", "Time Out closes", "data-primary"],
-        ["afternoon_in", "Afternoon Time In opens", "data-secondary"],
-        ["afternoon_in_close", "Afternoon Time In closes", "data-secondary"],
-        ["afternoon_out_open", "Afternoon Time Out opens", "data-secondary"],
-        ["afternoon_out", "Afternoon Time Out closes", "data-secondary"],
       ]
         .map(
           ([key, label, kind]) =>
@@ -492,9 +439,7 @@
           "",
         )}</div><p class="mt-2 hidden text-xs font-semibold text-red-600" data-row-error></p>`;
       scheduleList.append(row);
-      row.querySelector("[data-session-mode]").value =
-        day.attendance_session_mode_id || modeDefault?.id || "";
-      applyMode(row, defaults);
+      applyDefaults(row, defaults);
     };
     scheduleSection.querySelector("[data-add-schedule]").onclick = () => {
       const prior = rows().at(-1),
@@ -507,11 +452,7 @@
       );
     };
     scheduleSection.addEventListener("input", syncSchedules);
-    scheduleSection.addEventListener("change", (event) =>
-      event.target.matches("[data-session-mode]")
-        ? applyMode(event.target.closest("[data-schedule-row]"), true)
-        : syncSchedules(),
-    );
+    scheduleSection.addEventListener("change", syncSchedules);
     scheduleSection.addEventListener("click", (event) => {
       const remove = event.target.closest("[data-remove-schedule]");
       if (remove) {
@@ -522,21 +463,21 @@
     const saved = (event?.attendance_schedules || []).map((day) => ({
       id: day.id,
       date: day.schedule_date,
-      attendance_session_mode_id: day.attendance_session_mode_id,
-      morning_in: (day.whole_day_in_time || day.morning_in_time || "").slice(
+      attendance_session_mode_id: modeDefault?.id || "",
+      morning_in: (day.whole_day_in_time || day.morning_in_time || day.afternoon_in_time || "").slice(
         0,
         5,
       ),
-      morning_in_close: (day.whole_day_in_close_time || day.morning_in_close_time || "").slice(0, 5),
-      morning_out_open: (day.whole_day_out_open_time || day.morning_out_open_time || "").slice(0, 5),
-      morning_out: (day.whole_day_out_time || day.morning_out_time || "").slice(
+      morning_in_close: (day.whole_day_in_close_time || day.morning_in_close_time || day.afternoon_in_close_time || "").slice(0, 5),
+      morning_out_open: (day.whole_day_out_open_time || day.afternoon_out_open_time || day.morning_out_open_time || "").slice(0, 5),
+      morning_out: (day.whole_day_out_time || day.afternoon_out_time || day.morning_out_time || "").slice(
         0,
         5,
       ),
-      afternoon_in: (day.afternoon_in_time || "").slice(0, 5),
-      afternoon_in_close: (day.afternoon_in_close_time || "").slice(0, 5),
-      afternoon_out_open: (day.afternoon_out_open_time || "").slice(0, 5),
-      afternoon_out: (day.afternoon_out_time || "").slice(0, 5),
+      afternoon_in: "",
+      afternoon_in_close: "",
+      afternoon_out_open: "",
+      afternoon_out: "",
     }));
     (saved.length ? saved : [{}]).forEach((day) =>
       addSchedule(day, !day.attendance_session_mode_id),

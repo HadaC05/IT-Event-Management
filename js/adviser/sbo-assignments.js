@@ -1,25 +1,104 @@
 (() => {
     'use strict';
-    const API = 'api/sbo-assignments.php'; let csrf = '', editingId = null, data = { officers: [], events: [], teams: [], tasks: [] };
-    const esc = v => String(v ?? '').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;').replaceAll("'",'&#039;');
-    const form = document.querySelector('[data-task-form]'), officer = document.querySelector('[data-task-officer]'), eventDay = document.querySelector('[data-task-event]'), session = document.querySelector('[data-task-session]'), responsibility = form.elements.responsibility, scannerMode = form.elements.scanner_mode, scannerTeam = form.elements.scanner_team_id, scannerSection = document.querySelector('[data-task-attendance-scanner]'), scannerTeamField = document.querySelector('[data-task-scanner-team-field]'), scannerGeneralNote = document.querySelector('[data-task-scanner-general-note]'), submit = document.querySelector('[data-task-submit]'), empty = document.querySelector('[data-task-officer-empty]'), dialog = document.querySelector('#event-responsibilities-dialog'), tabs = [...document.querySelectorAll('[data-officer-tab]')];
-    const cancelEdit = document.querySelector('[data-task-cancel-edit]'), title = document.querySelector('[data-task-dialog-title]');
-    const resetEdit = () => { editingId = null; form.reset(); title.textContent = 'Event Responsibilities'; submit.textContent = 'Assign responsibility'; cancelEdit.classList.add('hidden'); sessions(); teams(); };
-    const selectTab = name => tabs.forEach(tab => { const active = tab.dataset.officerTab === name; tab.setAttribute('aria-selected', String(active)); tab.classList.toggle('bg-white', active); tab.classList.toggle('text-[#397565]', active); tab.classList.toggle('shadow-sm', active); tab.classList.toggle('text-[#121017]/55', !active); document.querySelector(`[data-officer-tab-panel="${tab.dataset.officerTab}"]`)?.classList.toggle('hidden', !active); });
+
+    const API = 'api/sbo-assignments.php';
+    let csrf = '';
+    let editingId = null;
+    let data = { officers: [], events: [], tasks: [], assignment_groups: [] };
+
+    const esc = value => String(value ?? '')
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#039;');
+
+    const form = document.querySelector('[data-task-form]');
+    const officer = document.querySelector('[data-task-officer]');
+    const eventDay = document.querySelector('[data-task-event]');
+    const scannerMode = form.elements.scanner_mode;
+    const submit = document.querySelector('[data-task-submit]');
+    const empty = document.querySelector('[data-task-officer-empty]');
+    const dialog = document.querySelector('#event-responsibilities-dialog');
+    const cancelEdit = document.querySelector('[data-task-cancel-edit]');
+    const title = document.querySelector('[data-task-dialog-title]');
+    const scannerNote = document.querySelector('[data-task-scanner-general-note]');
+    const tabs = [...document.querySelectorAll('[data-officer-tab]')];
+
+    const updateScannerNote = () => {
+        scannerNote.textContent = scannerMode.value === 'general'
+            ? 'General access can scan any student eligible for the event.'
+            : "Specific access automatically uses the officer's own tribe.";
+    };
+
+    const resetEdit = () => {
+        editingId = null;
+        form.reset();
+        officer.disabled = !data.officers.length;
+        eventDay.disabled = !data.events.length;
+        title.textContent = 'Event Responsibilities';
+        submit.textContent = 'Assign event access';
+        cancelEdit.classList.add('hidden');
+        updateScannerNote();
+    };
+
+    const selectTab = name => tabs.forEach(tab => {
+        const active = tab.dataset.officerTab === name;
+        tab.setAttribute('aria-selected', String(active));
+        tab.classList.toggle('bg-white', active);
+        tab.classList.toggle('text-[#397565]', active);
+        tab.classList.toggle('shadow-sm', active);
+        tab.classList.toggle('text-[#121017]/55', !active);
+        document.querySelector(`[data-officer-tab-panel="${tab.dataset.officerTab}"]`)?.classList.toggle('hidden', !active);
+    });
+
+    const render = () => {
+        const hasOfficers = data.officers.length > 0;
+        const hasEvents = data.events.length > 0;
+        officer.innerHTML = hasOfficers
+            ? data.officers.map(item => `<option value="${item.id}">${esc(item.full_name)}</option>`).join('')
+            : '<option value="">No active Officer access</option>';
+        eventDay.innerHTML = hasEvents
+            ? data.events.map(item => `<option value="${item.schedule_id}">${esc(item.title)} · ${esc(item.schedule_date)}</option>`).join('')
+            : '<option value="">No event days available</option>';
+        officer.disabled = !hasOfficers;
+        eventDay.disabled = !hasEvents;
+        submit.disabled = !hasOfficers || !hasEvents;
+        empty.classList.toggle('hidden', hasOfficers);
+
+        const groups = data.assignment_groups || [];
+        const taskList = document.querySelector('[data-task-list]');
+        taskList.innerHTML = groups.length ? groups.map(group => {
+            const scannerLabel = group.scanner_mode === 'general'
+                ? 'General — all eligible tribes/teams'
+                : `Specific — ${esc(group.team_name || "officer's tribe")}`;
+            return `<tr>
+                <td data-label="Officer" class="whitespace-nowrap px-5 py-4 font-black">${esc(group.officer_name)}</td>
+                <td data-label="Event day" class="px-4 py-4"><strong class="block font-bold">${esc(group.event_name)}</strong><span class="mt-1 block whitespace-nowrap text-xs text-[#121017]/50">${esc(group.schedule_date)}</span></td>
+                <td data-label="Attendance scanner access" class="px-4 py-4 text-[#121017]/65">${scannerLabel}</td>
+                <td data-label="Action" class="px-5 py-4 text-right"><div class="flex flex-wrap justify-end gap-2"><button class="min-h-9 rounded-lg border border-[#397565]/25 px-3 text-xs font-black text-[#397565]" type="button" data-task-edit="${group.id}">Edit</button><button class="min-h-9 rounded-lg border border-[#FF6B2C]/25 px-3 text-xs font-black text-[#d9470a]" type="button" data-task-end="${group.id}">End</button></div></td>
+            </tr>`;
+        }).join('') : '<tr><td class="px-5 py-8 text-center text-sm text-[#121017]/45" colspan="4">No event access assigned.</td></tr>';
+    };
+
+    const load = async () => {
+        csrf = (await axios.get('api/auth.php?action=session')).data.csrf_token;
+        data = (await axios.get(API)).data.data;
+        render();
+    };
+
     tabs.forEach(tab => tab.addEventListener('click', () => selectTab(tab.dataset.officerTab)));
-    const sessions = () => { const chosen = data.events.find(item => item.schedule_id === Number(eventDay.value)); const options = chosen?.session_mode === 'two_sessions' ? [['morning','Morning'],['afternoon','Afternoon']] : chosen?.session_mode === 'whole_day' ? [['whole_day','Whole day']] : []; session.innerHTML = options.length ? options.map(v => `<option value="${v[0]}">${v[1]}</option>`).join('') : '<option value="">No attendance session</option>'; };
-    const syncScannerScope = () => { const attendance = responsibility.value === 'attendance', general = scannerMode.value === 'general'; scannerSection.classList.toggle('hidden', !attendance); scannerTeamField.classList.toggle('hidden', general); scannerGeneralNote.classList.toggle('hidden', !general); scannerMode.disabled = !attendance; scannerTeam.disabled = !attendance || general; scannerTeam.required = attendance && !general; };
-    const teams = () => { const chosen = data.events.find(item => item.schedule_id === Number(eventDay.value)); const allowed = new Set((chosen?.allowed_team_ids || []).map(Number)); const values = data.teams.filter(team => allowed.has(Number(team.id))); const field = document.querySelector('[data-task-team]'); const options = values.length ? values.map(team => `<option value="${team.id}">${esc(team.name)}</option>`).join('') : '<option value="">No teams in this event period and audience</option>'; field.innerHTML = options; scannerTeam.innerHTML = options; field.disabled = !values.length; scannerTeam.disabled = !values.length; if (values.length) scannerTeam.value = field.value; submit.disabled = !data.officers.length || !values.length; syncScannerScope(); };
-    const render = () => { const hasOfficers = data.officers.length > 0; officer.innerHTML = hasOfficers ? data.officers.map(item => `<option value="${item.id}">${esc(item.full_name)} · ${esc(item.username)}</option>`).join('') : '<option value="">No active Officer access</option>'; officer.disabled = !hasOfficers; submit.disabled = !hasOfficers; empty.classList.toggle('hidden', hasOfficers); eventDay.innerHTML = data.events.length ? data.events.map(item => `<option value="${item.schedule_id}">${esc(item.title)} · ${esc(item.schedule_date)} · ${esc(item.school_year_label)} / ${esc(item.term_name)}</option>`).join('') : '<option value="">No event days available</option>'; sessions(); teams(); const taskList = document.querySelector('[data-task-list]'); taskList.innerHTML = data.tasks.length ? data.tasks.map(task => `<tr><td data-label="Officer" class="whitespace-nowrap px-5 py-4 font-black">${esc(task.officer_name)}</td><td data-label="Event" class="px-4 py-4"><strong class="block font-bold">${esc(task.event_name)}</strong><span class="mt-1 block whitespace-nowrap text-xs text-[#121017]/50">${esc(task.schedule_date)}</span></td><td data-label="Session" class="whitespace-nowrap px-4 py-4 text-[#121017]/65">${esc(task.session_code).replace('_', ' ')}</td><td data-label="Activity" class="px-4 py-4 text-[#121017]/65">${esc(task.activity_name)}</td><td data-label="Team / tribe" class="px-4 py-4 text-[#121017]/65">${esc(task.team_name)}</td><td data-label="Responsibility" class="px-4 py-4"><span class="rounded-full bg-[#397565]/8 px-2.5 py-1 text-[10px] font-black uppercase text-[#397565]">${esc(task.responsibility)}</span></td><td data-label="Actions" class="px-5 py-4 text-right"><div class="flex flex-wrap justify-end gap-2"><button class="min-h-9 rounded-lg border border-[#397565]/25 px-3 text-xs font-black text-[#397565]" type="button" data-task-edit="${task.id}">Edit</button><button class="min-h-9 rounded-lg border border-[#FF6B2C]/25 px-3 text-xs font-black text-[#d9470a]" type="button" data-task-end="${task.id}">End</button></div></td></tr>`).join('') : '<tr><td class="px-5 py-8 text-center text-sm text-[#121017]/45" colspan="7">No event responsibilities assigned.</td></tr>'; };
-    const load = async () => { csrf = (await axios.get('api/auth.php?action=session')).data.csrf_token; data = (await axios.get(API)).data.data; render(); };
-    eventDay.addEventListener('change', () => { sessions(); teams(); });
-    document.querySelector('[data-task-team]').addEventListener('change', event => { scannerTeam.value = event.currentTarget.value; });
-    responsibility.addEventListener('change', syncScannerScope);
-    scannerMode.addEventListener('change', syncScannerScope);
-    document.querySelector('[data-officer-tab="assignments"]')?.addEventListener('click', () => load().catch(error => window.Notifications?.error(error.response?.data?.message || 'Unable to load responsibilities.')));
+    scannerMode.addEventListener('change', updateScannerNote);
+    document.querySelector('[data-officer-tab="assignments"]')?.addEventListener('click', () => load().catch(error => window.Notifications?.error(error.response?.data?.message || 'Unable to load event access.')));
     document.querySelector('[data-dialog-open="event-responsibilities-dialog"]')?.addEventListener('click', async () => {
-        try { await load(); resetEdit(); dialog.showModal(); officer.focus(); }
-        catch (error) { window.Notifications?.error(error.response?.data?.message || 'Unable to load responsibilities.'); }
+        try {
+            await load();
+            resetEdit();
+            dialog.showModal();
+            officer.focus();
+        } catch (error) {
+            window.Notifications?.error(error.response?.data?.message || 'Unable to load event access.');
+        }
     });
     dialog.querySelectorAll('[data-dialog-close]').forEach(close => close.addEventListener('click', () => dialog.close()));
     dialog.addEventListener('close', resetEdit);
@@ -28,25 +107,81 @@
         dialog.close();
         document.querySelector('[data-dialog-open="assign-officer-dialog"]')?.click();
     });
-    form.addEventListener('submit', async e => { e.preventDefault(); if (!data.officers.length) return; const wasEditing = editingId !== null, action = wasEditing ? 'update' : 'assign'; submit.disabled = true; try { const res = await axios.post(API, { ...Object.fromEntries(new FormData(form)), action, ...(wasEditing ? { id: editingId } : {}) }, { headers: { 'X-CSRF-Token': csrf } }); window.Notifications?.success(res.data.message); await load(); resetEdit(); if (wasEditing && dialog.open) dialog.close(); } catch (error) { submit.disabled = false; window.Notifications?.error(error.response?.data?.message || 'Responsibility could not be saved.'); } });
-    document.querySelector('[data-task-list]').addEventListener('click', async e => {
-        const edit = e.target.closest('[data-task-edit]');
+
+    form.addEventListener('submit', async event => {
+        event.preventDefault();
+        const wasEditing = editingId !== null;
+        const payload = wasEditing
+            ? { action: 'update', id: editingId, scanner_mode: scannerMode.value }
+            : {
+                action: 'assign',
+                officer_assignment_id: officer.value,
+                event_schedule_id: eventDay.value,
+                scanner_mode: scannerMode.value,
+            };
+        submit.disabled = true;
+        try {
+            const response = await axios.post(API, payload, { headers: { 'X-CSRF-Token': csrf } });
+            window.Notifications?.success(response.data.message);
+            await load();
+            resetEdit();
+            if (wasEditing && dialog.open) dialog.close();
+        } catch (error) {
+            submit.disabled = false;
+            window.Notifications?.error(error.response?.data?.message || 'Event access could not be saved.');
+        }
+    });
+
+    document.querySelector('[data-task-list]').addEventListener('click', async event => {
+        const edit = event.target.closest('[data-task-edit]');
         if (edit) {
             try {
-                await load(); const task = data.tasks.find(item => item.id === Number(edit.dataset.taskEdit));
-                if (!task) throw new Error('That responsibility is no longer active.');
-                editingId = task.id; title.textContent = 'Edit responsibility'; submit.textContent = 'Save changes'; cancelEdit.classList.remove('hidden');
-                officer.value = String(task.officer_assignment_id); eventDay.value = String(task.event_schedule_id); sessions(); session.value = task.session_code;
-                teams(); form.elements.team_id.value = String(task.team_id); form.elements.activity_name.value = task.activity_name;
-                responsibility.value = task.responsibility; scannerMode.value = task.scanner_mode || 'specific';
-                scannerTeam.value = task.scanner_team_id == null ? String(task.team_id) : String(task.scanner_team_id); syncScannerScope();
-                if (!dialog.open) dialog.showModal(); officer.focus();
-            } catch (error) { window.Notifications?.error(error.message || 'Unable to edit responsibility.'); }
+                await load();
+                const group = (data.assignment_groups || []).find(item => item.id === Number(edit.dataset.taskEdit));
+                if (!group) throw new Error('That event access is no longer active.');
+                editingId = group.id;
+                title.textContent = 'Edit attendance scanner access';
+                submit.textContent = 'Save access';
+                cancelEdit.classList.remove('hidden');
+                officer.value = String(group.officer_assignment_id);
+                eventDay.value = String(group.event_schedule_id);
+                officer.disabled = true;
+                eventDay.disabled = true;
+                scannerMode.value = group.scanner_mode || 'specific';
+                updateScannerNote();
+                if (!dialog.open) dialog.showModal();
+                scannerMode.focus();
+            } catch (error) {
+                window.Notifications?.error(error.message || 'Unable to edit event access.');
+            }
             return;
         }
-        const button = e.target.closest('[data-task-end]'); if (!button) return;
-        const yes = await (window.Notifications?.confirm?.({ title: 'End responsibility?', message: 'The officer will immediately lose this assigned access.', action: 'End responsibility' }) ?? Promise.resolve(false)); if (!yes) return;
-        try { const res = await axios.post(API, { action: 'end', id: button.dataset.taskEnd }, { headers: { 'X-CSRF-Token': csrf } }); window.Notifications?.success(res.data.message); await load(); } catch (error) { window.Notifications?.error(error.response?.data?.message || 'Unable to end responsibility.'); }
+
+        const button = event.target.closest('[data-task-end]');
+        if (!button) return;
+        const yes = await (window.Notifications?.confirm?.({
+            title: 'End event access?',
+            message: 'The officer will immediately lose attendance, scoring, and media access for this event day.',
+            action: 'End access',
+        }) ?? Promise.resolve(false));
+        if (!yes) return;
+        try {
+            const response = await axios.post(API, { action: 'end', id: button.dataset.taskEnd }, { headers: { 'X-CSRF-Token': csrf } });
+            window.Notifications?.success(response.data.message);
+            await load();
+        } catch (error) {
+            window.Notifications?.error(error.response?.data?.message || 'Unable to end event access.');
+        }
     });
-    window.SboOfficerAssignments = { activate: async id => { selectTab('assignments'); await load(); resetEdit(); if (id) officer.value = String(id); dialog.showModal(); officer.focus(); } };
+
+    window.SboOfficerAssignments = {
+        activate: async id => {
+            selectTab('assignments');
+            await load();
+            resetEdit();
+            if (id) officer.value = String(id);
+            dialog.showModal();
+            officer.focus();
+        },
+    };
 })();

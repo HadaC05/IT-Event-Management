@@ -3,6 +3,12 @@
   background: #f7f4ed;
 }
 
+@media (min-width: 1024px) {
+  .event-schedule-fields {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+}
+
 /* Use the same restrained corners throughout the adviser workspace. */
 [data-admin-shell] .admin-main :is(.rounded-xl, .rounded-2xl, .rounded-3xl),
 [data-admin-shell] .admin-main :is(input, select, textarea, button).rounded-lg {
@@ -643,9 +649,29 @@ details[open] > .attendance-scan-summary .attendance-scan-chevron {
   table-layout: fixed;
 }
 
-.officer-management-table th,
-.officer-management-table td {
+.responsibility-table {
+  min-width: 720px;
+}
+
+.officers-table {
+  min-width: 1200px;
+}
+
+.officers-table col:nth-child(1) { width: 27%; }
+.officers-table col:nth-child(2) { width: 16%; }
+.officers-table col:nth-child(3) { width: 23%; }
+.officers-table col:nth-child(4) { width: 13%; }
+.officers-table col:nth-child(5) { width: 9%; }
+.officers-table col:nth-child(6) { width: 12%; }
+
+.officer-management-table th {
   overflow: hidden;
+  vertical-align: middle;
+}
+
+.officer-management-table td {
+  overflow: visible;
+  overflow-wrap: anywhere;
   vertical-align: middle;
 }
 

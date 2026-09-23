@@ -228,15 +228,15 @@ window.SharedNavigation.ready.then(() => {
             empty.className = 'text-xs text-[#121017]/50';
             empty.textContent = assignment.status === 'Active' ? 'No active event responsibility yet.' : 'This officer login is inactive.';
             responsibilityHost.append(empty);
-        } else assignment.event_responsibilities.forEach(task => {
+        } else eventGroups(assignment.event_responsibilities).forEach(eventAccess => {
             const item = document.createElement('div');
             item.className = 'rounded-xl border border-[#397565]/15 bg-[#397565]/5 p-3';
             const eventName = document.createElement('strong');
             eventName.className = 'block text-sm';
-            eventName.textContent = task.event_name;
+            eventName.textContent = eventAccess.name;
             const context = document.createElement('span');
             context.className = 'mt-1 block text-xs text-[#121017]/60';
-            context.textContent = `${task.schedule_date} · ${task.session_code.replace('_', ' ')} · ${task.responsibility} · ${task.team_name} · ${task.activity_name}`;
+            context.textContent = `${eventAccess.date} · Attendance, scoring, and media access`;
             item.append(eventName, context);
             responsibilityHost.append(item);
         });
@@ -267,7 +267,7 @@ window.SharedNavigation.ready.then(() => {
         data.assignments.forEach(assignment => {
             const active = assignment.status === 'Active';
             const row = document.createElement('tr');
-            row.innerHTML = `<td class="px-5 py-4"><strong class="block whitespace-nowrap font-black"></strong><span class="mt-1 block text-xs text-[#121017]/50"></span></td><td class="whitespace-nowrap px-4 py-4 text-[#121017]/65"></td><td class="whitespace-nowrap px-4 py-4 font-bold text-[#121017]/65"></td><td class="whitespace-nowrap px-4 py-4 text-[#121017]/65"></td><td class="px-4 py-4"></td><td class="px-5 py-4 text-right"></td>`;
+            row.innerHTML = `<td class="px-5 py-4"><strong class="block whitespace-nowrap font-black"></strong><span class="mt-1 block whitespace-nowrap text-xs text-[#121017]/50"></span></td><td class="whitespace-nowrap px-4 py-4 text-[#121017]/65"></td><td class="whitespace-nowrap px-4 py-4 font-bold text-[#121017]/65"></td><td class="whitespace-nowrap px-4 py-4 text-[#121017]/65"></td><td class="px-4 py-4"></td><td class="px-5 py-4 text-right"></td>`;
             const cells = row.querySelectorAll('td');
             cells[0].querySelector('strong').textContent = assignment.full_name;
             cells[0].querySelector('span').textContent = visibleEmail(assignment) || `Student ID: ${assignment.student_id}`;

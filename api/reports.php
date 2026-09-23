@@ -56,8 +56,8 @@ final class ReportRepository
         $type = $report['type'];
         $definitions = [
             'attendance' => [
-                ['Student ID', 'Student', 'Year Level', 'Tribe', 'Event', 'Academic Period', 'Attendance Date', 'Status', 'Source', 'Check-in Evidence'],
-                fn (array $r): array => [$r['id_number'], $r['student_name'], $r['year_level'], $r['team_name'], $r['event_title'], $r['academic_period_label'], $r['attendance_date'], ucfirst($r['status']), $r['manual_status'] !== null ? 'Adviser correction'.($r['has_scan_evidence'] ? ' over scan evidence' : '') : ($r['has_scan_evidence'] ? 'Scanner evidence' : 'Manual record'), $r['checked_in_at']],
+                ['Student ID', 'Student', 'Year Level', 'Tribe', 'Event', 'Academic Period', 'Attendance Date', 'Status', 'Time In', 'Time Out'],
+                fn (array $r): array => [$r['id_number'], $r['student_name'], $r['year_level'], $r['team_name'], $r['event_title'], $r['academic_period_label'], $r['attendance_date'], ucfirst($r['status']), $r['time_in_at'], $r['time_out_at']],
             ],
             'participation' => [
                 ['Event', 'Academic Period', 'Schedule', 'Venue', 'Status', 'Expected Students', 'Recorded Students', 'Attended Students', 'Participation Rate'],
@@ -90,10 +90,16 @@ final class ReportRepository
     {
         $where = [];
         $params = [];
+        $scanComplete = "(EXISTS(SELECT 1 FROM tbl_attendance_entries final_in WHERE final_in.attendance_id=a.id AND final_in.phase='in') AND EXISTS(SELECT 1 FROM tbl_attendance_entries final_out WHERE final_out.attendance_id=a.id AND final_out.phase='out'))";
+        $finalized = "(a.manual_status IS NOT NULL OR $scanComplete OR a.cutoff_passed=1)";
+        $resultStatus = "CASE WHEN a.manual_status IS NOT NULL OR $scanComplete THEN CASE WHEN a.effective_status IN ('present','late') THEN 'present' ELSE 'absent' END WHEN a.cutoff_passed=1 THEN 'absent' ELSE 'incomplete' END";
+        $closeTime = "CASE mode.code WHEN 'whole_day' THEN schedule.whole_day_out_time WHEN 'two_sessions' THEN COALESCE(schedule.afternoon_out_time,schedule.morning_out_time) ELSE NULL END";
+        $cutoffPassed = "EXISTS(SELECT 1 FROM tbl_event_attendance_schedules schedule JOIN tbl_attendance_session_modes mode ON mode.id=schedule.attendance_session_mode_id WHERE schedule.event_id=base.event_id AND schedule.schedule_date=base.attendance_date AND $closeTime IS NOT NULL AND CURRENT_TIMESTAMP>=TIMESTAMP(schedule.schedule_date,$closeTime))";
+        $attendanceSource = "(SELECT base.id,base.event_id,base.user_id,base.attendance_date,base.effective_status,base.manual_status,CASE WHEN $cutoffPassed THEN 1 ELSE 0 END cutoff_passed FROM vw_attendance_effective base UNION ALL SELECT NULL,schedule.event_id,membership.user_id,schedule.schedule_date,'absent',NULL,1 FROM tbl_event_attendance_schedules schedule JOIN tbl_attendance_session_modes mode ON mode.id=schedule.attendance_session_mode_id JOIN tbl_event_membership_snapshots membership ON membership.event_id=schedule.event_id WHERE $closeTime IS NOT NULL AND CURRENT_TIMESTAMP>=TIMESTAMP(schedule.schedule_date,$closeTime) AND NOT EXISTS(SELECT 1 FROM tbl_attendances existing WHERE existing.event_id=schedule.event_id AND existing.user_id=membership.user_id AND existing.attendance_date=schedule.schedule_date)) a";
         if ($filters['event_id']) {$where[] = 'a.event_id=?'; $params[] = $filters['event_id'];}
         if ($filters['school_year_id']) {$where[] = 'EXISTS(SELECT 1 FROM tbl_events period_event JOIN tbl_academic_periods ap ON ap.id=period_event.academic_period_id WHERE period_event.id=a.event_id AND ap.school_year_id=?)'; $params[] = $filters['school_year_id'];}
         if ($filters['academic_period_id']) {$where[] = 'EXISTS(SELECT 1 FROM tbl_events period_event WHERE period_event.id=a.event_id AND period_event.academic_period_id=?)'; $params[] = $filters['academic_period_id'];}
-        if ($filters['status']) $where[] = "a.effective_status IN (".($filters['status']==='present'?"'present','late'":"'absent','excused'").")";
+        if ($filters['status']) $where[] = "$finalized AND $resultStatus=".$this->db->quote($filters['status']);
         if ($filters['date_from']) {$where[] = 'date(a.attendance_date)>=date(?)'; $params[] = $filters['date_from'];}
         if ($filters['date_to']) {$where[] = 'date(a.attendance_date)<=date(?)'; $params[] = $filters['date_to'];}
         if ($filters['search'] !== '') {
@@ -102,16 +108,17 @@ final class ReportRepository
             array_push($params, $like, $like, $like, $like, $like);
         }
         $whereSql = $where ? 'WHERE '.implode(' AND ', $where) : '';
-        $from = "FROM vw_attendance_effective a LEFT JOIN tbl_events e ON e.id=a.event_id LEFT JOIN tbl_academic_periods ap ON ap.id=e.academic_period_id LEFT JOIN tbl_school_years sy ON sy.id=ap.school_year_id LEFT JOIN tbl_users u ON u.id=a.user_id LEFT JOIN tbl_year_levels yl ON yl.id=u.year_level $whereSql";
-        $summary = $this->row("SELECT COUNT(*) records,SUM(CASE WHEN a.effective_status IN ('present','late') THEN 1 ELSE 0 END) attended,SUM(CASE WHEN a.effective_status IN ('absent','excused') THEN 1 ELSE 0 END) absent $from", $params);
+        $from = "FROM $attendanceSource LEFT JOIN tbl_events e ON e.id=a.event_id LEFT JOIN tbl_academic_periods ap ON ap.id=e.academic_period_id LEFT JOIN tbl_school_years sy ON sy.id=ap.school_year_id LEFT JOIN tbl_users u ON u.id=a.user_id LEFT JOIN tbl_year_levels yl ON yl.id=u.year_level $whereSql";
+        $summary = $this->row("SELECT COUNT(*) records,SUM(CASE WHEN $finalized AND $resultStatus='present' THEN 1 ELSE 0 END) attended,SUM(CASE WHEN $finalized AND $resultStatus='absent' THEN 1 ELSE 0 END) absent $from", $params);
         $total = (int) $summary['records'];
-        $sql = "SELECT a.id,a.attendance_date,CASE WHEN a.effective_status='late' THEN 'present' WHEN a.effective_status='excused' THEN 'absent' ELSE a.effective_status END status,a.manual_status,a.checked_in_at,EXISTS(SELECT 1 FROM tbl_attendance_entries ae WHERE ae.attendance_id=a.id) has_scan_evidence,e.title event_title,CONCAT('SY ',sy.label,' · ',ap.term_name) academic_period_label,u.id_number,TRIM(CONCAT_WS(' ',u.first_name,NULLIF(u.middle_name,''),u.last_name)) student_name,yl.label year_level,(SELECT ms.team_name FROM tbl_event_membership_snapshots ms WHERE ms.event_id=a.event_id AND ms.user_id=a.user_id LIMIT 1) team_name $from ORDER BY DATE(a.attendance_date) DESC,a.id DESC";
+        $sql = "SELECT a.id,a.attendance_date,$resultStatus status,(SELECT MIN(scan_in.scanned_at) FROM tbl_attendance_entries scan_in WHERE scan_in.attendance_id=a.id AND scan_in.phase='in') time_in_at,(SELECT MAX(scan_out.scanned_at) FROM tbl_attendance_entries scan_out WHERE scan_out.attendance_id=a.id AND scan_out.phase='out') time_out_at,e.title event_title,CONCAT('SY ',sy.label,' · ',ap.term_name) academic_period_label,u.id_number,TRIM(CONCAT_WS(' ',u.first_name,NULLIF(u.middle_name,''),u.last_name)) student_name,yl.label year_level,(SELECT ms.team_name FROM tbl_event_membership_snapshots ms WHERE ms.event_id=a.event_id AND ms.user_id=a.user_id LIMIT 1) team_name $from ORDER BY DATE(a.attendance_date) DESC,a.id DESC";
         $rows = $this->pagedRows($sql, $params, $total, $filters['page'], $all);
+        $finalizedTotal=(int)($summary['attended']??0)+(int)($summary['absent']??0);
         return ['rows' => $rows['rows'], 'pagination' => $rows['pagination'], 'summary' => [
             'records' => $total,
             'attended' => (int) ($summary['attended'] ?? 0),
             'absent' => (int) ($summary['absent'] ?? 0),
-            'rate' => $total ? round(((int) $summary['attended'] / $total) * 100, 1) : null,
+            'rate' => $finalizedTotal ? round(((int) $summary['attended'] / $finalizedTotal) * 100, 1) : null,
         ]];
     }
 
