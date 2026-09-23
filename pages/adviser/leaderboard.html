@@ -24,24 +24,9 @@
         data-page-content
       >
         <header
-          class="flex flex-col gap-5 border-b border-[#121017]/10 pb-7 lg:flex-row lg:items-end lg:justify-between"
+          class="flex flex-col gap-4 border-b border-[#121017]/10 pb-5 sm:flex-row sm:items-center sm:justify-between"
         >
-          <div>
-            <p
-              class="flex items-center gap-2 text-[10px] font-black uppercase tracking-[.17em] text-[#397565]"
-            >
-              <i
-                class="h-2 w-2 rounded-full bg-[#C6F24E] ring-2 ring-[#397565]/15"
-              ></i
-              >Competition standings
-            </p>
-            <h1 class="mt-3 text-4xl font-black tracking-[-.055em] sm:text-5xl">
-              Leaderboard
-            </h1>
-            <p class="mt-2 max-w-2xl text-sm leading-6 text-[#121017]/52">
-              Compare tribe performance across scored events.
-            </p>
-          </div>
+          <h1 class="text-2xl font-black tracking-[-.04em] sm:text-3xl">Leaderboard</h1>
           <a
             class="inline-flex min-h-11 w-fit items-center justify-center gap-2 rounded-xl bg-[#397565] px-5 text-xs font-black text-white shadow-[0_10px_25px_rgba(57,117,101,.18)] transition hover:-translate-y-0.5 hover:bg-[#2f6255]"
             href="pages/adviser/scores.html"
@@ -64,10 +49,10 @@
             </button>
           </div>
           <form
-            class="grid gap-3 md:grid-cols-2 xl:grid-cols-[1.15fr_1fr_1fr_1.2fr]"
+            class="flex flex-col gap-3 sm:flex-row sm:items-center"
             data-leaderboard-filters
           >
-            <label
+            <label style="order: 2; width: 100%; max-width: 13rem"
               ><span
                 class="sr-only"
                 >Event</span
@@ -78,17 +63,7 @@
               >
                 <option value="">All scored events</option>
               </select></label
-            ><label
-              ><span
-                class="sr-only"
-                >School year</span
-              ><select
-                class="h-11 w-full rounded-xl border border-[#121017]/10 bg-white px-3 text-xs font-bold outline-none focus:border-[#397565] focus:ring-4 focus:ring-[#397565]/10"
-                name="school_year_id"
-              >
-                <option value="">All school years</option>
-              </select></label
-            ><label
+            ><label style="order: 3; width: 100%; max-width: 13rem"
               ><span
                 class="sr-only"
                 >Competition</span
@@ -100,7 +75,7 @@
               >
                 <option value="">Overall event score</option>
               </select></label
-            ><label
+            ><label style="order: 1; flex: 1 1 18rem; width: 100%"
               ><span
                 class="sr-only"
                 >Find tribe</span
@@ -153,7 +128,7 @@
           </div>
         </section>
         <section class="mt-10" data-competition-standings>
-          <header class="mb-4 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between"><div><p class="text-[9px] font-black uppercase tracking-[.15em] text-[#397565]">Competition standings</p><h2 class="mt-1 text-xl font-black">Activity results</h2><p class="mt-1 text-xs text-[#121017]/42">Raw-score placements appear here. Tribe totals update only after an activity is finalized.</p></div></header>
+          <header class="mb-4"><h2 class="text-xl font-black">Activity results</h2></header>
           <div class="grid gap-5 xl:grid-cols-2" data-competition-standing-list></div>
         </section>
       </main>
@@ -165,6 +140,6 @@
     <script src="js/vendor/axios.min.js"></script>
     <script src="js/shared/password-gate.js?v=20260917-1"></script>
     <script src="js/shared/navigation.js?v=20260921-adviser-sections-1"></script>
-    <script src="js/adviser/leaderboard.js?v=20260923-top-five-2"></script>
+    <script src="js/adviser/leaderboard.js?v=20260923-activity-toggle-fix-1"></script>
   </body>
 </html>
