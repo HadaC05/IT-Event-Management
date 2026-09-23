@@ -67,6 +67,7 @@ final class ActivityScoringRepository
             usort($rows,fn($a,$b)=>(float)$b['raw_score'] <=> (float)$a['raw_score'] ?: (int)$a['team_id'] <=> (int)$b['team_id']);
             $insert=$this->db->prepare('INSERT INTO tbl_activity_score_results(event_id,activity_id,team_id,raw_score,placement,overall_points,finalized_by,finalized_at,created_at,updated_at) VALUES(?,?,?,?,?,?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)');
             $previous=null;$placement=0;foreach($rows as $index=>$row){$raw=(float)$row['raw_score'];if($previous===null||abs($raw-$previous)>0.00001)$placement=$index+1;$points=$rules[$placement]??0;$insert->execute([$eventId,$activityId,(int)$row['team_id'],$raw,$placement,$points,$actor]);$previous=$raw;}
+            $this->db->prepare("UPDATE tbl_event_activities SET status=CASE WHEN status='inactive' THEN 'inactive' ELSE 'completed' END,updated_at=CURRENT_TIMESTAMP WHERE id=? AND event_id=?")->execute([$activityId,$eventId]);
             $this->db->commit();return 'Competition finalized. Placement points are now included in the overall tribe standings.';
         } catch(Throwable $e){if($this->db->inTransaction())$this->db->rollBack();throw $e;}
     }

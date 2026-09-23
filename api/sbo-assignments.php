@@ -46,7 +46,7 @@ final class SboAssignmentRepository
           JOIN tbl_users u ON u.id=oa.officer_user_id
           JOIN tbl_event_attendance_schedules s ON s.id=sea.event_schedule_id
           JOIN tbl_events e ON e.id=s.event_id AND e.deleted_at IS NULL
-          JOIN tbl_event_activities a ON a.id=sea.activity_id AND a.status='active'
+          JOIN tbl_event_activities a ON a.id=sea.activity_id AND a.status<>'inactive'
           JOIN tbl_teams t ON t.id=sea.team_id AND t.is_active=1
           LEFT JOIN tbl_teams scanner_team ON scanner_team.id=sea.scanner_team_id
           WHERE sea.status='active' ORDER BY s.schedule_date DESC,e.title,u.last_name")->fetchAll();
@@ -89,12 +89,12 @@ final class SboAssignmentRepository
                 if($scheduleRow['event_type_id']===null)throw new InvalidArgumentException('Assign an event type before adding an activity.');
                 $catalog=$this->db->prepare("INSERT INTO tbl_activities(label,event_type_id,status,created_at,updated_at) VALUES(?,?,'active',CURRENT_TIMESTAMP,CURRENT_TIMESTAMP) ON DUPLICATE KEY UPDATE status='active',updated_at=CURRENT_TIMESTAMP");$catalog->execute([$activityName,(int)$scheduleRow['event_type_id']]);
                 $catalogId=(int)$this->scalar('SELECT id FROM tbl_activities WHERE event_type_id=? AND label=?',[(int)$scheduleRow['event_type_id'],$activityName]);
-                $statement=$this->db->prepare("INSERT INTO tbl_event_activities(event_id,activity_id,name,status,created_by,created_at,updated_at) VALUES(?,?,?,'active',?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)");$statement->execute([(int)$scheduleRow['event_id'],$catalogId,$activityName,$actorId]);$activityId=(int)$this->db->lastInsertId();
+                $statement=$this->db->prepare("INSERT INTO tbl_event_activities(event_id,activity_id,name,event_schedule_id,status,created_by,created_at,updated_at) VALUES(?,?,?,?, 'active',?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)");$statement->execute([(int)$scheduleRow['event_id'],$catalogId,$activityName,(int)$scheduleRow['id'],$actorId]);$activityId=(int)$this->db->lastInsertId();
             }
             else {
                 $activityId=(int)$activity['id'];
                 if($activity['status']!=='active')
-                    $this->db->prepare("UPDATE tbl_event_activities SET status='active',updated_at=CURRENT_TIMESTAMP WHERE id=?")->execute([$activityId]);
+                    $this->db->prepare("UPDATE tbl_event_activities SET status='active',event_schedule_id=?,updated_at=CURRENT_TIMESTAMP WHERE id=?")->execute([(int)$scheduleRow['id'],$activityId]);
             }
             $responsibilityId=(int)$this->scalar('SELECT id FROM tbl_officer_responsibilities WHERE code=?',[$responsibility]);
             $existing=$this->db->prepare("SELECT id FROM tbl_sbo_event_assignments WHERE officer_assignment_id=? AND event_schedule_id=? AND session_code=? AND activity_id=? AND team_id=? AND responsibility_id=? AND status='active' FOR UPDATE");

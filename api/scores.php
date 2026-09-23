@@ -31,7 +31,7 @@ final class ScoreManagementRepository
 
         $count = $this->db->prepare('SELECT COUNT(*) FROM tbl_events e'.$whereSql); $count->execute($params);
         $total = (int)$count->fetchColumn(); $lastPage = max(1, (int)ceil($total / $perPage)); $page = min($page, $lastPage);
-        $sql = "SELECT e.id,e.title,e.location,e.start_at,e.end_at,
+        $sql = "SELECT e.id,e.title,e.location,e.poster_path,e.start_at,e.end_at,
             (SELECT COUNT(*) FROM tbl_score_categories c WHERE c.event_id=e.id) score_categories_count,
             (SELECT COUNT(*) FROM tbl_scores s WHERE s.event_id=e.id AND s.score_category_id IS NOT NULL) scores_count,
             (SELECT COUNT(DISTINCT s.team_id) FROM tbl_scores s WHERE s.event_id=e.id AND s.score_category_id IS NOT NULL) scored_teams_count,
@@ -40,6 +40,8 @@ final class ScoreManagementRepository
             (SELECT COUNT(*) FROM tbl_score_sheets sh WHERE sh.event_id=e.id) score_sheets_count,
             (SELECT COUNT(*) FROM tbl_score_sheets sh WHERE sh.event_id=e.id AND sh.status='finalized') finalized_score_sheets_count,
             (SELECT COUNT(*) FROM tbl_event_activities ea WHERE ea.event_id=e.id) activity_count,
+            (SELECT COUNT(*) FROM tbl_event_activities ea WHERE ea.event_id=e.id AND ea.status='ongoing') ongoing_activity_count,
+            (SELECT COUNT(*) FROM tbl_event_activities ea WHERE ea.event_id=e.id AND ea.status='completed') completed_activity_count,
             (SELECT COUNT(*) FROM tbl_activity_raw_scores ars WHERE ars.event_id=e.id) raw_score_count,
             (SELECT COUNT(DISTINCT ar.activity_id) FROM tbl_activity_score_results ar WHERE ar.event_id=e.id) finalized_activity_count,
             COALESCE((SELECT SUM(s.points) FROM tbl_scores s WHERE s.event_id=e.id),0) scores_sum_points
@@ -48,7 +50,7 @@ final class ScoreManagementRepository
         $statement->bindValue(':limit', $perPage, PDO::PARAM_INT); $statement->bindValue(':offset', ($page - 1) * $perPage, PDO::PARAM_INT); $statement->execute();
         $events = $statement->fetchAll();
         foreach ($events as &$event) {
-            foreach (['id','score_categories_count','scores_count','scored_teams_count','eligible_teams_count','completed_teams_count','score_sheets_count','finalized_score_sheets_count','activity_count','raw_score_count','finalized_activity_count'] as $key) $event[$key] = (int)$event[$key];
+            foreach (['id','score_categories_count','scores_count','scored_teams_count','eligible_teams_count','completed_teams_count','score_sheets_count','finalized_score_sheets_count','activity_count','ongoing_activity_count','completed_activity_count','raw_score_count','finalized_activity_count'] as $key) $event[$key] = (int)$event[$key];
             $event['scores_sum_points'] = (float)$event['scores_sum_points'];
             $event['schedule_state'] = $this->scheduleState($event, $now);
             $allowedTeamIds=(new AcademicPeriodScope($this->db))->teamIdsForEvent((int)$event['id'],true);
