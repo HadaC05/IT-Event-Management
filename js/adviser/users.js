@@ -221,6 +221,75 @@ window.SharedNavigation.ready.then(() => {
         });
     };
 
+    const resetOfficerPassword = user => {
+        closeUserMenu();
+        if (!user.officer_assignment_id) {
+            notify('warning', 'This SBO Officer account is no longer active. Open Officer Management to review its access status.');
+            return;
+        }
+
+        const dialog = document.createElement('dialog');
+        dialog.dataset.modalSize = 'medium';
+        dialog.dataset.modalKind = 'form';
+        dialog.className = 'm-auto w-[min(520px,calc(100%_-_2rem))] rounded-2xl border-0 bg-white p-0 text-[#121017] shadow-2xl backdrop:bg-[#121017]/60';
+        dialog.innerHTML = `
+            <form>
+                <header class="border-b border-[#121017]/8 border-t-4 border-t-[#397565] px-6 py-5">
+                    <div class="flex items-start justify-between gap-4"><div><p class="text-xs font-black uppercase tracking-wider text-[#397565]">SBO Officer account only</p><h2 class="mt-1 text-2xl font-black">Reset SBO Password</h2></div><button class="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#F3F0E9] text-xl" type="button" data-dialog-close aria-label="Close">×</button></div>
+                    <div class="mt-4 rounded-xl bg-[#F3F0E9]/35 px-4 py-3"><strong class="block text-sm font-black"></strong><span class="mt-1 block text-xs font-bold text-[#397565]"></span></div>
+                </header>
+                <div class="grid gap-4 p-6">
+                    <label class="grid gap-2"><span class="text-sm font-bold">New temporary password</span><span class="relative"><input class="h-12 w-full rounded-xl border border-[#121017]/12 px-3 pr-12 text-sm outline-none focus:border-[#397565]" name="password" type="password" minlength="8" required autocomplete="new-password"><button class="absolute right-3 top-1/2 grid h-9 w-9 -translate-y-1/2 place-items-center rounded-lg text-xs font-black text-[#397565] hover:bg-[#397565]/8" type="button" data-password-toggle aria-label="Show new password" aria-pressed="false">Show</button></span></label>
+                    <label class="grid gap-2"><span class="text-sm font-bold">Confirm temporary password</span><span class="relative"><input class="h-12 w-full rounded-xl border border-[#121017]/12 px-3 pr-12 text-sm outline-none focus:border-[#397565]" name="password_confirmation" type="password" minlength="8" required autocomplete="new-password"><button class="absolute right-3 top-1/2 grid h-9 w-9 -translate-y-1/2 place-items-center rounded-lg text-xs font-black text-[#397565] hover:bg-[#397565]/8" type="button" data-password-toggle aria-label="Show password confirmation" aria-pressed="false">Show</button></span></label>
+                    <p class="rounded-xl bg-[#397565]/7 px-4 py-3 text-xs leading-5 text-[#397565]">This changes only the separate SBO Officer login. The officer must create a new private password after signing in; their Student account is unchanged.</p>
+                </div>
+                <footer class="flex justify-end gap-2 border-t border-[#121017]/8 bg-white px-6 py-4"><button class="min-h-11 rounded-xl border border-[#121017]/12 px-4 text-sm font-bold" type="button" data-dialog-close>Cancel</button><button class="min-h-11 rounded-xl bg-[#397565] px-5 text-sm font-black text-white" type="submit">Reset password</button></footer>
+            </form>`;
+
+        const form = dialog.querySelector('form');
+        form.querySelector('header strong').textContent = user.full_name;
+        form.querySelector('header strong + span').textContent = `SBO username: ${user.username}`;
+        const confirmPassword = form.elements.password_confirmation;
+        const validateConfirmation = () => {
+            confirmPassword.setCustomValidity(form.elements.password.value === confirmPassword.value ? '' : 'Passwords do not match.');
+        };
+        form.elements.password.addEventListener('input', validateConfirmation);
+        confirmPassword.addEventListener('input', validateConfirmation);
+        form.querySelectorAll('[data-password-toggle]').forEach(button => button.addEventListener('click', () => {
+            const input = button.parentElement.querySelector('input');
+            const showing = input.type === 'text';
+            input.type = showing ? 'password' : 'text';
+            button.textContent = showing ? 'Show' : 'Hide';
+            button.setAttribute('aria-pressed', String(!showing));
+            button.setAttribute('aria-label', `${showing ? 'Show' : 'Hide'} ${input.name === 'password_confirmation' ? 'password confirmation' : 'new password'}`);
+        }));
+        dialog.querySelectorAll('[data-dialog-close]').forEach(button => button.addEventListener('click', () => dialog.close()));
+        dialog.addEventListener('close', () => dialog.remove());
+        form.addEventListener('submit', async event => {
+            event.preventDefault();
+            validateConfirmation();
+            if (!form.reportValidity()) return;
+            const submit = event.submitter;
+            window.Notifications?.setLoading(submit, true, 'Resetting password…');
+            try {
+                const data = Object.fromEntries(new FormData(form));
+                data.action = 'change_password';
+                data.assignment_id = user.officer_assignment_id;
+                const response = await axios.post('api/officers.php', data, { headers: { 'X-CSRF-Token': csrfToken } });
+                dialog.close();
+                notify('success', response.data.message || 'The SBO Officer password was reset.');
+                await loadUsers();
+            } catch (error) {
+                showError(error);
+            } finally {
+                window.Notifications?.setLoading(submit, false);
+            }
+        });
+        document.body.append(dialog);
+        dialog.showModal();
+        requestAnimationFrame(() => form.elements.password.focus());
+    };
+
     const viewUser = user => {
         closeUserMenu();
         const viewer = document.createElement('dialog');
@@ -288,6 +357,7 @@ window.SharedNavigation.ready.then(() => {
             menu.append(divider);
             add(user.status === 'inactive' ? 'Activate user' : 'Deactivate user', () => toggleUser(user), user.status !== 'inactive');
         } else if (user.role === 'SBO Officer') {
+            add('Reset password', () => resetOfficerPassword(user));
             add('Manage officer account', () => { location.href = `pages/adviser/officers.html?search=${encodeURIComponent(user.id_number || user.username)}`; });
         }
         document.body.append(menu);

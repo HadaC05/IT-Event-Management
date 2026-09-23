@@ -60,6 +60,9 @@ final class UserManagementRepository
                     u.username, u.email, u.role_id, u.year_level, u.status AS status_id,
                     (SELECT tu.team_id FROM tbl_team_user tu WHERE tu.user_id=u.id ORDER BY tu.id DESC LIMIT 1) faculty_team_id,
                     (SELECT t.name FROM tbl_team_user tu JOIN tbl_teams t ON t.id=tu.team_id WHERE tu.user_id=u.id ORDER BY tu.id DESC LIMIT 1) faculty_team_name,
+                    (SELECT oa.id FROM tbl_sbo_officer_assignments oa
+                        WHERE oa.officer_user_id=u.id AND oa.status=\'Active\'
+                        ORDER BY oa.id DESC LIMIT 1) officer_assignment_id,
                     r.name AS role, s.label AS status, yl.label AS year_level_label'
             .$from.' ORDER BY u.last_name, u.first_name LIMIT :limit OFFSET :offset';
         $statement = $this->db->prepare($sql);
@@ -73,6 +76,7 @@ final class UserManagementRepository
             $user['id'] = (int) $user['id'];
             $user['role_id'] = $user['role_id'] === null ? null : (int) $user['role_id'];
             $user['year_level'] = $user['year_level'] === null ? null : (int) $user['year_level'];
+            $user['officer_assignment_id'] = $user['officer_assignment_id'] === null ? null : (int) $user['officer_assignment_id'];
             $user['full_name'] = trim(implode(' ', array_filter([
                 $user['first_name'],
                 $user['middle_name'],
