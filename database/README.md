@@ -55,11 +55,13 @@ then run `php api/reset-pending-student-temporary-passwords.php --apply`.
 Neither command prints individual credentials.
 
 Faculty imports are additive and accept `.xlsx` files whose first worksheet
-contains a name, email, and Faculty ID column. Header aliases include Faculty
-Name or Teacher Name, Gmail or PHINMA Gmail, and School ID or Faculty ID. Other
-columns are ignored. Imported accounts always use the Faculty role, start with
-no team membership, and must change the temporary Faculty-ID-plus-surname
-password at first sign-in.
+contains a name and Faculty ID. Headings are optional when column A contains IDs
+and column B contains names. Header aliases include Faculty Name or Teacher Name,
+School ID or Faculty ID, and optional Gmail or PHINMA Gmail. Other columns are
+ignored. Missing emails receive unique `@pending.invalid` placeholders until a
+real address is added; those placeholders cannot receive mail. Imported accounts
+always use the Faculty role, start with no team membership, and must change the
+temporary Faculty-ID-plus-surname password at first sign-in.
 
 Import `database/2026_09_21_normalize_officer_responsibilities.sql` once after
 the SBO migrations. It creates `tbl_officer_responsibilities`, seeds Attendance,

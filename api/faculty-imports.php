@@ -38,14 +38,18 @@ final class FacultySpreadsheetReader
                 if ($headers === []) {
                     if ($rowNumber > 20) break;
                     $candidate = $this->mapHeaders($values);
-                    if (count($candidate) === 3) $headers = $candidate;
-                    continue;
+                    if (isset($candidate['name'], $candidate['faculty_id'])) {
+                        $headers = $candidate;
+                        continue;
+                    }
+                    $headers = $this->headerlessColumns($values);
+                    if ($headers === []) continue;
                 }
                 $record = ['source_row' => $rowNumber, 'name' => '', 'email' => '', 'faculty_id' => ''];
                 foreach ($headers as $field => $column) $record[$field] = trim((string) ($values[$column] ?? ''));
                 if ($record['name'] !== '' || $record['email'] !== '' || $record['faculty_id'] !== '') $records[] = $record;
             }
-            if ($headers === []) throw new InvalidArgumentException('The workbook needs Name, Gmail, and School ID columns. Accepted headings include Faculty Name, Teacher Name, PHINMA Gmail, and Faculty ID.');
+            if ($headers === []) throw new InvalidArgumentException('The workbook needs Faculty ID and name columns. Headings are optional; email is optional.');
             return $records;
         } finally {
             $zip->close();
@@ -63,6 +67,21 @@ final class FacultySpreadsheetReader
             }
         }
         return $mapped;
+    }
+
+    /** @param array<int,string> $values @return array<string,int> */
+    private function headerlessColumns(array $values): array
+    {
+        $filled = array_filter($values, static fn (string $value): bool => $value !== '');
+        if (count($filled) !== 2) return [];
+        foreach ($filled as $idColumn => $id) {
+            if (!FacultyId::isValid($id)) continue;
+            foreach ($filled as $nameColumn => $name) {
+                if ($nameColumn !== $idColumn && count(preg_split('/\s+/u', str_replace(',', ' ', $name), -1, PREG_SPLIT_NO_EMPTY) ?: []) >= 2)
+                    return ['faculty_id' => $idColumn, 'name' => $nameColumn];
+            }
+        }
+        return [];
     }
 
     private function firstSheetPath(ZipArchive $zip): string
@@ -146,11 +165,13 @@ final class FacultyImportService
         $rows = [];
         foreach ($records as $record) {
             $id = mb_strtoupper(trim($record['faculty_id']));
-            $email = mb_strtolower(trim($record['email']));
+            $suppliedEmail = mb_strtolower(trim($record['email']));
+            $needsEmail = $suppliedEmail === '';
+            $email = $needsEmail && FacultyId::isValid($id) ? $this->pendingEmail($id) : $suppliedEmail;
             $name = trim((string) preg_replace('/\s+/u', ' ', $record['name']));
             $errors = [];
             if ($name === '' || count(preg_split('/\s+/u', str_replace(',', ' ', $name), -1, PREG_SPLIT_NO_EMPTY) ?: []) < 2) $errors[] = 'Enter the faculty member’s complete name.';
-            if (!filter_var($email, FILTER_VALIDATE_EMAIL)) $errors[] = 'Enter a valid Gmail or PHINMA email address.';
+            if ($email !== '' && !filter_var($email, FILTER_VALIDATE_EMAIL)) $errors[] = 'Enter a valid email address.';
             if (!FacultyId::isValid($id)) $errors[] = FacultyId::FORMAT_MESSAGE;
             if (isset($seenIds[$id])) $errors[] = 'Faculty ID is duplicated in this workbook.';
             if (isset($seenEmails[$email])) $errors[] = 'Email is duplicated in this workbook.';
@@ -161,6 +182,7 @@ final class FacultyImportService
             [$first, $middle, $last] = $this->splitName($name);
             $rows[] = [
                 'source_row' => $record['source_row'], 'name' => $name, 'email' => $email, 'faculty_id' => $id,
+                'needs_email' => $needsEmail,
                 'first_name' => $first, 'middle_name' => $middle, 'last_name' => $last,
                 'status' => $errors ? 'blocked' : 'ready', 'errors' => $errors,
             ];
@@ -212,6 +234,11 @@ final class FacultyImportService
             if ($email !== '') $keys['emails'][$email] = true;
         }
         return $keys;
+    }
+
+    private function pendingEmail(string $facultyId): string
+    {
+        return 'faculty.'.mb_strtolower($facultyId).'@pending.invalid';
     }
 
     /** @return array{0:string,1:string,2:string} */

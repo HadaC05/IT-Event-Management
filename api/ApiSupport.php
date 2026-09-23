@@ -23,11 +23,11 @@ final class StudentId
 
 final class FacultyId
 {
-    public const FORMAT_MESSAGE = 'Faculty ID numbers must use 2x-xxx-X through 2x-xxxxxx-X (for example, 23-2324-F).';
+    public const FORMAT_MESSAGE = 'Faculty ID numbers must use xx-xxx-X through xx-xxxxxx-X (for example, 18-035-F or 23-2324-F).';
 
     public static function isValid(string $value): bool
     {
-        return preg_match('/^2\d-\d{3,6}-[A-Z]$/', mb_strtoupper(trim($value))) === 1;
+        return preg_match('/^\d{2}-\d{3,6}-[A-Z]$/', mb_strtoupper(trim($value))) === 1;
     }
 }
 

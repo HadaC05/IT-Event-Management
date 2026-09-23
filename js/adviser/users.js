@@ -804,7 +804,7 @@ window.SharedNavigation.ready.then(() => {
         const rowsHost = facultyImportDialog.querySelector('[data-faculty-rows]');
         rowsHost.replaceChildren(...(data.rows || []).map(item => {
             const row = document.createElement('tr');
-            [item.source_row, `${item.name} · ${item.email}`, item.faculty_id, item.status, (item.errors || []).join(' ') || 'Ready to import.'].forEach((value, index) => {
+            [item.source_row, `${item.name} · ${item.email}${item.needs_email ? ' (add real email later)' : ''}`, item.faculty_id, item.status, (item.errors || []).join(' ') || 'Ready to import.'].forEach((value, index) => {
                 const cell = document.createElement('td');
                 cell.className = index === 3 ? 'px-3 py-3 font-black capitalize' : 'px-3 py-3 align-top text-[#121017]/65';
                 if (index === 3) cell.style.color = item.status === 'ready' ? '#397565' : '#C2410C';
@@ -814,7 +814,8 @@ window.SharedNavigation.ready.then(() => {
             return row;
         }));
         facultyImportApply.disabled = !facultyImportToken || Number(summary.ready || 0) < 1;
-        facultyImportDialog.querySelector('[data-faculty-note]').textContent = `${Number(summary.ready || 0).toLocaleString()} valid Faculty account${Number(summary.ready || 0) === 1 ? '' : 's'} will be added. Faculty start without a team assignment.`;
+        const missingEmails = (data.rows || []).filter(item => item.status === 'ready' && item.needs_email).length;
+        facultyImportDialog.querySelector('[data-faculty-note]').textContent = `${Number(summary.ready || 0).toLocaleString()} valid Faculty account${Number(summary.ready || 0) === 1 ? '' : 's'} will be added without a team assignment.${missingEmails ? ` ${missingEmails} will need real email addresses later.` : ''}`;
         facultyImportDialog.querySelector('[data-faculty-results]').classList.remove('hidden');
     };
 

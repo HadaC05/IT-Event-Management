@@ -14,7 +14,8 @@ $assert(FacultyId::isValid('20-001-F'), 'another 2x Faculty ID is accepted');
 $assert(FacultyId::isValid('23-2324-A'), 'four middle digits and any final letter are accepted');
 $assert(FacultyId::isValid('29-123456-z'), 'six middle digits and a lowercase final letter are accepted');
 $assert(!FacultyId::isValid('26045F'), 'an unformatted Faculty ID is rejected');
-$assert(!FacultyId::isValid('19-045-F'), 'a Faculty ID outside the 2x series is rejected');
+$assert(FacultyId::isValid('19-045-F'), 'older Faculty ID year prefixes are accepted');
+$assert(FacultyId::isValid('12-015-F'), 'the supplied roster’s oldest Faculty ID series is accepted');
 $assert(!FacultyId::isValid('23-12-F'), 'fewer than three middle digits are rejected');
 $assert(!FacultyId::isValid('02-2026-00001'), 'a Student ID is rejected as a Faculty ID');
 
