@@ -8,6 +8,13 @@ window.SharedNavigation.ready.then(() => {
     const time = value => format(value, { hour: 'numeric', minute: '2-digit' });
     const shortDate = value => format(value, { month: 'short', day: 'numeric' });
     const dateTime = value => value ? format(value, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '—';
+    const tribeColor = value => /^#[0-9a-f]{6}$/i.test(String(value || '')) ? value : '#397565';
+    const readableTextColor = value => {
+        const color = tribeColor(value).slice(1);
+        const channels = [0, 2, 4].map(offset => parseInt(color.slice(offset, offset + 2), 16));
+        const brightness = (channels[0] * 299 + channels[1] * 587 + channels[2] * 114) / 1000;
+        return brightness > 155 ? '#121017' : '#ffffff';
+    };
 
     const emptyState = (title, message, href = '', action = '') => {
         const element = document.createElement('div');
@@ -138,6 +145,8 @@ window.SharedNavigation.ready.then(() => {
             const rank = document.createElement('span');
             rank.className = team.rank === 1 ? 'grid h-9 w-9 shrink-0 place-items-center rounded-full bg-emerald-300 text-xs font-black' : 'grid h-9 w-9 shrink-0 place-items-center rounded-full bg-slate-100 text-xs font-black text-slate-500';
             rank.textContent = team.rank;
+            rank.style.backgroundColor = tribeColor(team.color);
+            rank.style.color = readableTextColor(team.color);
             const details = document.createElement('span');
             details.className = 'min-w-0 flex-1';
             details.innerHTML = '<strong class="block truncate text-sm text-slate-700"></strong><small class="mt-1 block text-xs text-slate-400"></small>';
