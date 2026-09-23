@@ -16,6 +16,29 @@ final class LaunchCleanup
 
     public function __construct(private readonly PDO $db) {}
 
+    public static function connection(): PDO
+    {
+        $optionFile = '/etc/cite-events/mysql-backup.cnf';
+        if (!is_file($optionFile)) return (new Database())->connection();
+
+        $groups = parse_ini_file($optionFile, true, INI_SCANNER_RAW);
+        if (!is_array($groups) || !is_array($groups['client'] ?? null)) {
+            throw new RuntimeException('The production MySQL client configuration is invalid.');
+        }
+        $options = $groups['client'];
+        $user = (string) ($options['user'] ?? '');
+        if ($user === '') throw new RuntimeException('The production MySQL client user is missing.');
+        $dsn = isset($options['socket'])
+            ? 'mysql:unix_socket='.$options['socket'].';dbname=event_db;charset=utf8mb4'
+            : 'mysql:host='.($options['host'] ?? 'localhost').';port='.($options['port'] ?? '3306').';dbname=event_db;charset=utf8mb4';
+
+        return new PDO($dsn, $user, (string) ($options['password'] ?? ''), [
+            PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+            PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+            PDO::ATTR_EMULATE_PREPARES => false,
+        ]);
+    }
+
     public function report(): array
     {
         $locations = $this->db->query('SELECT id,name,type,parent_location_id FROM tbl_locations ORDER BY id')->fetchAll();
@@ -169,7 +192,7 @@ try {
         }
     }
 
-    $cleanup = new LaunchCleanup((new Database())->connection());
+    $cleanup = new LaunchCleanup(LaunchCleanup::connection());
     $result = $mode === '--report' ? $cleanup->report() : $cleanup->apply($keepIds);
     echo json_encode($result, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR), PHP_EOL;
 } catch (Throwable $exception) {
