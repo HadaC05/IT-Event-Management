@@ -244,6 +244,58 @@
 .cite-post-menu > summary::-webkit-details-marker {
   display: none;
 }
+.cite-comment-menu {
+  position: relative;
+  z-index: 20;
+  margin-left: auto;
+  flex: 0 0 auto;
+}
+.cite-comment-menu > summary {
+  display: grid;
+  width: 1.8rem;
+  height: 1.8rem;
+  place-items: center;
+  border-radius: 999px;
+  color: rgb(18 16 23 / 48%);
+  font-size: .8rem;
+  font-weight: 900;
+  letter-spacing: .08em;
+  cursor: pointer;
+  list-style: none;
+}
+.cite-comment-menu > summary::-webkit-details-marker { display: none; }
+.cite-comment-menu > summary:hover,
+.cite-comment-menu[open] > summary { background: rgb(57 117 101 / 9%); color: #397565; }
+.cite-comment-menu > div {
+  position: absolute;
+  top: calc(100% + .25rem);
+  right: 0;
+  z-index: 30;
+  display: grid;
+  min-width: 8.5rem;
+  gap: .15rem;
+  border: 1px solid rgb(18 16 23 / 10%);
+  border-radius: .75rem;
+  padding: .3rem;
+  background: white;
+  box-shadow: 0 10px 28px rgb(18 16 23 / 16%);
+}
+.cite-comment-menu > div button {
+  min-height: 2.25rem;
+  border-radius: .5rem;
+  padding: .35rem .65rem;
+  text-align: left;
+  font-size: .72rem;
+  font-weight: 750;
+}
+.cite-comment-menu > div button:hover { background: #f3f0e9; }
+.cite-comment-time {
+  display: block;
+  margin-top: .1rem;
+  color: rgb(18 16 23 / 45%);
+  font-size: .65rem;
+  line-height: 1rem;
+}
 
 .cite-post-menu > div {
   right: 0;

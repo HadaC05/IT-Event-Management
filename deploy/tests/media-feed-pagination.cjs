@@ -13,7 +13,7 @@ const posts = Array.from({length: 25}, (_, index) => ({
 }));
 const comments = Array.from({length: 25}, (_, index) => ({
   id: index + 1, post_id: 25, user_id: 1, body: `Comment ${index + 1}`,
-  is_pinned: false, author_name: 'Test Student', author_initials: 'TS',
+  is_pinned: false, author_name: 'Test Student', author_initials: 'TS', created_at: '2026-09-23 08:00:00',
 }));
 const viewer = {id: 1, role: 'Student', full_name: 'Test Middle Student', initials: 'TS', profile_photo_path: 'assets/images/cite_favicon.png'};
 const common = {viewer, permissions: {moderate: false, manage_carousel: false, hide: false},
@@ -158,6 +158,10 @@ const profile = {id: 1, full_name: 'Test Middle Student', initials: 'TS', id_num
       await first.locator('[data-comment-focus]').click();
       await page.waitForFunction(() => document.querySelectorAll('[data-post-id="25"] [data-comments] > div').length === 20);
       assert.equal(commentRequests, 1);
+      assert.equal(await first.locator('[data-comment-id="1"] time').count(), 1, 'Comment shows its time');
+      await first.locator('[data-comment-id="1"] .cite-comment-menu summary').click();
+      assert.equal(await first.locator('[data-comment-id="1"] .cite-comment-menu [data-edit-comment]').count(), 1, 'Comment actions are available in the menu');
+      await page.keyboard.press('Escape');
       await first.locator('[data-more-comments]').click();
       await page.waitForFunction(() => document.querySelectorAll('[data-post-id="25"] [data-comments] > div').length === 25);
       assert.equal(commentRequests, 2);

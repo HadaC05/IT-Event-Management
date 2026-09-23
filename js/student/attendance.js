@@ -25,7 +25,7 @@
             <div class="flex flex-wrap items-start justify-between gap-3">
                 <div>
                     <h3 class="font-black">${escapeHtml(item.event_title)}</h3>
-                    <p class="mt-1 text-xs text-[#121017]/45">${formatDate(item.attendance_date || item.start_at, false)}${item.manual_status ? ' · Adviser corrected' : ''}</p>
+                    <p class="mt-1 text-xs text-[#121017]/45">${formatDate(item.attendance_date || item.start_at, false)}${item.manual_status ? ' · Updated' : ''}</p>
                 </div>
                 <span class="rounded-full px-3 py-1 text-[9px] font-black uppercase ${statusTone(status)}">${escapeHtml(status)}</span>
             </div>
@@ -45,10 +45,9 @@
 
     const nextEvent = event => event ? `
         <div class="mt-6 border-t border-[#121017]/8 pt-5">
-            <p class="text-[9px] font-black uppercase tracking-[.14em] text-[#121017]/40">${event.schedule_state === 'ongoing' ? 'Current event' : 'Your next event'}</p>
+            <p class="text-[9px] font-black uppercase tracking-[.14em] text-[#121017]/40">${event.schedule_state === 'ongoing' ? 'Happening now' : 'Next event'}</p>
             <div class="mt-2 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
                 <div><h3 class="text-lg font-black">${escapeHtml(event.title)}</h3><p class="mt-1 text-sm text-[#121017]/50">${formatDate(event.start_at)} · ${escapeHtml(event.location || 'CITE Campus')}</p></div>
-                <span class="w-fit rounded-full bg-[#C6F24E]/25 px-3 py-1 text-[9px] font-black uppercase text-[#397565]">${escapeHtml(event.schedule_state)}</span>
             </div>
         </div>` : '';
 
@@ -64,16 +63,16 @@
 
     const qrStatus = card => {
         if (card.state === 'already_out') return card.in_at
-            ? `Already timed out at ${displayTime(card.out_at)}.`
-            : `Timed out at ${displayTime(card.out_at)}. Your Time In is still missing; ask the adviser if it needs correction.`;
-        if (card.state === 'waiting_out') return `Already timed in at ${displayTime(card.in_at)}. Time Out opens at ${displayTime(card.out_opens_at)}.`;
-        if (card.state === 'out_open') return `Already timed in at ${displayTime(card.in_at)}. Time Out is open now.`;
-        if (card.state === 'out_open_without_in') return 'Time Out is open. Show this QR even if you missed Time In. Your Time In will remain missing.';
-        if (card.state === 'in_open') return 'Time In is open now. Show this QR to your assigned officer.';
-        if (card.state === 'waiting_in') return `Time In opens at ${displayTime(card.in_opens_at)}.`;
-        if (card.state === 'time_in_closed') return `Time In is closed. Time Out opens at ${displayTime(card.out_opens_at)}; you can still use a Time Out QR then.`;
-        if (card.state === 'already_in') return `Already timed in at ${displayTime(card.in_at)}.`;
-        return 'No attendance QR is scannable now.';
+            ? `Complete · Time Out recorded at ${displayTime(card.out_at)}`
+            : `Timed out ${displayTime(card.out_at)} · Time In missing. Contact your adviser if this is incorrect.`;
+        if (card.state === 'waiting_out') return `Time In ${displayTime(card.in_at)} · Time Out opens ${displayTime(card.out_opens_at)}`;
+        if (card.state === 'out_open') return `Time In ${displayTime(card.in_at)} · Scan to finish attendance.`;
+        if (card.state === 'out_open_without_in') return 'Time Out is open. Scan now; Time In will remain unrecorded.';
+        if (card.state === 'in_open') return 'Scan now to record Time In.';
+        if (card.state === 'waiting_in') return `Time In opens ${displayTime(card.in_opens_at)}.`;
+        if (card.state === 'time_in_closed') return `Time In is closed · Time Out opens ${displayTime(card.out_opens_at)}`;
+        if (card.state === 'already_in') return `Time In recorded ${displayTime(card.in_at)}.`;
+        return 'No QR to scan right now.';
     };
 
     const renderAction = () => {
@@ -85,26 +84,27 @@
         }
         if (state.cards === null) {
             setActionBadge('Checking', 'bg-[#121017]/6 text-[#121017]/45');
-            host.innerHTML = '<p class="text-sm text-[#121017]/50">Checking today’s attendance sessions…</p>';
+            host.innerHTML = '<p class="text-sm text-[#121017]/50">Loading attendance…</p>';
             return;
         }
         if (!state.cards.length) {
-            setActionBadge('No session now', 'bg-[#397565]/8 text-[#397565]');
-            host.innerHTML = `<div class="flex items-start gap-4"><span class="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-[#397565]/10 text-lg font-black text-[#397565]">✓</span><div><h3 class="font-black">No attendance action right now</h3><p class="mt-1 text-sm leading-6 text-[#121017]/50">There is no attendance session scheduled for you today.</p></div></div>${nextEvent(state.event)}`;
+            setActionBadge('No session', 'bg-[#397565]/8 text-[#397565]');
+            host.innerHTML = `<div class="flex items-start gap-4"><span class="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-[#397565]/10 text-lg font-black text-[#397565]">✓</span><div><h3 class="font-black">No session today</h3><p class="mt-1 text-sm leading-6 text-[#121017]/50">Your QR will appear when a session opens.</p></div></div>${nextEvent(state.event)}`;
             return;
         }
 
         const open = state.cards.some(card => card.token);
-        setActionBadge(open ? 'Attendance open' : 'Today scheduled', open ? 'bg-[#C6F24E]/35 text-[#397565]' : 'bg-[#397565]/8 text-[#397565]');
+        setActionBadge(open ? 'Open' : 'Scheduled', open ? 'bg-[#C6F24E]/35 text-[#397565]' : 'bg-[#397565]/8 text-[#397565]');
         const intro = open
-            ? '<h3 class="text-xl font-black">Your attendance QR is ready</h3><p class="mt-1 text-sm text-[#121017]/50">Show the displayed code to your assigned officer. Time In and Time Out use different one-time codes.</p>'
-            : '<h3 class="text-xl font-black">Today’s attendance</h3><p class="mt-1 text-sm text-[#121017]/50">This status updates automatically when a scan window opens.</p>';
+            ? '<h3 class="text-lg font-black">Show your QR to an assigned officer</h3>'
+            : '';
         const sessions = state.cards.map((card, index) => {
-            const label = card.phase === 'out' ? 'Time Out QR' : card.phase === 'in' ? 'Time In QR' : 'Attendance status';
-            return `<article class="${index ? 'mt-5 border-t border-[#121017]/8 pt-5' : 'mt-5'}" data-qr-phase="${card.phase || 'none'}">
-                <div class="flex flex-wrap items-start justify-between gap-3"><div><p class="text-[9px] font-black uppercase tracking-wider text-[#397565]">${escapeHtml(card.event_name)} · ${escapeHtml(card.session.replace('_', ' '))}</p><h4 class="mt-1 font-black">${label}</h4></div>${card.token ? '<span class="inline-flex items-center gap-1.5 rounded-full bg-[#C6F24E]/25 px-3 py-1 text-[9px] font-black uppercase text-[#397565]"><i class="h-1.5 w-1.5 animate-pulse rounded-full bg-[#397565]"></i> Live</span>' : ''}</div>
+            const session = card.session === 'whole_day' ? 'Whole day' : card.session.charAt(0).toUpperCase() + card.session.slice(1);
+            const phase = card.phase === 'out' ? 'Time Out' : card.phase === 'in' ? 'Time In' : 'Status';
+            return `<article class="${index ? 'mt-5 border-t border-[#121017]/8 pt-5' : open ? 'mt-5' : 'mt-0'}" data-qr-phase="${card.phase || 'none'}">
+                <div><p class="text-xs font-semibold text-[#121017]/55">${escapeHtml(card.event_name)}</p><h4 class="mt-1 font-black">${escapeHtml(session)} · ${phase}</h4></div>
                 <p class="mt-2 text-sm leading-6 text-[#121017]/60" aria-live="polite">${escapeHtml(qrStatus(card))}</p>
-                ${card._qrSvg ? `<div class="mx-auto mt-4 grid max-w-[280px] place-items-center rounded-2xl border border-[#397565]/12 bg-white p-3">${card._qrSvg}</div><p class="mt-3 text-center text-xs text-[#121017]/45">Refreshes automatically and can be used only once.</p>` : ''}
+                ${card._qrSvg ? `<div class="mx-auto mt-4 grid max-w-[280px] place-items-center rounded-2xl border border-[#397565]/12 bg-white p-3">${card._qrSvg}</div><p class="mt-2 text-center text-xs text-[#121017]/45">Code refreshes automatically · single use</p>` : ''}
             </article>`;
         }).join('');
         host.innerHTML = intro + sessions;
@@ -213,7 +213,7 @@
         const user = await initialize('attendance');
         const hour = Number(new Intl.DateTimeFormat('en-PH', {hour: '2-digit', hourCycle: 'h23', timeZone: 'Asia/Manila'}).format(new Date()));
         const greeting = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
-        document.querySelector('[data-attendance-greeting]').textContent = `${greeting}, ${user.first_name || 'Student'}.`;
+        document.querySelector('[data-attendance-greeting]').textContent = `${greeting}, ${user.first_name || 'Student'}`;
         document.querySelector('[data-attendance-date]').textContent = new Intl.DateTimeFormat('en-PH', {
             weekday: 'long', month: 'long', day: 'numeric', timeZone: 'Asia/Manila',
         }).format(new Date());

@@ -2,6 +2,19 @@
   "use strict";
   const esc = (value) => String(value ?? "").replace(/[&<>'"]/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;" })[character]);
   const time = (value) => value ? new Intl.DateTimeFormat("en-PH", { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" }).format(new Date(value.replace(" ", "T"))) : "";
+  const relativeTime = value => {
+    if (!value) return '';
+    const date = new Date(value.replace(' ', 'T'));
+    const seconds = Math.max(0, Math.floor((Date.now() - date.getTime()) / 1000));
+    if (seconds < 60) return 'just now';
+    const minutes = Math.floor(seconds / 60);
+    if (minutes < 60) return `${minutes} minute${minutes === 1 ? '' : 's'} ago`;
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) return `${hours} hour${hours === 1 ? '' : 's'} ago`;
+    const days = Math.floor(hours / 24);
+    if (days < 7) return `${days} day${days === 1 ? '' : 's'} ago`;
+    return new Intl.DateTimeFormat('en-PH', {month:'short',day:'numeric'}).format(date);
+  };
   let imageDialog;
 
   function openImage(src, alt) {
@@ -79,17 +92,27 @@
       const item = document.createElement('div');
       item.className = 'flex min-w-0 gap-2';
       item.dataset.commentId = String(comment.id);
-      item.innerHTML = `${commentAvatar(comment)}<div class="min-w-0 flex-1"><div class="rounded-lg bg-[#F7F4ED] px-3 py-2"><div class="flex flex-wrap items-center gap-2"><strong class="text-xs">${esc(comment.author_name)}</strong>${CiteMediaPermissions.specialTagMarkup(comment.special_tag)}${Number(comment.user_id) === Number(post.user_id) ? '<span class="rounded bg-[#397565]/10 px-1.5 py-0.5 text-[9px] font-black text-[#397565]">Author</span>' : ''}${comment.is_pinned ? '<span class="text-[9px] font-black text-[#397565]" aria-label="Pinned comment">📌 Pinned</span>' : ''}</div><p class="mt-1 whitespace-pre-wrap break-words text-xs leading-5">${esc(comment.body)}</p></div><div class="mt-1 flex flex-wrap gap-2">${!isReply ? `<button class="px-2 text-[10px] font-bold text-[#397565]" type="button" data-reply-comment="${comment.id}" aria-expanded="false">Reply</button>` : ''}${Number(comment.user_id) === Number(viewer.id) ? `<button class="px-2 text-[10px] font-bold text-[#397565]" type="button" data-edit-comment="${comment.id}">Edit</button><button class="px-2 text-[10px] font-bold text-[#FF6B2C]" type="button" data-delete-comment="${comment.id}">Delete</button>` : ''}${!isReply && Number(post.user_id) === Number(viewer.id) ? `<button class="px-2 text-[10px] font-bold text-[#397565]" type="button" data-pin-comment="${comment.id}" data-pin="${comment.is_pinned ? '0' : '1'}">${comment.is_pinned ? 'Unpin' : 'Pin'}</button>` : ''}</div><div data-reply-form-host></div><div data-replies></div></div>`;
+      item.innerHTML = `${commentAvatar(comment)}<div class="min-w-0 flex-1"><div class="rounded-lg bg-[#F7F4ED] px-3 py-2"><div class="flex flex-wrap items-center gap-2"><strong class="text-xs">${esc(comment.author_name)}</strong>${CiteMediaPermissions.specialTagMarkup(comment.special_tag)}${Number(comment.user_id) === Number(post.user_id) ? '<span class="rounded bg-[#397565]/10 px-1.5 py-0.5 text-[9px] font-black text-[#397565]">Author</span>' : ''}${comment.is_pinned ? '<span class="text-[9px] font-black text-[#397565]" aria-label="Pinned comment">📌 Pinned</span>' : ''}</div><p class="mt-1 whitespace-pre-wrap break-words text-xs leading-5">${esc(comment.body)}</p></div>${comment.created_at ? `<time class="cite-comment-time" datetime="${esc(comment.created_at)}" title="${esc(time(comment.created_at))}">${esc(relativeTime(comment.created_at))}</time>` : ''}<div class="mt-1 flex flex-wrap gap-2">${!isReply ? `<button class="px-2 text-[10px] font-bold text-[#397565]" type="button" data-reply-comment="${comment.id}" aria-expanded="false">Reply</button>` : ''}${Number(comment.user_id) === Number(viewer.id) ? `<button class="px-2 text-[10px] font-bold text-[#397565]" type="button" data-edit-comment="${comment.id}">Edit</button><button class="px-2 text-[10px] font-bold text-[#FF6B2C]" type="button" data-delete-comment="${comment.id}">Delete</button>` : ''}${!isReply && Number(post.user_id) === Number(viewer.id) ? `<button class="px-2 text-[10px] font-bold text-[#397565]" type="button" data-pin-comment="${comment.id}" data-pin="${comment.is_pinned ? '0' : '1'}">${comment.is_pinned ? 'Unpin' : 'Pin'}</button>` : ''}</div><div data-reply-form-host></div><div data-replies></div></div>`;
       item.querySelector('[data-delete-comment]')?.addEventListener('click', () => action({action:'comment_delete',post_id:post.id,comment_id:comment.id}));
       item.querySelector('[data-edit-comment]')?.addEventListener('click', async () => { const body = await window.Notifications.prompt({title:'Edit comment',message:'Update your comment below.',label:'Comment',value:comment.body,action:'Save comment',required:true,maxLength:1000}); if(body) action({action:'comment_update',post_id:post.id,comment_id:comment.id,body}); });
       item.querySelector('[data-pin-comment]')?.addEventListener('click', () => action({action:'comment_pin',post_id:post.id,comment_id:comment.id,pin:!comment.is_pinned}));
+      const manageButtons = [...item.querySelectorAll('[data-edit-comment],[data-delete-comment],[data-pin-comment]')];
+      if (manageButtons.length) {
+        const menu = document.createElement('details');
+        menu.className = 'cite-comment-menu';
+        menu.innerHTML = '<summary aria-label="Comment options" title="Comment options"><span aria-hidden="true">•••</span></summary><div role="group" aria-label="Comment actions"></div>';
+        const menuItems = menu.querySelector('[role="group"]');
+        manageButtons.forEach(button => menuItems.append(button));
+        item.querySelector('.rounded-lg > div:first-child')?.append(menu);
+        menuItems.querySelectorAll('button').forEach(button => button.addEventListener('click', () => menu.removeAttribute('open')));
+      }
       item.querySelector('[data-reply-comment]')?.addEventListener('click', event => {
         const button = event.currentTarget;
         const host = item.querySelector('[data-reply-form-host]');
         if (host.childElementCount) { host.replaceChildren(); button.setAttribute('aria-expanded', 'false'); return; }
         const form = document.createElement('form');
         form.className = 'mt-2 grid gap-2';
-        form.innerHTML = `<label class="text-[11px] font-bold text-[#397565]" for="reply-${comment.id}">Reply to ${esc(comment.author_name)}</label><textarea class="min-h-16 w-full min-w-0 rounded-lg border border-[#397565]/20 bg-white px-3 py-2 text-sm outline-none" id="reply-${comment.id}" name="body" rows="2" maxlength="1000" placeholder="Write a reply…" required></textarea><div class="flex flex-wrap gap-2"><button class="min-h-9 rounded-lg bg-[#397565] px-4 text-xs font-bold text-white" type="submit">Post reply</button><button class="min-h-9 rounded-lg px-3 text-xs font-bold text-[#121017]/55" type="button" data-cancel-reply>Cancel</button></div>`;
+        form.innerHTML = `<label class="text-[11px] font-bold text-[#397565]" for="reply-${comment.id}">Reply to ${esc(comment.author_name)}</label><textarea class="min-h-16 w-full min-w-0 rounded-lg border border-[#397565]/20 bg-white px-3 py-2 text-sm outline-none" id="reply-${comment.id}" name="body" rows="2" maxlength="1000" placeholder="Write a reply…" required></textarea><div class="flex flex-wrap gap-2"><button class="min-h-9 rounded-lg bg-[#397565] px-4 text-xs font-bold text-white" type="submit">Reply</button><button class="min-h-9 rounded-lg px-3 text-xs font-bold text-[#121017]/55" type="button" data-cancel-reply>Cancel</button></div>`;
         form.querySelector('[data-cancel-reply]').onclick = () => { host.replaceChildren(); button.setAttribute('aria-expanded', 'false'); };
         form.onsubmit = async submitEvent => { submitEvent.preventDefault(); const body = form.elements.body.value.trim(); if (!body) return; const submit = form.querySelector('[type="submit"]'); submit.disabled = true; try { await action({action:'comment_create',post_id:post.id,parent_comment_id:comment.id,body}); } finally { if (submit.isConnected) submit.disabled = false; } };
         host.append(form); button.setAttribute('aria-expanded', 'true'); form.elements.body.focus();
@@ -162,7 +185,7 @@
   }
 
   document.addEventListener("click", (event) => {
-    document.querySelectorAll(".cite-post-menu[open]").forEach((menu) => {
+    document.querySelectorAll(".cite-post-menu[open], .cite-comment-menu[open]").forEach((menu) => {
       if (!menu.contains(event.target)) menu.removeAttribute("open");
     });
   });
