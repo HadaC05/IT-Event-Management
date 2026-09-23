@@ -579,6 +579,10 @@ final class MediaRepository
 
     private function carouselEvents(): array
     {
+        $photoStatement = $this->db->prepare("SELECT id,title,start_at,end_at,location,description,poster_path,is_featured FROM tbl_events WHERE deleted_at IS NULL AND poster_path IS NOT NULL AND poster_path<>'' ORDER BY CASE WHEN is_featured=1 AND end_at>=CURRENT_TIMESTAMP AND (featured_until IS NULL OR featured_until>=CURRENT_TIMESTAMP) THEN 0 ELSE 1 END,(end_at>=CURRENT_TIMESTAMP) DESC,CASE WHEN start_at<=CURRENT_TIMESTAMP AND end_at>=CURRENT_TIMESTAMP THEN 0 ELSE 1 END,start_at DESC,id DESC LIMIT 6");
+        $photoStatement->execute();
+        $photos = $this->normalizeEvents($photoStatement->fetchAll());
+        if ($photos) return $photos;
         $featured = $this->featuredEvents();
         if ($featured) return $featured;
         return $this->normalizeEvents($this->db->query("SELECT id,title,start_at,end_at,location,description,poster_path,is_featured FROM tbl_events WHERE deleted_at IS NULL ORDER BY (end_at>=CURRENT_TIMESTAMP) DESC,CASE WHEN start_at<=CURRENT_TIMESTAMP AND end_at>=CURRENT_TIMESTAMP THEN 0 ELSE 1 END,start_at DESC,id DESC LIMIT 6")->fetchAll());

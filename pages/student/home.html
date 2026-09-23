@@ -9,7 +9,7 @@
     <link rel="icon" type="image/png" href="assets/images/cite_favicon.png">
     <link rel="stylesheet" href="css/tailwind.css">
     <link rel="stylesheet" href="css/media-feed.css?v=20260923-media-size-1">
-    <link rel="stylesheet" href="css/student-experience.css?v=20260923-photo-carousel-1">
+    <link rel="stylesheet" href="css/student-experience.css?v=20260923-photo-carousel-3">
     <script src="js/vendor/axios.min.js" defer></script>
     <script src="js/shared/password-gate.js?v=20260917-1"></script>
     <script src="js/shared/navigation.js?v=20260923-notifications-1" defer></script>
@@ -33,28 +33,24 @@
         data-page-content
         data-student-sidebar-content
     >
-        <div class="mx-auto mb-4 flex w-full max-w-[1180px] flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <div><p class="student-section-kicker">Student home</p><h1 class="text-3xl font-black tracking-tight sm:text-4xl">Campus events</h1><p class="mt-1 text-sm text-[#121017]/60">Event photos and your attendance QR, right where you need them.</p></div>
-            <a class="inline-flex min-h-12 shrink-0 items-center justify-center gap-2 rounded-xl bg-[#397565] px-6 py-3 text-sm font-black text-white shadow-sm hover:bg-[#28594c] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#397565]" href="pages/student/attendance.html#attendance-qr">Attendance here <span aria-hidden="true">→</span></a>
-        </div>
+        <h1 class="sr-only">Student home</h1>
         <section class="student-home-carousel mx-auto mb-8 w-full max-w-[1180px]" data-student-home-carousel aria-label="Event photos" aria-roledescription="carousel">
         <div class="student-home-carousel__slides" data-home-carousel-slides>
-        <header class="student-stage student-home-slide is-active" data-home-slide data-home-intro aria-labelledby="student-home-title" aria-roledescription="slide">
-            <p class="student-stage__eyebrow">Campus highlights</p>
-            <h2 class="student-stage__title" id="student-home-title">Events on their way.</h2>
-            <p class="student-stage__copy">Event photos will appear here when they are available.</p>
-            <div class="student-stage__actions">
-                <a class="student-stage__action student-stage__action--primary" href="pages/student/events.html">Explore events <span aria-hidden="true">→</span></a>
+        <article class="student-stage student-home-slide student-home-event is-active" data-home-slide data-home-intro aria-label="Campus celebration photo" aria-roledescription="slide">
+            <img class="student-home-event__poster" src="assets/uploads/event-posters/37c7f98df0ef95cc91354d6924ca0d03.jpg" alt="">
+            <div class="student-home-event__content">
+                <h2 class="student-stage__title">Campus moments</h2>
+                <div class="student-stage__actions">
+                    <a class="student-stage__action student-stage__action--primary" href="pages/student/attendance.html#attendance-qr">Attendance here <span aria-hidden="true">→</span></a>
+                </div>
             </div>
-        </header>
+        </article>
         </div>
         <div class="student-home-carousel__controls" data-home-carousel-controls hidden>
-            <button type="button" data-home-carousel-prev aria-label="Previous highlight">‹</button>
-            <div class="student-home-carousel__dots" data-home-carousel-dots aria-label="Choose a highlight"></div>
-            <button type="button" data-home-carousel-next aria-label="Next highlight">›</button>
+            <button type="button" data-home-carousel-prev aria-label="Previous photo">‹</button>
+            <button type="button" data-home-carousel-next aria-label="Next photo">›</button>
         </div>
         </section>
-        <div class="student-section-heading mx-auto mb-4 w-full max-w-[1180px]"><div><p class="student-section-kicker">The campus pulse</p><h2>Stories &amp; moments</h2></div></div>
         <div data-media-feed-root aria-live="polite">Loading campus stories…</div>
     </main>
 
@@ -62,8 +58,8 @@
     <script src="js/shared/media-api.js?v=20260923-feed-pages-1"></script>
     <script src="js/shared/media-permissions.js?v=20260919-2"></script>
     <script src="js/shared/media-post-form.js?v=20260923-edit-preview-1"></script>
-    <script src="js/shared/media-post-card.js?v=20260923-comment-replies-1"></script>
-    <script src="js/student/home-carousel.js?v=20260923-photo-carousel-1"></script>
+    <script src="js/shared/media-post-card.js?v=20260923-hide-student-badge-1"></script>
+    <script src="js/student/home-carousel.js?v=20260923-photo-carousel-2"></script>
     <script src="js/shared/media-feed.js?v=20260923-home-carousel-1"></script>
     <script src="js/shared/media-page.js?v=20260919-1"></script>
 </body>
