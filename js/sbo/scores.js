@@ -5,6 +5,7 @@
   const assignmentSearch = document.querySelector('[data-assignment-search]');
   const assignmentSchedule = document.querySelector('[data-assignment-schedule]');
   const assignmentResults = document.querySelector('[data-assignment-results]');
+  const mobileAssignment = document.querySelector('[data-assignment-mobile]');
   const grid = document.querySelector('[data-score-grid]');
   const form = document.querySelector('[data-score-form]');
   const saveButton = form.querySelector('[data-save-score]');
@@ -30,6 +31,10 @@
   }
 
   function render() {
+    mobileAssignment.innerHTML = state.assignments.length
+      ? state.assignments.map(assignment => `<option value="${assignment.id}">${esc(assignment.activity_name)}</option>`).join('')
+      : '<option value="">No scoring assignment</option>';
+    if (state.selected) mobileAssignment.value = state.selected.id;
     const selectedSchedule = assignmentSchedule.value;
     const schedules = [...new Set(state.assignments.map(assignment => assignment.schedule_date || 'unscheduled'))].sort((left, right) => left === 'unscheduled' ? 1 : right === 'unscheduled' ? -1 : left.localeCompare(right));
     assignmentSchedule.replaceChildren(new Option('All scheduled dates', ''), ...schedules.map(value => new Option(scheduleLabel(value), value)));
@@ -78,6 +83,7 @@
     const button = event.target.closest('[data-assignment-id]');
     if (button) load(Number(button.dataset.assignmentId));
   });
+  mobileAssignment.addEventListener('change', () => load(Number(mobileAssignment.value)));
   form.addEventListener('submit', async event => {
     event.preventDefault();
     if (saving || !state?.selected || !form.reportValidity()) return;
