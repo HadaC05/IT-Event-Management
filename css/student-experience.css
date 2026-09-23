@@ -97,23 +97,24 @@ body[data-navigation-role="student"] {
 
 .student-home-carousel { position: relative; }
 .student-home-carousel__slides { display: grid; }
-.student-home-slide { grid-area: 1 / 1; width: 100%; padding-bottom: clamp(5rem, 7vw, 6rem); visibility: hidden; opacity: 0; pointer-events: none; transition: opacity .35s ease, visibility .35s ease; }
+.student-home-slide { grid-area: 1 / 1; width: 100%; visibility: hidden; opacity: 0; pointer-events: none; transition: opacity .35s ease, visibility .35s ease; }
 .student-home-slide.is-active { visibility: visible; opacity: 1; pointer-events: auto; }
 .student-home-slide[hidden] { display: none; }
-.student-home-event { display: flex; min-height: clamp(19rem, 34vw, 28rem); align-items: flex-end; }
+.student-home-event { display: flex; min-height: clamp(22rem, 42vw, 32rem); align-items: flex-end; }
 .student-home-event__poster { position: absolute; z-index: 0; inset: 0; width: 100%; height: 100%; object-fit: cover; }
-.student-home-event::before { z-index: 1; background: linear-gradient(0deg, rgba(13, 45, 38, .96), rgba(13, 45, 38, .46) 55%, rgba(13, 45, 38, .08)); }
+.student-home-event::before { z-index: 1; background: linear-gradient(0deg, rgba(9, 31, 27, .94), rgba(9, 31, 27, .32) 52%, rgba(9, 31, 27, .04)); }
 .student-home-event::after { display: none; }
-.student-home-event__content { position: relative; z-index: 2; max-width: 42rem; }
-.student-home-event .student-stage__title { font-size: clamp(2rem, 4vw, 3.5rem); }
+.student-home-event__content { position: relative; z-index: 2; max-width: 42rem; text-shadow: 0 2px 15px rgba(0, 0, 0, .35); }
+.student-home-event .student-stage__title { margin-top: 0; font-size: clamp(2rem, 4vw, 3.5rem); }
+.student-home-event .student-stage__copy { display: -webkit-box; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+.student-home-event .student-stage__actions { margin-top: 1.15rem; text-shadow: none; }
 .student-home-event__details { margin-top: .8rem; color: rgba(255,255,255,.8); font-size: .8rem; font-weight: 700; }
-.student-home-carousel__controls { position: absolute; right: 1.25rem; bottom: 1.25rem; z-index: 2; display: flex; align-items: center; gap: .4rem; padding: .25rem; border: 1px solid rgba(255,255,255,.2); border-radius: 999px; background: rgba(10, 38, 32, .72); color: #fff; backdrop-filter: blur(12px); }
+.student-home-carousel__controls { position: absolute; z-index: 3; inset: 0; pointer-events: none; }
 .student-home-carousel__controls[hidden] { display: none; }
-.student-home-carousel__controls > button { display: grid; width: 2.25rem; height: 2.25rem; place-items: center; border-radius: 50%; font-size: 1.4rem; line-height: 1; }
-.student-home-carousel__controls > button:hover { background: rgba(255,255,255,.16); }
-.student-home-carousel__dots { display: flex; align-items: center; gap: .35rem; }
-.student-home-carousel__dots button { width: .5rem; height: .5rem; border-radius: 999px; background: rgba(255,255,255,.5); }
-.student-home-carousel__dots button[aria-current="true"] { width: 1.25rem; background: #c6f24e; }
+.student-home-carousel__controls > button { position: absolute; top: 50%; display: grid; width: 2.5rem; height: 2.5rem; transform: translateY(-50%); place-items: center; border: 1px solid rgba(255,255,255,.42); border-radius: 50%; background: rgba(255,255,255,.58); color: #173f36; font-size: 1.55rem; line-height: 1; box-shadow: 0 5px 18px rgba(0,0,0,.2); pointer-events: auto; }
+.student-home-carousel__controls > button:hover { background: #fff; }
+.student-home-carousel__controls > [data-home-carousel-prev] { left: 1rem; }
+.student-home-carousel__controls > [data-home-carousel-next] { right: 1rem; }
 .student-home-carousel__controls button:focus-visible { outline: 2px solid #c6f24e; outline-offset: 2px; }
 
 .student-section-heading { display: flex; align-items: end; justify-content: space-between; gap: 1rem; }
@@ -229,7 +230,10 @@ body[data-student-page="profile"] .student-profile-cover::after {
 
 @media (max-width: 639px) {
   .student-stage { min-height: 12rem; border-radius: 1.35rem; }
-  .student-home-event { min-height: 21rem; }
+  .student-home-event { min-height: clamp(14rem, 52vw, 18rem); }
+  .student-home-carousel__controls > button { width: 2.25rem; height: 2.25rem; }
+  .student-home-carousel__controls > [data-home-carousel-prev] { left: .65rem; }
+  .student-home-carousel__controls > [data-home-carousel-next] { right: .65rem; }
   .student-stage::after { right: -12rem; }
   .student-stage__number { right: .8rem; font-size: 8rem; }
   .student-team-hero { border-radius: 1.35rem; }
