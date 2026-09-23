@@ -191,7 +191,7 @@ final class StudentRosterImportService
         'Titan Slayers' => '#397565',
         'Demon Slayers' => '#2F3AE0',
         'Chainsaw Squad' => '#FF6B2C',
-        'Hero Academia' => '#8B5CF6',
+        'Hero Academia' => '#FACC15',
         'Jujutsu Sorcerers' => '#0F766E',
         'Spy X Family' => '#DB2777',
         'Straw Hat' => '#D4A017',

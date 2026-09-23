@@ -19,8 +19,8 @@
         </div>`;
 
     const member = (person, isCurrent = false) => `
-        <div class="flex items-center gap-3 rounded-2xl ${isCurrent ? 'border border-[#397565]/20 bg-[#397565]/7' : 'bg-[#F7F4ED]/60'} p-3">
-            <span class="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#C6F24E] text-[10px] font-black">${escapeHtml(person.initials)}</span>
+        <div class="student-team-member ${isCurrent ? 'student-team-member--current' : ''} flex items-center gap-3 rounded-2xl p-3">
+            <span class="student-team-member__avatar grid h-10 w-10 shrink-0 place-items-center rounded-full text-[10px] font-black">${escapeHtml(person.initials)}</span>
             <div class="min-w-0 flex-1">
                 <span class="flex min-w-0 items-center gap-2">
                     <strong class="block min-w-0 truncate text-xs">${escapeHtml(person.full_name)}</strong>
@@ -90,7 +90,6 @@
     };
 
     const teamPage = team => {
-        const color = safeColor(team.color);
         const currentMember = team.current_member;
         directoryState = {
             members: [],
@@ -109,8 +108,8 @@
         const hasUpdates = team.scores.length || team.leaders.length || team.activities.length;
 
         return `
-            <header class="student-team-hero" style="--team-accent:${color}" data-initial="${escapeHtml(team.name.charAt(0).toUpperCase())}">
-                <div><p class="student-stage__eyebrow">Your people / ${escapeHtml(team.school_year)}</p><h1>${escapeHtml(team.name)}</h1><p class="mt-4 text-sm leading-6 text-white/75">${team.members_count} members. One team. Every moment counts.</p></div>
+            <header class="student-team-hero" data-initial="${escapeHtml(team.name.charAt(0).toUpperCase())}">
+                <div><p class="student-stage__eyebrow">Your people / ${escapeHtml(team.school_year)}</p><h1>${escapeHtml(team.name)}</h1><p class="mt-4 text-sm leading-6 text-white/75">${team.members_count} members. One team. Every moment counts.</p><p class="student-team-hero__color"><span aria-hidden="true"></span>Your team color</p></div>
                 <dl class="student-team-hero__metrics"><div><dt>Members</dt><dd>${team.members_count}</dd></div><div><dt>Standing</dt><dd>${team.rank ? `#${team.rank}` : '—'}</dd></div><div><dt>Finalized score</dt><dd>${team.total_score.toFixed(1)} <small>pts</small></dd></div></dl>
             </header>
             ${currentMember ? `<div class="student-team-note"><span class="student-team-note__icon" aria-hidden="true">✓</span><div><p class="student-section-kicker">You belong here</p><p class="text-sm leading-6 text-[#121017]/70">${escapeHtml(currentMember.full_name)} · ${escapeHtml(currentMember.year_level || 'Student')}</p></div></div>` : ''}
@@ -141,6 +140,7 @@
         await initialize('team');
         const response = await axios.get('api/student-portal.php', {params: {page: 'team'}});
         const team = response.data.data.team;
+        page.style.setProperty('--team-accent', team ? safeColor(team.color) : '#C6F24E');
         page.innerHTML = team ? teamPage(team) : emptyTeam();
         if (team) installDirectory();
     };

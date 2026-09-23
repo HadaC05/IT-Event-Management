@@ -9,7 +9,7 @@
     <link rel="icon" type="image/png" href="assets/images/cite_favicon.png">
     <link rel="stylesheet" href="css/tailwind.css">
     <link rel="stylesheet" href="css/media-feed.css?v=20260923-media-size-1">
-    <link rel="stylesheet" href="css/student-experience.css?v=20260923-1">
+    <link rel="stylesheet" href="css/student-experience.css?v=20260923-home-carousel-1">
     <script src="js/vendor/axios.min.js" defer></script>
     <script src="js/shared/password-gate.js?v=20260917-1"></script>
     <script src="js/shared/navigation.js?v=20260923-notifications-1" defer></script>
@@ -33,7 +33,9 @@
         data-page-content
         data-student-sidebar-content
     >
-        <header class="student-stage mx-auto mb-8 w-full max-w-[1180px]" aria-labelledby="student-home-title">
+        <section class="student-home-carousel mx-auto mb-8 w-full max-w-[1180px]" data-student-home-carousel aria-label="Campus highlights" aria-roledescription="carousel">
+        <div class="student-home-carousel__slides" data-home-carousel-slides>
+        <header class="student-stage student-home-slide is-active" data-home-slide data-home-intro aria-labelledby="student-home-title" aria-roledescription="slide">
             <p class="student-stage__eyebrow">CITE campus / Your front row</p>
             <h1 class="student-stage__title" id="student-home-title">Where campus comes alive.</h1>
             <p class="student-stage__copy">The people, events, and moments that make this school year yours. Start with what’s happening next.</p>
@@ -43,6 +45,13 @@
             </div>
             <span class="student-stage__number" aria-hidden="true">01</span>
         </header>
+        </div>
+        <div class="student-home-carousel__controls" data-home-carousel-controls hidden>
+            <button type="button" data-home-carousel-prev aria-label="Previous highlight">‹</button>
+            <div class="student-home-carousel__dots" data-home-carousel-dots aria-label="Choose a highlight"></div>
+            <button type="button" data-home-carousel-next aria-label="Next highlight">›</button>
+        </div>
+        </section>
         <div class="student-section-heading mx-auto mb-4 w-full max-w-[1180px]"><div><p class="student-section-kicker">The campus pulse</p><h2>Stories &amp; moments</h2></div></div>
         <div data-media-feed-root aria-live="polite">Loading media feed…</div>
     </main>
@@ -52,7 +61,8 @@
     <script src="js/shared/media-permissions.js?v=20260919-2"></script>
     <script src="js/shared/media-post-form.js?v=20260923-edit-preview-1"></script>
     <script src="js/shared/media-post-card.js?v=20260923-reaction-1"></script>
-    <script src="js/shared/media-feed.js?v=20260923-reaction-1"></script>
+    <script src="js/student/home-carousel.js?v=20260923-1"></script>
+    <script src="js/shared/media-feed.js?v=20260923-home-carousel-1"></script>
     <script src="js/shared/media-page.js?v=20260919-1"></script>
 </body>
 </html>
