@@ -2,6 +2,19 @@
   "use strict";
   const esc = (value) => String(value ?? "").replace(/[&<>'"]/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;" })[character]);
   const time = (value) => value ? new Intl.DateTimeFormat("en-PH", { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" }).format(new Date(value.replace(" ", "T"))) : "";
+  const relativeTime = value => {
+    if (!value) return '';
+    const date = new Date(value.replace(' ', 'T'));
+    const seconds = Math.max(0, Math.floor((Date.now() - date.getTime()) / 1000));
+    if (seconds < 60) return 'just now';
+    const minutes = Math.floor(seconds / 60);
+    if (minutes < 60) return `${minutes} minute${minutes === 1 ? '' : 's'} ago`;
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) return `${hours} hour${hours === 1 ? '' : 's'} ago`;
+    const days = Math.floor(hours / 24);
+    if (days < 7) return `${days} day${days === 1 ? '' : 's'} ago`;
+    return new Intl.DateTimeFormat('en-PH', {month:'short',day:'numeric'}).format(date);
+  };
   let imageDialog;
 
   function openImage(src, alt) {
@@ -144,7 +157,7 @@
 
     const engagement = document.createElement("div");
     engagement.className = "px-4 pb-4 pt-4 sm:px-5 sm:pb-5";
-    engagement.innerHTML = `<div class="flex items-center justify-between text-xs text-[#121017]/50"><div>${reactionSummary(post.reaction_counts, post.reactions_count, 'post', post.id)}</div><span>${post.comments_count} comment${post.comments_count === 1 ? "" : "s"}</span></div><div class="mt-2 flex items-center gap-2 border-y border-[#397565]/10 py-2">${reactionPickerMarkup("post", post.viewer_reaction)}<button class="min-h-10 rounded-xl px-3 text-xs font-bold text-[#121017]/55 hover:bg-[#F3F0E9]" type="button" data-comment-focus aria-expanded="false">${post.comments_count ? `View comments (${post.comments_count})` : 'Comment'}</button></div><div class="hidden" data-comments-panel><div class="grid gap-3 pt-4" data-comments></div><button class="mt-3 hidden min-h-10 rounded-xl border border-[#397565]/20 px-4 text-xs font-black text-[#397565]" type="button" data-more-comments>Load more comments</button><form class="mt-4 flex items-start gap-2 border-t border-[#397565]/10 pt-4" data-comment-form><textarea class="min-h-10 min-w-0 flex-1 resize-none border-0 bg-transparent px-1 py-2 text-sm outline-none placeholder:text-[#121017]/45" name="body" rows="1" maxlength="1000" placeholder="Add a comment…" required></textarea><button class="min-h-10 rounded-lg bg-[#397565] px-4 text-xs font-bold text-white">Post</button></form></div>`;
+    engagement.innerHTML = `<div class="flex items-center justify-between text-xs text-[#121017]/50"><div>${reactionSummary(post.reaction_counts, post.reactions_count, 'post', post.id)}</div><span>${post.comments_count} comment${post.comments_count === 1 ? "" : "s"}</span></div><div class="mt-2 flex items-center gap-2 border-y border-[#397565]/10 py-2">${reactionPickerMarkup("post", post.viewer_reaction)}<button class="min-h-10 rounded-xl px-3 text-xs font-bold text-[#121017]/55 hover:bg-[#F3F0E9]" type="button" data-comment-focus aria-expanded="false">${post.comments_count ? `View comments (${post.comments_count})` : 'Comment'}</button></div><div class="hidden" data-comments-panel><div class="grid gap-3 pt-4" data-comments></div><button class="mt-3 hidden min-h-10 rounded-xl border border-[#397565]/20 px-4 text-xs font-black text-[#397565]" type="button" data-more-comments>Load more comments</button><form class="mt-4 flex items-start gap-2 border-t border-[#397565]/10 pt-4" data-comment-form><textarea class="min-h-10 min-w-0 flex-1 resize-none border-0 bg-transparent px-1 py-2 text-sm outline-none placeholder:text-[#121017]/45" name="body" rows="1" maxlength="1000" placeholder="Add a comment…" required></textarea><button class="min-h-10 rounded-lg bg-[#397565] px-4 text-xs font-bold text-white">Comment</button></form></div>`;
     const comments = engagement.querySelector("[data-comments]");
     const panel = engagement.querySelector("[data-comments-panel]");
     const toggle = engagement.querySelector("[data-comment-focus]");
@@ -183,13 +196,30 @@
       item.querySelector('[data-delete-comment]')?.addEventListener('click', () => action({action:'comment_delete',post_id:post.id,comment_id:comment.id}));
       item.querySelector('[data-edit-comment]')?.addEventListener('click', async () => { const body = await window.Notifications.prompt({title:'Edit comment',message:'Update your comment below.',label:'Comment',value:comment.body,action:'Save comment',required:true,maxLength:1000}); if(body) action({action:'comment_update',post_id:post.id,comment_id:comment.id,body}); });
       item.querySelector('[data-pin-comment]')?.addEventListener('click', () => action({action:'comment_pin',post_id:post.id,comment_id:comment.id,pin:!comment.is_pinned}));
+      const commentTime = item.querySelector('time');
+      if (commentTime) {
+        commentTime.textContent = relativeTime(comment.created_at);
+        commentTime.title = time(comment.created_at);
+        commentTime.className = 'cite-comment-time';
+        commentTime.parentElement.after(commentTime);
+      }
+      const manageButtons = [...item.querySelectorAll('[data-edit-comment],[data-delete-comment],[data-pin-comment]')];
+      if (manageButtons.length) {
+        const menu = document.createElement('details');
+        menu.className = 'cite-comment-menu';
+        menu.innerHTML = '<summary aria-label="Comment options" title="Comment options"><span aria-hidden="true">•••</span></summary><div role="group" aria-label="Comment actions"></div>';
+        const menuItems = menu.querySelector('[role="group"]');
+        manageButtons.forEach(button => menuItems.append(button));
+        item.querySelector('.rounded-lg > div:first-child')?.append(menu);
+        menuItems.querySelectorAll('button').forEach(button => button.addEventListener('click', () => menu.removeAttribute('open')));
+      }
       item.querySelector('[data-reply-comment]')?.addEventListener('click', event => {
         const button = event.currentTarget;
         const host = item.querySelector('[data-reply-form-host]');
         if (host.childElementCount) { host.replaceChildren(); button.setAttribute('aria-expanded', 'false'); return; }
         const form = document.createElement('form');
         form.className = 'mt-2 grid gap-2';
-        form.innerHTML = `<label class="text-[11px] font-bold text-[#397565]" for="reply-${comment.id}">Reply to ${esc(comment.author_name)}</label><textarea class="min-h-16 w-full min-w-0 rounded-lg border border-[#397565]/20 bg-white px-3 py-2 text-sm outline-none" id="reply-${comment.id}" name="body" rows="2" maxlength="1000" placeholder="Write a reply…" required></textarea><div class="flex flex-wrap gap-2"><button class="min-h-9 rounded-lg bg-[#397565] px-4 text-xs font-bold text-white" type="submit">Post reply</button><button class="min-h-9 rounded-lg px-3 text-xs font-bold text-[#121017]/55" type="button" data-cancel-reply>Cancel</button></div>`;
+        form.innerHTML = `<label class="text-[11px] font-bold text-[#397565]" for="reply-${comment.id}">Reply to ${esc(comment.author_name)}</label><textarea class="min-h-16 w-full min-w-0 rounded-lg border border-[#397565]/20 bg-white px-3 py-2 text-sm outline-none" id="reply-${comment.id}" name="body" rows="2" maxlength="1000" placeholder="Write a reply…" required></textarea><div class="flex flex-wrap gap-2"><button class="min-h-9 rounded-lg bg-[#397565] px-4 text-xs font-bold text-white" type="submit">Reply</button><button class="min-h-9 rounded-lg px-3 text-xs font-bold text-[#121017]/55" type="button" data-cancel-reply>Cancel</button></div>`;
         form.querySelector('[data-cancel-reply]').onclick = () => { host.replaceChildren(); button.setAttribute('aria-expanded', 'false'); };
         form.onsubmit = async submitEvent => { submitEvent.preventDefault(); const body = form.elements.body.value.trim(); if (!body) return; const submit = form.querySelector('[type="submit"]'); submit.disabled = true; try { await action({action:'comment_create',post_id:post.id,parent_comment_id:comment.id,body}); } finally { if (submit.isConnected) submit.disabled = false; } };
         host.append(form); button.setAttribute('aria-expanded', 'true'); form.elements.body.focus();
@@ -264,7 +294,7 @@
   }
 
   document.addEventListener("click", (event) => {
-    document.querySelectorAll(".cite-post-menu[open]").forEach((menu) => {
+    document.querySelectorAll(".cite-post-menu[open], .cite-comment-menu[open]").forEach((menu) => {
       if (!menu.contains(event.target)) menu.removeAttribute("open");
     });
   });

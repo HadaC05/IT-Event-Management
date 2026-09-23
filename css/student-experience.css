@@ -99,7 +99,7 @@ body[data-navigation-role="student"] {
 .student-home-author-search {
   width: 100%;
   max-width: 1180px;
-  margin: 0 auto .4rem;
+  margin: 0 auto 1rem;
   padding: 0;
   display: flex;
   justify-content: flex-end;
