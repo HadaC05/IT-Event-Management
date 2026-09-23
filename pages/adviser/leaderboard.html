@@ -34,6 +34,19 @@
           >
         </header>
 
+        <section class="mt-6 flex flex-col gap-4 rounded-2xl border border-[#397565]/20 p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6" style="background:rgba(57,117,101,.055)" aria-labelledby="student-leaderboard-title">
+          <div>
+            <p class="text-[10px] font-black uppercase tracking-[.16em] text-[#397565]">Student access</p>
+            <h2 class="mt-1 text-lg font-black" id="student-leaderboard-title">Reveal the leaderboard</h2>
+            <p class="mt-1 text-xs leading-5 text-[#121017]/55" data-publication-status>Checking whether students can see standings…</p>
+            <p class="mt-1 text-xs leading-5 text-[#121017]/45">You can review scores here while the student leaderboard and team standings stay hidden.</p>
+          </div>
+          <button class="inline-flex min-h-11 shrink-0 items-center justify-center gap-3 rounded-xl border border-[#397565]/25 bg-white px-4 text-xs font-black text-[#397565] disabled:cursor-wait disabled:opacity-50" type="button" role="switch" aria-checked="false" aria-label="Show leaderboard to students" data-publication-toggle disabled>
+            <span style="position:relative;display:inline-block;width:44px;height:24px;border-radius:999px;background:rgba(18,16,23,.2);transition:background .2s" data-publication-track><span style="position:absolute;left:4px;top:4px;width:16px;height:16px;border-radius:999px;background:#fff;box-shadow:0 1px 4px #0003;transition:transform .2s" data-publication-knob></span></span>
+            <span data-publication-label>Show to students</span>
+          </button>
+        </section>
+
         <section
           class="mt-6"
           aria-label="Leaderboard filters"
@@ -140,6 +153,6 @@
     <script src="js/vendor/axios.min.js"></script>
     <script src="js/shared/password-gate.js?v=20260917-1"></script>
     <script src="js/shared/navigation.js?v=20260921-adviser-sections-1"></script>
-    <script src="js/adviser/leaderboard.js?v=20260923-activity-toggle-fix-1"></script>
+    <script src="js/adviser/leaderboard.js?v=20260923-student-reveal-1"></script>
   </body>
 </html>

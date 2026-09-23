@@ -32,6 +32,12 @@ For an existing database with records to keep, back it up first and apply only
 the missing migrations; do not import the dump over those records. Production
 releases track and apply the files in `database/deploy_migrations/` automatically.
 
+The student leaderboard starts hidden after
+`database/deploy_migrations/20260923_0007_student_leaderboard_visibility.sql`.
+An SBO Adviser can reveal or hide it from the Adviser Leaderboard page. Hiding
+also removes standings and finalized scores from the Student Team page; it does
+not affect the Adviser's own preview or score entry.
+
 For an existing installation, import `database/optimize_team_management.sql`
 to add the indexes used by the paged Team Management views. The migration is
 safe to run more than once and does not modify team or student records.

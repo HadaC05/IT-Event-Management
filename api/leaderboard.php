@@ -5,6 +5,7 @@ declare(strict_types=1);
 require_once __DIR__.'/db_connect.php';
 require_once __DIR__.'/ApiSupport.php';
 require_once __DIR__.'/AcademicPeriodScope.php';
+require_once __DIR__.'/LeaderboardPublication.php';
 
 final class LeaderboardRepository
 {
@@ -194,10 +195,24 @@ final class LeaderboardRepository
 
 if (realpath((string) ($_SERVER['SCRIPT_FILENAME'] ?? '')) !== __FILE__) return;
 
-AuthGuard::requireRole('SBO Adviser');
+$actor = AuthGuard::requireRole('SBO Adviser');
 try {
+    $db = (new Database())->connection();
+    $publication = new LeaderboardPublication($db);
+    if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+        if (!SessionManager::validateCsrf($_SERVER['HTTP_X_CSRF_TOKEN'] ?? null)) JsonResponse::send(['success' => false, 'message' => 'Your session expired. Refresh and try again.'], 419);
+        try {
+            $input = json_decode((string) file_get_contents('php://input'), true, 512, JSON_THROW_ON_ERROR);
+        } catch (JsonException) {
+            throw new InvalidArgumentException('The visibility request must contain valid JSON.');
+        }
+        if (!is_array($input) || !isset($input['student_visible']) || !is_bool($input['student_visible'])) throw new InvalidArgumentException('Choose whether students can see the leaderboard.');
+        $visible = $publication->setStudentVisible($input['student_visible'], (int) $actor['id']);
+        JsonResponse::send(['success' => true, 'message' => $visible ? 'Leaderboard revealed to students.' : 'Leaderboard hidden from students.', 'data' => ['student_visible' => $visible]]);
+    }
     if ($_SERVER['REQUEST_METHOD'] !== 'GET') JsonResponse::send(['success' => false, 'message' => 'Method not allowed.'], 405);
-    $data = (new LeaderboardRepository((new Database())->connection()))->view($_GET);
+    $data = (new LeaderboardRepository($db))->view($_GET);
+    $data['student_visible'] = $publication->studentVisible();
     JsonResponse::send(['success' => true, 'data' => $data]);
 } catch (InvalidArgumentException $exception) {
     JsonResponse::send(['success' => false, 'message' => $exception->getMessage()], 422);

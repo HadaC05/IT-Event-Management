@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 require_once __DIR__.'/db_connect.php';
 require_once __DIR__.'/ApiSupport.php';
+require_once __DIR__.'/LeaderboardPublication.php';
 
 final class StudentPortalRepository
 {
@@ -99,6 +100,7 @@ final class StudentPortalRepository
 
     public function team(int $userId): array
     {
+        $leaderboardVisible = (new LeaderboardPublication($this->db))->studentVisible();
         $statement = $this->db->prepare(
             "SELECT t.id, t.name, t.color, sy.label AS school_year,
                     COUNT(DISTINCT members.user_id) AS members_count,
@@ -109,7 +111,8 @@ final class StudentPortalRepository
              LEFT JOIN tbl_team_user members ON members.team_id = t.id AND EXISTS(SELECT 1 FROM tbl_users mu JOIN tbl_roles mr ON mr.id=mu.role_id WHERE mu.id=members.user_id AND mr.name='Student')
              LEFT JOIN (
                  SELECT team_id, SUM(points) AS total
-                 FROM vw_finalized_scores
+                 FROM (SELECT team_id,points FROM vw_finalized_scores
+                       UNION ALL SELECT team_id,overall_points AS points FROM tbl_activity_score_results) official_scores
                  GROUP BY team_id
              ) score_totals ON score_totals.team_id = t.id
              WHERE mine.user_id = ? AND t.is_active = 1
@@ -126,8 +129,9 @@ final class StudentPortalRepository
         $teamId = (int) $team['id'];
         $team['id'] = $teamId;
         $team['members_count'] = (int) $team['members_count'];
-        $team['total_score'] = (float) $team['total_score'];
-        $team['rank'] = $this->teamRank($teamId);
+        $team['leaderboard_visible'] = $leaderboardVisible;
+        $team['total_score'] = $leaderboardVisible ? (float) $team['total_score'] : null;
+        $team['rank'] = $leaderboardVisible ? $this->teamRank($teamId) : null;
 
         $currentMember = $this->db->prepare(
             "SELECT u.id,u.first_name,u.middle_name,u.last_name,u.profile_photo_path,yl.label year_level
@@ -141,21 +145,22 @@ final class StudentPortalRepository
             $team['current_member']['initials'] = $this->initials($team['current_member']);
         }
 
-        $scores = $this->db->prepare(
-            "SELECT COALESCE(sc.name, 'General') AS category,
-                    SUM(s.points) AS points, MAX(s.updated_at) AS updated_at
-             FROM vw_finalized_scores s
-             LEFT JOIN tbl_score_categories sc ON sc.id = s.score_category_id
-             WHERE s.team_id = ?
-             GROUP BY sc.id, sc.name
-             ORDER BY points DESC"
-        );
-        $scores->execute([$teamId]);
-        $team['scores'] = $scores->fetchAll();
-        foreach ($team['scores'] as &$score) {
-            $score['points'] = (float) $score['points'];
+        $team['scores'] = [];
+        if ($leaderboardVisible) {
+            $scores = $this->db->prepare(
+                "SELECT category,SUM(points) AS points,MAX(updated_at) AS updated_at FROM (
+                    SELECT CONCAT('category-',COALESCE(sc.id,0)) AS score_key,COALESCE(sc.name,'General') AS category,s.points,s.updated_at
+                    FROM vw_finalized_scores s LEFT JOIN tbl_score_categories sc ON sc.id=s.score_category_id WHERE s.team_id=?
+                    UNION ALL
+                    SELECT CONCAT('activity-',result.activity_id),activity.name,result.overall_points,result.finalized_at
+                    FROM tbl_activity_score_results result JOIN tbl_event_activities activity ON activity.id=result.activity_id WHERE result.team_id=?
+                ) official_scores GROUP BY score_key,category ORDER BY points DESC"
+            );
+            $scores->execute([$teamId, $teamId]);
+            $team['scores'] = $scores->fetchAll();
+            foreach ($team['scores'] as &$score) $score['points'] = (float) $score['points'];
+            unset($score);
         }
-        unset($score);
 
         $leaders = $this->db->prepare(
             "SELECT GROUP_CONCAT(DISTINCT responsibility.label ORDER BY responsibility.label SEPARATOR ', ') AS position,
@@ -213,25 +218,29 @@ final class StudentPortalRepository
 
     public function leaderboard(int $userId): array
     {
+        if (!(new LeaderboardPublication($this->db))->studentVisible()) {
+            return ['visible' => false, 'event' => null, 'categories' => [], 'teams' => []];
+        }
         $eventStatement = $this->db->prepare(
             "SELECT e.id, e.title, e.start_at, e.end_at
              FROM tbl_events e
              WHERE e.deleted_at IS NULL
-               AND e.end_at >= CURRENT_TIMESTAMP
                AND {$this->eligibleEventSql('e')}
-             ORDER BY e.start_at
+             ORDER BY (EXISTS(SELECT 1 FROM vw_finalized_scores score WHERE score.event_id=e.id)
+                       OR EXISTS(SELECT 1 FROM tbl_activity_score_results result WHERE result.event_id=e.id)) DESC,
+                      (e.end_at >= CURRENT_TIMESTAMP) DESC,e.start_at DESC
              LIMIT 1"
         );
         $eventStatement->execute([$userId, $userId]);
         $event = $eventStatement->fetch();
         if (!$event) {
-            return ['event' => null, 'categories' => [], 'teams' => []];
+            return ['visible' => true, 'event' => null, 'categories' => [], 'teams' => []];
         }
         $eventId = (int) $event['id'];
         $event['id'] = $eventId;
 
         $categories = $this->db->prepare(
-            "SELECT id, name, max_points
+            "SELECT id, name
              FROM tbl_score_categories
              WHERE event_id = ?
              ORDER BY sort_order, name"
@@ -239,37 +248,45 @@ final class StudentPortalRepository
         $categories->execute([$eventId]);
         $categoryRows = $categories->fetchAll();
         foreach ($categoryRows as &$category) {
-            $category['id'] = (int) $category['id'];
-            $category['max_points'] = (float) $category['max_points'];
+            $category['id'] = 'category-'.$category['id'];
         }
         unset($category);
+        $activities = $this->db->prepare('SELECT DISTINCT activity.id,activity.name FROM tbl_event_activities activity JOIN tbl_activity_score_results result ON result.activity_id=activity.id AND result.event_id=activity.event_id WHERE activity.event_id=? ORDER BY activity.name');
+        $activities->execute([$eventId]);
+        foreach ($activities->fetchAll() as $activity) $categoryRows[] = ['id' => 'activity-'.$activity['id'], 'name' => $activity['name']];
 
         $teams = $this->db->prepare(
             "SELECT t.id, t.name, t.color,
-                    COUNT(DISTINCT tu.user_id) AS members_count,
-                    COALESCE(SUM(s.points), 0) AS total_score,
-                    COUNT(s.id) AS score_entries,
-                    MAX(s.updated_at) AS last_scored_at
+                    COALESCE(members.members_count,0) AS members_count,
+                    COALESCE(scores.total_score,0) AS total_score,
+                    COALESCE(scores.score_entries,0) AS score_entries,
+                    scores.last_scored_at
              FROM tbl_teams t
-             LEFT JOIN tbl_team_user tu ON tu.team_id = t.id
-             LEFT JOIN vw_finalized_scores s ON s.team_id = t.id AND s.event_id = ?
+             LEFT JOIN (SELECT team_id,COUNT(DISTINCT user_id) AS members_count FROM tbl_team_user GROUP BY team_id) members ON members.team_id=t.id
+             LEFT JOIN (
+                 SELECT team_id,SUM(points) AS total_score,COUNT(*) AS score_entries,MAX(updated_at) AS last_scored_at FROM (
+                     SELECT team_id,points,updated_at FROM vw_finalized_scores WHERE event_id=?
+                     UNION ALL
+                     SELECT team_id,overall_points AS points,finalized_at AS updated_at FROM tbl_activity_score_results WHERE event_id=?
+                 ) official_scores GROUP BY team_id
+             ) scores ON scores.team_id=t.id
              WHERE t.is_active = 1
-             GROUP BY t.id, t.name, t.color
-             ORDER BY COUNT(s.id) > 0 DESC, COALESCE(SUM(s.points), 0) DESC, t.name"
+             ORDER BY scores.score_entries > 0 DESC, COALESCE(scores.total_score,0) DESC, t.name"
         );
-        $teams->execute([$eventId]);
+        $teams->execute([$eventId, $eventId]);
         $teamRows = $teams->fetchAll();
 
         $categoryScores = $this->db->prepare(
-            "SELECT team_id, score_category_id, SUM(points) AS points
-             FROM vw_finalized_scores
-             WHERE event_id = ?
-             GROUP BY team_id, score_category_id"
+            "SELECT team_id,score_key,SUM(points) AS points FROM (
+                 SELECT team_id,CONCAT('category-',score_category_id) AS score_key,points FROM vw_finalized_scores WHERE event_id=? AND score_category_id IS NOT NULL
+                 UNION ALL
+                 SELECT team_id,CONCAT('activity-',activity_id),overall_points FROM tbl_activity_score_results WHERE event_id=?
+             ) official_scores GROUP BY team_id,score_key"
         );
-        $categoryScores->execute([$eventId]);
+        $categoryScores->execute([$eventId, $eventId]);
         $scoreMap = [];
         foreach ($categoryScores->fetchAll() as $score) {
-            $scoreMap[(int) $score['team_id']][(int) $score['score_category_id']] = (float) $score['points'];
+            $scoreMap[(int) $score['team_id']][$score['score_key']] = (float) $score['points'];
         }
 
         $rank = 0;
@@ -295,7 +312,7 @@ final class StudentPortalRepository
         }
         unset($team);
 
-        return ['event' => $event, 'categories' => $categoryRows, 'teams' => $teamRows];
+        return ['visible' => true, 'event' => $event, 'categories' => $categoryRows, 'teams' => $teamRows];
     }
 
     private function eligibleEventSql(string $eventAlias): string
@@ -337,12 +354,13 @@ final class StudentPortalRepository
     private function teamRank(int $teamId): ?int
     {
         $rows = $this->db->query(
-            "SELECT t.id, COUNT(s.id) AS entries, COALESCE(SUM(s.points), 0) AS points
+            "SELECT t.id, COUNT(s.team_id) AS entries, COALESCE(SUM(s.points), 0) AS points
              FROM tbl_teams t
-             LEFT JOIN vw_finalized_scores s ON s.team_id = t.id
+             LEFT JOIN (SELECT team_id,points FROM vw_finalized_scores
+                        UNION ALL SELECT team_id,overall_points AS points FROM tbl_activity_score_results) s ON s.team_id = t.id
              WHERE t.is_active = 1
              GROUP BY t.id
-             ORDER BY COUNT(s.id) > 0 DESC, COALESCE(SUM(s.points), 0) DESC, t.name"
+             ORDER BY COUNT(s.team_id) > 0 DESC, COALESCE(SUM(s.points), 0) DESC, t.name"
         )->fetchAll();
         foreach ($rows as $index => $row) {
             if ((int) $row['id'] === $teamId) {

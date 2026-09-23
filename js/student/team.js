@@ -110,7 +110,7 @@
         return `
             <header class="student-team-hero" data-initial="${escapeHtml(team.name.charAt(0).toUpperCase())}">
                 <div><p class="student-stage__eyebrow">Your people / ${escapeHtml(team.school_year)}</p><h1>${escapeHtml(team.name)}</h1><p class="mt-4 text-sm leading-6 text-white/75">${team.members_count} members. One team. Every moment counts.</p><p class="student-team-hero__color"><span aria-hidden="true"></span>Your team color</p></div>
-                <dl class="student-team-hero__metrics"><div><dt>Members</dt><dd>${team.members_count}</dd></div><div><dt>Standing</dt><dd>${team.rank ? `#${team.rank}` : '—'}</dd></div><div><dt>Finalized score</dt><dd>${team.total_score.toFixed(1)} <small>pts</small></dd></div></dl>
+                <dl class="student-team-hero__metrics"><div><dt>Members</dt><dd>${team.members_count}</dd></div>${team.leaderboard_visible ? `<div><dt>Standing</dt><dd>${team.rank ? `#${team.rank}` : '—'}</dd></div><div><dt>Finalized score</dt><dd>${team.total_score.toFixed(1)} <small>pts</small></dd></div>` : '<div><dt>Standings</dt><dd class="text-sm">Awaiting reveal</dd></div>'}</dl>
             </header>
             ${currentMember ? `<div class="student-team-note"><span class="student-team-note__icon" aria-hidden="true">✓</span><div><p class="student-section-kicker">You belong here</p><p class="text-sm leading-6 text-[#121017]/70">${escapeHtml(currentMember.full_name)} · ${escapeHtml(currentMember.year_level || 'Student')}</p></div></div>` : ''}
             <section class="student-team-directory" data-team-directory id="student-team-directory">

@@ -70,6 +70,17 @@
     };
 
     const render = () => {
+        if (!data.visible) {
+            document.querySelector('[data-category-tabs]').classList.add('hidden');
+            document.querySelector('[data-leaderboard-subtitle]').textContent = 'Standings will be revealed by the SBO Adviser.';
+            document.querySelector('[data-leaderboard]').innerHTML = `
+                <div class="px-6 py-16 text-center">
+                    <span class="text-4xl" aria-hidden="true">🏆</span>
+                    <h2 class="mt-4 text-lg font-black">Leaderboard is under wraps</h2>
+                    <p class="mx-auto mt-2 max-w-md text-sm text-[#121017]/50">Check back when the SBO Adviser reveals the results.</p>
+                </div>`;
+            return;
+        }
         if (!data.event) {
             document.querySelector('[data-category-tabs]').classList.add('hidden');
             document.querySelector('[data-leaderboard]').innerHTML = `
@@ -80,16 +91,28 @@
             return;
         }
         document.querySelector('[data-leaderboard-subtitle]').textContent = `${data.event.title} · current activity totals`;
+        document.querySelector('[data-category-tabs]').classList.remove('hidden');
         renderTabs();
         renderRows();
     };
 
+    let refreshing = false;
+    const refresh = async () => {
+        if (refreshing) return;
+        refreshing = true;
+        try {
+            const response = await axios.get('api/student-portal.php', {params: {page: 'leaderboard'}});
+            data = response.data.data;
+            if (!data.visible) selectedCategory = 'overall';
+            render();
+        } finally {
+            refreshing = false;
+        }
+    };
+
     const load = async () => {
         await initialize('leaderboard');
-        const response = await axios.get('api/student-portal.php', {params: {page: 'leaderboard'}});
-        data = response.data.data;
-        render();
-
+        await refresh();
         document.querySelector('[data-category-tabs]').addEventListener('click', event => {
             const button = event.target.closest('[data-category]');
             if (!button) return;
@@ -97,6 +120,12 @@
             renderTabs();
             renderRows();
         });
+        document.addEventListener('visibilitychange', () => {
+            if (!document.hidden) refresh().catch(() => {});
+        });
+        window.setInterval(() => {
+            if (!document.hidden) refresh().catch(() => {});
+        }, 20000);
     };
 
     load().catch(() => {

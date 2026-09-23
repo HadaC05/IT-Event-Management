@@ -7,6 +7,8 @@ window.SharedNavigation.ready.then(() => {
   const standings = $("[data-standings]");
   const competitionStandings = $("[data-competition-standings]");
   const competitionStandingList = $("[data-competition-standing-list]");
+  const publicationToggle = $("[data-publication-toggle]");
+  let csrfToken = "";
   const PAGE_SIZE = 10;
   const initial = Object.fromEntries(new URLSearchParams(location.search));
   const state = {
@@ -19,6 +21,8 @@ window.SharedNavigation.ready.then(() => {
     requestId: 0,
     page: 1,
     data: null,
+    studentVisible: null,
+    publicationSaving: false,
   };
 
   const escapeHtml = (value) => String(value ?? "").replace(
@@ -31,6 +35,19 @@ window.SharedNavigation.ready.then(() => {
     if (!value) return "—";
     const date = new Date(String(value).replace(" ", "T"));
     return Number.isNaN(date.getTime()) ? "—" : new Intl.DateTimeFormat("en-PH", { month: "short", day: "numeric", year: "numeric" }).format(date);
+  }
+
+  function renderPublication(visible) {
+    state.studentVisible = visible;
+    publicationToggle.disabled = state.publicationSaving;
+    publicationToggle.setAttribute("aria-checked", String(visible));
+    publicationToggle.setAttribute("aria-label", visible ? "Hide leaderboard from students" : "Show leaderboard to students");
+    $("[data-publication-label]").textContent = visible ? "Visible to students" : "Show to students";
+    $("[data-publication-status]").textContent = visible
+      ? "Students can see the leaderboard and their team standings now."
+      : "Hidden from students. Adviser and Faculty views remain available.";
+    $("[data-publication-track]").style.background = visible ? "#397565" : "rgba(18,16,23,.2)";
+    $("[data-publication-knob]").style.transform = visible ? "translateX(20px)" : "translateX(0)";
   }
 
   function initializeShell() {
@@ -67,6 +84,7 @@ window.SharedNavigation.ready.then(() => {
       throw new Error("Unauthorized");
     }
     applyAccount(response.data.user);
+    csrfToken = response.data.csrf_token;
     $("form[action='api/auth.php?action=logout']").onsubmit = async (event) => {
       event.preventDefault();
       try {
@@ -184,6 +202,7 @@ window.SharedNavigation.ready.then(() => {
       if (requestId !== state.requestId) return;
       const data = response.data.data;
       state.data = data;
+      renderPublication(Boolean(data.student_visible));
       fillOptions(data);
       renderCompactSummary(data.summary);
       renderTop(data);
@@ -206,6 +225,31 @@ window.SharedNavigation.ready.then(() => {
     state.values.search = filters.search.value.trim();
     state.page = 1;
     load();
+  });
+
+  publicationToggle.addEventListener("click", async () => {
+    if (publicationToggle.disabled || state.studentVisible === null) return;
+    const nextVisible = !state.studentVisible;
+    if (nextVisible) {
+      const accepted = await Notifications.confirm({
+        title: "Reveal leaderboard to students?",
+        message: "Students will immediately see standings and finalized scores on their Leaderboard and Team pages.",
+        action: "Reveal leaderboard",
+      });
+      if (!accepted) return;
+    }
+    state.publicationSaving = true;
+    publicationToggle.disabled = true;
+    try {
+      const response = await axios.post("api/leaderboard.php", { student_visible: nextVisible }, { headers: { "X-CSRF-Token": csrfToken } });
+      renderPublication(Boolean(response.data.data.student_visible));
+      Notifications.success(response.data.message);
+    } catch (error) {
+      Notifications.error(error.response?.data?.message || "Leaderboard visibility could not be changed.");
+    } finally {
+      state.publicationSaving = false;
+      publicationToggle.disabled = false;
+    }
   });
   ["event_id", "activity_id"].forEach((name) => filters[name].addEventListener("change", () => {
     clearTimeout(state.debounce);
