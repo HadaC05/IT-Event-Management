@@ -98,7 +98,7 @@ final class MediaRepository
     {
         $query = trim($query);
         if (mb_strlen($query) < 2 || mb_strlen($query) > 80) throw new InvalidArgumentException('Search with 2 to 80 characters.');
-        $statement = $this->db->prepare("SELECT u.id,u.first_name,u.middle_name,u.last_name,u.profile_photo_path,r.name role_name,(SELECT COUNT(*) FROM tbl_posts p WHERE p.user_id=u.id AND p.status='approved' AND p.deleted_at IS NULL) post_count FROM tbl_users u JOIN tbl_roles r ON r.id=u.role_id JOIN tbl_user_statuses s ON s.id=u.status AND s.label='active' WHERE CONCAT_WS(' ',u.first_name,u.middle_name,u.last_name) LIKE ? AND EXISTS (SELECT 1 FROM tbl_posts p WHERE p.user_id=u.id AND p.status='approved' AND p.deleted_at IS NULL) ORDER BY u.last_name,u.first_name,u.id LIMIT 10");
+        $statement = $this->db->prepare("SELECT u.id,u.first_name,u.middle_name,u.last_name,u.profile_photo_path,r.name role_name,(SELECT COUNT(*) FROM tbl_posts p WHERE p.user_id=u.id AND p.status='approved' AND p.deleted_at IS NULL) post_count,(SELECT t.color FROM tbl_team_user tu JOIN tbl_teams t ON t.id=tu.team_id AND t.is_active=1 WHERE tu.user_id=u.id ORDER BY t.school_year_id DESC,tu.id DESC LIMIT 1) team_color,(SELECT t.name FROM tbl_team_user tu JOIN tbl_teams t ON t.id=tu.team_id AND t.is_active=1 WHERE tu.user_id=u.id ORDER BY t.school_year_id DESC,tu.id DESC LIMIT 1) team_name FROM tbl_users u JOIN tbl_roles r ON r.id=u.role_id JOIN tbl_user_statuses s ON s.id=u.status AND s.label='active' WHERE CONCAT_WS(' ',u.first_name,u.middle_name,u.last_name) LIKE ? ORDER BY u.last_name,u.first_name,u.id LIMIT 10");
         $statement->execute(['%'.$query.'%']);
         $users = $statement->fetchAll();
         foreach ($users as &$user) {
@@ -115,10 +115,10 @@ final class MediaRepository
     public function publicAuthorProfile(array $actor, int $authorId, ?string $cursor = null): array
     {
         if ($authorId < 1) throw new InvalidArgumentException('Choose a valid account.');
-        $statement = $this->db->prepare("SELECT u.id,u.first_name,u.middle_name,u.last_name,u.bio,u.profile_photo_path,r.name role_name,(SELECT COUNT(*) FROM tbl_posts p WHERE p.user_id=u.id AND p.status='approved' AND p.deleted_at IS NULL) post_count FROM tbl_users u JOIN tbl_roles r ON r.id=u.role_id JOIN tbl_user_statuses s ON s.id=u.status AND s.label='active' WHERE u.id=? AND EXISTS (SELECT 1 FROM tbl_posts p WHERE p.user_id=u.id AND p.status='approved' AND p.deleted_at IS NULL) LIMIT 1");
+        $statement = $this->db->prepare("SELECT u.id,u.first_name,u.middle_name,u.last_name,u.bio,u.profile_photo_path,r.name role_name,yl.label year_level_label,(SELECT COUNT(*) FROM tbl_posts p WHERE p.user_id=u.id AND p.status='approved' AND p.deleted_at IS NULL) post_count,(SELECT t.color FROM tbl_team_user tu JOIN tbl_teams t ON t.id=tu.team_id AND t.is_active=1 WHERE tu.user_id=u.id ORDER BY t.school_year_id DESC,tu.id DESC LIMIT 1) team_color,(SELECT t.name FROM tbl_team_user tu JOIN tbl_teams t ON t.id=tu.team_id AND t.is_active=1 WHERE tu.user_id=u.id ORDER BY t.school_year_id DESC,tu.id DESC LIMIT 1) team_name FROM tbl_users u JOIN tbl_roles r ON r.id=u.role_id JOIN tbl_user_statuses s ON s.id=u.status AND s.label='active' LEFT JOIN tbl_year_levels yl ON yl.id=u.year_level WHERE u.id=? LIMIT 1");
         $statement->execute([$authorId]);
         $profile = $statement->fetch();
-        if (!$profile) throw new InvalidArgumentException('This account has no public media posts.');
+        if (!$profile) throw new InvalidArgumentException('This account is unavailable.');
         $profile['id'] = (int) $profile['id'];
         $profile['post_count'] = (int) $profile['post_count'];
         $profile['full_name'] = $this->name($profile);
