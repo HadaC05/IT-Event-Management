@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-require_once __DIR__.'/AttendanceScanWindows.php';
+require_once __DIR__ . '/AttendanceScanWindows.php';
 
 final class SboAuthorization
 {
@@ -41,7 +41,7 @@ final class SboAuthorization
                       SELECT 1 FROM tbl_event_membership_snapshots ms JOIN tbl_team_user current_team ON current_team.user_id=ms.user_id AND current_team.team_id=t.id
                       WHERE ms.event_id=e.id))
                   OR (r.code<>'attendance' AND EXISTS(
-                      SELECT 1 FROM tbl_event_membership_snapshots ms WHERE ms.event_id=e.id AND ms.team_id=t.id))))
+                      SELECT 1 FROM tbl_event_membership_snapshots ms WHERE ms.event_id=e.id AND ms.team_id=t.id)))))
             AND (
               (CURDATE() BETWEEN DATE(e.start_at) AND DATE(e.end_at)$dateClause)
               OR e.start_at > CURRENT_TIMESTAMP
@@ -51,10 +51,14 @@ final class SboAuthorization
         $rows = $statement->fetchAll();
         $now = new DateTimeImmutable('now', new DateTimeZone('Asia/Manila'));
         foreach ($rows as &$row) {
-            foreach (['id','officer_assignment_id','event_schedule_id','event_id','academic_period_id','activity_id','team_id','scanner_team_id','day_number'] as $key) $row[$key] = (int) $row[$key];
-            $row['session_name'] = match ($row['session_code']) {'morning' => 'Morning Session', 'afternoon' => 'Afternoon Session', default => 'Whole Day Session'};
-            $start = new DateTimeImmutable($row['schedule_date'].' '.$row['session_start'], new DateTimeZone('Asia/Manila'));
-            $end = new DateTimeImmutable($row['schedule_date'].' '.$row['session_end'], new DateTimeZone('Asia/Manila'));
+            foreach (['id', 'officer_assignment_id', 'event_schedule_id', 'event_id', 'academic_period_id', 'activity_id', 'team_id', 'scanner_team_id', 'day_number'] as $key) $row[$key] = (int) $row[$key];
+            $row['session_name'] = match ($row['session_code']) {
+                'morning' => 'Morning Session',
+                'afternoon' => 'Afternoon Session',
+                default => 'Whole Day Session'
+            };
+            $start = new DateTimeImmutable($row['schedule_date'] . ' ' . $row['session_start'], new DateTimeZone('Asia/Manila'));
+            $end = new DateTimeImmutable($row['schedule_date'] . ' ' . $row['session_end'], new DateTimeZone('Asia/Manila'));
             $eventStart = new DateTimeImmutable($row['start_at'], new DateTimeZone('Asia/Manila'));
             $eventEnd = new DateTimeImmutable($row['end_at'], new DateTimeZone('Asia/Manila'));
             $row['assignment_state'] = $eventStart > $now ? 'upcoming' : 'current';
@@ -63,9 +67,9 @@ final class SboAuthorization
                     $windows = AttendanceScanWindows::forSession($row, $row['session_code']);
                     $row['in_window_open'] = AttendanceScanWindows::isOpen($windows['in'], $now);
                     $row['out_window_open'] = AttendanceScanWindows::isOpen($windows['out'], $now);
-                    foreach (['in','out'] as $phase) {
-                        $row[$phase.'_opens_at'] = $windows[$phase]['opens']->format('Y-m-d H:i:s');
-                        $row[$phase.'_closes_at'] = $windows[$phase]['closes']->format('Y-m-d H:i:s');
+                    foreach (['in', 'out'] as $phase) {
+                        $row[$phase . '_opens_at'] = $windows[$phase]['opens']->format('Y-m-d H:i:s');
+                        $row[$phase . '_closes_at'] = $windows[$phase]['closes']->format('Y-m-d H:i:s');
                     }
                 } catch (DomainException $exception) {
                     $row['in_window_open'] = $row['out_window_open'] = false;
@@ -88,19 +92,19 @@ final class SboAuthorization
 
     public function currentTeamForEvent(int $eventId, int $studentId): array|false
     {
-        $statement=$this->db->prepare('SELECT t.id,t.name FROM tbl_events e
+        $statement = $this->db->prepare('SELECT t.id,t.name FROM tbl_events e
             JOIN tbl_academic_periods ap ON ap.id=e.academic_period_id
             JOIN tbl_team_user tu ON tu.user_id=?
             JOIN tbl_teams t ON t.id=tu.team_id AND t.school_year_id=ap.school_year_id AND t.is_active=1
             WHERE e.id=? LIMIT 1');
-        $statement->execute([$studentId,$eventId]);
+        $statement->execute([$studentId, $eventId]);
         return $statement->fetch();
     }
 
     public function studentIsEligible(array $assignment, int $studentId): bool
     {
-        $statement=$this->db->prepare('SELECT COUNT(*) FROM tbl_event_membership_snapshots WHERE event_id=? AND user_id=?');
-        $statement->execute([(int)$assignment['event_id'],$studentId]);
+        $statement = $this->db->prepare('SELECT COUNT(*) FROM tbl_event_membership_snapshots WHERE event_id=? AND user_id=?');
+        $statement->execute([(int)$assignment['event_id'], $studentId]);
         return (bool) $statement->fetchColumn();
     }
 }
