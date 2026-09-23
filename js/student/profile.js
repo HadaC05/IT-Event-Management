@@ -146,11 +146,11 @@ window.SharedNavigation.ready.then(async session => {
     let saved=false;
     try {
       const response=await CiteMediaApi.send(payload);saved=true;
-      if(payload.action==='reaction_toggle'){
+      if(['reaction_toggle','comment_reaction_toggle'].includes(payload.action)){
         reactionToast?.remove();
         reactionToast=notify('success',response.message);
       }else notify('success',response.message);
-      if(['reaction_toggle','comment_create','comment_update','comment_delete','comment_pin'].includes(payload.action)) {
+      if(['reaction_toggle','comment_reaction_toggle','comment_create','comment_update','comment_delete','comment_pin'].includes(payload.action)) {
         const oldCard=root.querySelector(`[data-profile-posts] [data-post-id="${Number(payload.post_id)}"]`);
         const commentsOpen=oldCard?.querySelector('[data-comment-focus]')?.getAttribute('aria-expanded')==='true';
         const fresh=await CiteMediaApi.post(Number(payload.post_id));

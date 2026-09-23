@@ -40,8 +40,8 @@ const post = {
       await page.locator('[data-public-profile-root] [data-post-id="15"]').waitFor();
       assert.match(await page.locator('[data-public-profile-root] h1').textContent(), /Micah Dusil Lago/);
       assert.equal(await page.locator('[data-post-id="15"] .cite-post-gallery img').count(), 2);
-      assert.equal(await page.locator('[data-post-id="15"] [data-reaction="like"]').count(), 1);
-      assert.equal(await page.locator('[data-post-id="15"] [data-reaction="love"]').count(), 0);
+      assert.equal(await page.locator('[data-post-id="15"] [data-reaction-current]').count(), 1);
+      assert.equal(await page.locator('[data-post-id="15"] [data-reaction-choice="love"]').count(), 1);
       await page.locator('[data-post-id="15"] [data-open-post-image="1"]').click();
       assert.equal(await page.locator('.cite-image-dialog').evaluate(dialog => dialog.open), true);
       await page.keyboard.press('Escape');

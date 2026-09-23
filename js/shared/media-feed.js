@@ -23,7 +23,7 @@
     try{
       const response=await CiteMediaApi.send(payload);
       saved=true;
-      if(value.action==='reaction_toggle'){
+      if(['reaction_toggle','comment_reaction_toggle'].includes(value.action)){
         state.reactionToast?.remove();
         state.reactionToast=notify('success',response.message||'Reaction updated.');
       }else notify('success',response.message||'Media action completed.');
@@ -32,7 +32,7 @@
         if(value.action==='approve'){
           try{await refreshPublicFeed();}catch{notify('error','Post approved, but the public feed could not refresh. Reload the page to see it.');}
         }
-      }else if(['reaction_toggle','comment_create','comment_update','comment_delete','comment_pin'].includes(value.action)) {
+      }else if(['reaction_toggle','comment_reaction_toggle','comment_create','comment_update','comment_delete','comment_pin'].includes(value.action)) {
         const oldCard=state.root.querySelector(`[data-public-feed] [data-post-id="${Number(value.post_id)}"]`);
         const commentsOpen=oldCard?.querySelector('[data-comment-focus]')?.getAttribute('aria-expanded')==='true';
         const fresh=await CiteMediaApi.post(Number(value.post_id));

@@ -32,6 +32,9 @@ try {
     foreach ([1,2] as $attempt) foreach (preg_split('/;\s*(?:\r?\n|$)/', $migration) as $statement) {
         if (trim($statement) !== '') $db->query($statement)->closeCursor();
     }
+    $reactionMigration = file_get_contents(__DIR__.'/../database/deploy_migrations/20260924_0010_comment_reactions.sql');
+    if ($reactionMigration === false) throw new RuntimeException('Comment reaction migration is missing.');
+    $db->exec($reactionMigration);
     $facultyRole = (int)$db->query("SELECT id FROM tbl_roles WHERE name='Faculty'")->fetchColumn();
     if (!$facultyRole) throw new RuntimeException('Faculty role is unavailable.');
     $user = $db->prepare("INSERT INTO tbl_users(role_id,first_name,last_name,username,password,email,profile_photo_path,created_at,updated_at) VALUES(?,?,?,?,?,?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)");
@@ -72,6 +75,19 @@ try {
     $assert($page['comments'][0]['special_tag'] === null && $page['comments'][0]['replies'][0]['special_tag'] === 'Dev', 'Dev tag follows the correct reply author');
     $assert($page['comments'][0]['profile_photo_path'] === 'assets/uploads/domingo.jpg', 'Existing comments show a profile photo added later');
     $assert($page['comments'][0]['replies'][0]['id'] === $replyId && $page['comments'][0]['replies'][0]['profile_photo_path'] === 'assets/uploads/brian.jpg', 'Reply includes the author profile photo');
+    $repo->toggleReaction($ids['brian'],$postId,'love',true);
+    $postWithReaction = $repo->approvedPost($viewer,$postId);
+    $assert($postWithReaction['viewer_reaction'] === 'love' && $postWithReaction['reaction_counts']['love'] === 1, 'Love reaction appears on the post');
+    $repo->toggleReaction($ids['brian'],$postId,'laugh',true);
+    $assert($repo->approvedPost($viewer,$postId)['reaction_counts'] === ['laugh'=>1], 'Changing emoji replaces the previous post reaction');
+    $assert($repo->reactionUsers($postId)['reactors'][0]['full_name'] === 'Brian Ragasi', 'Post reaction list identifies the reactor');
+    $repo->toggleCommentReaction($ids['micah'],$postId,$rootId,'like',true);
+    $repo->toggleCommentReaction($ids['brian'],$postId,$rootId,'love',true);
+    $reactedPage = $repo->commentsPage($postId,$ids['brian']);
+    $assert($reactedPage['comments'][0]['reaction_counts'] === ['like'=>1,'love'=>1] && $reactedPage['comments'][0]['viewer_reaction'] === 'love', 'Comment shows reaction counts and the viewer emoji');
+    $assert($repo->reactionUsers($postId,$rootId,'love')['reactors'][0]['full_name'] === 'Brian Ragasi', 'Comment reaction list filters by emoji');
+    $repo->toggleCommentReaction($ids['brian'],$postId,$rootId,'love',false);
+    $assert($repo->commentsPage($postId,$ids['brian'])['comments'][0]['reactions_count'] === 1, 'Removing a reaction updates the comment count');
     $reject(fn() => $repo->saveComment($ids['brian'],$otherPostId,'Wrong post',null,$rootId), 'Replies cannot target comments on another post');
     $reject(fn() => $repo->saveComment($ids['brian'],$postId,'Nested',null,$replyId), 'Replies cannot target another reply');
     $reject(fn() => $repo->pinComment($ids['micah'],$postId,$replyId,true), 'Replies cannot be pinned as top-level comments');

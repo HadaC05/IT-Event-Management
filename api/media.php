@@ -20,7 +20,14 @@ try {
         if ($getAction === 'comments') {
             $postId = filter_var($_GET['post_id'] ?? null, FILTER_VALIDATE_INT);
             if ($postId === false || $postId === null || $postId < 1) throw new InvalidArgumentException('Choose a valid post.');
-            JsonResponse::send(['success'=>true,'data'=>$repository->commentsPage($postId, isset($_GET['cursor']) ? (string)$_GET['cursor'] : null)]);
+            JsonResponse::send(['success'=>true,'data'=>$repository->commentsPage($postId, (int)$actor['id'], isset($_GET['cursor']) ? (string)$_GET['cursor'] : null)]);
+        }
+        if ($getAction === 'reactions') {
+            $postId = filter_var($_GET['post_id'] ?? null, FILTER_VALIDATE_INT);
+            $commentId = isset($_GET['comment_id']) ? filter_var($_GET['comment_id'], FILTER_VALIDATE_INT) : null;
+            $page = filter_var($_GET['page'] ?? 1, FILTER_VALIDATE_INT);
+            if ($postId === false || $postId === null || $postId < 1 || $commentId === false || ($commentId !== null && $commentId < 1) || $page === false) throw new InvalidArgumentException('Choose a valid reaction list.');
+            JsonResponse::send(['success'=>true,'data'=>$repository->reactionUsers($postId, $commentId, (string)($_GET['type'] ?? 'all'), $page)]);
         }
         if ($getAction === 'post') {
             $postId = filter_var($_GET['post_id'] ?? null, FILTER_VALIDATE_INT);
@@ -62,6 +69,12 @@ try {
             $desired = array_key_exists('active', $input) ? filter_var($input['active'], FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE) : null;
             if (array_key_exists('active', $input) && $desired === null) throw new InvalidArgumentException('Choose a valid reaction state.');
             $repository->toggleReaction($userId,$postId,(string)($input['type'] ?? ''),$desired);
+            return 'Reaction updated.';
+        })(),
+        'comment_reaction_toggle' => (function () use ($repository,$userId,$postId,$input) {
+            $desired = array_key_exists('active', $input) ? filter_var($input['active'], FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE) : null;
+            if (array_key_exists('active', $input) && $desired === null) throw new InvalidArgumentException('Choose a valid reaction state.');
+            $repository->toggleCommentReaction($userId,$postId,(int)($input['comment_id'] ?? 0),(string)($input['type'] ?? ''),$desired);
             return 'Reaction updated.';
         })(),
         'comment_create','comment_update' => (function () use ($repository,$userId,$postId,$input,$action) {

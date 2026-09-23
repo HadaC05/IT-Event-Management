@@ -40,7 +40,8 @@ const profile = {id: 1, full_name: 'Test Middle Student', initials: 'TS', id_num
       const errors = [];
       let commentRequests = 0;
       let reactionRequests = 0;
-      let liked = false;
+      let selectedReaction = null;
+      let commentReaction = null;
       page.on('pageerror', error => errors.push(error.message));
       await page.route('**/api/**', async route => {
         const url = new URL(route.request().url());
@@ -56,16 +57,18 @@ const profile = {id: 1, full_name: 'Test Middle Student', initials: 'TS', id_num
             if (input.action === 'reaction_toggle') {
               reactionRequests++;
               await new Promise(resolve => setTimeout(resolve, 200));
-              liked = Boolean(input.active);
+              selectedReaction = input.active ? input.type : null;
             }
+            if (input.action === 'comment_reaction_toggle') commentReaction = input.active ? input.type : null;
             payload = {success: true, message: 'Action saved.'};
           } else if (action === 'posts') payload = {success: true, data: {posts: posts.slice(20), next_cursor: null}};
           else if (action === 'comments') {
             commentRequests++;
             payload = {success: true, data: url.searchParams.has('cursor')
               ? {comments: comments.slice(20), next_cursor: null}
-              : {comments: comments.slice(0, 20), next_cursor: 'older-comments'}};
-          } else if (action === 'post') payload = {success: true, data: {...posts.find(post => post.id === Number(url.searchParams.get('post_id'))), viewer_reaction: liked ? 'like' : null, reactions_count: liked ? 1 : 0}};
+              : {comments: comments.slice(0, 20).map(comment => ({...comment, ...(comment.id === 1 && commentReaction ? {viewer_reaction: commentReaction, reactions_count: 1, reaction_counts: {[commentReaction]: 1}} : {})})), next_cursor: 'older-comments'}};
+          } else if (action === 'post') payload = {success: true, data: {...posts.find(post => post.id === Number(url.searchParams.get('post_id'))), viewer_reaction: selectedReaction, reactions_count: selectedReaction ? 1 : 0, reaction_counts: selectedReaction ? {[selectedReaction]: 1} : {}}};
+          else if (action === 'reactions') payload = {success: true, data: {counts: {love: 1}, total: 1, reactors: [{user_id: 1, full_name: 'Test Student', initials: 'TS', role_name: 'Student', profile_photo_path: null, type: 'love', created_at: '2026-09-23 08:00:00'}], page: 1, has_more: false}};
           else payload = {success: true, data: {...common, viewer: pageViewer}};
         }
         return route.fulfill({status: 200, contentType: 'application/json', body: JSON.stringify(payload)});
@@ -165,16 +168,33 @@ const profile = {id: 1, full_name: 'Test Middle Student', initials: 'TS', id_num
       await first.locator('[data-more-comments]').click();
       await page.waitForFunction(() => document.querySelectorAll('[data-post-id="25"] [data-comments] > div').length === 25);
       assert.equal(commentRequests, 2);
+       await first.locator('[data-reaction-picker][data-reaction-scope="post"] [data-reaction-current]').click();
        await page.evaluate(() => {
-         const button = document.querySelector('[data-post-id="25"] [data-reaction]');
+         const button = document.querySelector('[data-post-id="25"] [data-reaction-picker][data-reaction-scope="post"] [data-reaction-choice="like"]');
          button.click(); button.click(); button.click();
        });
-       assert.equal(await first.locator('[data-reaction]').isDisabled(), true, 'Like button waits for the update to finish');
-       await page.waitForFunction(() => document.querySelector('[data-post-id="25"] [data-reaction]')?.getAttribute('aria-pressed') === 'true');
+       assert.equal(await first.locator('[data-reaction-picker][data-reaction-scope="post"] [data-reaction-current]').isDisabled(), true, 'Reaction button waits for the update to finish');
+       await page.waitForFunction(() => document.querySelector('[data-post-id="25"] [data-reaction-picker][data-reaction-scope="post"] [data-reaction-current]')?.getAttribute('aria-pressed') === 'true');
        assert.equal(reactionRequests, 1, 'Rapid clicks make only one reaction request');
-       await first.locator('[data-reaction]').click();
-       await page.waitForFunction(() => document.querySelector('[data-post-id="25"] [data-reaction]')?.getAttribute('aria-pressed') === 'false');
+       await first.locator('[data-reaction-picker][data-reaction-scope="post"] [data-reaction-current]').click();
+       await first.locator('[data-reaction-picker][data-reaction-scope="post"] [data-reaction-choice="like"]').click();
+       await page.waitForFunction(() => document.querySelector('[data-post-id="25"] [data-reaction-picker][data-reaction-scope="post"] [data-reaction-current]')?.getAttribute('aria-pressed') === 'false');
        assert.equal(reactionRequests, 2, 'The button works again after the first update');
+       await first.locator('[data-reaction-picker][data-reaction-scope="post"]').evaluate(element => element.scrollIntoView({block: 'center'}));
+       await first.locator('[data-reaction-picker][data-reaction-scope="post"] [data-reaction-current]').click();
+       await first.locator('[data-reaction-picker][data-reaction-scope="post"] [data-reaction-choice="love"]').click();
+       await page.waitForFunction(() => document.querySelector('[data-post-id="25"] [data-reaction-picker][data-reaction-scope="post"] [data-reaction-current]')?.dataset.reactionType === 'love');
+       await first.locator('[data-open-reactions][data-reaction-kind="post"]').click();
+       assert.match(await page.locator('.cite-reactions-list').textContent(), /Test Student/, 'Post reactors can be viewed');
+       await page.keyboard.press('Escape');
+       await first.locator('[data-comment-id="1"] [data-reaction-picker]').evaluate(element => element.scrollIntoView({block: 'center'}));
+       await first.locator('[data-comment-id="1"] [data-reaction-current]').click();
+       await first.locator('[data-comment-id="1"] [data-reaction-choice="laugh"]').click();
+       await page.waitForFunction(() => document.querySelector('[data-post-id="25"] [data-comment-id="1"] [data-reaction-current]')?.dataset.reactionType === 'laugh');
+       assert.equal(await first.locator('[data-comment-id="1"] [data-open-reactions]').count(), 1, 'Comment emoji and count appear after reacting');
+       await first.locator('[data-comment-id="1"] [data-open-reactions]').click();
+       assert.equal(await page.locator('#cite-reactions-title').textContent(), 'Comment reactions', 'Comment reactors can be viewed');
+       await page.keyboard.press('Escape');
        assert.equal(await page.locator('[data-toast-message]').filter({hasText: 'Action saved.'}).count(), 1, 'Reaction confirmations do not stack');
       assert.equal(await page.locator(`${root} [data-post-id]`).count(), 25, 'Engagement must not discard older loaded posts');
       assert.equal(await page.locator('[data-post-id="25"] [data-comment-focus]').getAttribute('aria-expanded'), 'true');

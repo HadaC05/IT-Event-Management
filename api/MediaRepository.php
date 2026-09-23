@@ -372,12 +372,13 @@ final class MediaRepository
 
     public function toggleReaction(int $userId, int $postId, string $type, ?bool $desiredActive = null): void
     {
-        if ($type !== 'like') throw new InvalidArgumentException('Only the Like reaction is available.');
+        if (!in_array($type, ['like','love','laugh'], true)) throw new InvalidArgumentException('Choose Like, Love, or Laugh.');
         $this->db->beginTransaction();
         try {
-            $post = $this->db->prepare("SELECT id FROM tbl_posts WHERE id=? AND status='approved' AND deleted_at IS NULL FOR UPDATE");
+            $post = $this->db->prepare("SELECT id,user_id FROM tbl_posts WHERE id=? AND status='approved' AND deleted_at IS NULL FOR UPDATE");
             $post->execute([$postId]);
-            if (!$post->fetchColumn()) throw new InvalidArgumentException('This post is not publicly available.');
+            $post = $post->fetch();
+            if (!$post) throw new InvalidArgumentException('This post is not publicly available.');
             $statement = $this->db->prepare('SELECT type FROM tbl_post_reactions WHERE post_id=? AND user_id=? FOR UPDATE');
             $statement->execute([$postId, $userId]);
             $current = $statement->fetchColumn() === $type;
@@ -387,6 +388,45 @@ final class MediaRepository
                 $this->db->prepare('DELETE FROM tbl_post_reactions WHERE post_id=? AND user_id=?')->execute([$postId, $userId]);
             } else {
                 $this->db->prepare('INSERT INTO tbl_post_reactions(post_id,user_id,type,created_at,updated_at) VALUES(?,?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP) ON DUPLICATE KEY UPDATE type=VALUES(type),updated_at=CURRENT_TIMESTAMP')->execute([$postId, $userId, $type]);
+                if ((int) $post['user_id'] !== $userId) {
+                    $name = $this->actorName($userId);
+                    $verb = ['like'=>'liked','love'=>'loved','laugh'=>'laughed at'][$type];
+                    $this->notification((int) $post['user_id'], ['post_id'=>$postId,'actor_id'=>$userId,'action'=>'reaction','reaction'=>$type,'message'=>$name.' '.$verb.' your post.'], 'media_activity');
+                }
+            }
+            $this->db->commit();
+        } catch (Throwable $exception) {
+            if ($this->db->inTransaction()) $this->db->rollBack();
+            throw $exception;
+        }
+    }
+
+    public function toggleCommentReaction(int $userId, int $postId, int $commentId, string $type, ?bool $desiredActive = null): void
+    {
+        if (!in_array($type, ['like','love','laugh'], true)) throw new InvalidArgumentException('Choose Like, Love, or Laugh.');
+        $this->db->beginTransaction();
+        try {
+            $post = $this->db->prepare("SELECT id FROM tbl_posts WHERE id=? AND status='approved' AND deleted_at IS NULL FOR UPDATE");
+            $post->execute([$postId]);
+            if (!$post->fetchColumn()) throw new InvalidArgumentException('This post is not publicly available.');
+            $commentStatement = $this->db->prepare('SELECT id,user_id FROM tbl_post_comments WHERE id=? AND post_id=? FOR UPDATE');
+            $commentStatement->execute([$commentId,$postId]);
+            $comment = $commentStatement->fetch();
+            if (!$comment) throw new InvalidArgumentException('This comment is no longer available.');
+            $statement = $this->db->prepare('SELECT type FROM tbl_comment_reactions WHERE comment_id=? AND user_id=? FOR UPDATE');
+            $statement->execute([$commentId,$userId]);
+            $current = $statement->fetchColumn() === $type;
+            $active = $desiredActive ?? !$current;
+            if ($active === $current) { $this->db->commit(); return; }
+            if (!$active) {
+                $this->db->prepare('DELETE FROM tbl_comment_reactions WHERE comment_id=? AND user_id=?')->execute([$commentId,$userId]);
+            } else {
+                $this->db->prepare('INSERT INTO tbl_comment_reactions(comment_id,user_id,type,created_at,updated_at) VALUES(?,?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP) ON DUPLICATE KEY UPDATE type=VALUES(type),updated_at=CURRENT_TIMESTAMP')->execute([$commentId,$userId,$type]);
+                if ((int) $comment['user_id'] !== $userId) {
+                    $verb = ['like'=>'liked','love'=>'loved','laugh'=>'laughed at'][$type];
+                    $name = $this->actorName($userId);
+                    $this->notification((int) $comment['user_id'], ['post_id'=>$postId,'comment_id'=>$commentId,'actor_id'=>$userId,'action'=>'comment_reaction','reaction'=>$type,'message'=>$name.' '.$verb.' your comment.'], 'media_activity');
+                }
             }
             $this->db->commit();
         } catch (Throwable $exception) {
@@ -538,8 +578,12 @@ final class MediaRepository
         return $posts[0];
     }
 
-    public function commentsPage(int $postId, ?string $cursor = null): array
+    public function commentsPage(int $postId, int|string|null $viewerId = null, ?string $cursor = null): array
     {
+        if (!is_int($viewerId)) {
+            $cursor = is_string($viewerId) ? $viewerId : $cursor;
+            $viewerId = 0;
+        }
         if ($postId < 1) throw new InvalidArgumentException('Choose a valid post.');
         $exists = $this->db->prepare("SELECT id FROM tbl_posts WHERE id=? AND status='approved' AND deleted_at IS NULL LIMIT 1");
         $exists->execute([$postId]);
@@ -561,14 +605,14 @@ final class MediaRepository
         if ($hasMore) array_pop($rows);
         $last = $rows ? $rows[count($rows)-1] : null;
         $nextCursor = $hasMore && $last ? $this->encodeCursor(['pin'=>(int)$last['is_pinned'],'at'=>$last['created_at'],'id'=>(int)$last['id']]) : null;
-        $this->hydrateComments($rows);
+        $this->hydrateComments($rows, $viewerId);
         if ($rows) {
             $ids = array_column($rows, 'id');
             $marks = implode(',', array_fill(0, count($ids), '?'));
             $replies = $this->db->prepare("SELECT c.id,c.post_id,c.parent_comment_id,c.user_id,c.body,c.is_pinned,c.created_at,c.updated_at,u.id_number,u.first_name,u.middle_name,u.last_name,u.profile_photo_path,r.name author_role FROM tbl_post_comments c JOIN tbl_users u ON u.id=c.user_id JOIN tbl_roles r ON r.id=u.role_id WHERE c.post_id=? AND c.parent_comment_id IN ($marks) ORDER BY c.created_at,c.id");
             $replies->execute([$postId, ...$ids]);
             $replyRows = $replies->fetchAll();
-            $this->hydrateComments($replyRows);
+            $this->hydrateComments($replyRows, $viewerId);
             $positions = array_flip($ids);
             foreach ($rows as &$comment) $comment['replies'] = [];
             unset($comment);
@@ -577,16 +621,71 @@ final class MediaRepository
         return ['comments'=>$rows,'next_cursor'=>$nextCursor];
     }
 
-    private function hydrateComments(array &$comments): void
+    public function reactionUsers(int $postId, ?int $commentId = null, string $type = 'all', int $page = 1): array
     {
+        if (!in_array($type, ['all','like','love','laugh'], true)) throw new InvalidArgumentException('Choose a valid reaction filter.');
+        if ($page < 1 || $page > 1000) throw new InvalidArgumentException('Choose a valid reaction page.');
+        $this->publicPost($postId);
+        if ($commentId !== null) {
+            $comment = $this->db->prepare('SELECT id FROM tbl_post_comments WHERE id=? AND post_id=? LIMIT 1');
+            $comment->execute([$commentId,$postId]);
+            if (!$comment->fetchColumn()) throw new InvalidArgumentException('This comment is no longer available.');
+            $table = 'tbl_comment_reactions';
+            $entityColumn = 'comment_id';
+            $entityId = $commentId;
+        } else {
+            $table = 'tbl_post_reactions';
+            $entityColumn = 'post_id';
+            $entityId = $postId;
+        }
+        $countsQuery = $this->db->prepare("SELECT type,COUNT(*) total FROM $table WHERE $entityColumn=? GROUP BY type");
+        $countsQuery->execute([$entityId]);
+        $counts = [];
+        foreach ($countsQuery->fetchAll() as $row) $counts[$row['type']] = (int)$row['total'];
+        $total = $type === 'all' ? array_sum($counts) : (int)($counts[$type] ?? 0);
+        $filter = $type === 'all' ? '' : ' AND reaction.type=?';
+        $parameters = $type === 'all' ? [$entityId] : [$entityId,$type];
+        $parameters[] = 51;
+        $parameters[] = ($page - 1) * 50;
+        $query = $this->db->prepare("SELECT reaction.type,reaction.created_at,u.id user_id,u.first_name,u.middle_name,u.last_name,u.profile_photo_path,rl.name role_name FROM $table reaction JOIN tbl_users u ON u.id=reaction.user_id JOIN tbl_roles rl ON rl.id=u.role_id WHERE reaction.$entityColumn=?$filter ORDER BY reaction.created_at DESC,u.last_name,u.first_name,u.id LIMIT ? OFFSET ?");
+        $query->execute($parameters);
+        $reactors = $query->fetchAll();
+        $hasMore = count($reactors) > 50;
+        if ($hasMore) array_pop($reactors);
+        foreach ($reactors as &$reactor) {
+            $reactor['user_id'] = (int)$reactor['user_id'];
+            $reactor['full_name'] = $this->name($reactor);
+            $reactor['initials'] = $this->initials($reactor);
+            unset($reactor['first_name'],$reactor['middle_name'],$reactor['last_name']);
+        }
+        unset($reactor);
+        return ['counts'=>$counts,'total'=>$total,'reactors'=>$reactors,'page'=>$page,'has_more'=>$hasMore];
+    }
+
+    private function hydrateComments(array &$comments, int $viewerId): void
+    {
+        if (!$comments) return;
+        $ids = array_map('intval', array_column($comments, 'id'));
+        $marks = implode(',', array_fill(0, count($ids), '?'));
+        $reactions = $this->db->prepare("SELECT comment_id,type,COUNT(*) total,SUM(CASE WHEN user_id=? THEN 1 ELSE 0 END) viewer_total FROM tbl_comment_reactions WHERE comment_id IN ($marks) GROUP BY comment_id,type");
+        $reactions->execute([$viewerId,...$ids]);
+        $counts = $viewers = [];
+        foreach ($reactions->fetchAll() as $row) {
+            $commentId = (int) $row['comment_id'];
+            $counts[$commentId][$row['type']] = (int) $row['total'];
+            if ((int) $row['viewer_total'] > 0) $viewers[$commentId] = $row['type'];
+        }
         foreach ($comments as &$comment) {
             foreach (['id','post_id','user_id'] as $field) $comment[$field] = (int)$comment[$field];
             $comment['parent_comment_id'] = $comment['parent_comment_id'] === null ? null : (int)$comment['parent_comment_id'];
             $comment['is_pinned'] = (bool)$comment['is_pinned'];
-            $comment['author_name'] = $this->name($comment);
-            $comment['author_initials'] = $this->initials($comment);
+            $comment['reaction_counts'] = $counts[$comment['id']] ?? [];
+            $comment['reactions_count'] = array_sum($comment['reaction_counts']);
+            $comment['viewer_reaction'] = $viewers[$comment['id']] ?? null;
             $comment['special_tag'] = UserBadge::forIdNumber($comment['id_number']);
             unset($comment['id_number']);
+            $comment['author_name'] = $this->name($comment);
+            $comment['author_initials'] = $this->initials($comment);
             foreach (['first_name','middle_name','last_name'] as $field) unset($comment[$field]);
         }
         unset($comment);
