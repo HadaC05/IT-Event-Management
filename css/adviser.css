@@ -653,9 +653,14 @@ details[open] > .attendance-scan-summary .attendance-scan-chevron {
   min-width: 720px;
 }
 
-.officer-management-table th,
-.officer-management-table td {
+.officer-management-table th {
   overflow: hidden;
+  vertical-align: middle;
+}
+
+.officer-management-table td {
+  overflow: visible;
+  overflow-wrap: anywhere;
   vertical-align: middle;
 }
 
