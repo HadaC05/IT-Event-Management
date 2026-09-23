@@ -11,7 +11,7 @@
   const notify=(type,message,options)=>window.Notifications?.[type]?.(message,options);
   let csrf='',assignments=[],selected=null,scanner=null,QrScanner=null,cameras=[],cameraIndex=0,position=null;
   let locationReason='not_provided',locationRequest=null,locationWatchId=null,gpsEnabled=false,gpsGeneration=0,gpsManuallyDisabled=false,isProcessing=false,cooldownUntil=0,lastToken='',lastTokenAt=0,lastTokenIgnoreMs=3000,lastScanToast=null,contextTimer=0,startGeneration=0,cameraHintTimer=0;
-  let qrModulePromise=null,checkpoint='in',decodeErrorReported=false;
+  let qrModulePromise=null,checkpoint='in',decodeErrorReported=false,loadGeneration=0,scanRevision=0,refreshInFlight=false;
   let locationRefreshTimer=0;
   const shownGpsNotices=new Map();
   const time=value=>value?new Intl.DateTimeFormat('en-PH',{hour:'numeric',minute:'2-digit'}).format(new Date('2000-01-01T'+value)):'—';
@@ -108,9 +108,9 @@
     const gpsBlocked=!freshPosition()||!boundaryConfigured;
     const strictBlocked=selected?.location_policy==='strict'&&!insideSelectedVenue();
     const locationBlocked=gpsBlocked||strictBlocked;
-    openButton.disabled=!active||locationBlocked||!window.isSecureContext||!navigator.mediaDevices;
+    openButton.disabled=isProcessing||!active||locationBlocked||!window.isSecureContext||!navigator.mediaDevices;
     cameraButton.disabled=openButton.disabled;
-    manualButton.disabled=!active||locationBlocked;
+    manualButton.disabled=isProcessing||!active||locationBlocked;
     gpsToggle.hidden=!selected||selected.assignment_state==='upcoming';
     gpsToggle.textContent=gpsEnabled?'Turn Off GPS':window.isSecureContext?'Turn On GPS':'GPS needs HTTPS';
     gpsToggle.classList.toggle('bg-[#397565]',!gpsEnabled);
@@ -250,7 +250,8 @@
   }
   function renderPhaseStatus(){
     const phase=checkpoint==='in'?'In':'Out';
-    const message=!selected?'No attendance assignment is selected.'
+    const message=isProcessing?'Recording attendance. Wait for confirmation before scanning the next student.'
+      :!selected?'No attendance assignment is selected.'
       :selected.assignment_state==='upcoming'?'This assignment is upcoming. Scanning opens during its scheduled session.'
       :!selected[`${checkpoint}_window_open`]
         ?selected.is_session_active?'The other checkpoint is open. Select it above.':'No QR is scannable now. Wait for the next window or ask the adviser to extend it.'
@@ -267,6 +268,7 @@
     manualButton.title=manualButton.disabled?message:'';
   }
   function setCheckpoint(next){
+    if(isProcessing)return;
     checkpoint=next;lastToken='';lastTokenAt=0;lastTokenIgnoreMs=3000;
     document.querySelectorAll('[data-checkpoint-option]').forEach(button=>{
       const active=button.dataset.checkpointOption===checkpoint;
@@ -303,9 +305,11 @@
     renderLocation();updateControls();
   }
   async function load(requested=0){
+    const generation=++loadGeneration,revision=scanRevision;
     const previousEventId=selected?.event_id??null;
     const previousPolicy=selected?.location_policy??null;
     const response=await axios.get(API,{params:requested?{assignment_id:requested}:{}});
+    if(generation!==loadGeneration||revision!==scanRevision||isProcessing)return false;
     const data=response.data.data;assignments=data.assignments;
     $('[data-attendance-loading]')?.classList.add('hidden');
     $('[data-attendance-start-link]')?.classList.toggle('hidden',assignments.length===0);
@@ -321,6 +325,7 @@
       if(selected.assignment_state!=='upcoming')autoStartGps().then(()=>{if(policyChanged||!freshPosition())showGpsPolicyNotice(policyChanged);}).catch(()=>showGpsPolicyNotice(policyChanged));
     }
     else{await stop();turnOffGps();updateControls();}
+    return true;
   }
   function successSound(){
     try{const audio=new (window.AudioContext||window.webkitAudioContext)();const tone=audio.createOscillator();const gain=audio.createGain();
@@ -328,9 +333,25 @@
       gain.gain.setValueAtTime(0.08,audio.currentTime);gain.gain.exponentialRampToValueAtTime(0.001,audio.currentTime+0.16);
       tone.start();tone.stop(audio.currentTime+0.16);tone.onended=()=>audio.close();}catch{}
   }
+  function setProcessing(busy){
+    isProcessing=busy;
+    selector.disabled=busy;
+    document.querySelectorAll('[data-checkpoint-option]').forEach(button=>button.disabled=busy);
+    const studentId=$('[data-manual-form]').elements.student_id;
+    studentId.disabled=busy;
+    manualButton.textContent=busy?'Recording…':'Record by ID';
+    if(busy){
+      $('[data-scan-result]').textContent='Recording scan… wait for confirmation before scanning the next student.';
+      const modalResult=$('[data-modal-scan-result]');
+      modalResult.dataset.state='pending';
+      modalResult.textContent='Recording scan… wait for confirmation before scanning the next student.';
+    }
+    updateControls();
+  }
   async function submit(payload){
     if(isProcessing||Date.now()<cooldownUntil||!selected?.[`${checkpoint}_window_open`])return false;
-    isProcessing=true;
+    scanRevision++;
+    setProcessing(true);
     try{
       await getLocation();
       if(!freshPosition()){
@@ -365,7 +386,7 @@
       $('[data-modal-scan-result]').textContent=message;
       lastTokenIgnoreMs=1000;
       return false;
-    }finally{cooldownUntil=Date.now()+1000;setTimeout(()=>isProcessing=false,1000);}
+    }finally{cooldownUntil=Date.now()+1000;setTimeout(()=>setProcessing(false),1000);}
   }
   async function onDecode(result){
     const token=String(result?.data||'').trim();
@@ -441,7 +462,7 @@
   gpsToggle.addEventListener('click',toggleGps);
   $('[data-gps-policy-confirm]').addEventListener('click',()=>gpsPolicyDialog.close());
   gpsPolicyDialog.addEventListener('click',event=>{if(event.target===gpsPolicyDialog)gpsPolicyDialog.close();});
-  selector.addEventListener('change',async()=>{if(dialog.open)dialog.close();await stop();turnOffGps();await load(Number(selector.value));});
+  selector.addEventListener('change',async()=>{if(isProcessing){selector.value=selected?.id||'';return;}const requested=Number(selector.value);if(dialog.open)dialog.close();await stop();turnOffGps();selected=null;updateControls();await load(requested);});
   $('[data-manual-form]').addEventListener('submit',async event=>{event.preventDefault();const field=event.currentTarget.elements.student_id;const value=field.value.trim();if(!value)return;if(await submit({mode:'manual',student_id:value}))field.value='';});
   window.addEventListener('pagehide',()=>{clearInterval(contextTimer);stopLocationRefresh();stopLocationWatch();if(dialog.open)dialog.close();stop();});
   document.addEventListener('visibilitychange',()=>{
@@ -449,6 +470,6 @@
     else if(gpsEnabled){startLocationRefresh();if(locationReason!=='permission_denied')getLocation(true);}
   });
   const initialize=isFaculty?window.SharedNavigation.ready:window.SboPortal.initialize('attendance');
-  initialize.then(async context=>{csrf=context.csrfToken;const accountMenu=document.querySelector(isFaculty?'[data-shared-account-menu]':'[data-sbo-account-menu]');if(accountMenu){accountMenu.classList.remove('ml-auto');gpsToggle.classList.add('ml-auto');accountMenu.before(gpsToggle);}await load();if(selected?.is_session_active)loadQrModule().catch(()=>{});contextTimer=setInterval(async()=>{if(isProcessing)return;const old=selected?.id,wasActive=selected?.is_session_active;try{await load(old||0);if(!wasActive&&selected?.is_session_active)loadQrModule().catch(()=>{});if(!selected?.is_session_active){if(dialog.open)dialog.close();await stop();}}catch(error){console.error('Attendance refresh failed',error);notify('error',error.response?.data?.message||'Attendance could not refresh. Reload the page and try again.');}},30000);})
+  initialize.then(async context=>{csrf=context.csrfToken;const accountMenu=document.querySelector(isFaculty?'[data-shared-account-menu]':'[data-sbo-account-menu]');if(accountMenu){accountMenu.classList.remove('ml-auto');gpsToggle.classList.add('ml-auto');accountMenu.before(gpsToggle);}await load();if(selected?.is_session_active)loadQrModule().catch(()=>{});contextTimer=setInterval(async()=>{if(isProcessing||!selected||refreshInFlight)return;refreshInFlight=true;const old=selected.id,wasActive=selected.is_session_active;try{if(!await load(old))return;if(!wasActive&&selected?.is_session_active)loadQrModule().catch(()=>{});if(!selected?.is_session_active){if(dialog.open)dialog.close();await stop();}}catch(error){console.error('Attendance refresh failed',error);notify('error',error.response?.data?.message||'Attendance could not refresh. Reload the page and try again.');}finally{refreshInFlight=false;}},30000);})
     .catch(error=>{console.error('Attendance initialization failed',error);$('[data-attendance-loading]')?.classList.add('hidden');$('[data-attendance-start-link]')?.classList.add('hidden');openButton.disabled=true;manualButton.disabled=true;const message=error.response?.data?.message||'Attendance could not load. Reload the page and try again.';notify('error',message);const alert=document.createElement('p');alert.setAttribute('role','alert');alert.className='mb-4 rounded-xl border border-[#FF6B2C]/30 bg-[#FF6B2C]/10 p-4 text-sm font-bold text-[#9A360C]';alert.textContent=message;document.querySelector('main')?.prepend(alert);});
 })();

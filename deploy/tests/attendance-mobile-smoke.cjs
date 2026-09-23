@@ -24,6 +24,7 @@ const assignment = {
       const page = await context.newPage();
       await page.clock.install();
       const errors = [];
+      let holdRefresh = false, heldRefresh = null, holdScan = false, heldScan = null, scanPosts = 0;
       page.on('pageerror', error => errors.push(error.message));
       await page.route('**/api/**', route => {
         const url = new URL(route.request().url());
@@ -34,6 +35,19 @@ const assignment = {
             full_name: 'Test Officer', role: role === 'sbo' ? 'SBO Officer' : 'Faculty',
           }};
         } else if (url.pathname.endsWith('/sbo-attendance.php') || url.pathname.endsWith('/faculty.php')) {
+          if (route.request().method() === 'GET' && holdRefresh) {
+            holdRefresh = false;
+            heldRefresh = route;
+            return;
+          }
+          if (route.request().method() === 'POST') {
+            scanPosts++;
+            if (holdScan) {
+              holdScan = false;
+              heldScan = route;
+              return;
+            }
+          }
           payload = {success: true, data: {
             assignments: [assignment], selected_assignment: assignment,
             recent_scans: [], counts: {total: 1, checked_out: 0, remaining: 5}, next_session: null,
@@ -135,6 +149,51 @@ const assignment = {
       await page.locator('[data-location-refresh]').click();
       await page.waitForFunction(() => !document.querySelector('[data-scanner-open]').disabled);
       console.log(`PASS: ${role} respects denied permission and supports an explicit retry`);
+
+      holdRefresh = true;
+      await page.clock.runFor(30000);
+      assert.ok(heldRefresh, `${role} starts a periodic attendance refresh`);
+      holdScan = true;
+      await page.locator('#manual-student-id').fill('25-001');
+      await page.locator('[data-manual-submit]').click();
+      await page.waitForFunction(() => document.querySelector('[data-scan-result]').textContent.includes('Recording scan'));
+      assert.ok(heldScan, `${role} sends one attendance request`);
+      assert.equal(await page.locator('[data-manual-submit]').isDisabled(), true, `${role} blocks another scan while saving`);
+      assert.equal(await page.locator('[data-assignment-selector]').isDisabled(), true, `${role} keeps the assignment stable while saving`);
+      assert.match(await page.locator('[data-scan-result]').textContent(), /Recording scan/, `${role} ignores a stale refresh during a scan`);
+      await heldScan.fulfill({json: {success: true, data: {
+        student: {full_name: 'Sample Student', id_number: '25-001', team_name: 'Hero Academia'},
+        session_name: 'Whole day', checkpoint: 'in', time_in_missing: false,
+        scanned_at: '2026-09-23 10:00:00', location: {status: 'inside', venue_name: 'Main Hall', distance_m: 2, venue_match: 'matched'},
+        recent_scans: [], counts: {total: 2, checked_out: 0, remaining: 4},
+      }}});
+      await page.waitForFunction(() => document.querySelector('[data-scan-result]').textContent.includes('Sample Student'));
+      assert.match(await page.locator('[data-scan-counts]').textContent(), /2 timed in/, `${role} shows the saved scan's counts`);
+      assert.equal(scanPosts, 1, `${role} submits only one scan while the request is pending`);
+      await page.clock.runFor(1000);
+      assert.equal(await page.locator('[data-manual-submit]').isDisabled(), false, `${role} becomes ready for the next student`);
+      await heldRefresh.fulfill({json: {success: true, data: {
+        assignments: [assignment], selected_assignment: assignment,
+        recent_scans: [], counts: {total: 1, checked_out: 0, remaining: 5}, next_session: null,
+      }}});
+      await page.clock.runFor(1);
+      assert.match(await page.locator('[data-scan-result]').textContent(), /Sample Student/, `${role} keeps the scan result after a late refresh`);
+      assert.match(await page.locator('[data-scan-counts]').textContent(), /2 timed in/, `${role} does not replace saved counts with a stale refresh`);
+      heldScan = null;
+      holdScan = true;
+      await page.locator('#manual-student-id').fill('25-002');
+      await page.locator('[data-manual-submit]').click();
+      assert.ok(heldScan, `${role} accepts the next student after the first scan completes`);
+      assert.equal(scanPosts, 2, `${role} submits the second student only once`);
+      await heldScan.fulfill({json: {success: true, data: {
+        student: {full_name: 'Next Student', id_number: '25-002', team_name: 'Hero Academia'},
+        session_name: 'Whole day', checkpoint: 'in', time_in_missing: false,
+        scanned_at: '2026-09-23 10:00:02', location: {status: 'inside', venue_name: 'Main Hall', distance_m: 2, venue_match: 'matched'},
+        recent_scans: [], counts: {total: 3, checked_out: 0, remaining: 3},
+      }}});
+      await page.waitForFunction(() => document.querySelector('[data-scan-result]').textContent.includes('Next Student'));
+      assert.match(await page.locator('[data-scan-counts]').textContent(), /3 timed in/, `${role} shows the second student's saved count`);
+      console.log(`PASS: ${role} keeps scan feedback stable when a refresh overlaps a save`);
 
       await page.locator('[data-gps-toggle]').click();
       const requestsWhenOff = await page.evaluate(() => window.gpsTest.requests);
