@@ -175,6 +175,7 @@
 
     const loginModal = document.querySelector('#login-modal');
     const passwordChangeSuccess = loginModal?.querySelector('[data-password-change-success]');
+    const firstLoginGuide = loginModal?.querySelector('[data-first-login-guide]');
     const authResult = document.querySelector('#auth-result');
     const showAuthResult = (type, message) => {
         loginModal?.close();
@@ -209,6 +210,7 @@
         const showing = password.type === 'text';
         password.type = showing ? 'password' : 'text';
         event.currentTarget.setAttribute('aria-pressed', String(!showing));
+        event.currentTarget.setAttribute('aria-label', showing ? 'Show password' : 'Hide password');
         event.currentTarget.querySelector('[data-eye-visible]')?.classList.toggle('hidden', !showing);
         event.currentTarget.querySelector('[data-eye-hidden]')?.classList.toggle('hidden', showing);
     });
@@ -223,7 +225,9 @@
         passwordChangeSuccess?.classList.add('hidden');
         const submit = form.querySelector('[data-login-submit]');
         const status = form.querySelector('[data-login-status]');
+        const errorMessage = form.querySelector('[data-login-error]');
         const original = submit.innerHTML;
+        errorMessage.classList.add('hidden');
         submit.disabled = true;
         submit.innerHTML = '<span class="h-4 w-4 animate-spin rounded-full border-2 border-white border-r-transparent"></span><span>Signing in…</span>';
         status.textContent = 'Checking your account. Please wait…';
@@ -250,7 +254,9 @@
             openNow.firstChild.textContent = `Open ${guide.destination} now `;
             window.setTimeout(() => window.location.assign(response.data.redirect_url), 1100);
         } catch (error) {
-            showAuthResult('error', error.response?.data?.message || 'Please check your credentials and try again.');
+            errorMessage.textContent = error.response?.data?.message || 'Please check your ID or username and password, then try again.';
+            errorMessage.classList.remove('hidden');
+            form.elements.password.focus();
         } finally {
             submit.disabled = false;
             submit.innerHTML = original;
@@ -262,8 +268,11 @@
         state.csrfToken = response.data.csrf_token;
         state.user = response.data.user;
         const loginReason = new URLSearchParams(window.location.search).get('login');
-        if (!state.user && loginReason === 'password-changed') {
-            passwordChangeSuccess?.classList.remove('hidden');
+        if (!state.user && ['password-changed', 'sign-in'].includes(loginReason)) {
+            if (loginReason === 'password-changed') {
+                passwordChangeSuccess?.classList.remove('hidden');
+                firstLoginGuide?.classList.add('hidden');
+            }
             loginModal?.showModal();
             loginModal?.querySelector('[name="login"]')?.focus();
             const cleanUrl = new URL(window.location.href);

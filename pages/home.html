@@ -49,7 +49,7 @@
         .page-capsule { bottom:8%; left:8%; width:150px; height:46px; border-radius:999px; border:1px solid rgba(47,58,224,.07); background:rgba(47,58,224,.04); transform:rotate(-12deg); }
         .event-row[hidden], .agenda-item[hidden] { display:none; }
         .event-filter[aria-pressed="true"] { background:var(--teal); border-color:var(--teal); color:white; box-shadow:0 5px 14px rgba(57,117,101,.2); }
-        .login-dialog { animation:modal-in .2s ease-out; }
+        .login-dialog { animation:modal-in .2s ease-out; width:min(560px,calc(100% - 1rem)); max-height:calc(100dvh - 1rem); overflow-y:auto; }
         .login-dialog::backdrop { background:rgba(18,16,23,.66); backdrop-filter:blur(5px); }
         .login-alert-progress { animation:alert-countdown 6.5s linear forwards; transform-origin:left; }
         .auth-result { animation:auth-result-in .24s ease-out; }
@@ -211,7 +211,7 @@
         </div>
     </footer>
 
-            <dialog id="login-modal" class="login-dialog m-auto w-[calc(100%-2rem)] max-w-[460px] overflow-hidden rounded-2xl border-0 bg-[#F3F0E9] p-0 text-[#121017] shadow-[0_30px_90px_rgba(18,16,23,.35)]">
+            <dialog id="login-modal" class="login-dialog m-auto rounded-2xl border-0 bg-[#F3F0E9] p-0 text-[#121017] shadow-[0_30px_90px_rgba(18,16,23,.35)]" aria-labelledby="login-title">
             <div class="relative p-6 sm:p-9">
                 <button class="absolute right-4 top-4 grid h-10 w-10 place-items-center rounded-full text-2xl text-[#121017]/45 transition hover:bg-[#121017]/7 hover:text-[#121017]" type="button" data-login-close aria-label="Close sign-in dialog">×</button>
 
@@ -221,19 +221,27 @@
                 </div>
 
                 <header class="mt-7">
-                    <h2 class="text-3xl font-black tracking-[-.045em]">Sign in to your account</h2>
-                    <p class="mt-2 text-sm leading-6 text-[#121017]/52">Enter your username or ID and password. We’ll take you to the right place for your account.</p>
+                    <h2 class="text-3xl font-black tracking-[-.045em]" id="login-title">Sign in to your account</h2>
+                    <p class="mt-2 text-sm leading-6 text-[#121017]/52">Use your account ID or username. First time here? Follow the example below.</p>
                 </header>
 
-                <p class="mt-6 hidden rounded-xl border border-[#397565]/25 bg-[#397565]/5 px-4 py-3 text-sm font-bold leading-6 text-[#397565]" data-password-change-success role="status" aria-live="polite">Password changed successfully. Sign in with your new password.</p>
+                <p class="mt-6 hidden rounded-xl border border-[#397565]/25 bg-[#397565]/5 px-4 py-3 text-sm font-bold leading-6 text-[#397565]" data-password-change-success role="status" aria-live="polite">Password changed. Enter your same ID or username and your new password below.</p>
+
+                <section class="mt-5 rounded-xl border border-[#397565]/25 bg-white px-4 py-3" data-first-login-guide aria-labelledby="first-login-title">
+                    <h3 class="text-sm font-extrabold text-[#397565]" id="first-login-title">First time signing in?</h3>
+                    <p class="mt-1 text-xs leading-5 text-[#121017]/70">If you were given an ID, enter the <strong>full ID as your username</strong>. For your first password, use <strong>that ID + your last name in CAPITAL LETTERS</strong>, with no spaces or punctuation.</p>
+                    <p class="mt-2 rounded-lg bg-[#397565]/5 px-3 py-2 text-xs leading-5 text-[#121017]">Example only: <strong>02-0000-000000</strong> + <strong>LAGO</strong> = <strong>02-0000-000000LAGO</strong>. The same rule works with any ID format.</p>
+                    <p class="mt-2 text-xs leading-5 text-[#121017]/70">You’ll create your own password next. Already changed it or been given separate credentials? Use those instead.</p>
+                </section>
 
                 
-                <form class="mt-7 grid gap-5" method="POST" action="api/auth.php?action=login" data-login-form>
+                <form class="mt-5 grid gap-5" method="POST" action="api/auth.php?action=login" data-login-form>
+                    <p class="hidden rounded-xl border border-[#FF6B2C]/25 bg-[#FF6B2C]/10 px-4 py-3 text-sm font-semibold leading-5 text-[#9A340B]" data-login-error role="alert"></p>
                     <label class="grid gap-2">
-                        <span class="text-sm font-extrabold">Username or Student ID</span>
+                        <span class="text-sm font-extrabold">Username or ID</span>
                         <span class="relative">
                             <svg class="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 fill-none stroke-[#121017]/35 stroke-2" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 21a8 8 0 0 0-16 0M12 13a5 5 0 1 0 0-10 5 5 0 0 0 0 10Z"/></svg>
-                            <input class="h-13 w-full rounded-xl border bg-white/65 pl-12 pr-4 text-sm outline-none transition placeholder:text-[#121017]/35 focus:ring-4 border-[#121017]/12 focus:border-[#397565] focus:ring-[#397565]/10" id="modal-login" name="login" value="" placeholder="Enter your username or Student ID" autocomplete="username" required>
+                            <input class="h-13 w-full rounded-xl border bg-white/65 pl-12 pr-4 text-sm outline-none transition placeholder:text-[#121017]/35 focus:ring-4 border-[#121017]/12 focus:border-[#397565] focus:ring-[#397565]/10" id="modal-login" name="login" value="" placeholder="Enter your full ID or username" autocomplete="username" required>
                         </span>
                                             </label>
 
@@ -253,7 +261,7 @@
                     <button class="inline-flex min-h-13 items-center justify-center gap-2 rounded-xl bg-[#397565] px-5 font-extrabold text-white shadow-[0_9px_24px_rgba(57,117,101,.22)] transition hover:bg-[#2e6355] disabled:cursor-wait disabled:opacity-70" type="submit" data-login-submit>Sign in <span class="text-xl" aria-hidden="true">→</span></button>
                     <p class="hidden text-center text-sm font-semibold text-[#397565]" data-login-status role="status" aria-live="polite"></p>
                 </form>
-                <p class="mt-6 text-center text-xs text-[#121017]/40">Having trouble signing in? <a class="font-extrabold text-[#397565] hover:underline" href="pages/forgot-password.html">Reset one account</a></p>
+                <p class="mt-5 text-center text-xs leading-5 text-[#121017]/60">Forgot your password or never received one? Ask your SBO Adviser to reset your account.</p>
             </div>
         </dialog>
 
@@ -275,7 +283,7 @@
             </div>
         </dialog>
     <script src="js/vendor/axios.min.js"></script>
-    <script src="js/shared/password-gate.js?v=20260917-1"></script>
-    <script src="js/home/home.js?v=20260923-signin-guide-1"></script>
+    <script src="js/shared/password-gate.js?v=20260923-first-login-1"></script>
+    <script src="js/home/home.js?v=20260923-first-login-1"></script>
 </body>
 </html>

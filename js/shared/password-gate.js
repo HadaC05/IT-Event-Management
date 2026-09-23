@@ -15,12 +15,12 @@
     if (activeGate) return activeGate;
 
     document.body.insertAdjacentHTML('beforeend', `
-      <dialog class="m-auto w-[min(540px,calc(100%_-_1rem))] rounded-2xl border-0 bg-white p-0 text-[#121017] shadow-2xl backdrop:bg-[#121017]/70 backdrop:backdrop-blur-[2px]" data-required-password-gate data-modal-size="medium" data-modal-kind="form" aria-labelledby="required-password-title" aria-describedby="required-password-description">
+      <dialog class="m-auto w-[min(540px,calc(100%_-_1rem))] rounded-2xl border-0 bg-white p-0 text-[#121017] shadow-2xl backdrop:bg-[#121017]/70 backdrop:backdrop-blur-[2px]" style="max-height:calc(100dvh - 1rem);overflow-y:auto" data-required-password-gate data-modal-size="medium" data-modal-kind="form" aria-labelledby="required-password-title" aria-describedby="required-password-description">
         <form data-required-password-form>
           <header class="border-b border-[#121017]/8 border-t-4 border-t-[#397565] px-6 py-5">
-            <p class="text-[10px] font-black uppercase tracking-[.15em] text-[#397565]">Required security step</p>
-            <h2 class="mt-1 text-2xl font-black tracking-[-.03em]" id="required-password-title">Create your private password</h2>
-            <p class="mt-2 text-sm leading-6 text-[#121017]/55" id="required-password-description">Your account currently uses a temporary password. Replace it before continuing.</p>
+            <p class="text-[10px] font-black uppercase tracking-[.15em] text-[#397565]">Step 2 of 2 · First sign-in</p>
+            <h2 class="mt-1 text-2xl font-black tracking-[-.03em]" id="required-password-title">Create your own password</h2>
+            <p class="mt-2 text-sm leading-6 text-[#121017]/55" id="required-password-description">You signed in with a temporary password. Enter a new private password twice. Then sign in again with your same ID or username and the new password.</p>
           </header>
           <div class="grid gap-4 p-6">
             <div class="rounded-xl bg-[#397565]/7 px-4 py-3">
@@ -28,7 +28,7 @@
               <strong class="mt-1 block text-sm" data-password-gate-name></strong>
               <span class="mt-0.5 block text-xs text-[#121017]/50" data-password-gate-role></span>
             </div>
-            <label class="grid gap-2"><span class="text-sm font-bold">New password</span><span class="relative"><input class="h-12 w-full rounded-xl border border-[#121017]/12 px-3 pr-12 text-sm outline-none focus:border-[#397565] focus:ring-4 focus:ring-[#397565]/10" name="password" type="password" minlength="8" required autocomplete="new-password"><button class="absolute inset-y-0 right-0 grid w-12 place-items-center text-[#397565]" type="button" data-password-eye aria-label="Show new password" aria-pressed="false"><svg class="h-5 w-5 fill-none stroke-current stroke-2" viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12Z"/><circle cx="12" cy="12" r="2.5"/></svg></button></span><small class="text-xs leading-5 text-[#121017]/45">Use at least 8 characters and do not reuse the temporary password.</small></label>
+            <label class="grid gap-2"><span class="text-sm font-bold">New password</span><span class="relative"><input class="h-12 w-full rounded-xl border border-[#121017]/12 px-3 pr-12 text-sm outline-none focus:border-[#397565] focus:ring-4 focus:ring-[#397565]/10" name="password" type="password" minlength="8" required autocomplete="new-password"><button class="absolute inset-y-0 right-0 grid w-12 place-items-center text-[#397565]" type="button" data-password-eye aria-label="Show new password" aria-pressed="false"><svg class="h-5 w-5 fill-none stroke-current stroke-2" viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12Z"/><circle cx="12" cy="12" r="2.5"/></svg></button></span><small class="text-xs leading-5 text-[#121017]/45">Use at least 8 characters. Do not use your ID plus surname again.</small></label>
             <label class="grid gap-2"><span class="text-sm font-bold">Confirm new password</span><span class="relative"><input class="h-12 w-full rounded-xl border border-[#121017]/12 px-3 pr-12 text-sm outline-none focus:border-[#397565] focus:ring-4 focus:ring-[#397565]/10" name="password_confirmation" type="password" minlength="8" required autocomplete="new-password"><button class="absolute inset-y-0 right-0 grid w-12 place-items-center text-[#397565]" type="button" data-password-eye aria-label="Show password confirmation" aria-pressed="false"><svg class="h-5 w-5 fill-none stroke-current stroke-2" viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12Z"/><circle cx="12" cy="12" r="2.5"/></svg></button></span></label>
             <p class="hidden rounded-xl bg-[#FF6B2C]/9 px-4 py-3 text-xs font-bold leading-5 text-[#D64A12]" data-password-gate-error role="alert"></p>
           </div>
