@@ -101,33 +101,110 @@
     }).join('');
   };
 
-  const studentNotifications = async (header, csrf) => {
+  const appNotifications = async (header, csrf) => {
     const slot = header.querySelector('[data-shared-notification-slot]');
     slot.innerHTML = `<details class="group relative" data-notification-menu><summary class="relative grid h-11 w-11 cursor-pointer list-none place-items-center rounded-full bg-[#121017]/8 text-[#121017]" aria-label="Notifications"><svg class="h-5 w-5 fill-current" viewBox="0 0 24 24"><path d="M12 22a2.5 2.5 0 0 0 2.35-1.65h-4.7A2.5 2.5 0 0 0 12 22Zm7-6.5-1.5-2V9a5.5 5.5 0 0 0-4.25-5.35V3a1.25 1.25 0 0 0-2.5 0v.65A5.5 5.5 0 0 0 6.5 9v4.5l-1.5 2V18h14v-2.5Z"></path></svg><span class="absolute -right-1 -top-1 hidden min-h-5 min-w-5 place-items-center rounded-full border-2 border-white bg-[#FF4D4F] px-1 text-[9px] font-black text-white" data-notification-count>0</span></summary><div class="absolute right-0 top-[calc(100%+.65rem)] w-[min(22rem,calc(100vw-1rem))] overflow-hidden rounded-2xl border border-[#121017]/10 bg-white shadow-2xl"><div class="flex items-center justify-between border-b px-4 py-3"><div><strong class="block text-sm font-black">Notifications</strong><span class="text-[10px] text-[#121017]/45" data-notification-summary>No unread notifications</span></div><button class="hidden text-[10px] font-black text-[#397565]" type="button" data-mark-all-notifications>Mark all read</button></div><div class="max-h-80 overflow-y-auto" data-notification-list></div></div></details>`;
     const refreshTimes = () => slot.querySelectorAll('[data-notification-time]').forEach(node => { node.textContent = notificationTime(node.dataset.notificationTime); });
     const load = async () => {
-      const response = await axios.get('api/student-home.php', {params: {action: 'notifications'}}), data = response.data.data, count = Number(data.unread_notifications || 0);
+      const response = await axios.get('api/media.php', {params: {action: 'notifications'}}), data = response.data.data, count = Number(data.unread_notifications || 0);
       const badge = slot.querySelector('[data-notification-count]'); badge.textContent = count > 9 ? '9+' : count; badge.classList.toggle('hidden', !count); badge.classList.toggle('grid', !!count);
       slot.querySelector('[data-notification-summary]').textContent = count ? `${count} unread notification${count === 1 ? '' : 's'}` : 'No unread notifications';
       slot.querySelector('[data-mark-all-notifications]').classList.toggle('hidden', !count);
       slot.querySelector('[data-notification-list]').innerHTML = data.notifications?.length ? data.notifications.map(item => `<article class="grid grid-cols-[minmax(0,1fr)_auto] gap-x-3 gap-y-1 border-b px-4 py-3 ${item.is_read ? '' : 'bg-[#C6F24E]/10'}"><p class="min-w-0 text-xs font-bold leading-5">${esc(item.message)}</p>${item.is_read ? '' : `<button class="row-span-2 shrink-0 self-center text-[10px] font-black text-[#397565]" data-mark-notification="${esc(item.id)}">Mark read</button>`}<time class="text-[10px] font-semibold text-[#121017]/40" datetime="${esc(item.created_at)}" title="${esc(notificationDateTitle(item.created_at))}" data-notification-time="${esc(item.created_at)}">${esc(notificationTime(item.created_at))}</time></article>`).join('') : '<p class="px-6 py-10 text-center text-xs text-[#121017]/45">No notifications yet.</p>';
       refreshTimes();
     };
-    const mark = async id => { await axios.post('api/student-home.php',{action:'mark_notifications_read',...(id ? {notification_id:id} : {})},{headers:{'X-CSRF-Token':csrf}}); await load(); };
+    const mark = async id => { await axios.post('api/media.php',{action:'mark_notifications_read',...(id ? {notification_id:id} : {})},{headers:{'X-CSRF-Token':csrf}}); await load(); };
     slot.querySelector('[data-mark-all-notifications]').onclick = () => mark();
     slot.querySelector('[data-notification-list]').onclick = event => { const button = event.target.closest('[data-mark-notification]'); if (button) mark(button.dataset.markNotification); };
     const menu = slot.querySelector('[data-notification-menu]');
+    menu.addEventListener('toggle', () => { if (menu.open) load().catch(error => console.warn('Notifications could not be refreshed.', error)); });
     document.addEventListener('click', event => { if (menu.open && !menu.contains(event.target)) menu.removeAttribute('open'); });
     await load();
     window.setInterval(refreshTimes, 60000);
+    window.setInterval(() => { if (!document.hidden) load().catch(error => console.warn('Notifications could not be refreshed.', error)); }, 60000);
+  };
+
+  const authorSearch = () => {
+    const feedRoot = document.querySelector('[data-media-feed-root]');
+    if (!feedRoot) return;
+    const navSlot = document.querySelector('[data-shared-author-search-slot]');
+    const studentMobileSlot = document.querySelector('[data-student-home-search-slot]');
+    const control = document.createElement('div');
+    control.className = 'relative w-full max-w-[23rem]';
+    control.dataset.authorSearchBox = '';
+    control.innerHTML = `<label class="relative block"><span class="sr-only">Search name</span><svg class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 fill-none stroke-[#121017]/40 stroke-2" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-4-4"></path></svg><input class="h-10 w-full rounded-xl border border-[#121017]/10 bg-[#F3F0E9] pl-10 pr-3 text-sm text-[#121017] outline-none transition placeholder:text-[#121017]/45 focus:border-[#397565] focus:bg-white focus:ring-4 focus:ring-[#397565]/10 sm:h-11" type="search" autocomplete="off" maxlength="80" placeholder="Search name" data-author-search></label><div class="absolute left-0 right-0 top-[calc(100%+.45rem)] z-50 hidden max-h-80 overflow-y-auto rounded-xl border border-[#121017]/10 bg-white p-2 text-left shadow-xl" data-author-results aria-live="polite"></div>`;
+    const box = control, input = control.querySelector('[data-author-search]'), results = control.querySelector('[data-author-results]');
+    let timer = 0, request = 0;
+    const close = () => { results.classList.add('hidden'); results.replaceChildren(); };
+    input.addEventListener('input', () => {
+      clearTimeout(timer);
+      const current = ++request, query = input.value.trim();
+      if (query.length < 2) { close(); return; }
+      results.classList.remove('hidden'); results.innerHTML = '<p class="px-3 py-2 text-xs text-[#121017]/45">Searching…</p>';
+      timer = setTimeout(async () => {
+        try {
+          const users = (await axios.get('api/media.php', {params:{action:'authors',q:query}})).data.data.users || [];
+          if (current !== request) return;
+          results.innerHTML = users.length ? users.map(user => `<a class="flex min-h-14 items-center gap-3 rounded-lg px-2 py-2 text-left transition hover:bg-[#397565]/5" href="pages/shared/public-profile.html?user_id=${encodeURIComponent(user.id)}&v=20260924-profile-search-3">${user.profile_photo_path ? `<img class="h-10 w-10 shrink-0 rounded-full object-cover" src="${esc(user.profile_photo_path)}" alt="">` : `<span class="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#C6F24E]/35 text-xs font-black text-[#397565]">${esc(user.initials)}</span>`}<span class="min-w-0 flex-1"><strong class="block truncate text-sm font-black text-[#121017]">${esc(user.full_name)}</strong><span class="mt-0.5 block text-[10px] text-[#121017]/45">${esc(user.role_name)} · ${user.post_count} public post${Number(user.post_count) === 1 ? '' : 's'}</span></span></a>`).join('') : '<p class="px-3 py-3 text-xs text-[#121017]/45">No names with public posts found.</p>';
+        } catch (error) {
+          if (current === request) results.innerHTML = `<p class="px-3 py-3 text-xs text-[#c84510]">${esc(error.response?.data?.message || 'Search could not be loaded.')}</p>`;
+        }
+      }, 250);
+    });
+    input.addEventListener('keydown', event => { if (event.key === 'Escape') { close(); input.blur(); } });
+    document.addEventListener('click', event => { if (!box.contains(event.target)) close(); });
+    let feedMobileSlot = null;
+    const ensureFeedMobileSlot = () => {
+      if (feedMobileSlot?.isConnected) return feedMobileSlot;
+      const feedHeading = feedRoot.querySelector('.cite-media-shell > header');
+      if (!feedHeading) return null;
+      feedMobileSlot = document.createElement('div');
+      feedMobileSlot.className = 'mb-3 flex justify-end';
+      feedMobileSlot.dataset.feedAuthorSearchSlot = '';
+      feedHeading.before(feedMobileSlot);
+      return feedMobileSlot;
+    };
+    const mobileViewport = window.matchMedia('(max-width: 767px)');
+    const placeSearch = () => {
+      if (mobileViewport.matches) {
+        const mobileSlot = studentMobileSlot || ensureFeedMobileSlot();
+        if (feedMobileSlot) feedMobileSlot.classList.remove('hidden');
+        if (mobileSlot) mobileSlot.append(control);
+      } else {
+        if (feedMobileSlot) feedMobileSlot.classList.add('hidden');
+        if (navSlot) navSlot.append(control);
+      }
+    };
+    placeSearch();
+    mobileViewport.addEventListener('change', placeSearch);
+    if (!studentMobileSlot && !feedMobileSlot) {
+      const observer = new MutationObserver(() => {
+        const mobileSlot = ensureFeedMobileSlot();
+        if (mobileSlot) {
+          if (mobileViewport.matches) placeSearch();
+          else mobileSlot.classList.add('hidden');
+          observer.disconnect();
+        }
+      });
+      observer.observe(feedRoot, {childList:true,subtree:true});
+    }
   };
 
   async function mount() {
-    const role = document.body.dataset.navigationRole || (document.body.hasAttribute('data-admin-shell') ? 'adviser' : '');
+    if (!document.body) await new Promise(resolve => document.addEventListener('DOMContentLoaded', resolve, {once:true}));
+    let role = document.body.dataset.navigationRole || (document.body.hasAttribute('data-admin-shell') ? 'adviser' : '');
+    const autoRole = role === 'auto';
+    if (autoRole) role = '';
     if (role) document.body.dataset.navigationRole = role;
-    if (!ROLE_PAGES[role]) return null;
+    if (!ROLE_PAGES[role] && !autoRole) return null;
     ensureStyles();
-    const [session, fragmentResponse] = await Promise.all([axios.get('api/auth.php?action=session'), axios.get('pages/shared/navigation.html?v=20260922-student-profile-1',{responseType:'text'})]);
+    const [session, fragmentResponse] = await Promise.all([axios.get('api/auth.php?action=session'), axios.get('pages/shared/navigation.html?v=20260924-responsive-media-search-1',{responseType:'text'})]);
+    if (autoRole) {
+      if (!session.data.authenticated) { location.href = './'; throw new Error('Sign in to view this profile.'); }
+      role = SESSION_ROLE_PORTAL[session.data.user?.role] || '';
+      if (!ROLE_PAGES[role]) throw new Error('This account does not have a CITE portal.');
+      document.body.dataset.navigationRole = role;
+    }
     const expected = ROLE_LABELS[role];
     if (!session.data.authenticated || !ROLE_SESSION_ROLES[role].includes(session.data.user?.role)) {
       // Do not strand authenticated users on the public homepage when they open
@@ -171,6 +248,7 @@
     const content = adviserShell || document.querySelector('main');
     content?.classList.remove('lg:ml-64'); content?.classList.add('lg:ml-20'); content?.setAttribute('data-shared-content','');
     document.body.prepend(header); document.body.prepend(sidebar);
+    authorSearch();
     if (role === 'sbo') header.querySelector('[data-shared-account-menu]').setAttribute('data-sbo-account-menu','');
 
     const labels = sidebar.querySelectorAll('[data-shared-sidebar-label]'), toggle = sidebar.querySelector('[data-shared-sidebar-toggle]');
@@ -215,10 +293,8 @@
       const destination = new URL(link.href,location.href), current = new URL(location.href);
       if (destination.pathname === current.pathname) event.preventDefault();
     }));
-    if (role === 'student') {
-      try { await studentNotifications(header,csrf); }
-      catch (error) { console.warn('Student notifications could not be loaded.', error); }
-    }
+    try { await appNotifications(header,csrf); }
+    catch (error) { console.warn('Notifications could not be loaded.', error); }
     return {user,csrfToken:csrf,role};
   }
 

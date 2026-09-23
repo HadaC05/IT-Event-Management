@@ -8,11 +8,11 @@
     <title>Home | CITE Events</title>
     <link rel="icon" type="image/png" href="assets/images/cite_favicon.png">
     <link rel="stylesheet" href="css/tailwind.css">
-    <link rel="stylesheet" href="css/media-feed.css?v=20260923-media-size-1">
-    <link rel="stylesheet" href="css/student-experience.css?v=20260923-photo-carousel-3">
+    <link rel="stylesheet" href="css/media-feed.css?v=20260924-reaction-icons-1">
+    <link rel="stylesheet" href="css/student-experience.css?v=20260924-responsive-media-search-2">
     <script src="js/vendor/axios.min.js" defer></script>
     <script src="js/shared/password-gate.js?v=20260917-1"></script>
-    <script src="js/shared/navigation.js?v=20260923-notifications-1" defer></script>
+    <script src="js/shared/navigation.js?v=20260924-responsive-media-search-2" defer></script>
     <script src="js/shared/interactions.js" defer></script>
     <script src="js/shared/notifications.js?v=20260917-7" defer></script>
 </head>
@@ -34,6 +34,7 @@
         data-student-sidebar-content
     >
         <h1 class="sr-only">Student home</h1>
+        <div class="student-home-author-search" data-student-home-search-slot></div>
         <section class="student-home-carousel mx-auto mb-8 w-full max-w-[1180px]" data-student-home-carousel aria-label="Event photos" aria-roledescription="carousel">
         <div class="student-home-carousel__slides" data-home-carousel-slides>
         <article class="student-stage student-home-slide student-home-event is-active" data-home-slide data-home-intro aria-label="Campus celebration photo" aria-roledescription="slide">
@@ -55,12 +56,12 @@
     </main>
 
     <div class="pointer-events-none fixed right-4 top-20 z-[80] grid w-[min(380px,calc(100%_-_2rem))] gap-2.5" data-notification-region aria-live="polite" aria-atomic="true"></div>
-    <script src="js/shared/media-api.js?v=20260923-feed-pages-1"></script>
+    <script src="js/shared/media-api.js?v=20260924-reaction-lists-1"></script>
     <script src="js/shared/media-permissions.js?v=20260919-2"></script>
-    <script src="js/shared/media-post-form.js?v=20260923-edit-preview-1"></script>
-    <script src="js/shared/media-post-card.js?v=20260923-hide-student-badge-1"></script>
+    <script src="js/shared/media-post-form.js?v=20260923-multiple-photos-1"></script>
+    <script src="js/shared/media-post-card.js?v=20260924-reaction-icons-1"></script>
     <script src="js/student/home-carousel.js?v=20260923-photo-carousel-2"></script>
-    <script src="js/shared/media-feed.js?v=20260923-home-carousel-1"></script>
+    <script src="js/shared/media-feed.js?v=20260924-reaction-lists-1"></script>
     <script src="js/shared/media-page.js?v=20260919-1"></script>
 </body>
 </html>

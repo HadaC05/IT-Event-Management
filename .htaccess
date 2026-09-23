@@ -22,6 +22,11 @@ RewriteRule ^api/session\.php$ api/auth.php?action=session [L,QSA]
 <IfModule mod_headers.c>
     Header unset X-Powered-By
     Header always unset X-Powered-By
+    # Remove inherited or PHP-added CSP headers before applying the app policy.
+    # Multiple CSP headers are enforced together, so an inherited script-src
+    # 'none' would block local scripts even when this policy allows 'self'.
+    Header unset Content-Security-Policy
+    Header always unset Content-Security-Policy
     Header always set Content-Security-Policy "default-src 'self'; script-src 'self'; worker-src 'self' blob:; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://tile.openstreetmap.org; media-src 'self' blob:; connect-src 'self'; font-src 'self' data:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'"
     Header always set X-Content-Type-Options "nosniff"
     Header always set X-Frame-Options "DENY"

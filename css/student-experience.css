@@ -96,6 +96,18 @@ body[data-navigation-role="student"] {
 .student-stage__action--primary:hover { background: #d8fa82; }
 
 .student-home-carousel { position: relative; }
+.student-home-author-search {
+  width: 100%;
+  max-width: 1180px;
+  margin: 0 auto .4rem;
+  padding: 0;
+  display: flex;
+  justify-content: flex-end;
+}
+.student-home-author-search > [data-author-search-box] { width: 100%; max-width: none; }
+@media (min-width: 768px) {
+  .student-home-author-search { display: none; }
+}
 .student-home-carousel__slides { display: grid; }
 .student-home-slide { grid-area: 1 / 1; width: 100%; visibility: hidden; opacity: 0; pointer-events: none; transition: opacity .35s ease, visibility .35s ease; }
 .student-home-slide.is-active { visibility: visible; opacity: 1; pointer-events: auto; }

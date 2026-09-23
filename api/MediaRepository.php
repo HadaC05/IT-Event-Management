@@ -67,6 +67,67 @@ final class MediaRepository
         ];
     }
 
+    public function notificationData(int $userId): array
+    {
+        $statement = $this->db->prepare('SELECT id,type,data,read_at,created_at FROM tbl_notifications WHERE notifiable_id=? ORDER BY created_at DESC LIMIT 20');
+        $statement->execute([$userId]);
+        $notifications = $statement->fetchAll();
+        foreach ($notifications as &$notification) {
+            $data = json_decode((string) $notification['data'], true);
+            $notification['message'] = is_array($data) && isset($data['message']) ? (string) $data['message'] : 'You have a new update.';
+            $notification['is_read'] = $notification['read_at'] !== null;
+            unset($notification['data']);
+        }
+        unset($notification);
+        $count = $this->db->prepare('SELECT COUNT(*) FROM tbl_notifications WHERE notifiable_id=? AND read_at IS NULL');
+        $count->execute([$userId]);
+        return ['notifications'=>$notifications,'unread_notifications'=>(int) $count->fetchColumn()];
+    }
+
+    public function markNotificationsRead(int $userId, ?string $notificationId = null): int
+    {
+        $sql = 'UPDATE tbl_notifications SET read_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP WHERE notifiable_id=? AND read_at IS NULL';
+        $parameters = [$userId];
+        if ($notificationId !== null && $notificationId !== '') { $sql .= ' AND id=?'; $parameters[] = $notificationId; }
+        $statement = $this->db->prepare($sql);
+        $statement->execute($parameters);
+        return $statement->rowCount();
+    }
+
+    public function searchAuthors(string $query): array
+    {
+        $query = trim($query);
+        if (mb_strlen($query) < 2 || mb_strlen($query) > 80) throw new InvalidArgumentException('Search with 2 to 80 characters.');
+        $statement = $this->db->prepare("SELECT u.id,u.first_name,u.middle_name,u.last_name,u.profile_photo_path,r.name role_name,(SELECT COUNT(*) FROM tbl_posts p WHERE p.user_id=u.id AND p.status='approved' AND p.deleted_at IS NULL) post_count FROM tbl_users u JOIN tbl_roles r ON r.id=u.role_id JOIN tbl_user_statuses s ON s.id=u.status AND s.label='active' WHERE CONCAT_WS(' ',u.first_name,u.middle_name,u.last_name) LIKE ? AND EXISTS (SELECT 1 FROM tbl_posts p WHERE p.user_id=u.id AND p.status='approved' AND p.deleted_at IS NULL) ORDER BY u.last_name,u.first_name,u.id LIMIT 10");
+        $statement->execute(['%'.$query.'%']);
+        $users = $statement->fetchAll();
+        foreach ($users as &$user) {
+            $user['id'] = (int) $user['id'];
+            $user['post_count'] = (int) $user['post_count'];
+            $user['full_name'] = $this->name($user);
+            $user['initials'] = $this->initials($user);
+            unset($user['first_name'], $user['middle_name'], $user['last_name']);
+        }
+        unset($user);
+        return $users;
+    }
+
+    public function publicAuthorProfile(array $actor, int $authorId, ?string $cursor = null): array
+    {
+        if ($authorId < 1) throw new InvalidArgumentException('Choose a valid account.');
+        $statement = $this->db->prepare("SELECT u.id,u.first_name,u.middle_name,u.last_name,u.bio,u.profile_photo_path,r.name role_name,(SELECT COUNT(*) FROM tbl_posts p WHERE p.user_id=u.id AND p.status='approved' AND p.deleted_at IS NULL) post_count FROM tbl_users u JOIN tbl_roles r ON r.id=u.role_id JOIN tbl_user_statuses s ON s.id=u.status AND s.label='active' WHERE u.id=? AND EXISTS (SELECT 1 FROM tbl_posts p WHERE p.user_id=u.id AND p.status='approved' AND p.deleted_at IS NULL) LIMIT 1");
+        $statement->execute([$authorId]);
+        $profile = $statement->fetch();
+        if (!$profile) throw new InvalidArgumentException('This account has no public media posts.');
+        $profile['id'] = (int) $profile['id'];
+        $profile['post_count'] = (int) $profile['post_count'];
+        $profile['full_name'] = $this->name($profile);
+        $profile['initials'] = $this->initials($profile);
+        unset($profile['first_name'], $profile['middle_name'], $profile['last_name']);
+        $page = $this->postsPage($actor, null, $cursor, false, $authorId);
+        return ['profile'=>$profile,'posts'=>$page['posts'],'next_cursor'=>$page['next_cursor']];
+    }
+
     public function moderationPage(array $actor, int $requestedPage = 1): array
     {
         $permissions = new MediaPermissions((string) $actor['role']);
@@ -138,7 +199,8 @@ final class MediaRepository
         $userId = (int) $actor['id'];
         $content = $this->content($input);
         $eventId = $this->eventId($input, $userId, $permissions);
-        [$imagePath, $videoPath] = $this->storeMedia($files);
+        [$imagePaths, $videoPath] = $this->storeMedia($files);
+        $imagePath = $imagePaths[0] ?? null;
         $status = $permissions->automaticStatus();
         $this->db->beginTransaction();
         try {
@@ -147,13 +209,14 @@ final class MediaRepository
             $reviewedAt = $status === 'approved' ? date('Y-m-d H:i:s') : null;
             $statement->execute([$userId, $eventId, $content, $imagePath, $videoPath, $status, $reviewer, $reviewedAt]);
             $postId = (int) $this->db->lastInsertId();
+            $this->replacePostImages($postId, $imagePaths);
             $this->audit($postId, $userId, 'submitted', null, $status);
             if ($permissions->isStudent()) $this->notifyModerators($postId, $actor);
             $this->db->commit();
             return $postId;
         } catch (Throwable $exception) {
             if ($this->db->inTransaction()) $this->db->rollBack();
-            $this->removeUpload($imagePath);
+            foreach ($imagePaths as $path) $this->removeUpload($path);
             $this->removeUpload($videoPath);
             throw $exception;
         }
@@ -173,11 +236,12 @@ final class MediaRepository
         }
         $content = $this->content($input);
         $eventId = $this->eventId($input, $userId, $permissions);
-        [$newImage, $newVideo] = $this->storeMedia($files);
+        [$newImages, $newVideo] = $this->storeMedia($files);
         $removeMedia = !empty($input['remove_media']);
         $status = $permissions->isStudent() ? 'pending' : 'approved';
         $imagePath = $videoPath = null;
-        $oldImagePath = $oldVideoPath = null;
+        $oldImagePaths = [];
+        $oldVideoPath = null;
         $this->db->beginTransaction();
         try {
             $lock = $this->db->prepare('SELECT * FROM tbl_posts WHERE id=? AND user_id=? AND deleted_at IS NULL FOR UPDATE');
@@ -191,28 +255,30 @@ final class MediaRepository
                 throw new MediaForbiddenException('A hidden post cannot be edited by its author.');
             }
             $eventId = $this->eventId($input, $userId, $permissions);
-            $oldImagePath = $post['image_path'];
+            $oldImagePaths = $this->postImagePaths($postId, $post['image_path']);
             $oldVideoPath = $post['video_path'];
-            $imagePath = $removeMedia ? null : $oldImagePath;
+            $imagePaths = $removeMedia ? [] : $oldImagePaths;
             $videoPath = $removeMedia ? null : $oldVideoPath;
-            if ($newImage !== null) { $imagePath = $newImage; $videoPath = null; }
-            if ($newVideo !== null) { $videoPath = $newVideo; $imagePath = null; }
+            if ($newImages) { $imagePaths = $newImages; $videoPath = null; }
+            if ($newVideo !== null) { $videoPath = $newVideo; $imagePaths = []; }
+            $imagePath = $imagePaths[0] ?? null;
             // An edit to an already-published non-student post must not move it to the top of the feed.
             $reviewedBy = $status === 'approved' ? ($post['status'] === 'approved' ? $post['reviewed_by'] : $userId) : null;
             $reviewedAt = $status === 'approved' ? ($post['status'] === 'approved' ? $post['reviewed_at'] : date('Y-m-d H:i:s')) : null;
             $statement = $this->db->prepare('UPDATE tbl_posts SET event_id=?,content=?,image_path=?,video_path=?,status=?,rejection_reason=NULL,reviewed_by=?,reviewed_at=?,updated_at=CURRENT_TIMESTAMP WHERE id=? AND user_id=? AND deleted_at IS NULL');
             $statement->execute([$eventId, $content, $imagePath, $videoPath, $status, $reviewedBy, $reviewedAt, $postId, $userId]);
             if ($statement->rowCount() !== 1) throw new RuntimeException('The post was not updated.');
+            if ($removeMedia || $newImages || $newVideo !== null) $this->replacePostImages($postId, $imagePaths);
             $this->audit($postId, $userId, 'edited', (string) $post['status'], $status, $permissions->isStudent() ? 'Student edit requires a new review.' : null);
             if ($permissions->isStudent()) $this->notifyModerators($postId, $actor);
             $this->db->commit();
         } catch (Throwable $exception) {
             if ($this->db->inTransaction()) $this->db->rollBack();
-            $this->removeUpload($newImage);
+            foreach ($newImages as $path) $this->removeUpload($path);
             $this->removeUpload($newVideo);
             throw $exception;
         }
-        if ($imagePath !== $oldImagePath) $this->removeUpload($oldImagePath);
+        foreach (array_diff($oldImagePaths, $imagePaths) as $path) $this->removeUpload($path);
         if ($videoPath !== $oldVideoPath) $this->removeUpload($oldVideoPath);
     }
 
@@ -301,12 +367,13 @@ final class MediaRepository
 
     public function toggleReaction(int $userId, int $postId, string $type, ?bool $desiredActive = null): void
     {
-        if ($type !== 'like') throw new InvalidArgumentException('Only the Like reaction is available.');
+        if (!in_array($type, ['like','love','laugh'], true)) throw new InvalidArgumentException('Choose Like, Love, or Laugh.');
         $this->db->beginTransaction();
         try {
-            $post = $this->db->prepare("SELECT id FROM tbl_posts WHERE id=? AND status='approved' AND deleted_at IS NULL FOR UPDATE");
+            $post = $this->db->prepare("SELECT id,user_id FROM tbl_posts WHERE id=? AND status='approved' AND deleted_at IS NULL FOR UPDATE");
             $post->execute([$postId]);
-            if (!$post->fetchColumn()) throw new InvalidArgumentException('This post is not publicly available.');
+            $post = $post->fetch();
+            if (!$post) throw new InvalidArgumentException('This post is not publicly available.');
             $statement = $this->db->prepare('SELECT type FROM tbl_post_reactions WHERE post_id=? AND user_id=? FOR UPDATE');
             $statement->execute([$postId, $userId]);
             $current = $statement->fetchColumn() === $type;
@@ -316,6 +383,45 @@ final class MediaRepository
                 $this->db->prepare('DELETE FROM tbl_post_reactions WHERE post_id=? AND user_id=?')->execute([$postId, $userId]);
             } else {
                 $this->db->prepare('INSERT INTO tbl_post_reactions(post_id,user_id,type,created_at,updated_at) VALUES(?,?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP) ON DUPLICATE KEY UPDATE type=VALUES(type),updated_at=CURRENT_TIMESTAMP')->execute([$postId, $userId, $type]);
+                if ((int) $post['user_id'] !== $userId) {
+                    $name = $this->actorName($userId);
+                    $verb = ['like'=>'liked','love'=>'loved','laugh'=>'laughed at'][$type];
+                    $this->notification((int) $post['user_id'], ['post_id'=>$postId,'actor_id'=>$userId,'action'=>'reaction','reaction'=>$type,'message'=>$name.' '.$verb.' your post.'], 'media_activity');
+                }
+            }
+            $this->db->commit();
+        } catch (Throwable $exception) {
+            if ($this->db->inTransaction()) $this->db->rollBack();
+            throw $exception;
+        }
+    }
+
+    public function toggleCommentReaction(int $userId, int $postId, int $commentId, string $type, ?bool $desiredActive = null): void
+    {
+        if (!in_array($type, ['like','love','laugh'], true)) throw new InvalidArgumentException('Choose Like, Love, or Laugh.');
+        $this->db->beginTransaction();
+        try {
+            $post = $this->db->prepare("SELECT id FROM tbl_posts WHERE id=? AND status='approved' AND deleted_at IS NULL FOR UPDATE");
+            $post->execute([$postId]);
+            if (!$post->fetchColumn()) throw new InvalidArgumentException('This post is not publicly available.');
+            $commentStatement = $this->db->prepare('SELECT id,user_id FROM tbl_post_comments WHERE id=? AND post_id=? FOR UPDATE');
+            $commentStatement->execute([$commentId,$postId]);
+            $comment = $commentStatement->fetch();
+            if (!$comment) throw new InvalidArgumentException('This comment is no longer available.');
+            $statement = $this->db->prepare('SELECT type FROM tbl_comment_reactions WHERE comment_id=? AND user_id=? FOR UPDATE');
+            $statement->execute([$commentId,$userId]);
+            $current = $statement->fetchColumn() === $type;
+            $active = $desiredActive ?? !$current;
+            if ($active === $current) { $this->db->commit(); return; }
+            if (!$active) {
+                $this->db->prepare('DELETE FROM tbl_comment_reactions WHERE comment_id=? AND user_id=?')->execute([$commentId,$userId]);
+            } else {
+                $this->db->prepare('INSERT INTO tbl_comment_reactions(comment_id,user_id,type,created_at,updated_at) VALUES(?,?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP) ON DUPLICATE KEY UPDATE type=VALUES(type),updated_at=CURRENT_TIMESTAMP')->execute([$commentId,$userId,$type]);
+                if ((int) $comment['user_id'] !== $userId) {
+                    $verb = ['like'=>'liked','love'=>'loved','laugh'=>'laughed at'][$type];
+                    $name = $this->actorName($userId);
+                    $this->notification((int) $comment['user_id'], ['post_id'=>$postId,'comment_id'=>$commentId,'actor_id'=>$userId,'action'=>'comment_reaction','reaction'=>$type,'message'=>$name.' '.$verb.' your comment.'], 'media_activity');
+                }
             }
             $this->db->commit();
         } catch (Throwable $exception) {
@@ -326,7 +432,7 @@ final class MediaRepository
 
     public function saveComment(int $userId, int $postId, string $body, ?int $commentId, ?int $parentCommentId = null): void
     {
-        $this->publicPost($postId);
+        $post = $this->publicPost($postId);
         $body = trim($body);
         if ($body === '' || mb_strlen($body) > 1000) throw new InvalidArgumentException('Comment must contain 1 to 1,000 characters.');
         if ($commentId === null) {
@@ -336,7 +442,27 @@ final class MediaRepository
                 $parent->execute([$parentCommentId, $postId]);
                 if (!$parent->fetchColumn()) throw new InvalidArgumentException('The comment you are replying to is unavailable.');
             }
-            $this->db->prepare('INSERT INTO tbl_post_comments(post_id,parent_comment_id,user_id,body,created_at,updated_at) VALUES(?,?,?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)')->execute([$postId, $parentCommentId, $userId, $body]);
+            $this->db->beginTransaction();
+            try {
+                $this->db->prepare('INSERT INTO tbl_post_comments(post_id,parent_comment_id,user_id,body,created_at,updated_at) VALUES(?,?,?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)')->execute([$postId, $parentCommentId, $userId, $body]);
+                $commentId = (int) $this->db->lastInsertId();
+                $name = $this->actorName($userId);
+                $recipients = [];
+                if ($parentCommentId !== null) {
+                    $parentOwner = $this->db->prepare('SELECT user_id FROM tbl_post_comments WHERE id=? AND post_id=?');
+                    $parentOwner->execute([$parentCommentId, $postId]);
+                    $parentUserId = (int) $parentOwner->fetchColumn();
+                    if ($parentUserId > 0 && $parentUserId !== $userId) $recipients[$parentUserId] = $name.' replied to your comment.';
+                    if ((int) $post['user_id'] !== $userId && (int) $post['user_id'] !== $parentUserId) $recipients[(int) $post['user_id']] = $name.' replied to a comment on your post.';
+                } elseif ((int) $post['user_id'] !== $userId) {
+                    $recipients[(int) $post['user_id']] = $name.' commented on your post.';
+                }
+                foreach ($recipients as $recipientId => $message) $this->notification((int) $recipientId, ['post_id'=>$postId,'comment_id'=>$commentId,'actor_id'=>$userId,'action'=>$parentCommentId !== null ? 'reply' : 'comment','message'=>$message], 'media_activity');
+                $this->db->commit();
+            } catch (Throwable $exception) {
+                if ($this->db->inTransaction()) $this->db->rollBack();
+                throw $exception;
+            }
             return;
         }
         $this->ownedComment($userId, $postId, $commentId);
@@ -411,13 +537,14 @@ final class MediaRepository
         if ($newPath && $oldPath && $newPath !== $oldPath) $this->removeUpload($oldPath);
     }
 
-    public function postsPage(array $actor, ?int $eventId = null, ?string $cursor = null, bool $mine = false): array
+    public function postsPage(array $actor, ?int $eventId = null, ?string $cursor = null, bool $mine = false, ?int $authorId = null): array
     {
         if ($mine && (string) $actor['role'] !== 'Student') throw new MediaForbiddenException('Only students can open their profile posts.');
         $where = "p.status='approved' AND p.deleted_at IS NULL";
         $params = [(int) $actor['id']];
         if ($eventId !== null && $eventId > 0) { $where .= ' AND p.event_id=?'; $params[] = $eventId; }
         if ($mine) { $where .= ' AND p.user_id=?'; $params[] = (int) $actor['id']; }
+        if ($authorId !== null) { $where .= ' AND p.user_id=?'; $params[] = $authorId; }
         if ($cursor !== null && $cursor !== '') {
             $position = $this->decodeCursor($cursor, ['at','id']);
             if (!preg_match('/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/', (string) $position['at']) || !filter_var($position['id'], FILTER_VALIDATE_INT, ['options'=>['min_range'=>1]])) {
@@ -446,8 +573,12 @@ final class MediaRepository
         return $posts[0];
     }
 
-    public function commentsPage(int $postId, ?string $cursor = null): array
+    public function commentsPage(int $postId, int|string|null $viewerId = null, ?string $cursor = null): array
     {
+        if (!is_int($viewerId)) {
+            $cursor = is_string($viewerId) ? $viewerId : $cursor;
+            $viewerId = 0;
+        }
         if ($postId < 1) throw new InvalidArgumentException('Choose a valid post.');
         $exists = $this->db->prepare("SELECT id FROM tbl_posts WHERE id=? AND status='approved' AND deleted_at IS NULL LIMIT 1");
         $exists->execute([$postId]);
@@ -469,14 +600,14 @@ final class MediaRepository
         if ($hasMore) array_pop($rows);
         $last = $rows ? $rows[count($rows)-1] : null;
         $nextCursor = $hasMore && $last ? $this->encodeCursor(['pin'=>(int)$last['is_pinned'],'at'=>$last['created_at'],'id'=>(int)$last['id']]) : null;
-        $this->hydrateComments($rows);
+        $this->hydrateComments($rows, $viewerId);
         if ($rows) {
             $ids = array_column($rows, 'id');
             $marks = implode(',', array_fill(0, count($ids), '?'));
             $replies = $this->db->prepare("SELECT c.id,c.post_id,c.parent_comment_id,c.user_id,c.body,c.is_pinned,c.created_at,c.updated_at,u.first_name,u.middle_name,u.last_name,u.profile_photo_path,r.name author_role FROM tbl_post_comments c JOIN tbl_users u ON u.id=c.user_id JOIN tbl_roles r ON r.id=u.role_id WHERE c.post_id=? AND c.parent_comment_id IN ($marks) ORDER BY c.created_at,c.id");
             $replies->execute([$postId, ...$ids]);
             $replyRows = $replies->fetchAll();
-            $this->hydrateComments($replyRows);
+            $this->hydrateComments($replyRows, $viewerId);
             $positions = array_flip($ids);
             foreach ($rows as &$comment) $comment['replies'] = [];
             unset($comment);
@@ -485,12 +616,67 @@ final class MediaRepository
         return ['comments'=>$rows,'next_cursor'=>$nextCursor];
     }
 
-    private function hydrateComments(array &$comments): void
+    public function reactionUsers(int $postId, ?int $commentId = null, string $type = 'all', int $page = 1): array
     {
+        if (!in_array($type, ['all','like','love','laugh'], true)) throw new InvalidArgumentException('Choose a valid reaction filter.');
+        if ($page < 1 || $page > 1000) throw new InvalidArgumentException('Choose a valid reaction page.');
+        $this->publicPost($postId);
+        if ($commentId !== null) {
+            $comment = $this->db->prepare('SELECT id FROM tbl_post_comments WHERE id=? AND post_id=? LIMIT 1');
+            $comment->execute([$commentId,$postId]);
+            if (!$comment->fetchColumn()) throw new InvalidArgumentException('This comment is no longer available.');
+            $table = 'tbl_comment_reactions';
+            $entityColumn = 'comment_id';
+            $entityId = $commentId;
+        } else {
+            $table = 'tbl_post_reactions';
+            $entityColumn = 'post_id';
+            $entityId = $postId;
+        }
+        $countsQuery = $this->db->prepare("SELECT type,COUNT(*) total FROM $table WHERE $entityColumn=? GROUP BY type");
+        $countsQuery->execute([$entityId]);
+        $counts = [];
+        foreach ($countsQuery->fetchAll() as $row) $counts[$row['type']] = (int)$row['total'];
+        $total = $type === 'all' ? array_sum($counts) : (int)($counts[$type] ?? 0);
+        $filter = $type === 'all' ? '' : ' AND reaction.type=?';
+        $parameters = $type === 'all' ? [$entityId] : [$entityId,$type];
+        $parameters[] = 51;
+        $parameters[] = ($page - 1) * 50;
+        $query = $this->db->prepare("SELECT reaction.type,reaction.created_at,u.id user_id,u.first_name,u.middle_name,u.last_name,u.profile_photo_path,rl.name role_name FROM $table reaction JOIN tbl_users u ON u.id=reaction.user_id JOIN tbl_roles rl ON rl.id=u.role_id WHERE reaction.$entityColumn=?$filter ORDER BY reaction.created_at DESC,u.last_name,u.first_name,u.id LIMIT ? OFFSET ?");
+        $query->execute($parameters);
+        $reactors = $query->fetchAll();
+        $hasMore = count($reactors) > 50;
+        if ($hasMore) array_pop($reactors);
+        foreach ($reactors as &$reactor) {
+            $reactor['user_id'] = (int)$reactor['user_id'];
+            $reactor['full_name'] = $this->name($reactor);
+            $reactor['initials'] = $this->initials($reactor);
+            unset($reactor['first_name'],$reactor['middle_name'],$reactor['last_name']);
+        }
+        unset($reactor);
+        return ['counts'=>$counts,'total'=>$total,'reactors'=>$reactors,'page'=>$page,'has_more'=>$hasMore];
+    }
+
+    private function hydrateComments(array &$comments, int $viewerId): void
+    {
+        if (!$comments) return;
+        $ids = array_map('intval', array_column($comments, 'id'));
+        $marks = implode(',', array_fill(0, count($ids), '?'));
+        $reactions = $this->db->prepare("SELECT comment_id,type,COUNT(*) total,SUM(CASE WHEN user_id=? THEN 1 ELSE 0 END) viewer_total FROM tbl_comment_reactions WHERE comment_id IN ($marks) GROUP BY comment_id,type");
+        $reactions->execute([$viewerId,...$ids]);
+        $counts = $viewers = [];
+        foreach ($reactions->fetchAll() as $row) {
+            $commentId = (int) $row['comment_id'];
+            $counts[$commentId][$row['type']] = (int) $row['total'];
+            if ((int) $row['viewer_total'] > 0) $viewers[$commentId] = $row['type'];
+        }
         foreach ($comments as &$comment) {
             foreach (['id','post_id','user_id'] as $field) $comment[$field] = (int)$comment[$field];
             $comment['parent_comment_id'] = $comment['parent_comment_id'] === null ? null : (int)$comment['parent_comment_id'];
             $comment['is_pinned'] = (bool)$comment['is_pinned'];
+            $comment['reaction_counts'] = $counts[$comment['id']] ?? [];
+            $comment['reactions_count'] = array_sum($comment['reaction_counts']);
+            $comment['viewer_reaction'] = $viewers[$comment['id']] ?? null;
             $comment['author_name'] = $this->name($comment);
             $comment['author_initials'] = $this->initials($comment);
             foreach (['first_name','middle_name','last_name'] as $field) unset($comment[$field]);
@@ -515,6 +701,7 @@ final class MediaRepository
     private function hydratePosts(array $posts): array
     {
         if (!$posts) return [];
+        $posts = $this->attachPostImages($posts);
         $ids = array_map('intval', array_column($posts, 'id'));
         $marks = implode(',', array_fill(0, count($ids), '?'));
         $reactions = $this->db->prepare("SELECT post_id,type,COUNT(*) total FROM tbl_post_reactions WHERE post_id IN ($marks) GROUP BY post_id,type");
@@ -540,7 +727,7 @@ final class MediaRepository
     {
         $statement = $this->db->prepare("SELECT p.id,p.event_id,p.content,p.image_path,p.video_path,p.status,p.rejection_reason,p.created_at,p.updated_at,e.title event_title FROM tbl_posts p LEFT JOIN tbl_events e ON e.id=p.event_id WHERE p.user_id=? AND p.deleted_at IS NULL AND p.status<>'approved' ORDER BY p.created_at DESC LIMIT 50");
         $statement->execute([$userId]);
-        $posts = $statement->fetchAll();
+        $posts = $this->attachPostImages($statement->fetchAll());
         foreach ($posts as &$post) { $post['id'] = (int) $post['id']; $post['event_id'] = $post['event_id'] === null ? null : (int) $post['event_id']; }
         unset($post);
         return $posts;
@@ -552,7 +739,7 @@ final class MediaRepository
         $statement->bindValue(1, $limit, PDO::PARAM_INT);
         $statement->bindValue(2, $offset, PDO::PARAM_INT);
         $statement->execute();
-        $posts = $statement->fetchAll();
+        $posts = $this->attachPostImages($statement->fetchAll());
         foreach ($posts as &$post) { foreach (['id','user_id','event_id'] as $field) $post[$field] = $post[$field] === null ? null : (int) $post[$field]; $post['author_name'] = $this->name($post); $post['author_initials'] = $this->initials($post); foreach (['first_name','middle_name','last_name'] as $field) unset($post[$field]); }
         unset($post);
         return $posts;
@@ -677,10 +864,73 @@ final class MediaRepository
 
     private function storeMedia(array $files): array
     {
-        $image = $files['image'] ?? null;
+        $images = $this->storeImages($files['images'] ?? ($files['image'] ?? null));
         $video = $files['video'] ?? null;
-        if ($this->hasUpload($image) && $this->hasUpload($video)) throw new InvalidArgumentException('Attach either one photo or one video, not both.');
-        return [$this->storeImage($image, self::IMAGE_DIRECTORY, 5 * 1024 * 1024), $this->storeVideo($video)];
+        if ($images && $this->hasUpload($video)) {
+            foreach ($images as $path) $this->removeUpload($path);
+            throw new InvalidArgumentException('Attach photos or one video, not both.');
+        }
+        try { return [$images, $this->storeVideo($video)]; }
+        catch (Throwable $exception) { foreach ($images as $path) $this->removeUpload($path); throw $exception; }
+    }
+
+    private function storeImages(mixed $upload): array
+    {
+        if (!$this->hasUpload($upload)) return [];
+        if (!is_array($upload['name'] ?? null)) return [$this->storeImage($upload, self::IMAGE_DIRECTORY, 5 * 1024 * 1024)];
+        $count = count($upload['name']);
+        if ($count > 10) throw new InvalidArgumentException('Choose up to 10 photos per post.');
+        if (array_sum(array_map('intval', $upload['size'] ?? [])) > 25 * 1024 * 1024) throw new InvalidArgumentException('The combined photo upload may not exceed 25 MB.');
+        $paths = [];
+        try {
+            for ($index = 0; $index < $count; $index++) {
+                $file = [
+                    'name' => $upload['name'][$index] ?? '',
+                    'type' => $upload['type'][$index] ?? '',
+                    'tmp_name' => $upload['tmp_name'][$index] ?? '',
+                    'error' => $upload['error'][$index] ?? UPLOAD_ERR_NO_FILE,
+                    'size' => $upload['size'][$index] ?? 0,
+                ];
+                if (($file['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_NO_FILE) continue;
+                $paths[] = $this->storeImage($file, self::IMAGE_DIRECTORY, 5 * 1024 * 1024);
+            }
+        } catch (Throwable $exception) {
+            foreach ($paths as $path) $this->removeUpload($path);
+            throw $exception;
+        }
+        return $paths;
+    }
+
+    private function attachPostImages(array $posts): array
+    {
+        if (!$posts) return [];
+        $ids = array_map('intval', array_column($posts, 'id'));
+        $marks = implode(',', array_fill(0, count($ids), '?'));
+        $statement = $this->db->prepare("SELECT post_id,image_path FROM tbl_post_images WHERE post_id IN ($marks) ORDER BY post_id,sort_order,id");
+        $statement->execute($ids);
+        $images = [];
+        foreach ($statement->fetchAll() as $row) $images[(int) $row['post_id']][] = (string) $row['image_path'];
+        foreach ($posts as &$post) {
+            $postId = (int) $post['id'];
+            $post['images'] = $images[$postId] ?? (!empty($post['image_path']) ? [(string) $post['image_path']] : []);
+        }
+        unset($post);
+        return $posts;
+    }
+
+    private function postImagePaths(int $postId, ?string $fallback): array
+    {
+        $statement = $this->db->prepare('SELECT image_path FROM tbl_post_images WHERE post_id=? ORDER BY sort_order,id');
+        $statement->execute([$postId]);
+        $paths = array_map('strval', $statement->fetchAll(PDO::FETCH_COLUMN));
+        return $paths ?: ($fallback ? [$fallback] : []);
+    }
+
+    private function replacePostImages(int $postId, array $paths): void
+    {
+        $this->db->prepare('DELETE FROM tbl_post_images WHERE post_id=?')->execute([$postId]);
+        $insert = $this->db->prepare('INSERT INTO tbl_post_images(post_id,image_path,sort_order,created_at) VALUES(?,?,?,CURRENT_TIMESTAMP)');
+        foreach ($paths as $index => $path) $insert->execute([$postId, $path, $index]);
     }
 
     private function storeImage(mixed $file, string $directory, int $maxBytes): ?string
@@ -745,10 +995,18 @@ final class MediaRepository
         $this->notification($userId, ['post_id'=>$postId,'status'=>$status,'reason'=>$reason,'message'=>$message]);
     }
 
-    private function notification(int $userId, array $data): void
+    private function actorName(int $userId): string
     {
-        $statement = $this->db->prepare("INSERT INTO tbl_notifications(id,type,notifiable_type,notifiable_id,data,created_at,updated_at) VALUES(?,'App\\Notifications\\PostReviewed','App\\Models\\User',?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)");
-        $statement->execute([$this->uuid(), $userId, json_encode($data, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR)]);
+        $statement = $this->db->prepare('SELECT first_name,middle_name,last_name FROM tbl_users WHERE id=? LIMIT 1');
+        $statement->execute([$userId]);
+        $actor = $statement->fetch() ?: [];
+        return $this->name($actor);
+    }
+
+    private function notification(int $userId, array $data, string $type = 'App\\Notifications\\PostReviewed'): void
+    {
+        $statement = $this->db->prepare('INSERT INTO tbl_notifications(id,type,notifiable_type,notifiable_id,data,created_at,updated_at) VALUES(?,?,?,?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)');
+        $statement->execute([$this->uuid(), $type, 'App\\Models\\User', $userId, json_encode($data, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR)]);
     }
 
     private function name(array $row): string

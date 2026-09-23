@@ -214,3 +214,8 @@ give real Officer logins their own unique email alias, enforce unique account
 emails, and normalize the current school year and semester labels. New roster
 imports parse school year and semester separately and reports display one
 canonical academic-period label.
+
+For reactions on comments and replies, import
+`database/deploy_migrations/20260924_0010_comment_reactions.sql` once. Post
+reactions use the existing `tbl_post_reactions` table; each user can select Like,
+Love, or Laugh on a post or comment.
