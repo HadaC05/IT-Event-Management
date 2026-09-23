@@ -91,11 +91,11 @@
             ><label
               ><span
                 class="sr-only"
-                >Criterion</span
+                >Competition</span
               ><select
                 class="h-11 w-full rounded-xl border border-[#121017]/10 bg-white px-3 text-xs font-bold outline-none disabled:cursor-not-allowed disabled:bg-[#121017]/5 disabled:text-[#121017]/30 focus:border-[#397565] focus:ring-4 focus:ring-[#397565]/10"
-                name="category_id"
-                data-category-filter
+                name="activity_id"
+                data-activity-filter
                 disabled
               >
                 <option value="">Overall event score</option>
@@ -152,6 +152,10 @@
             </p>
           </div>
         </section>
+        <section class="mt-10" data-competition-standings>
+          <header class="mb-4 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between"><div><p class="text-[9px] font-black uppercase tracking-[.15em] text-[#397565]">Competition standings</p><h2 class="mt-1 text-xl font-black">Activity results</h2><p class="mt-1 text-xs text-[#121017]/42">Raw-score placements appear here. Tribe totals update only after an activity is finalized.</p></div></header>
+          <div class="grid gap-5 xl:grid-cols-2" data-competition-standing-list></div>
+        </section>
       </main>
     </div>
     <div
@@ -161,6 +165,6 @@
     <script src="js/vendor/axios.min.js"></script>
     <script src="js/shared/password-gate.js?v=20260917-1"></script>
     <script src="js/shared/navigation.js?v=20260921-adviser-sections-1"></script>
-    <script src="js/adviser/leaderboard.js?v=20260917-6"></script>
+    <script src="js/adviser/leaderboard.js?v=20260923-top-five-2"></script>
   </body>
 </html>

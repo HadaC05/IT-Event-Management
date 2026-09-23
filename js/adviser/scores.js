@@ -8,7 +8,6 @@ window.SharedNavigation.ready.then(() => {
   const initial = Object.fromEntries(new URLSearchParams(location.search));
   const state = {
     search: initial.search || "",
-    timing: ["", "upcoming", "ongoing", "completed"].includes(initial.timing) ? initial.timing : "",
     page: Math.max(1, Number(initial.page) || 1),
     debounce: 0,
     requestId: 0,
@@ -73,7 +72,6 @@ window.SharedNavigation.ready.then(() => {
     const url = new URL(location.href);
     url.search = "";
     if (state.search) url.searchParams.set("search", state.search);
-    if (state.timing) url.searchParams.set("timing", state.timing);
     if (state.page > 1) url.searchParams.set("page", state.page);
     history.replaceState(null, "", url);
   }
@@ -86,7 +84,7 @@ window.SharedNavigation.ready.then(() => {
     $("[data-manage-events]").classList.toggle("hidden", !summary.events);
     $("[data-manage-events]").classList.toggle("inline-flex", Boolean(summary.events));
     filters.classList.toggle("hidden", !summary.events);
-    filters.classList.toggle("grid", Boolean(summary.events));
+    filters.classList.toggle("block", Boolean(summary.events));
   }
 
   function eventLifecycle(stateName) {
@@ -99,14 +97,14 @@ window.SharedNavigation.ready.then(() => {
         label: "Not set up",
         tone: "bg-[#FF6B2C]/10 text-[#D64A12]",
         title: "Scoring not set up",
-        detail: "Set the judging criteria before scores can be entered.",
+        detail: "Add an activity to this event before recording scores.",
         action: "Set up scoring",
       },
       ready: {
         label: "Ready to score",
         tone: "bg-[#397565]/10 text-[#397565]",
         title: "Scoring is ready",
-        detail: "Criteria are configured. Results can now be recorded.",
+        detail: "Competitions are ready for raw-score entry.",
         action: "Enter scores",
       },
       scoring: {
@@ -127,15 +125,15 @@ window.SharedNavigation.ready.then(() => {
         label: "Results finalized",
         tone: "bg-[#C6F24E]/40 text-[#397565]",
         title: "Results are finalized",
-        detail: "The submitted score sheets for this event are locked.",
+        detail: "Every competition result for this event is finalized.",
         action: "Review results",
       },
     }[event.scoring_state];
   }
 
   function criteriaList(event) {
-    if (!event.criteria.length) return "";
-    return `<div class="mt-5 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">${event.criteria.map((criterion) => `<div class="flex items-center justify-between gap-3 rounded-xl bg-[#F3F0E9]/55 px-3 py-2.5"><span class="truncate text-xs font-bold">${escapeHtml(criterion.name)}</span><strong class="shrink-0 text-xs text-[#397565]">${formatPoints(criterion.max_points)} pts</strong></div>`).join("")}</div>`;
+    if (!event.competitions.length) return "";
+    return `<div class="mt-5 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">${event.competitions.map((competition) => `<div class="rounded-xl bg-[#F3F0E9]/55 px-3 py-2.5"><span class="truncate text-xs font-bold">${escapeHtml(competition.name)}</span><small class="mt-1 block text-[10px] text-[#121017]/45">Competition</small></div>`).join("")}</div>`;
   }
 
   function teamProgress(event) {
@@ -148,15 +146,25 @@ window.SharedNavigation.ready.then(() => {
   function renderEvent(event) {
     const presentation = statePresentation(event);
     const progress = event.eligible_teams_count ? Math.min(100, event.completed_teams_count / event.eligible_teams_count * 100) : 0;
-    return `<article class="rounded-3xl border border-[#121017]/9 bg-white p-5 shadow-[0_16px_45px_rgba(18,16,23,.045)] sm:p-7"><header class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between"><div class="min-w-0"><div class="flex flex-wrap items-center gap-2"><h3 class="text-xl font-black tracking-[-.035em] sm:text-2xl">${escapeHtml(event.title)}</h3><span class="rounded-full bg-[#121017]/5 px-2.5 py-1 text-[9px] font-black uppercase tracking-wider text-[#121017]/40">${eventLifecycle(event.schedule_state)}</span></div><p class="mt-2 text-xs font-bold text-[#121017]/42">${formatDate(event.start_at)} · ${escapeHtml(event.location || "Venue not specified")}</p></div><span class="w-fit rounded-full px-3 py-1.5 text-[9px] font-black uppercase tracking-wider ${presentation.tone}">${presentation.label}</span></header><div class="mt-6 border-t border-[#121017]/8 pt-5"><div class="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between"><div class="min-w-0 flex-1"><h4 class="text-base font-black">${presentation.title}</h4><p class="mt-1 text-sm leading-6 text-[#121017]/45">${presentation.detail}</p>${criteriaList(event)}${teamProgress(event)}${event.scoring_state === "scoring" ? `<div class="mt-4 h-1.5 overflow-hidden rounded-full bg-[#121017]/7"><i class="block h-full rounded-full bg-[#397565]" style="width:${progress}%"></i></div>` : ""}</div><a class="inline-flex min-h-11 shrink-0 items-center justify-center rounded-xl bg-[#397565] px-5 text-xs font-black text-white transition hover:bg-[#2f6255]" href="pages/adviser/scoreboard.html?event_id=${event.id}">${presentation.action} →</a></div></div></article>`;
+    const workspace = "score-configuration";
+    return `<article class="rounded-3xl border border-[#121017]/9 bg-white p-5 shadow-[0_16px_45px_rgba(18,16,23,.045)] sm:p-7"><header class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between"><div class="min-w-0"><div class="flex flex-wrap items-center gap-2"><h3 class="text-xl font-black tracking-[-.035em] sm:text-2xl">${escapeHtml(event.title)}</h3><span class="rounded-full bg-[#121017]/5 px-2.5 py-1 text-[9px] font-black uppercase tracking-wider text-[#121017]/40">${eventLifecycle(event.schedule_state)}</span></div><p class="mt-2 text-xs font-bold text-[#121017]/42">${formatDate(event.start_at)} · ${escapeHtml(event.location || "Venue not specified")}</p></div><span class="w-fit rounded-full px-3 py-1.5 text-[9px] font-black uppercase tracking-wider ${presentation.tone}">${presentation.label}</span></header><div class="mt-6 border-t border-[#121017]/8 pt-5"><div class="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between"><div class="min-w-0 flex-1"><h4 class="text-base font-black">${presentation.title}</h4><p class="mt-1 text-sm leading-6 text-[#121017]/45">${presentation.detail}</p>${criteriaList(event)}${teamProgress(event)}${event.scoring_state === "scoring" ? `<div class="mt-4 h-1.5 overflow-hidden rounded-full bg-[#121017]/7"><i class="block h-full rounded-full bg-[#397565]" style="width:${progress}%"></i></div>` : ""}</div><a class="inline-flex min-h-11 shrink-0 items-center justify-center rounded-xl bg-[#397565] px-5 text-xs font-black text-white transition hover:bg-[#2f6255]" href="pages/adviser/${workspace}.html?event_id=${event.id}">${presentation.action} →</a></div></div></article>`;
+  }
+
+  function renderCompetition(event, competition) {
+    const finalized = competition.result_count > 0;
+    const started = competition.raw_score_count > 0;
+    const stateLabel = finalized ? "Finalized" : started ? "Draft scores" : "Ready to score";
+    const tone = finalized ? "bg-[#C6F24E]/40 text-[#397565]" : started ? "bg-[#397565] text-white" : "bg-[#397565]/10 text-[#397565]";
+    const action = finalized ? "View result" : started ? "Continue scoring" : "Score competition";
+    return `<article class="rounded-2xl border border-[#121017]/9 bg-white p-5 shadow-[0_12px_35px_rgba(18,16,23,.04)] sm:p-6"><header class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between"><div class="min-w-0"><p class="text-[10px] font-black uppercase tracking-[.14em] text-[#397565]">${escapeHtml(event.title)}</p><h3 class="mt-1 text-xl font-black tracking-[-.03em]">${escapeHtml(competition.name)}</h3><p class="mt-2 text-xs text-[#121017]/45">${formatDate(event.start_at)} · ${escapeHtml(event.location || "Venue not specified")}</p></div><span class="w-fit rounded-full px-3 py-1 text-[9px] font-black uppercase tracking-wide ${tone}">${stateLabel}</span></header><footer class="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-[#121017]/8 pt-4"><p class="text-xs text-[#121017]/45">${finalized ? "Placement points are published." : started ? "Raw-score draft in progress." : "Configure awards before finalizing."}</p><a class="inline-flex min-h-10 items-center rounded-xl bg-[#397565] px-4 text-xs font-black text-white" href="pages/adviser/score-configuration.html?event_id=${event.id}&activity_id=${competition.id}">${action} →</a></footer></article>`;
   }
 
   function renderEvents(data) {
     $("[data-result-count]").textContent = `${data.pagination.total.toLocaleString()} ${data.pagination.total === 1 ? "event" : "events"} available`;
-    $("[data-clear-filters]").classList.toggle("hidden", !state.search && !state.timing);
+    $("[data-clear-filters]").classList.toggle("hidden", !state.search);
     if (!data.events.length) {
-      const filtered = state.search || state.timing;
-      eventList.innerHTML = `<div class="rounded-3xl border border-[#121017]/9 bg-white px-6 py-16 text-center"><span class="text-4xl" aria-hidden="true">🏆</span><h3 class="mt-5 text-lg font-black">${filtered ? "No events match these filters" : "There are no events to score yet"}</h3><p class="mt-2 text-sm text-[#121017]/45">${filtered ? "Change or clear the current filters." : "Create an event before configuring its scoring rules."}</p><${filtered ? "button" : "a"} class="mt-5 inline-flex min-h-11 items-center rounded-xl bg-[#397565] px-5 text-xs font-black text-white" ${filtered ? 'type="button" data-empty-clear' : 'href="pages/adviser/events.html?create=1"'}>${filtered ? "Clear filters" : "Create event"}</${filtered ? "button" : "a"}></div>`;
+      const filtered = state.search;
+      eventList.innerHTML = `<div class="rounded-3xl border border-[#121017]/9 bg-white px-6 py-16 text-center"><span class="text-4xl" aria-hidden="true">🏆</span><h3 class="mt-5 text-lg font-black">${filtered ? "No events match this search" : "There are no events to score yet"}</h3><p class="mt-2 text-sm text-[#121017]/45">${filtered ? "Change or clear the current search." : "Create an event before configuring its scoring."}</p><${filtered ? "button" : "a"} class="mt-5 inline-flex min-h-11 items-center rounded-xl bg-[#397565] px-5 text-xs font-black text-white" ${filtered ? 'type="button" data-empty-clear' : 'href="pages/adviser/events.html"'}>${filtered ? "Clear search" : "Manage events"}</${filtered ? "button" : "a"}></div>`;
     } else {
       eventList.innerHTML = data.events.map(renderEvent).join("");
     }
@@ -175,7 +183,7 @@ window.SharedNavigation.ready.then(() => {
     syncUrl();
     eventList.style.opacity = "0.55";
     try {
-      const response = await axios.get("api/scores.php", { params: { search: state.search, timing: state.timing, page: state.page } });
+      const response = await axios.get("api/scores.php", { params: { search: state.search, page: state.page } });
       if (requestId !== state.requestId) return;
       const data = response.data.data;
       state.page = data.pagination.current_page;
@@ -192,7 +200,6 @@ window.SharedNavigation.ready.then(() => {
   }
 
   filters.search.value = state.search;
-  filters.timing.value = state.timing;
   filters.addEventListener("submit", (event) => {
     event.preventDefault();
     clearTimeout(state.debounce);
@@ -208,19 +215,10 @@ window.SharedNavigation.ready.then(() => {
       load();
     }, 320);
   });
-  filters.timing.addEventListener("change", () => {
-    clearTimeout(state.debounce);
-    state.search = filters.search.value.trim();
-    state.timing = filters.timing.value;
-    state.page = 1;
-    load();
-  });
   $("[data-clear-filters]").addEventListener("click", () => {
     state.search = "";
-    state.timing = "";
     state.page = 1;
     filters.search.value = "";
-    filters.timing.value = "";
     load();
   });
   eventList.addEventListener("click", (event) => {

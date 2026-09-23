@@ -160,6 +160,7 @@ final class EventManagementRepository
         $event['expected_participants'] = $this->expectedParticipants($event);
         $event['attendance_assignments'] = $this->attendanceAssignments($id);
         $event['attendance_overview'] = $this->attendanceOverview($id, $event['expected_participants']);
+        $event['score_overview'] = $this->scoreOverview($id);
         $metadata = $this->metadata();
         $assigned = array_column($event['assigned_users'], 'id');
         $metadata['available_users'] = array_values(array_filter(
@@ -1069,6 +1070,47 @@ final class EventManagementRepository
         $summary['expected'] *= count($summary['days']);
         $summary['unrecorded'] = max(0, $summary['expected'] - $summary['recorded']);
         return $summary;
+    }
+
+    private function scoreOverview(int $eventId): array
+    {
+        $summary = $this->db->prepare(
+            "SELECT
+                (SELECT COUNT(*) FROM tbl_score_categories WHERE event_id=?) criteria_count,
+                (SELECT COUNT(*) FROM tbl_scores WHERE event_id=? AND score_category_id IS NOT NULL) entries_count,
+                (SELECT COUNT(DISTINCT team_id) FROM tbl_scores WHERE event_id=? AND score_category_id IS NOT NULL) scored_teams_count,
+                (SELECT COUNT(*) FROM tbl_score_sheets WHERE event_id=? AND status='finalized') finalized_sheets_count"
+        );
+        $summary->execute([$eventId, $eventId, $eventId, $eventId]);
+        $result = $summary->fetch() ?: [];
+        foreach (['criteria_count', 'entries_count', 'scored_teams_count', 'finalized_sheets_count'] as $field) {
+            $result[$field] = (int) ($result[$field] ?? 0);
+        }
+
+        $activities = $this->db->prepare(
+            "SELECT ea.id,ea.name,ea.status,
+                    COUNT(DISTINCT c.id) criteria_count,
+                    COUNT(DISTINCT s.id) entries_count,
+                    COUNT(DISTINCT s.team_id) scored_teams_count,
+                    COUNT(DISTINCT CASE WHEN sh.status='finalized' THEN sh.id END) finalized_sheets_count
+             FROM tbl_event_activities ea
+             LEFT JOIN tbl_score_categories c ON c.event_id=ea.event_id AND c.activity_id=ea.id
+             LEFT JOIN tbl_scores s ON s.event_id=ea.event_id AND s.score_category_id=c.id
+             LEFT JOIN tbl_score_sheets sh ON sh.event_id=ea.event_id AND sh.activity_id=ea.id
+             WHERE ea.event_id=?
+             GROUP BY ea.id,ea.name,ea.status
+             ORDER BY ea.id"
+        );
+        $activities->execute([$eventId]);
+        $result['activities'] = $activities->fetchAll();
+        foreach ($result['activities'] as &$activity) {
+            $activity['id'] = (int) $activity['id'];
+            foreach (['criteria_count', 'entries_count', 'scored_teams_count', 'finalized_sheets_count'] as $field) {
+                $activity[$field] = (int) $activity[$field];
+            }
+        }
+        unset($activity);
+        return $result;
     }
 
     private function synchronizeStatuses(): void

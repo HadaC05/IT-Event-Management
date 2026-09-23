@@ -1,110 +1,74 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <base href="../../" />
-    <title>Manage Scores | CITE Events</title>
-    <link rel="icon" type="image/png" href="assets/images/cite_favicon.png" />
-    <link rel="stylesheet" href="css/tailwind.css" />
-    <link rel="stylesheet" href="css/adviser.css?v=20260917-flat-2" />
-    <script src="js/shared/notifications.js?v=20260917-7" defer></script>
-    <script src="js/shared/interactions.js?v=20260917-flat-1" defer></script>
-  </head>
-  <body
-    class="app-shell min-h-screen bg-white font-sans text-[#121017] antialiased"
-    data-admin-shell data-navigation-role="adviser"
-  >
 
-    <div data-page-loading-cloak aria-label="Loading Event Scoreboards"></div>
-    <div data-shared-navigation-host></div>
-    <div class="min-h-screen lg:ml-20">
-      <main
-        class="admin-main mx-auto w-full max-w-[1500px] px-4 py-7 sm:px-6 lg:px-10 lg:py-9 xl:px-16"
-      >
-        <header class="border-b border-[#121017]/12 pb-7">
-          <div
-            class="flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between"
-          >
-            <div>
-              <p
-                class="mb-3 inline-flex items-center gap-2 text-[10px] font-black uppercase tracking-[.18em] text-[#397565]"
-              >
-                <span
-                  class="h-1.5 w-1.5 rounded-full bg-[#C6F24E] ring-2 ring-[#397565]/15"
-                ></span
-                >Competition results
-              </p>
-              <h1 class="text-4xl font-black tracking-[-.05em] sm:text-5xl">
-                Event Scoreboards
-              </h1>
-              <p class="mt-3 max-w-2xl text-sm leading-6 text-[#121017]/52">
-                Choose an event to configure its judging criteria, record tribe
-                scores, and review the current standings.
-              </p>
-            </div>
-            <a
-              class="hidden min-h-11 items-center justify-center gap-2 rounded-xl border border-[#397565]/25 bg-white/45 px-5 text-xs font-black text-[#397565] transition hover:bg-[#397565]/7"
-              data-manage-events
-              href="pages/adviser/events.html"
-              >Manage Events →</a
-            >
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <base href="../../" />
+  <title>Manage Scores | CITE Events</title>
+  <link rel="icon" type="image/png" href="assets/images/cite_favicon.png" />
+  <link rel="stylesheet" href="css/tailwind.css" />
+  <link rel="stylesheet" href="css/adviser.css?v=20260917-flat-2" />
+  <script src="js/shared/notifications.js?v=20260917-7" defer></script>
+  <script src="js/shared/interactions.js?v=20260917-flat-1" defer></script>
+</head>
+
+<body class="app-shell min-h-screen bg-white font-sans text-[#121017] antialiased" data-admin-shell
+  data-navigation-role="adviser">
+
+  <div data-page-loading-cloak aria-label="Loading Event Scoreboards"></div>
+  <div data-shared-navigation-host></div>
+  <div class="min-h-screen lg:ml-20">
+    <main class="admin-main mx-auto w-full max-w-[1500px] px-4 py-7 sm:px-6 lg:px-10 lg:py-9 xl:px-16">
+      <header class="border-b border-[#121017]/12 pb-7">
+        <div class="flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <h1 class="text-3xl font-black tracking-[-.05em] sm:text-3xl">
+              Event Scores
+            </h1>
           </div>
-          <p class="mt-5 text-xs font-bold text-[#121017]/42" data-score-summary>Loading scoring totals…</p>
+          <a class="hidden min-h-11 items-center justify-center gap-2 rounded-xl border border-[#397565]/25 bg-white/45 px-5 text-xs font-black text-[#397565] transition hover:bg-[#397565]/7"
+            data-manage-events href="pages/adviser/events.html">Manage Events →</a>
+        </div>
+        <p class="mt-5 text-xs font-bold text-[#121017]/42" data-score-summary>Loading scoring totals…</p>
+      </header>
+      <section class="py-8">
+        <header class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <h2 class="mt-1 text-xl font-black">Available events</h2>
+            <p class="mt-1 text-[10px] font-semibold text-[#121017]/40" data-result-count>Loading events…</p>
+          </div>
+          <button class="hidden text-[10px] font-black text-[#FF6B2C]" type="button" data-clear-filters>
+            Clear all filters
+          </button>
         </header>
-        <section class="py-8">
-          <header class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-            <div><p class="text-[10px] font-black uppercase tracking-[.16em] text-[#397565]">Scoring workspace</p><h2 class="mt-1 text-xl font-black">Competition events</h2><p class="mt-1 text-[10px] font-semibold text-[#121017]/40" data-result-count>Loading events…</p></div>
-                <button
-                  class="hidden text-[10px] font-black text-[#FF6B2C]"
-                  type="button"
-                  data-clear-filters
-                >
-                  Clear all filters
-                </button>
-          </header>
-              <form
-                class="mt-5 hidden gap-3 md:grid-cols-2"
-                data-score-filters
-              >
-                <label class="relative"
-                  ><span class="sr-only">Search events</span
-                  ><svg class="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 fill-none stroke-[#121017]/30 stroke-2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg><input
-                    class="h-11 w-full rounded-xl border border-[#121017]/10 bg-white pl-10 pr-4 text-sm outline-none focus:border-[#397565] focus:ring-4 focus:ring-[#397565]/8"
-                    name="search"
-                    placeholder="Search event or venue…" /></label
-                ><label
-                  ><span class="sr-only">Filter by schedule</span
-                  ><select
-                    class="h-11 w-full rounded-xl border border-[#121017]/10 bg-white px-3 text-xs font-bold"
-                    name="timing"
-                  >
-                    <option value="">Any schedule</option>
-                    <option value="upcoming">Upcoming</option>
-                    <option value="ongoing">Ongoing</option>
-                    <option value="completed">Ended events</option>
-                  </select></label
-                ><button class="sr-only" type="submit">Search</button>
-              </form>
-            <div class="mt-6 grid gap-5" data-event-list>
-              <p class="p-10 text-center text-sm text-[#121017]/45">
-                Loading scoreboards…
-              </p>
-            </div>
-            <nav
-              class="hidden items-center justify-between border-t border-[#121017]/8 px-5 py-4 text-[10px] sm:px-6"
-              data-pagination
-            ></nav>
-        </section>
-      </main>
-    </div>
-    <div
-      class="pointer-events-none fixed right-4 top-4 z-[80] grid w-[min(380px,calc(100%_-_2rem))] gap-2.5"
-      data-notification-region
-    ></div>
-    <script src="js/vendor/axios.min.js"></script>
-    <script src="js/shared/password-gate.js?v=20260917-1"></script>
-    <script src="js/shared/navigation.js?v=20260921-adviser-sections-1"></script>
-    <script src="js/adviser/scores.js?v=20260916-2"></script>
-  </body>
+        <form class="mt-5 hidden max-w-xl" data-score-filters>
+          <label class="relative"><span class="sr-only">Search events</span><svg
+              class="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 fill-none stroke-[#121017]/30 stroke-2"
+              viewBox="0 0 24 24">
+              <circle cx="11" cy="11" r="7" />
+              <path d="m20 20-4-4" />
+            </svg><input
+              class="h-11 w-full rounded-xl border border-[#121017]/10 bg-white pl-10 pr-4 text-sm outline-none focus:border-[#397565] focus:ring-4 focus:ring-[#397565]/8"
+              name="search" placeholder="Search event or venue…" /></label><button class="sr-only"
+            type="submit">Search</button>
+        </form>
+        <div class="mt-6 grid gap-5" data-event-list>
+          <p class="p-10 text-center text-sm text-[#121017]/45">
+            Loading scoreboards…
+          </p>
+        </div>
+        <nav class="hidden items-center justify-between border-t border-[#121017]/8 px-5 py-4 text-[10px] sm:px-6"
+          data-pagination></nav>
+      </section>
+    </main>
+  </div>
+  <div class="pointer-events-none fixed right-4 top-4 z-[80] grid w-[min(380px,calc(100%_-_2rem))] gap-2.5"
+    data-notification-region></div>
+  <script src="js/vendor/axios.min.js"></script>
+  <script src="js/shared/password-gate.js?v=20260917-1"></script>
+  <script src="js/shared/navigation.js?v=20260921-adviser-sections-1"></script>
+  <script src="js/adviser/scores.js?v=20260923-event-search-1"></script>
+</body>
+
 </html>

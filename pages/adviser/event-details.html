@@ -9,7 +9,7 @@
   <title>Event Details | CITE Events</title>
   <link rel="icon" type="image/png" sizes="512x512" href="assets/images/cite_favicon.png" />
   <link rel="stylesheet" href="css/tailwind.css" />
-    <link rel="stylesheet" href="css/adviser.css?v=20260921-event-hero-2" />
+  <link rel="stylesheet" href="css/adviser.css?v=20260921-event-hero-2" />
   <script src="js/shared/notifications.js?v=20260917-7" defer></script>
   <script src="js/shared/interactions.js?v=20260917-flat-1" defer></script>
 </head>
@@ -44,10 +44,7 @@
           </h1>
           <p class="mt-3 max-w-xl whitespace-pre-line text-xs leading-5 text-slate-500" data-event-description></p>
           <div class="event-detail-hero__meta mt-5" data-event-hero-meta></div>
-          <div class="mt-5 flex flex-nowrap gap-1.5">
-            <a class="inline-flex min-h-9 items-center whitespace-nowrap rounded-lg border px-3 text-xs font-bold text-slate-600"
-              href="#" data-event-scores>Manage Scores</a>
-          </div>
+
         </div>
         <details class="group absolute right-4 top-4 z-20">
           <summary
@@ -79,8 +76,12 @@
           tabindex="-1" data-event-tab="activities">Activities</button>
         <button
           class="inline-flex min-h-10 flex-1 items-center justify-center rounded-lg px-4 text-sm font-bold text-slate-500 transition hover:text-[#397565]"
-          type="button" id="event-attendance-tab" role="tab" aria-controls="event-attendance-panel" aria-selected="false"
-          tabindex="-1" data-event-tab="attendance">Attendance</button>
+          type="button" id="event-attendance-tab" role="tab" aria-controls="event-attendance-panel"
+          aria-selected="false" tabindex="-1" data-event-tab="attendance">Attendance</button>
+        <button
+          class="inline-flex min-h-10 flex-1 items-center justify-center rounded-lg px-4 text-sm font-bold text-slate-500 transition hover:text-[#397565]"
+          type="button" id="event-scores-tab" role="tab" aria-controls="event-scores-panel" aria-selected="false"
+          tabindex="-1" data-event-tab="scores">Scores</button>
       </nav>
       <div id="event-details-panel" role="tabpanel" aria-labelledby="event-details-tab" data-event-tab-panel="details">
         <section class="mb-6 rounded-2xl border border-[#397565]/25 bg-[#121017] p-5 text-[#F3F0E9] shadow-sm"
@@ -173,29 +174,68 @@
         <div
           class="flex flex-col gap-4 border-b border-slate-200 px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
           <div>
-            <p class="text-[10px] font-extrabold uppercase tracking-wider text-[#397565]">Event program</p>
             <h2 class="mt-1 text-lg font-extrabold" id="event-activities-title">Activities and contests <span
                 class="ml-1 text-sm font-semibold text-slate-400" data-activity-count></span></h2>
-            <p class="mt-1 text-xs text-slate-500">Manage the contests and activities for this event.</p>
           </div>
           <button class="min-h-10 shrink-0 rounded-lg bg-[#397565] px-4 text-sm font-bold text-white hover:bg-[#2d5e51]"
             type="button" data-activity-add>+ Add activity</button>
         </div>
         <div class="divide-y divide-slate-100 px-5 sm:px-6" data-activity-list></div>
       </section>
-      <section class="hidden" id="event-attendance-panel" role="tabpanel" aria-labelledby="event-attendance-tab" data-event-tab-panel="attendance">
+      <section class="hidden" id="event-attendance-panel" role="tabpanel" aria-labelledby="event-attendance-tab"
+        data-event-tab-panel="attendance">
         <div class="mb-5 flex flex-wrap items-end justify-between gap-4">
-          <div><p class="text-[10px] font-extrabold uppercase tracking-wider text-[#397565]">Attendance operations</p><h2 class="mt-1 text-lg font-extrabold">Attendance overview</h2><p class="mt-1 text-xs text-slate-500">Recorded attendance across this event's scheduled days.</p></div>
-          <a class="inline-flex min-h-10 items-center rounded-lg bg-[#2F3AE0] px-4 text-xs font-bold text-white" data-attendance-roster-link>Open detailed roster</a>
+          <div>
+            <h2 class="mt-1 text-lg font-extrabold">Attendance</h2>
+
+          </div>
+          <a class="inline-flex min-h-10 items-center rounded-lg bg-[#2F3AE0] px-4 text-xs font-bold text-white"
+            data-attendance-roster-link>Open detailed roster</a>
         </div>
         <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4" data-attendance-summary></div>
         <section class="mt-5 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-          <header class="border-b px-5 py-4 sm:px-6"><h3 class="text-base font-extrabold">Attendance by day</h3></header>
+          <header class="border-b px-5 py-4 sm:px-6">
+            <h3 class="text-base font-extrabold">Attendance by day</h3>
+          </header>
           <div class="divide-y divide-slate-100" data-attendance-days></div>
         </section>
         <section class="mt-5 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-          <header class="border-b px-5 py-4 sm:px-6"><p class="text-[10px] font-extrabold uppercase tracking-wider text-[#397565]">Assigned team</p><h3 class="mt-1 text-base font-extrabold">SBO officers assigned to attendance</h3></header>
-          <div class="overflow-x-auto"><table class="w-full min-w-[720px] text-left text-xs"><thead class="bg-slate-50 text-[10px] font-extrabold uppercase tracking-wider text-slate-400"><tr><th class="px-5 py-3 sm:px-6">Officer</th><th class="px-4 py-3">Schedule</th><th class="px-4 py-3">Coverage</th><th class="px-4 py-3">Activity</th><th class="px-5 py-3 sm:px-6">Status</th></tr></thead><tbody class="divide-y divide-slate-100" data-attendance-officers></tbody></table></div>
+          <header class="border-b px-5 py-4 sm:px-6">
+            <p class="text-[10px] font-extrabold uppercase tracking-wider text-[#397565]">Assigned team</p>
+            <h3 class="mt-1 text-base font-extrabold">SBO officers assigned to attendance</h3>
+          </header>
+          <div class="overflow-x-auto">
+            <table class="w-full min-w-[720px] text-left text-xs">
+              <thead class="bg-slate-50 text-[10px] font-extrabold uppercase tracking-wider text-slate-400">
+                <tr>
+                  <th class="px-5 py-3 sm:px-6">Officer</th>
+                  <th class="px-4 py-3">Schedule</th>
+                  <th class="px-4 py-3">Coverage</th>
+                  <th class="px-4 py-3">Activity</th>
+                  <th class="px-5 py-3 sm:px-6">Status</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-100" data-attendance-officers></tbody>
+            </table>
+          </div>
+        </section>
+      </section>
+      <section class="hidden" id="event-scores-panel" role="tabpanel" aria-labelledby="event-scores-tab"
+        data-event-tab-panel="scores">
+        <div class="mb-5 flex flex-wrap items-end justify-between gap-4">
+          <div>
+            <h2 class="mt-1 text-lg font-extrabold">Scores</h2>
+          </div>
+          <a class="inline-flex min-h-10 items-center rounded-lg bg-[#397565] px-4 text-xs font-bold text-white"
+            data-scores-workspace-link>Manage scores</a>
+        </div>
+        <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4" data-score-summary></div>
+        <section class="mt-5 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+          <header class="border-b px-5 py-4 sm:px-6">
+
+            <h3 class="mt-1 text-base font-extrabold">Activity scoring progress</h3>
+          </header>
+          <div class="divide-y divide-slate-100" data-score-activities></div>
         </section>
       </section>
     </main>
@@ -207,7 +247,6 @@
       <input type="hidden" name="activity_id" value="" />
       <div class="flex items-start justify-between gap-4 border-b border-slate-200 px-5 py-4 sm:px-6">
         <div>
-          <p class="text-[10px] font-extrabold uppercase tracking-wider text-[#397565]">Event program</p>
           <h2 class="mt-1 text-xl font-extrabold" id="activity-dialog-title" data-activity-form-title>Add activity</h2>
         </div>
         <button
@@ -223,7 +262,8 @@
           </select>
           <span class="text-[11px] font-normal text-slate-400" data-activity-options-note></span>
         </label>
-        <label class="grid gap-1.5 text-xs font-bold">Activity name <span class="font-normal text-slate-400">Optional</span>
+        <label class="grid gap-1.5 text-xs font-bold">Activity name <span
+            class="font-normal text-slate-400">Optional</span>
           <input
             class="h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm font-medium outline-none focus:border-[#397565]"
             name="name" maxlength="120" placeholder="Leave blank to use the selected activity name" />
@@ -280,7 +320,7 @@
   <script src="js/shared/password-gate.js?v=20260917-1"></script>
   <script src="js/shared/navigation.js?v=20260921-adviser-sections-1"></script>
   <script src="js/adviser/event-form.js?v=20260923-avatar-1"></script>
-  <script src="js/adviser/event-details.js?v=20260921-attendance-tab-1"></script>
+  <script src="js/adviser/event-details.js?v=20260923-raw-scores-1"></script>
 </body>
 
 </html>
