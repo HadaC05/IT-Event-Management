@@ -18,9 +18,15 @@ $reject = static function (callable $operation, string $message) use ($assert): 
 
 $live->exec("CREATE DATABASE `$scratch` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
 try {
-    foreach (['tbl_roles','tbl_users','tbl_posts','tbl_post_comments'] as $table) $live->exec("CREATE TABLE `$scratch`.`$table` LIKE `$source`.`$table`");
+    foreach (['tbl_roles','tbl_user_statuses','tbl_users','tbl_events','tbl_posts','tbl_post_audits','tbl_post_comments','tbl_post_reactions','tbl_notifications'] as $table) $live->exec("CREATE TABLE `$scratch`.`$table` LIKE `$source`.`$table`");
     $live->exec("INSERT INTO `$scratch`.`tbl_roles` SELECT * FROM `$source`.`tbl_roles`");
+    $live->exec("INSERT INTO `$scratch`.`tbl_user_statuses` SELECT * FROM `$source`.`tbl_user_statuses`");
     $db = (new Database(null, $scratch))->connection();
+    $photoMigration = file_get_contents(__DIR__.'/../database/deploy_migrations/20260923_0009_post_multiple_images.sql');
+    if ($photoMigration === false) throw new RuntimeException('Post photo migration is missing.');
+    foreach (preg_split('/;\s*(?:\r?\n|$)/', $photoMigration) as $statement) {
+        if (trim($statement) !== '') $db->exec($statement);
+    }
     $migration = file_get_contents(__DIR__.'/../database/deploy_migrations/20260923_0005_post_comment_replies.sql');
     if ($migration === false) throw new RuntimeException('Reply migration is missing.');
     foreach ([1,2] as $attempt) foreach (preg_split('/;\s*(?:\r?\n|$)/', $migration) as $statement) {
@@ -33,16 +39,31 @@ try {
         $user->execute([$facultyRole,$person[0],$person[1],$person[2],'test',$person[3],$person[4]]);
         $ids[$person[2]] = (int)$db->lastInsertId();
     }
+    $activeStatus = (int)$db->query("SELECT id FROM tbl_user_statuses WHERE label='active' LIMIT 1")->fetchColumn();
+    $db->prepare('UPDATE tbl_users SET status=? WHERE id IN (?,?,?)')->execute([$activeStatus,$ids['micah'],$ids['domingo'],$ids['brian']]);
     $db->prepare('UPDATE tbl_users SET id_number=? WHERE id=?')->execute(['02-2122-030923',$ids['micah']]);
     $db->prepare('UPDATE tbl_users SET id_number=? WHERE id=?')->execute(['02-2324-01129',$ids['brian']]);
     $post = $db->prepare("INSERT INTO tbl_posts(user_id,content,status,created_at,updated_at) VALUES(?,?,'approved',CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)");
     $post->execute([$ids['micah'],'Hey']); $postId = (int)$db->lastInsertId();
     $post->execute([$ids['micah'],'Another post']); $otherPostId = (int)$db->lastInsertId();
     $repo = new MediaRepository($db);
+    $firstImage = 'assets/uploads/posts/test-first.png';
+    $secondImage = 'assets/uploads/posts/test-second.png';
+    $db->prepare('UPDATE tbl_posts SET image_path=? WHERE id=?')->execute([$firstImage,$postId]);
+    $db->prepare('INSERT INTO tbl_post_images(post_id,image_path,sort_order) VALUES(?,?,0),(?,?,1)')->execute([$postId,$firstImage,$postId,$secondImage]);
+    $viewer = ['id'=>$ids['brian'],'role'=>'Faculty'];
+    $assert($repo->approvedPost($viewer,$postId)['images'] === [$firstImage,$secondImage], 'Public post returns both photos in order');
+    $profile = $repo->publicAuthorProfile($viewer,$ids['micah']);
+    $assert($profile['profile']['post_count'] === 2 && count($profile['posts']) === 2, 'Public author profile shows approved posts');
+    $assert(count($repo->searchAuthors('Mic')) === 1, 'Author search finds the account with public posts');
     $repo->saveComment($ids['domingo'],$postId,'Yow',null);
-    $rootId = (int)$db->lastInsertId();
+    $rootId = (int)$db->query("SELECT id FROM tbl_post_comments WHERE body='Yow' ORDER BY id DESC LIMIT 1")->fetchColumn();
     $repo->saveComment($ids['brian'],$postId,'tabang lord',null,$rootId);
-    $replyId = (int)$db->lastInsertId();
+    $replyId = (int)$db->query("SELECT id FROM tbl_post_comments WHERE body='tabang lord' ORDER BY id DESC LIMIT 1")->fetchColumn();
+    $domingoNotifications = $repo->notificationData($ids['domingo']);
+    $assert($domingoNotifications['unread_notifications'] === 1 && str_contains($domingoNotifications['notifications'][0]['message'], 'replied to your comment'), 'Reply notifies the parent comment author');
+    $repo->markNotificationsRead($ids['domingo']);
+    $assert($repo->notificationData($ids['domingo'])['unread_notifications'] === 0, 'Comment author can mark the reply notification read');
     $photo = $db->prepare('UPDATE tbl_users SET profile_photo_path=? WHERE id=?');
     $photo->execute(['assets/uploads/domingo.jpg',$ids['domingo']]);
     $photo->execute(['assets/uploads/brian.jpg',$ids['brian']]);
@@ -64,6 +85,10 @@ try {
     $left = $db->prepare('SELECT COUNT(*) FROM tbl_post_comments WHERE id IN (?,?)');
     $left->execute([$rootId,$replyId]);
     $assert((int)$left->fetchColumn() === 0, 'Deleting a parent removes its replies');
+    $repo->update(['id'=>$ids['micah'],'role'=>'Faculty'], ['id'=>$postId,'content'=>'Edited text only'], []);
+    $assert($repo->approvedPost($viewer,$postId)['images'] === [$firstImage,$secondImage], 'Text-only edit preserves both photos');
+    $repo->update(['id'=>$ids['micah'],'role'=>'Faculty'], ['id'=>$postId,'content'=>'Removed photos','remove_media'=>'1'], []);
+    $assert($repo->approvedPost($viewer,$postId)['images'] === [], 'Removing media clears all post photos');
 } finally {
     $live->exec("DROP DATABASE IF EXISTS `$scratch`");
 }

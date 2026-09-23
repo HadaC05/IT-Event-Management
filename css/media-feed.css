@@ -1,7 +1,20 @@
 .cite-media-shell {
   max-width: 1180px;
 }
-
+.cite-activities-dialog {
+  width: min(34rem, calc(100% - 1rem));
+  max-height: calc(100dvh - 1rem);
+  margin: auto;
+  padding: 0;
+  overflow: visible;
+  border: 0;
+  background: transparent;
+  color: #121017;
+}
+.cite-activities-dialog::backdrop {
+  background: rgba(18, 16, 23, .58);
+  backdrop-filter: blur(3px);
+}
 .cite-media-preview-zoom,
 .cite-post-media-open {
   display: block;
@@ -13,6 +26,8 @@
 .cite-media-preview-zoom.hidden,
 .cite-media-preview video.hidden { display: none; }
 
+.cite-media-preview [data-image-preview-list]:has(> :only-child) { grid-template-columns: minmax(0, 1fr); }
+
 .cite-media-preview-zoom img,
 .cite-media-preview video {
   display: block;
@@ -22,6 +37,11 @@
 }
 
 .cite-post-media { background: #121017; }
+.cite-post-gallery { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2px; overflow: hidden; background: #121017; }
+.cite-post-gallery.is-single { grid-template-columns: minmax(0, 1fr); }
+.cite-post-gallery-item { display: block; min-width: 0; overflow: hidden; padding: 0; background: #121017; cursor: zoom-in; }
+.cite-post-gallery-item img { display: block; width: 100%; aspect-ratio: 4 / 3; object-fit: cover; }
+.cite-post-gallery.is-single .cite-post-gallery-item img { max-height: min(27rem, 55dvh); aspect-ratio: auto; object-fit: contain; }
 .cite-post-media-image,
 .cite-post-media-video {
   display: block;
@@ -168,6 +188,7 @@
 .cite-review-card-meta p { margin-top: .15rem; color: #66736d; font-size: .68rem; }
 .cite-review-avatar { display: grid; width: 2.5rem; height: 2.5rem; flex: none; place-items: center; border-radius: 50%; background: #c6f24e; color: #243928; font-size: .7rem; font-weight: 900; object-fit: cover; }
 .cite-review-content { margin: 1rem 0; overflow-wrap: anywhere; white-space: pre-wrap; font-size: .88rem; line-height: 1.6; }
+.cite-review-gallery { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .4rem; }
 .cite-review-media { display: block; width: 100%; max-height: 22rem; border-radius: .6rem; background: #121017; object-fit: contain; }
 .cite-review-actions { display: flex; gap: .6rem; margin-top: auto; padding-top: 1rem; }
 .cite-review-actions button { min-height: 2.75rem; flex: 1; border-radius: .65rem; font-size: .78rem; font-weight: 800; }

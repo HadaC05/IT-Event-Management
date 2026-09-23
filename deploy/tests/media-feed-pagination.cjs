@@ -77,7 +77,7 @@ const profile = {id: 1, full_name: 'Test Middle Student', initials: 'TS', id_num
       assert.equal(await composerPhoto.getAttribute('src'), viewer.profile_photo_path, 'Composer uses the viewer profile photo');
       assert.equal(await page.locator('[data-shared-account-initials] img').getAttribute('src'), viewer.profile_photo_path, 'Header uses the same profile photo');
       assert.equal(await page.locator(`${root} [data-post-id="25"] header img`).getAttribute('src'), viewer.profile_photo_path, 'Published post uses the same profile photo');
-      const publishedImage = page.locator(`${root} [data-post-id="25"] .cite-post-media-image`);
+      const publishedImage = page.locator(`${root} [data-post-id="25"] .cite-post-gallery img`);
       assert.ok((await publishedImage.boundingBox()).height <= 430, 'Tall published image remains compact on mobile');
       assert.equal(await publishedImage.evaluate(image => getComputedStyle(image).objectFit), 'contain', 'Published image is not cropped');
       await page.locator(`${root} [data-post-id="25"] [data-open-post-image]`).click();
@@ -92,7 +92,7 @@ const profile = {id: 1, full_name: 'Test Middle Student', initials: 'TS', id_num
         const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
         const transfer = new DataTransfer();
         transfer.items.add(new File([blob], 'portrait.png', {type: 'image/png'}));
-        const input = document.querySelector('[data-shared-post-form] input[name="image"]');
+        const input = document.querySelector('[data-shared-post-form] input[name="images[]"]');
         input.files = transfer.files;
         input.dispatchEvent(new Event('change', {bubbles: true}));
       });
@@ -124,14 +124,14 @@ const profile = {id: 1, full_name: 'Test Middle Student', initials: 'TS', id_num
       assert.match(await page.locator('[data-edit-review-note]').textContent(), role === 'Student' ? /Pending Review/ : /published immediately/);
       assert.equal(await page.locator('[data-media-preview] img').getAttribute('src'), portraitImage, 'Editing shows the existing photo');
       assert.equal(await page.locator('[data-media-preview]').isVisible(), true);
-      assert.equal(await page.locator('[data-file-name]').textContent(), 'Current photo · Choose Photo to replace');
+      assert.equal(await page.locator('[data-file-name]').textContent(), '1 current photo · Choose Photos to replace');
       assert.equal(await page.locator('[data-shared-post-form] input[name="remove_media"]').inputValue(), '0', 'Text-only edits keep the attached photo');
       await page.locator('[data-preview-open-image]').click();
       assert.equal(await page.locator('.cite-image-dialog img').getAttribute('src'), portraitImage, 'Existing photo opens in the viewer');
       await page.keyboard.press('Escape');
-      await page.locator('[data-shared-post-form] input[name="image"]').setInputFiles({name: 'replacement.png', mimeType: 'image/png', buffer: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+iZQAAAABJRU5ErkJggg==', 'base64')});
+      await page.locator('[data-shared-post-form] input[name="images[]"]').setInputFiles({name: 'replacement.png', mimeType: 'image/png', buffer: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+iZQAAAABJRU5ErkJggg==', 'base64')});
       assert.match(await page.locator('[data-media-preview] img').getAttribute('src'), /^blob:/, 'Choosing a new photo replaces the preview');
-      assert.equal(await page.locator('[data-file-name]').textContent(), 'replacement.png');
+      assert.equal(await page.locator('[data-file-name]').textContent(), '1 photo selected');
       assert.equal(await page.locator('[data-shared-post-form] input[name="remove_media"]').inputValue(), '0');
       await page.locator('[data-remove-media]').click();
       assert.equal(await page.locator('[data-media-preview]').isVisible(), false, 'Remove media clears the edit preview');

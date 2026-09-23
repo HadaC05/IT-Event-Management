@@ -1,4 +1,8 @@
 .shared-navigation-sidebar { transform: translateX(-100%); }
+.shared-navigation-header [data-shared-author-search-slot] { display: none; }
+@media (min-width: 768px) {
+  .shared-navigation-header [data-shared-author-search-slot] { display: flex; }
+}
 .shared-navigation-sidebar.is-open { transform: translateX(0); }
 .shared-navigation-sidebar:is(.is-expanded, .is-open) [data-shared-sidebar-header] {
   display: grid;

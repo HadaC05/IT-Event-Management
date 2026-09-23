@@ -27,6 +27,13 @@ try {
             if ($postId === false || $postId === null || $postId < 1) throw new InvalidArgumentException('Choose a valid post.');
             JsonResponse::send(['success'=>true,'data'=>$repository->approvedPost($actor, $postId)]);
         }
+        if ($getAction === 'notifications') JsonResponse::send(['success'=>true,'data'=>$repository->notificationData((int) $actor['id'])]);
+        if ($getAction === 'authors') JsonResponse::send(['success'=>true,'data'=>['users'=>$repository->searchAuthors((string) ($_GET['q'] ?? ''))]]);
+        if ($getAction === 'author') {
+            $authorId = filter_var($_GET['user_id'] ?? null, FILTER_VALIDATE_INT);
+            if ($authorId === false || $authorId === null || $authorId < 1) throw new InvalidArgumentException('Choose a valid account.');
+            JsonResponse::send(['success'=>true,'data'=>$repository->publicAuthorProfile($actor, $authorId, isset($_GET['cursor']) ? (string) $_GET['cursor'] : null)]);
+        }
         $eventId = filter_var($_GET['event_id'] ?? null, FILTER_VALIDATE_INT) ?: null;
         if ($getAction === 'posts') {
             JsonResponse::send(['success'=>true,'data'=>$repository->postsPage($actor, $eventId, isset($_GET['cursor']) ? (string)$_GET['cursor'] : null, ($_GET['scope'] ?? '') === 'mine')]);
@@ -41,6 +48,10 @@ try {
     $action = (string) ($input['action'] ?? 'create');
     $userId = (int) $actor['id'];
     $postId = (int) ($input['post_id'] ?? $input['id'] ?? 0);
+    if ($action === 'mark_notifications_read') {
+        $updated = $repository->markNotificationsRead($userId, isset($input['notification_id']) ? (string) $input['notification_id'] : null);
+        JsonResponse::send(['success'=>true,'updated'=>$updated,'message'=>'Notifications marked as read.']);
+    }
     $message = match ($action) {
         'create' => (function () use ($repository,$actor,$input) { $repository->create($actor,$input,$_FILES); return (new MediaPermissions((string)$actor['role']))->isStudent() ? 'Post submitted for adviser approval.' : 'Post published.'; })(),
         'update' => (function () use ($repository,$actor,$input) { $repository->update($actor,$input,$_FILES); return (new MediaPermissions((string)$actor['role']))->isStudent() ? 'Post updated and sent for review.' : 'Post updated.'; })(),
