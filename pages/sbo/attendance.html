@@ -19,11 +19,16 @@
       <div class="sbo-workspace-hero__copy"><p class="sbo-workspace-eyebrow">SBO officer / on-site operations</p><h1>Attendance, as it happens.</h1><p>Scan students during the open checkpoint, keep an eye on the session, and see each result as it comes in.</p></div>
       <div class="sbo-workspace-hero__signal"><span>Current assignment</span><strong data-attendance-hero-state>—</strong><small data-attendance-hero-detail>Waiting for your assignment</small></div>
     </header>
+    <section class="mb-5 flex flex-col gap-3 rounded-2xl border border-[#397565]/20 bg-white p-5 shadow-sm sm:flex-row sm:items-center sm:justify-between" aria-labelledby="sbo-start-title">
+      <div><p class="text-xs font-extrabold uppercase tracking-wider text-[#397565]">Start here</p><h2 class="mt-1 text-lg font-black" id="sbo-start-title">Check your assignment, then scan</h2><p class="mt-1 text-sm leading-6 text-[#121017]/60">When your session opens, turn on GPS and choose Open QR scanner. You can also record attendance by Student ID.</p></div>
+      <a class="inline-flex min-h-11 shrink-0 items-center justify-center rounded-xl bg-[#397565] px-4 text-sm font-black text-white" href="#attendance-workspace" data-attendance-start-link>Go to attendance →</a>
+    </section>
+    <p class="mb-4 rounded-xl border border-[#397565]/15 bg-[#397565]/5 p-4 text-sm font-semibold text-[#397565]" data-attendance-loading role="status">Loading your assignment and attendance session…</p>
     <section class="hidden rounded-2xl border border-[#FF6B2C]/20 bg-[#FF6B2C]/7 p-6 text-center" data-no-assignment>
       <strong class="text-lg font-black">You have no current or upcoming attendance assignment.</strong>
       <p class="mt-2 text-sm text-[#121017]/55">Ask the SBO Adviser to assign your team, event day and attendance session.</p>
     </section>
-    <div class="hidden space-y-4" data-attendance-workspace>
+    <div class="hidden space-y-4" id="attendance-workspace" data-attendance-workspace>
       <label class="hidden max-w-xl gap-2" data-assignment-selector-wrap>
         <span class="text-sm font-bold">Active assignment</span>
         <select class="h-12 rounded-xl border border-[#121017]/12 bg-white px-3 outline-none focus:border-[#397565]" data-assignment-selector></select>
@@ -118,6 +123,6 @@
     <script src="js/shared/password-gate.js?v=20260917-1"></script>
   <script src="js/shared/navigation.js?v=20260917-portal-flat-1"></script>
   <script src="js/sbo/portal.js?v=20260917-1"></script>
-  <script src="js/sbo/attendance.js?v=20260923-gps-refresh-1"></script>
+  <script src="js/sbo/attendance.js?v=20260923-start-guide-1"></script>
 </body>
 </html>

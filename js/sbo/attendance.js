@@ -307,6 +307,8 @@
     const previousPolicy=selected?.location_policy??null;
     const response=await axios.get(API,{params:requested?{assignment_id:requested}:{}});
     const data=response.data.data;assignments=data.assignments;
+    $('[data-attendance-loading]').classList.add('hidden');
+    $('[data-attendance-start-link]').classList.toggle('hidden',assignments.length===0);
     $('[data-no-assignment]').classList.toggle('hidden',assignments.length>0);
     $('[data-attendance-workspace]').classList.toggle('hidden',assignments.length===0);
     selector.innerHTML=assignments.map(a=>`<option value="${a.id}">${a.assignment_state==='upcoming'?'Upcoming assignment · ':''}${esc(a.event_name)} · Day ${a.day_number} · ${esc(a.session_name)} · ${esc(a.team_name)}</option>`).join('');
@@ -446,5 +448,5 @@
   });
   const initialize=isFaculty?window.SharedNavigation.ready:window.SboPortal.initialize('attendance');
   initialize.then(async context=>{csrf=context.csrfToken;const accountMenu=document.querySelector(isFaculty?'[data-shared-account-menu]':'[data-sbo-account-menu]');if(accountMenu){accountMenu.classList.remove('ml-auto');gpsToggle.classList.add('ml-auto');accountMenu.before(gpsToggle);}await load();if(selected?.is_session_active)loadQrModule().catch(()=>{});contextTimer=setInterval(async()=>{if(isProcessing)return;const old=selected?.id,wasActive=selected?.is_session_active;try{await load(old||0);if(!wasActive&&selected?.is_session_active)loadQrModule().catch(()=>{});if(!selected?.is_session_active){if(dialog.open)dialog.close();await stop();}}catch(error){console.error('Attendance refresh failed',error);notify('error',error.response?.data?.message||'Attendance could not refresh. Reload the page and try again.');}},30000);})
-    .catch(error=>{console.error('Attendance initialization failed',error);openButton.disabled=true;manualButton.disabled=true;const message=error.response?.data?.message||'Attendance could not load. Reload the page and try again.';notify('error',message);const alert=document.createElement('p');alert.setAttribute('role','alert');alert.className='mb-4 rounded-xl border border-[#FF6B2C]/30 bg-[#FF6B2C]/10 p-4 text-sm font-bold text-[#9A360C]';alert.textContent=message;document.querySelector('main')?.prepend(alert);});
+    .catch(error=>{console.error('Attendance initialization failed',error);$('[data-attendance-loading]').classList.add('hidden');$('[data-attendance-start-link]').classList.add('hidden');openButton.disabled=true;manualButton.disabled=true;const message=error.response?.data?.message||'Attendance could not load. Reload the page and try again.';notify('error',message);const alert=document.createElement('p');alert.setAttribute('role','alert');alert.className='mb-4 rounded-xl border border-[#FF6B2C]/30 bg-[#FF6B2C]/10 p-4 text-sm font-bold text-[#9A360C]';alert.textContent=message;document.querySelector('main')?.prepend(alert);});
 })();

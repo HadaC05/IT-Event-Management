@@ -7,11 +7,21 @@
     const eventList = document.querySelector('#event-list');
     const agendaEmpty = document.querySelector('#agenda-empty');
     const dashboardUrl = user => ({
+        'Admin': 'pages/admin/media.html',
+        'SBO': 'pages/admin/media.html',
         'SBO Adviser': 'pages/adviser/dashboard.html',
         'SBO Officer': 'pages/sbo/attendance.html',
         'Faculty': 'pages/faculty/students.html',
-        'Student': 'pages/student/events.html'
+        'Student': 'pages/student/home.html'
     })[user?.role] || './';
+    const arrival = {
+        'Admin': { destination: 'media feed', next: 'Review posts and share updates with the CITE community.' },
+        'SBO': { destination: 'media feed', next: 'Review posts and share updates with the CITE community.' },
+        'SBO Adviser': { destination: 'adviser dashboard', next: 'Check today’s tasks or create an event.' },
+        'SBO Officer': { destination: 'attendance workspace', next: 'Check your assignment, then turn on GPS to scan students.' },
+        'Faculty': { destination: 'faculty roster', next: 'Find your team’s students and open a record to see attendance.' },
+        'Student': { destination: 'student home', next: 'Explore upcoming events or check your attendance.' }
+    };
 
     const parseDate = value => new Date(String(value).replace(' ', 'T'));
     const month = value => new Intl.DateTimeFormat('en-US', { month: 'short' }).format(parseDate(value));
@@ -175,6 +185,8 @@
         authResult.querySelector('[data-success-icon]')?.classList.toggle('hidden', type !== 'success');
         authResult.querySelector('[data-error-icon]')?.classList.toggle('hidden', type === 'success');
         authResult.querySelector('[data-auth-redirecting]')?.classList.toggle('hidden', type !== 'success');
+        authResult.querySelector('[data-auth-open-now]')?.classList.toggle('hidden', type !== 'success');
+        authResult.querySelector('[data-auth-open-now]')?.classList.toggle('inline-flex', type === 'success');
         const confirm = authResult.querySelector('[data-auth-result-confirm]');
         confirm.classList.toggle('hidden', type === 'success');
         confirm.classList.toggle('inline-flex', type !== 'success');
@@ -210,9 +222,12 @@
         if (!form.reportValidity()) return;
         passwordChangeSuccess?.classList.add('hidden');
         const submit = form.querySelector('[data-login-submit]');
+        const status = form.querySelector('[data-login-status]');
         const original = submit.innerHTML;
         submit.disabled = true;
         submit.innerHTML = '<span class="h-4 w-4 animate-spin rounded-full border-2 border-white border-r-transparent"></span><span>Signing in…</span>';
+        status.textContent = 'Checking your account. Please wait…';
+        status.classList.remove('hidden');
         try {
             const fields = new FormData(form);
             const response = await axios.post('api/auth.php?action=login', {
@@ -227,13 +242,19 @@
                 window.RequiredPasswordGate.open(state.user, state.csrfToken);
                 return;
             }
-            showAuthResult('success', response.data.message);
-            window.setTimeout(() => window.location.assign(response.data.redirect_url), 1500);
+            const guide = arrival[state.user.role] || { destination: 'portal', next: 'Choose a page from the menu to get started.' };
+            showAuthResult('success', `Welcome, ${state.user.first_name || 'there'}! ${guide.next}`);
+            authResult.querySelector('[data-auth-destination]').textContent = `Opening your ${guide.destination}…`;
+            const openNow = authResult.querySelector('[data-auth-open-now]');
+            openNow.href = response.data.redirect_url;
+            openNow.firstChild.textContent = `Open ${guide.destination} now `;
+            window.setTimeout(() => window.location.assign(response.data.redirect_url), 1100);
         } catch (error) {
             showAuthResult('error', error.response?.data?.message || 'Please check your credentials and try again.');
         } finally {
             submit.disabled = false;
             submit.innerHTML = original;
+            status.classList.add('hidden');
         }
     });
 
