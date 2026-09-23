@@ -13,7 +13,7 @@ final class ActivityScoringRepository
     public function show(int $eventId, ?int $activityId): array
     {
         $event = $this->one('SELECT id,title,location,start_at FROM tbl_events WHERE id=? AND deleted_at IS NULL', [$eventId], 'Event not found.');
-        $activities = $this->rows('SELECT ea.id,ea.name,a.description,ea.status FROM tbl_event_activities ea JOIN tbl_activities a ON a.id=ea.activity_id WHERE ea.event_id=? ORDER BY ea.status="active" DESC,ea.id', [$eventId]);
+        $activities = $this->rows('SELECT ea.id,ea.name,a.description,ea.status,s.schedule_date FROM tbl_event_activities ea JOIN tbl_activities a ON a.id=ea.activity_id LEFT JOIN tbl_event_attendance_schedules s ON s.id=ea.event_schedule_id WHERE ea.event_id=? ORDER BY s.schedule_date IS NULL,s.schedule_date,ea.id', [$eventId]);
         foreach ($activities as &$row) $row['id'] = (int) $row['id']; unset($row);
         if ($activityId === null && $activities) $activityId = $activities[0]['id'];
         $selected = $activityId === null ? null : $this->one('SELECT ea.id,ea.name,a.description,ea.status FROM tbl_event_activities ea JOIN tbl_activities a ON a.id=ea.activity_id WHERE ea.id=? AND ea.event_id=?', [$activityId, $eventId], 'Select a valid competition for this event.');

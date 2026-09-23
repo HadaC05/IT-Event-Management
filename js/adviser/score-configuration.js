@@ -3,8 +3,8 @@ window.SharedNavigation.ready.then(() => {
   const $ = (selector, root = document) => root.querySelector(selector);
   const eventId = Number(new URLSearchParams(location.search).get("event_id"));
   let activityId = Number(new URLSearchParams(location.search).get("activity_id")) || null;
-  let csrfToken = "", state;
-  const host = $("[data-configuration]"), activitySearch = $("[data-activity-search]"), activityResults = $("[data-activity-results]");
+  let csrfToken = "", state, loadRequest = 0;
+  const host = $("[data-configuration]"), activitySearch = $("[data-activity-search]"), activitySchedule = $("[data-activity-schedule]"), activityResults = $("[data-activity-results]");
   const escapeHtml = value => String(value ?? "").replace(/[&<>'"]/g, character => ({"&":"&amp;","<":"&lt;",">":"&gt;","'":"&#39;",'"':"&quot;"})[character]);
   const score = value => Number(value).toFixed(2).replace(/\.00$/, "");
   async function authenticate() {
@@ -13,13 +13,26 @@ window.SharedNavigation.ready.then(() => {
     csrfToken = response.data.csrf_token;
   }
   async function load() {
-    const response = await axios.get("api/activity-scoring.php", {params: {event_id: eventId, ...(activityId ? {activity_id: activityId} : {})}});
-    state = response.data.data; render();
+    const requestedActivity = activityId, requestId = ++loadRequest;
+    const response = await axios.get("api/activity-scoring.php", {params: {event_id: eventId, ...(requestedActivity ? {activity_id: requestedActivity} : {})}});
+    if (requestId !== loadRequest) return;
+    state = response.data.data;
+    activityId = state.selected_activity?.id || null;
+    const url = new URL(location.href);
+    if (activityId) url.searchParams.set("activity_id", activityId);
+    else url.searchParams.delete("activity_id");
+    history.replaceState(null, "", url);
+    render();
+  }
+  function scheduleLabel(value) {
+    if (!value) return "Unscheduled";
+    const date = new Date(`${value}T12:00:00`);
+    return Number.isNaN(date.getTime()) ? value : new Intl.DateTimeFormat("en-PH", {month: "short", day: "numeric", year: "numeric"}).format(date);
   }
   function renderActivityResults() {
     const search = activitySearch.value.trim().toLocaleLowerCase();
-    const matches = state.activities.filter(item => item.name.toLocaleLowerCase().includes(search));
-    activityResults.innerHTML = matches.length ? matches.map(item => `<button class="min-h-11 rounded-xl border px-4 py-3 text-left text-xs font-black transition ${item.id === state.selected_activity.id ? "border-[#397565] bg-[#397565] text-white" : "border-[#121017]/10 bg-white text-[#121017] hover:border-[#397565]/35"}" type="button" data-activity-id="${item.id}">${escapeHtml(item.name)}</button>`).join("") : '<p class="py-3 text-xs text-[#121017]/45">No activities match this search.</p>';
+    const matches = state.activities.filter(item => item.name.toLocaleLowerCase().includes(search) && (!activitySchedule.value || (item.schedule_date || "unscheduled") === activitySchedule.value));
+    activityResults.innerHTML = matches.length ? matches.map(item => `<button class="min-h-11 rounded-xl border px-4 py-3 text-left text-xs font-black transition ${item.id === state.selected_activity.id ? "border-[#397565] bg-[#397565] text-white" : "border-[#121017]/10 bg-white text-[#121017] hover:border-[#397565]/35"}" type="button" data-activity-id="${item.id}"><span class="block">${escapeHtml(item.name)}</span><span class="mt-1 block text-[10px] opacity-70">${escapeHtml(scheduleLabel(item.schedule_date))}</span></button>`).join("") : '<p class="py-3 text-xs text-[#121017]/45">No activities match these filters.</p>';
   }
   const ruleRow = (placement = "", points = "") => `<div class="grid gap-3" style="grid-template-columns:minmax(0,1fr) minmax(0,1fr) 90px" data-rule-row><label><span class="sr-only">Place</span><input class="h-10 w-full rounded-lg border border-[#121017]/12 px-3 text-sm font-bold" type="text" min="1" max="255" maxlength="3" inputmode="numeric" autocomplete="off" data-rule-placement value="${placement}" placeholder="Place" required></label><label><span class="sr-only">Points</span><input class="h-10 w-full rounded-lg border border-[#121017]/12 px-3 text-sm font-bold" type="text" min="0" max="255" maxlength="3" inputmode="numeric" autocomplete="off" data-rule-points value="${points}" placeholder="Points" required></label><button class="flex min-h-10 items-center justify-center gap-2 rounded-lg border border-[#FF6B2C]/25 text-xs font-black text-[#D64A12]" type="button" data-remove-rule aria-label="Remove place" title="Remove place"><svg class="h-4 w-4 fill-none stroke-current stroke-2" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M10 11v6m4-6v6M9 7l1-2h4l1 2m-8 0 1 13h8l1-13"/></svg><span>Remove</span></button></div>`;
   function placementSummary() { return state.placement_rules.length ? state.placement_rules.map(rule => `${rule.placement}${rule.placement === 1 ? "st" : rule.placement === 2 ? "nd" : rule.placement === 3 ? "rd" : "th"} · ${rule.points} pt${rule.points === 1 ? "" : "s"}`).join(", ") : "No placement points configured."; }
@@ -27,13 +40,18 @@ window.SharedNavigation.ready.then(() => {
     document.title = `${state.event.title} Competition Scoring | CITE Events`;
     $("[data-event-title]").textContent = state.event.title;
     $("[data-leaderboard-link]").href = `pages/adviser/leaderboard.html?event_id=${eventId}`;
-    if (!state.activities.length) { activitySearch.value = ""; activitySearch.disabled = true; activityResults.innerHTML = ""; $("[data-activity-description]").textContent = "Add an activity to this event before recording scores."; host.innerHTML = `<div class="rounded-2xl border border-[#FF6B2C]/20 bg-[#FF6B2C]/[.06] p-6"><h2 class="font-black">A competition is required</h2><a class="mt-4 inline-flex rounded-xl bg-[#397565] px-4 py-3 text-xs font-black text-white" href="pages/adviser/event-details.html?id=${eventId}#event-activities">Manage activities</a></div>`; return; }
+    if (!state.activities.length) { activitySearch.value = ""; activitySearch.disabled = true; activitySchedule.disabled = true; activityResults.innerHTML = ""; $("[data-activity-description]").textContent = "Add an activity to this event before recording scores."; host.innerHTML = `<div class="rounded-2xl border border-[#FF6B2C]/20 bg-[#FF6B2C]/[.06] p-6"><h2 class="font-black">A competition is required</h2><a class="mt-4 inline-flex rounded-xl bg-[#397565] px-4 py-3 text-xs font-black text-white" href="pages/adviser/event-details.html?id=${eventId}#event-activities">Manage activities</a></div>`; return; }
     activitySearch.disabled = false;
+    activitySchedule.disabled = false;
+    const selectedSchedule = activitySchedule.value;
+    const schedules = [...new Set(state.activities.map(item => item.schedule_date || "unscheduled"))].sort((a, b) => a === "unscheduled" ? 1 : b === "unscheduled" ? -1 : a.localeCompare(b));
+    activitySchedule.replaceChildren(new Option("All scheduled days", ""), ...schedules.map(value => new Option(scheduleLabel(value), value)));
+    activitySchedule.value = schedules.includes(selectedSchedule) ? selectedSchedule : "";
     renderActivityResults();
     $("[data-activity-description]").textContent = state.selected_activity.description || "Scores are ranked highest to lowest when the competition is finalized.";
     if (state.finalized) { renderFinal(); return; }
     const rows = state.teams.map(team => `<tr><td class="px-4 py-3 sm:px-6"><span class="inline-block h-3 w-3 rounded-full" style="background:${escapeHtml(team.color || "#397565")}"></span><strong class="ml-3 text-sm">${escapeHtml(team.name)}</strong></td><td class="px-4 py-3 sm:px-6"><input class="h-11 w-full min-w-32 rounded-xl border border-[#121017]/12 px-3 text-right text-sm font-black focus:border-[#397565]" type="text" inputmode="numeric" maxlength="3" autocomplete="off" data-score data-team="${team.id}" value="${state.raw_scores[team.id] ?? ""}" placeholder="Raw score" aria-label="Raw score for ${escapeHtml(team.name)}"></td></tr>`).join("");
-    host.innerHTML = `<div class="overflow-hidden rounded-2xl border border-[#121017]/10 bg-white"><header class="flex flex-col gap-4 border-b border-[#121017]/8 px-5 py-5 sm:flex-row sm:items-start sm:justify-between sm:px-6"><h2 class="text-xl font-black">${escapeHtml(state.selected_activity.name)}</h2><button class="min-h-10 rounded-xl border border-[#397565]/25 px-4 text-xs font-black text-[#397565]" type="button" data-configure-awards>Set points</button></header><form data-score-form><div class="overflow-x-auto"><table class="w-full min-w-[420px]"><thead class="bg-[#F3F0E9]/55 text-left text-[10px] font-black uppercase tracking-wide text-[#121017]/40"><tr><th class="px-4 py-3 sm:px-6">Tribe</th><th class="px-4 py-3 text-right sm:px-6">Raw score</th></tr></thead><tbody class="divide-y divide-[#121017]/7">${rows}</tbody></table></div><footer class="flex flex-col gap-3 border-t bg-white px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6"><p class="text-xs text-[#121017]/45">Awards: <strong>${escapeHtml(placementSummary())}</strong></p><div class="flex gap-2"><button class="min-h-11 rounded-xl border border-[#397565]/25 px-4 text-xs font-black text-[#397565]" type="submit">Save draft</button><button class="min-h-11 rounded-xl bg-[#397565] px-5 text-xs font-black text-white" type="button" data-finalize>Finalize competition</button></div></footer></form></div>`;
+    host.innerHTML = `<div class="overflow-hidden rounded-2xl border border-[#121017]/10 bg-white"><header class="flex flex-col gap-4 border-b border-[#121017]/8 px-5 py-5 sm:flex-row sm:items-start sm:justify-between sm:px-6"><h2 class="text-xl font-black">${escapeHtml(state.selected_activity.name)}</h2><button class="min-h-10 rounded-xl border border-[#397565]/25 px-4 text-xs font-black text-[#397565]" type="button" data-configure-awards>Set points</button></header><form data-score-form data-axios-form><div class="overflow-x-auto"><table class="w-full min-w-[420px]"><thead class="bg-[#F3F0E9]/55 text-left text-[10px] font-black uppercase tracking-wide text-[#121017]/40"><tr><th class="px-4 py-3 sm:px-6">Tribe</th><th class="px-4 py-3 text-right sm:px-6">Raw score</th></tr></thead><tbody class="divide-y divide-[#121017]/7">${rows}</tbody></table></div><footer class="flex flex-col gap-3 border-t bg-white px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6"><p class="text-xs text-[#121017]/45">Awards: <strong>${escapeHtml(placementSummary())}</strong></p><div class="flex gap-2"><button class="min-h-11 rounded-xl border border-[#397565]/25 px-4 text-xs font-black text-[#397565]" type="submit">Save draft</button><button class="min-h-11 rounded-xl bg-[#397565] px-5 text-xs font-black text-white" type="button" data-finalize>Finalize competition</button></div></footer></form></div>`;
     bindPlacementRules();
     bindDraft();
   }
@@ -77,6 +95,7 @@ window.SharedNavigation.ready.then(() => {
     finalize.onclick = async () => { if (!form.reportValidity()) return; const incomplete=Object.values(values()).some(value => value === ""); if(incomplete){window.Notifications?.warning?.("Enter a raw score for every eligible tribe before finalizing.");return;} if(!state.placement_rules.length){window.Notifications?.warning?.("Save at least one placement rule before finalizing.");return;} const accepted=window.Notifications?.confirm ? await window.Notifications.confirm({title:"Finalize this competition?",message:"Configured placement points will be added to the overall tribe standings.",action:"Finalize competition"}) : confirm("Finalize this competition?"); if(!accepted)return; try { await request("save",values()); const response=await request("finalize"); window.Notifications?.success?.(response.data.message); await load(); } catch(error) { window.Notifications?.error?.(error.response?.data?.message || "Competition could not be finalized."); } };
   }
   activitySearch.oninput = renderActivityResults;
+  activitySchedule.onchange = renderActivityResults;
   activityResults.onclick = event => { const button = event.target.closest("[data-activity-id]"); if (!button) return; activityId = Number(button.dataset.activityId); activitySearch.value = ""; load(); };
   if (!eventId) { location.replace("pages/adviser/scores.html"); return; }
   authenticate().then(load).catch(error => { if(error.message!=="Unauthorized") host.innerHTML='<p class="py-10 text-center text-red-600">Competition scores could not be loaded.</p>'; });

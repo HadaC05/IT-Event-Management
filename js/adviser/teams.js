@@ -4,7 +4,8 @@ window.SharedNavigation.ready.then((context) => {
     page = 1,
     data = null,
     editing = null,
-    timer;
+    timer,
+    previewImageUrl = null;
   const $ = (s) => document.querySelector(s),
     list = $("[data-team-list]"),
     filters = $("[data-tribe-filters]"),
@@ -318,7 +319,7 @@ window.SharedNavigation.ready.then((context) => {
       const card = document.createElement("article");
       card.className =
         "group overflow-hidden rounded-2xl border border-slate-200 bg-white transition hover:-translate-y-0.5 hover:shadow-lg";
-      card.innerHTML = `<div class="h-1.5" style="background:${t.color}"></div><div class="p-5"><header class="flex items-start justify-between gap-4"><div class="flex min-w-0 items-center gap-3"><span class="grid h-11 w-11 place-items-center rounded-xl text-sm font-black text-white" style="background:${t.color}">${initials(t.name)}</span><div class="min-w-0"><h3 class="truncate text-base font-extrabold">${escapeHtml(t.name)}</h3><p class="mt-0.5 text-xs text-slate-400">${escapeHtml(schoolYearLabel(t.school_year_label))} · ${t.members_count} ${t.members_count === 1 ? "student" : "students"}</p></div></div><span class="rounded-full px-2.5 py-1 text-[10px] font-extrabold ${t.is_active ? "bg-[#C6F24E]/35 text-[#397565]" : "bg-[#FF6B2C]/10 text-[#FF6B2C]"}">${t.is_active ? "Active" : "Inactive"}</span></header><div class="mt-5 min-h-12" data-members></div><footer class="mt-5 flex items-center justify-between border-t border-slate-100 pt-4" data-actions></footer></div>`;
+      card.innerHTML = `<div class="h-1.5" style="background:${t.color}"></div>${t.image_path ? `<img class="w-full object-cover" style="aspect-ratio:16/7" src="${escapeHtml(t.image_path)}" alt="${escapeHtml(t.name)} tribe image">` : ""}<div class="p-5"><header class="flex items-start justify-between gap-4"><div class="flex min-w-0 items-center gap-3"><span class="grid h-11 w-11 place-items-center rounded-xl text-sm font-black text-white" style="background:${t.color}">${initials(t.name)}</span><div class="min-w-0"><h3 class="truncate text-base font-extrabold">${escapeHtml(t.name)}</h3><p class="mt-0.5 text-xs text-slate-400">${escapeHtml(schoolYearLabel(t.school_year_label))} · ${t.members_count} ${t.members_count === 1 ? "student" : "students"}</p></div></div><span class="rounded-full px-2.5 py-1 text-[10px] font-extrabold ${t.is_active ? "bg-[#C6F24E]/35 text-[#397565]" : "bg-[#FF6B2C]/10 text-[#FF6B2C]"}">${t.is_active ? "Active" : "Inactive"}</span></header><div class="mt-5 min-h-12" data-members></div><footer class="mt-5 flex items-center justify-between border-t border-slate-100 pt-4" data-actions></footer></div>`;
       const mh = card.querySelector("[data-members]");
       if (t.members.length) {
         const members = document.createElement("div");
@@ -512,6 +513,12 @@ window.SharedNavigation.ready.then((context) => {
     memberPage = 1;
     memberRequest++;
     form.reset();
+    if (previewImageUrl) URL.revokeObjectURL(previewImageUrl);
+    previewImageUrl = null;
+    const removeImageLabel = $("[data-remove-image-label]");
+    removeImageLabel.classList.toggle("hidden", !team?.image_path);
+    removeImageLabel.classList.toggle("flex", !!team?.image_path);
+    updateImagePreview(team?.image_path || "");
     clearFormErrors();
     form.dataset.id = team?.id || "";
     $("[data-team-mode]").textContent = team ? "Edit Team" : "New Team";
@@ -567,6 +574,11 @@ window.SharedNavigation.ready.then((context) => {
       requestAnimationFrame(() =>
         $("[data-members-section]")?.scrollIntoView({ block: "start" }),
       );
+  }
+  function updateImagePreview(path = "") {
+    const preview = $("[data-preview-image]");
+    preview.src = path || "";
+    preview.classList.toggle("hidden", !path);
   }
   function applyColor(color) {
     const normalized = color.toUpperCase();
@@ -789,6 +801,25 @@ window.SharedNavigation.ready.then((context) => {
     clearFieldError("name");
     updatePreview();
   };
+  form.elements.image.onchange = () => {
+    if (previewImageUrl) URL.revokeObjectURL(previewImageUrl);
+    previewImageUrl = null;
+    const file = form.elements.image.files[0];
+    if (file) {
+      previewImageUrl = URL.createObjectURL(file);
+      form.elements.remove_image.checked = false;
+    }
+    updateImagePreview(previewImageUrl || (form.elements.remove_image.checked ? "" : editing?.image_path || ""));
+    clearFieldError("image");
+  };
+  form.elements.remove_image.onchange = () => {
+    if (form.elements.remove_image.checked) {
+      form.elements.image.value = "";
+      if (previewImageUrl) URL.revokeObjectURL(previewImageUrl);
+      previewImageUrl = null;
+    }
+    updateImagePreview(form.elements.remove_image.checked ? "" : editing?.image_path || "");
+  };
   form.elements.name.onblur = () => {
     const name = form.elements.name.value.trim();
     if (!name) showFieldError("name", "The tribe name is required.");
@@ -824,13 +855,18 @@ window.SharedNavigation.ready.then((context) => {
       return;
     }
     if (!form.reportValidity()) return;
-    const payload = Object.fromEntries(new FormData(form));
-    payload.member_ids = [...memberSelection];
-    payload.action = editing ? "update" : "create";
-    if (editing) payload.id = editing.id;
+    const image = form.elements.image.files[0];
+    if (image && (image.size > 5 * 1024 * 1024 || !["image/jpeg", "image/png", "image/webp"].includes(image.type))) {
+      showErrors({image: ["Use a JPG, PNG, or WebP image under 5 MB."]}, "Please check the tribe image.");
+      return;
+    }
+    const payload = new FormData(form);
+    payload.set("member_ids", JSON.stringify([...memberSelection]));
+    payload.set("action", editing ? "update" : "create");
+    if (editing) payload.set("id", editing.id);
     if (submit) submit.disabled = true;
     try {
-      const r = await api(payload);
+      const r = await axios.post("api/teams.php", payload, {headers: {"X-CSRF-Token": csrf}});
       dialog.close();
       toast("success", r.data.message);
       page = 1;

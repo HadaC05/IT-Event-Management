@@ -91,6 +91,10 @@ final class AttendanceManagementRepository
         $sql="SELECT u.id,u.id_number,u.first_name,u.middle_name,u.last_name,yl.label year_level_label,participants.is_expected,
              CASE WHEN a.effective_status='late' THEN 'present' WHEN a.effective_status='excused' THEN 'absent' ELSE a.effective_status END attendance_status,
              a.status evidence_status,a.manual_status,a.manual_corrected_at,a.checked_in_at,
+             CASE WHEN EXISTS(SELECT 1 FROM tbl_attendance_entries scan_any WHERE scan_any.attendance_id=a.id)
+                  THEN (SELECT MIN(scan_in.scanned_at) FROM tbl_attendance_entries scan_in WHERE scan_in.attendance_id=a.id AND scan_in.phase='in')
+                  ELSE a.checked_in_at END time_in_at,
+             (SELECT MAX(scan_out.scanned_at) FROM tbl_attendance_entries scan_out WHERE scan_out.attendance_id=a.id AND scan_out.phase='out') time_out_at,
              EXISTS(SELECT 1 FROM tbl_attendance_entries ae WHERE ae.attendance_id=a.id) has_scan_evidence,
              (SELECT GROUP_CONCAT(t.name SEPARATOR ', ') FROM tbl_team_user tu JOIN tbl_teams t ON t.id=tu.team_id WHERE tu.user_id=u.id) team_names
              FROM $participantSql JOIN tbl_users u ON u.id=participants.user_id LEFT JOIN tbl_year_levels yl ON yl.id=u.year_level

@@ -39,7 +39,7 @@ final class TeamManagementRepository
         $count=$this->db->prepare('SELECT COUNT(*) FROM tbl_teams t'.$whereSql);$count->execute($params);$total=(int)$count->fetchColumn();
         $lastPage=max(1,(int)ceil($total/$perPage));
         if($page>$lastPage)$page=$lastPage;
-        $sql="SELECT t.id,t.school_year_id,t.name,t.color,t.is_active,sy.label school_year_label,
+        $sql="SELECT t.id,t.school_year_id,t.name,t.color,t.image_path,t.is_active,sy.label school_year_label,
                 (SELECT COUNT(*) FROM tbl_team_user tum WHERE tum.team_id=t.id) members_count
               FROM tbl_teams t JOIN tbl_school_years sy ON sy.id=t.school_year_id
               $whereSql ORDER BY t.is_active DESC,t.name LIMIT :limit OFFSET :offset";
@@ -123,22 +123,50 @@ final class TeamManagementRepository
         return ['students'=>$students,'pagination'=>['current_page'=>$page,'last_page'=>$lastPage,'per_page'=>self::UNASSIGNED_PER_PAGE,'total'=>$total,'from'=>$total?$offset+1:null,'to'=>$total?min($offset+self::UNASSIGNED_PER_PAGE,$total):null]];
     }
 
-    public function save(array $data,int $actorId,?int $id=null): int
+    public function save(array $data,int $actorId,?int $id=null,?array $image=null): int
     {
         $name=trim((string)($data['name']??''));$year=(int)($data['school_year_id']??0);$color=strtoupper(trim((string)($data['color']??'')));
         if($name===''||mb_strlen($name)>100)throw new InvalidArgumentException('Tribe name is required and may not exceed 100 characters.');
         if(!preg_match('/^#[0-9A-F]{6}$/',$color))throw new InvalidArgumentException('Choose a valid tribe color.');
+        $removeImage=filter_var($data['remove_image']??false,FILTER_VALIDATE_BOOL);
+        if($removeImage && $image && ($image['error']??UPLOAD_ERR_NO_FILE)!==UPLOAD_ERR_NO_FILE)throw new InvalidArgumentException('Choose either a new tribe image or remove the current one.');
+        $newImage=$this->storeImage($image);
+        $oldImage=null;
         $members=array_values(array_unique(array_map('intval',(array)($data['member_ids']??[]))));
         $this->db->beginTransaction();try{
             $yearLock=$this->db->prepare('SELECT id FROM tbl_school_years WHERE id=? FOR UPDATE');$yearLock->execute([$year]);if(!$yearLock->fetchColumn())throw new InvalidArgumentException('Select a valid school year.');
-            if($id){$teamLock=$this->db->prepare('SELECT id FROM tbl_teams WHERE id=? FOR UPDATE');$teamLock->execute([$id]);if(!$teamLock->fetchColumn())throw new InvalidArgumentException('Tribe not found.');}
+            if($id){$teamLock=$this->db->prepare('SELECT id,image_path FROM tbl_teams WHERE id=? FOR UPDATE');$teamLock->execute([$id]);$lockedTeam=$teamLock->fetch();if(!$lockedTeam)throw new InvalidArgumentException('Tribe not found.');$oldImage=$lockedTeam['image_path'];}
             $dupe=$this->db->prepare('SELECT id FROM tbl_teams WHERE name=? AND school_year_id=?'.($id?' AND id<>?':'').' FOR UPDATE');$dupe->execute($id?[$name,$year,$id]:[$name,$year]);if($dupe->fetch())throw new InvalidArgumentException('That tribe name already exists in this school year.');
             if($members){$memberLock=$this->db->prepare('SELECT id FROM tbl_users WHERE id IN ('.implode(',',array_fill(0,count($members),'?')).') FOR UPDATE');$memberLock->execute($members);$memberLock->fetchAll();$this->validateMembers($members,$year,$id);}
-            if($id){$st=$this->db->prepare('UPDATE tbl_teams SET name=?,school_year_id=?,color=?,updated_at=CURRENT_TIMESTAMP WHERE id=?');$st->execute([$name,$year,$color,$id]);$this->db->prepare("DELETE tu FROM tbl_team_user tu JOIN tbl_users u ON u.id=tu.user_id JOIN tbl_roles r ON r.id=u.role_id AND r.name='Student' WHERE tu.team_id=?")->execute([$id]);$action='team_updated';$description="$name was updated with ".count($members).' members.';
-            }else{$st=$this->db->prepare('INSERT INTO tbl_teams(school_year_id,name,color,is_active,created_at,updated_at) VALUES(?,?,?,1,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)');$st->execute([$year,$name,$color]);$id=(int)$this->db->lastInsertId();$action='team_created';$description="$name was created with ".count($members).' members.';}
+            if($id){$imagePath=$removeImage?null:($newImage??$oldImage);$st=$this->db->prepare('UPDATE tbl_teams SET name=?,school_year_id=?,color=?,image_path=?,updated_at=CURRENT_TIMESTAMP WHERE id=?');$st->execute([$name,$year,$color,$imagePath,$id]);$this->db->prepare("DELETE tu FROM tbl_team_user tu JOIN tbl_users u ON u.id=tu.user_id JOIN tbl_roles r ON r.id=u.role_id AND r.name='Student' WHERE tu.team_id=?")->execute([$id]);$action='team_updated';$description="$name was updated with ".count($members).' members.';
+            }else{$st=$this->db->prepare('INSERT INTO tbl_teams(school_year_id,name,color,image_path,is_active,created_at,updated_at) VALUES(?,?,?,?,1,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)');$st->execute([$year,$name,$color,$newImage]);$id=(int)$this->db->lastInsertId();$action='team_created';$description="$name was created with ".count($members).' members.';}
             $this->insertMemberships(array_map(static fn(int $member):array=>[$id,$member],$members));
-            $this->log($actorId,$action,$description);$this->db->commit();return $id;
-        }catch(Throwable $e){if($this->db->inTransaction())$this->db->rollBack();throw $e;}
+            $this->log($actorId,$action,$description);$this->db->commit();
+            if($oldImage && ($newImage || $removeImage))$this->deleteImage($oldImage);
+            return $id;
+        }catch(Throwable $e){if($this->db->inTransaction())$this->db->rollBack();if($newImage)$this->deleteImage($newImage);throw $e;}
+    }
+
+    private function storeImage(?array $image): ?string
+    {
+        if(!$image || ($image['error']??UPLOAD_ERR_NO_FILE)===UPLOAD_ERR_NO_FILE)return null;
+        if(($image['error']??UPLOAD_ERR_OK)!==UPLOAD_ERR_OK)throw new InvalidArgumentException('The tribe image could not be uploaded.');
+        if(($image['size']??0)<1 || $image['size']>5*1024*1024)throw new InvalidArgumentException('The tribe image must be smaller than 5 MB.');
+        $mime=(new finfo(FILEINFO_MIME_TYPE))->file($image['tmp_name']);
+        $extensions=['image/jpeg'=>'jpg','image/png'=>'png','image/webp'=>'webp'];
+        if(!isset($extensions[$mime]) || !getimagesize($image['tmp_name']))throw new InvalidArgumentException('Use a valid JPG, PNG, or WebP tribe image.');
+        $directory=dirname(__DIR__).DIRECTORY_SEPARATOR.'assets'.DIRECTORY_SEPARATOR.'uploads'.DIRECTORY_SEPARATOR.'team-images';
+        if(!is_dir($directory) && !mkdir($directory,0775,true) && !is_dir($directory))throw new RuntimeException('Tribe image directory could not be created.');
+        $name=bin2hex(random_bytes(16)).'.'.$extensions[$mime];
+        if(!move_uploaded_file($image['tmp_name'],$directory.DIRECTORY_SEPARATOR.$name))throw new RuntimeException('Tribe image could not be stored.');
+        return 'assets/uploads/team-images/'.$name;
+    }
+
+    private function deleteImage(string $path): void
+    {
+        if(!preg_match('~^assets/uploads/team-images/[a-f0-9]{32}\\.(?:jpg|png|webp)$~',$path))return;
+        $file=dirname(__DIR__).DIRECTORY_SEPARATOR.str_replace('/',DIRECTORY_SEPARATOR,$path);
+        if(is_file($file))unlink($file);
     }
 
     public function toggle(int $id,int $actorId,?bool $desiredActive=null): void
@@ -283,6 +311,7 @@ function validationErrors(InvalidArgumentException $exception): array
   str_contains(strtolower($message),'tribe name')=>'name',
   str_contains(strtolower($message),'school year')=>'school_year_id',
   str_contains(strtolower($message),'tribe color')=>'color',
+  str_contains(strtolower($message),'tribe image')=>'image',
   str_contains(strtolower($message),'student')=>'member_ids',
   default=>null,
  };
@@ -297,5 +326,7 @@ try{
  if($action==='randomize'){$result=$repo->randomize((int)($input['school_year_id']??0),(int)$actor['id']);JsonResponse::send(['success'=>true,'message'=>"{$result['students']} students were randomly and evenly distributed across {$result['teams']} tribes. This distribution is now locked."]);}
  if($action==='assign_unassigned'){$count=$repo->assignUnassigned((int)($input['school_year_id']??0),(int)($input['team_id']??0),(array)($input['student_ids']??[]),(int)$actor['id']);JsonResponse::send(['success'=>true,'message'=>$count.' '.($count===1?'student was':'students were').' assigned successfully.']);}
  if($action==='randomize_unassigned'){$result=$repo->randomizeUnassigned((int)($input['school_year_id']??0),(array)($input['student_ids']??[]),(int)$actor['id']);JsonResponse::send(['success'=>true,'message'=>"{$result['students']} unassigned students were distributed across {$result['teams']} active tribes. Existing assignments were preserved."]);}
- if(!in_array($action,['create','update'],true))throw new InvalidArgumentException('Unknown team-management action.');$id=$repo->save($input,(int)$actor['id'],$action==='update'?(int)($input['id']??0):null);JsonResponse::send(['success'=>true,'id'=>$id,'message'=>$action==='update'?'Tribe updated successfully.':'Tribe created successfully.']);
+ if(!in_array($action,['create','update'],true))throw new InvalidArgumentException('Unknown team-management action.');
+ if(isset($input['member_ids']) && is_string($input['member_ids'])){$decoded=json_decode($input['member_ids'],true);if(!is_array($decoded))throw new InvalidArgumentException('Invalid tribe members.');$input['member_ids']=$decoded;}
+ $id=$repo->save($input,(int)$actor['id'],$action==='update'?(int)($input['id']??0):null,$_FILES['image']??null);JsonResponse::send(['success'=>true,'id'=>$id,'message'=>$action==='update'?'Tribe updated successfully.':'Tribe created successfully.']);
 }catch(InvalidArgumentException $e){JsonResponse::send(['success'=>false,'message'=>$e->getMessage(),'errors'=>validationErrors($e)],422);}catch(Throwable $e){error_log($e->getMessage());JsonResponse::send(['success'=>false,'message'=>'Team management request failed.'],500);}

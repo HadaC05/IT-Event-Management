@@ -108,7 +108,8 @@
         const hasUpdates = team.scores.length || team.leaders.length || team.activities.length;
 
         return `
-            <header class="student-team-hero" data-initial="${escapeHtml(team.name.charAt(0).toUpperCase())}">
+            <header class="student-team-hero ${team.image_path ? 'student-team-hero--has-image' : ''}" data-initial="${escapeHtml(team.name.charAt(0).toUpperCase())}">
+                ${team.image_path ? `<img class="student-team-hero__image" src="${escapeHtml(team.image_path)}" alt="${escapeHtml(team.name)} tribe image">` : ''}
                 <div><p class="student-stage__eyebrow">Your people / ${escapeHtml(team.school_year)}</p><h1>${escapeHtml(team.name)}</h1><p class="mt-4 text-sm leading-6 text-white/75">${team.members_count} members. One team. Every moment counts.</p><p class="student-team-hero__color"><span aria-hidden="true"></span>Your team color</p></div>
                 <dl class="student-team-hero__metrics"><div><dt>Members</dt><dd>${team.members_count}</dd></div>${team.leaderboard_visible ? `<div><dt>Standing</dt><dd>${team.rank ? `#${team.rank}` : '—'}</dd></div><div><dt>Finalized score</dt><dd>${team.total_score.toFixed(1)} <small>pts</small></dd></div>` : '<div><dt>Standings</dt><dd class="text-sm">Awaiting reveal</dd></div>'}</dl>
             </header>

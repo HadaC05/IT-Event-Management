@@ -10,6 +10,7 @@ window.SharedNavigation.ready.then(() => {
     filters = $("[data-roster-filters]"),
     rows = $("[data-roster-rows]"),
     paginations = [...document.querySelectorAll("[data-pagination]")];
+  form.dataset.axiosForm = "";
   const escapeHtml = (v) =>
     String(v ?? "").replace(
       /[&<>'"]/g,
@@ -256,6 +257,9 @@ window.SharedNavigation.ready.then(() => {
       tr.className =
         "grid grid-cols-2 gap-x-4 gap-y-4 px-5 py-5 transition hover:bg-[#397565]/[.035] sm:table-row sm:px-0 sm:py-0";
       tr.innerHTML = `<td class="col-span-2 block p-0 sm:table-cell sm:px-6 sm:py-3.5"><div class="flex items-center gap-3"><span class="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[#121017] text-[9px] font-black text-[#F3F0E9]">${escapeHtml(person.first_name[0] + person.last_name[0])}</span><span class="grid min-w-0"><strong class="truncate text-xs font-black text-[#121017]">${escapeHtml(person.full_name)}</strong><small class="mt-0.5 text-[9px] font-semibold text-[#121017]/38">${escapeHtml(person.id_number || "No student ID")}${person.is_expected ? "" : " · Historical record"}</small>${sourceNote}</span></div></td><td class="block p-0 sm:table-cell sm:px-4 sm:py-3.5"><span class="mb-1.5 block text-[8px] font-black uppercase tracking-[.13em] text-[#121017]/30 sm:hidden">Tribe / Year</span><span class="block max-w-52 truncate text-[10px] font-bold text-[#121017]/65">${escapeHtml(person.team_names || "No tribe")}</span><small class="mt-0.5 block text-[9px] font-semibold text-[#121017]/35">${escapeHtml(person.year_level_label || "Year level not set")}</small></td><td class="block p-0 sm:table-cell sm:px-4 sm:py-3.5"><span class="mb-1.5 block text-[8px] font-black uppercase tracking-[.13em] text-[#121017]/30 sm:hidden">Status</span><label class="relative block w-full sm:max-w-48"><span class="pointer-events-none absolute left-3 top-1/2 h-1.5 w-1.5 -translate-y-1/2 rounded-full bg-current"></span><select class="h-10 w-full appearance-none rounded-xl border py-0 pl-7 pr-8 text-[10px] font-black outline-none transition focus:ring-4 focus:ring-[#397565]/10" data-status data-user-id="${person.id}" data-original="${status}" data-checked-in="${escapeHtml(person.checked_in_at || "")}"><option value="">Not recorded</option><option value="present">Present</option><option value="absent">Absent</option></select><svg class="pointer-events-none absolute right-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 fill-none stroke-current stroke-2" viewBox="0 0 24 24"><path d="m7 10 5 5 5-5"/></svg></label></td><td class="col-span-2 block border-t border-[#121017]/6 pt-3 text-[10px] font-semibold text-[#121017]/38 sm:table-cell sm:border-0 sm:px-6 sm:py-3.5"><span class="mr-2 text-[8px] font-black uppercase tracking-[.13em] text-[#121017]/30 sm:hidden">Scan evidence</span><span data-check-in>${checkedAt(person.checked_in_at)}</span></td>`;
+      tr.querySelector("[data-check-in]").textContent = checkedAt(person.time_in_at);
+      tr.querySelector("[data-check-in]").previousElementSibling.textContent = "Time in";
+      tr.insertAdjacentHTML("beforeend", `<td class="col-span-2 block border-t border-[#121017]/6 pt-3 text-[10px] font-semibold text-[#121017]/55 sm:table-cell sm:border-0 sm:px-4 sm:py-3.5"><span class="mr-2 text-[8px] font-black uppercase tracking-[.13em] text-[#121017]/30 sm:hidden">Time out</span>${checkedAt(person.time_out_at)}</td>`);
       const select = tr.querySelector("[data-status]");
       select.value = status;
       tone(select);
@@ -312,12 +316,6 @@ window.SharedNavigation.ready.then(() => {
         if (original) counts[original] = Math.max(0, counts[original] - 1);
         if (current) counts[current]++;
       }
-      select.closest("tr").querySelector("[data-check-in]").textContent =
-        original === current
-          ? checkedAt(select.dataset.checkedIn)
-          : select.dataset.checkedIn
-            ? `${checkedAt(select.dataset.checkedIn)} · evidence preserved`
-            : "Manual correction";
     });
     dirty = changed > 0;
     $("[data-changed-count]").textContent = changed;

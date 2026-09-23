@@ -6,7 +6,7 @@ const path = require('node:path');
 
 const base = process.env.CITE_BASE_URL || 'http://localhost/ITEventManagement';
 const viewer = {id: 7, role: 'Student', first_name: 'Micah', last_name: 'Lago', full_name: 'Micah Dusil Lago', must_change_password: false};
-const team = {id: 47, name: 'Hero Academia', color: '#FACC15', school_year: '2026-2027', members_count: 369,
+const team = {id: 47, name: 'Hero Academia', color: '#FACC15', image_path: 'assets/images/cite_favicon.png', school_year: '2026-2027', members_count: 369,
   current_member: {id: 7, full_name: viewer.full_name, initials: 'ML', year_level: 'Fourth Year'},
   scores: [], leaders: [], activities: [], rank: null, total_score: 0};
 const featured = [
@@ -70,6 +70,7 @@ const featured = [
 
       await page.goto(`${base}/pages/student/team.html`, {waitUntil: 'domcontentloaded'});
       await page.getByRole('heading', {name: 'Hero Academia', exact: true}).waitFor();
+      assert.equal(await page.locator('.student-team-hero__image').getAttribute('src'), team.image_path, 'Uploaded tribe image appears on the student team hero');
       assert.equal(await page.locator('[data-team-page]').evaluate(node => node.style.getPropertyValue('--team-accent')), '#FACC15');
       assert.equal(await page.locator('.student-team-hero').evaluate(node => getComputedStyle(node).borderTopColor), 'rgb(250, 204, 21)');
       assert.equal(await page.locator('.student-team-hero__color span').evaluate(node => getComputedStyle(node).backgroundColor), 'rgb(250, 204, 21)');

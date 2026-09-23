@@ -102,7 +102,7 @@ final class StudentPortalRepository
     {
         $leaderboardVisible = (new LeaderboardPublication($this->db))->studentVisible();
         $statement = $this->db->prepare(
-            "SELECT t.id, t.name, t.color, sy.label AS school_year,
+            "SELECT t.id, t.name, t.color, t.image_path, sy.label AS school_year,
                     COUNT(DISTINCT members.user_id) AS members_count,
                     COALESCE(SUM(DISTINCT score_totals.total), 0) AS total_score
              FROM tbl_team_user mine
@@ -116,7 +116,7 @@ final class StudentPortalRepository
                  GROUP BY team_id
              ) score_totals ON score_totals.team_id = t.id
              WHERE mine.user_id = ? AND t.is_active = 1
-             GROUP BY t.id, t.name, t.color, sy.label
+             GROUP BY t.id, t.name, t.color, t.image_path, sy.label
              ORDER BY sy.id DESC
              LIMIT 1"
         );

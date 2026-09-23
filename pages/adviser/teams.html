@@ -274,6 +274,13 @@
                     >Current school year selected automatically</small
                   ></label
                 >
+                <div class="grid gap-2">
+                  <label class="text-sm font-bold text-slate-700" for="tribe-image">Tribe image</label>
+                  <input class="w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm" id="tribe-image" name="image" type="file" accept="image/jpeg,image/png,image/webp" aria-describedby="tribe-image-help">
+                  <small class="text-xs text-slate-400" id="tribe-image-help">JPG, PNG, or WebP, up to 5 MB. This appears on the student team page.</small>
+                  <label class="hidden items-center gap-2 text-xs font-semibold text-slate-600" data-remove-image-label><input class="h-4 w-4 accent-[#397565]" type="checkbox" name="remove_image" value="1"> Remove current image</label>
+                  <p class="hidden text-xs font-semibold text-rose-600" data-error-for="image" role="alert"></p>
+                </div>
                 <fieldset>
                   <legend class="text-sm font-bold text-slate-700">
                     Choose a tribe color
@@ -311,6 +318,7 @@
                   class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-lg shadow-slate-200/50"
                 >
                   <div class="h-2 transition-colors" data-preview-accent></div>
+                  <img class="hidden w-full object-cover" style="aspect-ratio:16/9" data-preview-image alt="Tribe image preview">
                   <div class="p-5">
                     <div class="flex items-center gap-3">
                       <span
@@ -529,6 +537,6 @@
     <script src="js/vendor/axios.min.js"></script>
     <script src="js/shared/password-gate.js?v=20260917-1"></script>
     <script src="js/shared/navigation.js?v=20260921-adviser-sections-1"></script>
-    <script src="js/adviser/teams.js?v=20260923-avatar-1"></script>
+    <script src="js/adviser/teams.js?v=20260923-team-image-1"></script>
   </body>
 </html>
