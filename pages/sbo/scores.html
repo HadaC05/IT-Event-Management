@@ -8,25 +8,31 @@
   <link rel="icon" href="assets/images/cite_favicon.png">
   <link rel="stylesheet" href="css/tailwind.css">
   <link rel="stylesheet" href="css/sbo.css?v=20260919-full-width-layout">
-  <link rel="stylesheet" href="css/sbo-workspace.css?v=20260923-1">
+  <link rel="stylesheet" href="css/sbo-workspace.css?v=20260924-scores-sidebar-2">
   <script src="js/shared/notifications.js?v=20260917-7" defer></script>
 </head>
 <body class="min-h-screen bg-white font-sans text-[#121017] antialiased" data-navigation-role="sbo" data-sbo-workspace="scores">
   <div data-sbo-sidebar-host></div><div data-sbo-header-host></div>
   <main class="w-auto max-w-none px-4 pb-28 pt-5 transition-[margin] duration-200 sm:px-6 lg:ml-20 lg:px-8">
     <header class="sbo-workspace-hero">
-      <div class="sbo-workspace-hero__copy"><p class="sbo-workspace-eyebrow">SBO officer / scoring desk</p><h1>Make every point count.</h1><p>Enter scores for your assigned activity. Save a draft while you work, then finalize when every team is ready.</p></div>
+      <div class="sbo-workspace-hero__copy"><p class="sbo-workspace-eyebrow">SBO officer / scoring desk</p><h1>Record the performance.</h1></div>
       <div class="sbo-workspace-hero__signal"><span>Score sheet</span><strong data-score-hero-state>—</strong><small data-score-hero-detail>Select an assignment to begin</small></div>
     </header>
-    <section class="sbo-workspace-panel sbo-score-selector mt-5"><div><p class="sbo-workspace-eyebrow">Working on</p><h2>Choose an assignment</h2><p>Only activities assigned to you appear here.</p></div><label class="grid gap-2"><span class="text-sm font-bold">Scoring assignment</span><select class="h-12 rounded-xl border border-[#121017]/12 bg-white px-3" data-assignment></select></label></section>
-    <form class="sbo-workspace-panel mt-4 overflow-hidden rounded-2xl border border-[#121017]/10 bg-white shadow-sm" data-score-form>
-      <div class="sbo-score-heading"><div><p class="sbo-workspace-eyebrow">Score sheet</p><h2 data-score-sheet-title>Team scores</h2></div><span data-score-sheet-status>Loading…</span></div>
+    <div class="sbo-scores-layout">
+      <aside class="sbo-workspace-panel sbo-scores-filter p-5">
+        <h2 class="text-lg font-black tracking-[-.02em]">Choose an assignment</h2>
+        <label class="mt-5 grid gap-2"><span class="text-[10px] font-black uppercase tracking-[.16em] text-[#121017]/45">Search</span><input class="h-12 rounded-xl border border-[#121017]/12 bg-white px-4 text-sm font-bold outline-none focus:border-[#397565]" type="search" placeholder="Search event or activity" data-assignment-search></label>
+        <label class="mt-4 grid gap-2"><span class="text-[10px] font-black uppercase tracking-[.16em] text-[#121017]/45">Scheduled date</span><select class="h-11 rounded-xl border border-[#121017]/12 bg-white px-4 text-sm font-bold outline-none focus:border-[#397565]" data-assignment-schedule><option value="">All scheduled dates</option></select></label>
+        <div class="mt-4 grid gap-2" data-assignment-results></div>
+      </aside>
+      <form class="sbo-workspace-panel overflow-hidden rounded-2xl border border-[#121017]/10 bg-white shadow-sm" data-score-form>
+      <div class="sbo-score-heading"><div><p class="sbo-workspace-eyebrow">Score sheet</p><h2 data-score-sheet-title>Raw score entry</h2></div><span data-score-sheet-status>Loading…</span></div>
       <div class="overflow-x-auto" data-score-grid></div>
       <footer class="flex flex-wrap justify-end gap-2 border-t border-[#121017]/8 p-4">
-        <button class="min-h-11 rounded-xl border border-[#397565]/25 px-5 text-sm font-black text-[#397565]" type="submit" data-finalize="false">Save draft</button>
-        <button class="min-h-11 rounded-xl bg-[#397565] px-5 text-sm font-black text-white" type="submit" data-finalize="true">Finalize scores</button>
+        <button class="min-h-11 rounded-xl bg-[#397565] px-5 text-sm font-black text-white" type="submit" data-save-score>Save raw scores</button>
       </footer>
-    </form>
+      </form>
+    </div>
   </main>
   <dialog class="m-auto w-[min(460px,calc(100%_-_2rem))] rounded-2xl border-0 bg-white p-0 shadow-2xl backdrop:bg-[#121017]/60" data-confirm-dialog>
     <div class="p-6">
@@ -43,6 +49,6 @@
     <script src="js/shared/password-gate.js?v=20260917-1"></script>
   <script src="js/shared/navigation.js?v=20260924-media-merge-1"></script>
   <script src="js/sbo/portal.js?v=20260917-1"></script>
-  <script src="js/sbo/scores.js"></script>
+  <script src="js/sbo/scores.js?v=20260924-scores-sidebar-1"></script>
 </body>
 </html>

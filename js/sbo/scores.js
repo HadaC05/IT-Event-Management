@@ -2,59 +2,69 @@
   'use strict';
 
   const API = 'api/sbo-scores.php';
-  const select = document.querySelector('[data-assignment]');
+  const assignmentSearch = document.querySelector('[data-assignment-search]');
+  const assignmentSchedule = document.querySelector('[data-assignment-schedule]');
+  const assignmentResults = document.querySelector('[data-assignment-results]');
   const grid = document.querySelector('[data-score-grid]');
   const form = document.querySelector('[data-score-form]');
-  let csrf = '', state = null, finalize = false, saving = false;
+  const saveButton = form.querySelector('[data-save-score]');
   const esc = value => SboPortal.escapeHtml(value);
+  let csrf = '', state = null, saving = false;
 
-  const total = team => state.categories.reduce((sum, category) =>
-    sum + Number(form.elements[`score_${team.id}_${category.id}`]?.value || 0), 0);
+  function assignmentLabel(assignment) {
+    return `${assignment.event_name} - ${assignment.activity_name}`;
+  }
 
-  const syncTotals = () => state?.teams.forEach(team => {
-    const cell = grid.querySelector(`[data-total="${team.id}"]`);
-    if (cell) cell.textContent = total(team).toFixed(2);
-  });
+  function scheduleLabel(value) {
+    if (!value) return 'Unscheduled';
+    const date = new Date(`${value}T12:00:00`);
+    return Number.isNaN(date.getTime()) ? value : new Intl.DateTimeFormat('en-PH', {month: 'short', day: 'numeric', year: 'numeric'}).format(date);
+  }
+
+  function renderAssignmentResults() {
+    const search = assignmentSearch.value.trim().toLocaleLowerCase();
+    const matches = state.assignments.filter(assignment => assignmentLabel(assignment).toLocaleLowerCase().includes(search) && (!assignmentSchedule.value || (assignment.schedule_date || 'unscheduled') === assignmentSchedule.value));
+    assignmentResults.innerHTML = matches.length
+      ? matches.map(assignment => `<button class="min-h-11 rounded-xl border px-4 py-3 text-left text-xs font-black transition ${assignment.id === state.selected?.id ? 'border-[#397565] bg-[#397565] text-white' : 'border-[#121017]/10 bg-white text-[#121017] hover:border-[#397565]/35'}" type="button" data-assignment-id="${assignment.id}">${esc(assignment.activity_name)}</button>`).join('')
+      : '<p class="py-3 text-xs text-[#121017]/45">No assignments match these filters.</p>';
+  }
 
   function render() {
-    select.innerHTML = state.assignments.length
-      ? state.assignments.map(assignment => `<option value="${assignment.id}">${assignment.assignment_state === 'upcoming' ? 'Upcoming assignment · ' : ''}${esc(assignment.event_name)} · ${esc(assignment.session_name)} · ${esc(assignment.team_name)} · ${esc(assignment.activity_name)}</option>`).join('')
-      : '<option value="">No scoring assignment</option>';
-    if (state.selected) select.value = state.selected.id;
+    const selectedSchedule = assignmentSchedule.value;
+    const schedules = [...new Set(state.assignments.map(assignment => assignment.schedule_date || 'unscheduled'))].sort((left, right) => left === 'unscheduled' ? 1 : right === 'unscheduled' ? -1 : left.localeCompare(right));
+    assignmentSchedule.replaceChildren(new Option('All scheduled dates', ''), ...schedules.map(value => new Option(scheduleLabel(value), value)));
+    assignmentSchedule.value = schedules.includes(selectedSchedule) ? selectedSchedule : '';
+    renderAssignmentResults();
 
     const upcoming = state.selected?.assignment_state === 'upcoming';
-    const locked = state.sheet?.status === 'finalized' || upcoming;
-    const stage = !state.selected ? 'Unassigned' : upcoming ? 'Upcoming' : state.sheet?.status === 'finalized' ? 'Finalized' : 'In progress';
+    const locked = Boolean(state.finalized) || upcoming;
+    const savedTeams = Object.keys(state.raw_scores || {}).length;
+    const stage = !state.selected ? 'Unassigned' : upcoming ? 'Upcoming' : state.finalized ? 'Finalized' : savedTeams === state.teams.length ? 'Saved' : 'Ready';
     document.querySelector('[data-score-hero-state]').textContent = stage;
-    document.querySelector('[data-score-hero-detail]').textContent = state.selected ? `${state.selected.event_name} · ${state.selected.activity_name}` : 'Ask the adviser for a scoring assignment';
-    document.querySelector('[data-score-sheet-title]').textContent = state.selected ? `${state.selected.activity_name} scores` : 'Team scores';
-    document.querySelector('[data-score-sheet-status]').textContent = state.selected ? `${state.teams.length} teams · ${state.categories.length} criteria · ${stage}` : 'No assignment';
-    form.querySelector('footer').classList.toggle('hidden', !state.selected || locked);
+    document.querySelector('[data-score-hero-detail]').textContent = state.selected ? `${state.selected.event_name} - ${state.selected.activity_name}` : 'Ask the adviser for a scoring assignment';
+    document.querySelector('[data-score-sheet-title]').textContent = state.selected ? `${state.selected.activity_name} raw scores` : 'Raw score entry';
+    document.querySelector('[data-score-sheet-status]').textContent = state.selected ? `${state.teams.length} tribes - ${stage}` : 'No assignment';
+    saveButton.closest('footer').classList.toggle('hidden', !state.selected || locked);
+
     if (!state.selected) {
-      grid.innerHTML = '<div class="sbo-workspace-empty"><span aria-hidden="true">◇</span><strong>No score sheet assigned</strong><p>Ask the SBO Adviser to assign an activity before entering scores.</p></div>';
-      return;
-    }
-    if (!state.categories.length) {
-      grid.innerHTML = '<div class="sbo-workspace-empty"><span aria-hidden="true">◇</span><strong>Criteria are not ready</strong><p>The adviser has not created scoring criteria for this activity yet.</p></div>';
+      grid.innerHTML = '<div class="sbo-workspace-empty"><span aria-hidden="true">◇</span><strong>No score sheet assigned</strong><p>Ask the SBO Adviser to assign an activity before entering a raw score.</p></div>';
       return;
     }
 
-    const heading = state.categories.map(category => `<th class="p-4">${esc(category.name)}<small class="block font-normal opacity-70">${category.min_points}–${category.max_points}</small></th>`).join('');
-    const rows = state.teams.map(team => `<tr class="sbo-score-row border-b border-[#121017]/8">
-      <th class="p-4" scope="row">${esc(team.name)}</th>
-      ${state.categories.map(category => `<td class="p-3" data-label="${esc(category.name)}">
-        <input class="h-11 w-28 rounded-xl border border-[#121017]/12 px-3" type="number" step="0.01"
-          min="${category.min_points}" max="${category.max_points}"
-          name="score_${team.id}_${category.id}" data-team="${team.id}"
-          aria-label="${esc(category.name)} score for ${esc(team.name)}"
-          value="${esc(state.scores[team.id]?.[category.id] ?? '')}" ${locked ? 'disabled' : 'required'}>
-      </td>`).join('')}
-      <td class="p-4 font-black text-[#397565]" data-label="Total" data-total="${team.id}">0.00</td>
-    </tr>`).join('');
-
-    grid.innerHTML = `${upcoming ? '<p class="bg-[#C6F24E]/25 p-3 text-center text-xs font-black text-[#397565]">Upcoming assignment — scoring will be available when the event begins.</p>' : locked ? '<p class="bg-[#C6F24E]/25 p-3 text-center text-xs font-black text-[#397565]">Finalized — only the adviser can reopen this score sheet.</p>' : ''}
-      <table class="sbo-score-table w-full min-w-[760px] text-left"><thead class="text-xs"><tr><th class="p-4">Team</th>${heading}<th class="p-4">Total</th></tr></thead><tbody>${rows}</tbody></table>`;
-    syncTotals();
+    const note = upcoming
+      ? 'Upcoming assignment - raw-score entry opens when the event begins.'
+      : state.finalized
+        ? 'Finalized - placement points have been locked by the adviser.'
+        : 'Enter a whole-number raw score for every tribe. The adviser will rank all tribes and award placement points.';
+    const rows = state.teams.map(team => `<tr class="border-b border-[#121017]/8 last:border-0"><th class="p-4 text-left" scope="row"><span class="mr-3 inline-block h-3 w-3 rounded-full" style="background:${esc(team.color || '#397565')}"></span>${esc(team.name)}</th><td class="p-3 text-right"><input class="h-11 w-32 rounded-xl border border-[#121017]/12 px-3 text-right font-black outline-none focus:border-[#397565]" type="text" inputmode="numeric" maxlength="3" autocomplete="off" data-raw-score data-team="${team.id}" value="${state.raw_scores[team.id] ?? ''}" placeholder="0" aria-label="Raw score for ${esc(team.name)}" ${locked ? 'disabled' : 'required'}></td></tr>`).join('');
+    grid.innerHTML = `<div class="overflow-x-auto"><table class="w-full min-w-[460px] text-sm"><thead class="bg-[#F3F0E9]/55 text-left text-[10px] font-black uppercase tracking-wide text-[#121017]/45"><tr><th class="p-4">Tribe</th><th class="p-4 text-right">Raw score (0-200)</th></tr></thead><tbody>${rows}</tbody></table></div><p class="px-5 py-4 text-sm text-[#121017]/55">${note}</p>`;
+    grid.querySelectorAll('[data-raw-score]').forEach(input => {
+      input.addEventListener('beforeinput', event => { if (event.data && !/^\d+$/.test(event.data)) event.preventDefault(); });
+      input.addEventListener('input', () => {
+        input.value = input.value.replace(/\D/g, '');
+        input.setCustomValidity(input.value !== '' && Number(input.value) <= 200 ? '' : 'Enter a whole number from 0 to 200.');
+      });
+    });
   }
 
   async function load(assignmentId) {
@@ -62,40 +72,28 @@
     render();
   }
 
-  select.addEventListener('change', () => load(Number(select.value)));
-  grid.addEventListener('input', syncTotals);
-  form.querySelectorAll('[data-finalize]').forEach(button => button.addEventListener('click', () => {
-    finalize = button.dataset.finalize === 'true';
-  }));
+  assignmentSearch.addEventListener('input', renderAssignmentResults);
+  assignmentSchedule.addEventListener('change', renderAssignmentResults);
+  assignmentResults.addEventListener('click', event => {
+    const button = event.target.closest('[data-assignment-id]');
+    if (button) load(Number(button.dataset.assignmentId));
+  });
   form.addEventListener('submit', async event => {
     event.preventDefault();
-    if (saving) return;
-    if (finalize && !(await Notifications.confirm({
-      title: 'Finalize scores?',
-      message: 'You cannot edit these scores again unless the adviser reopens the sheet.',
-      action: 'Finalize',
-    }))) return;
-
+    if (saving || !state?.selected || !form.reportValidity()) return;
     const scores = {};
-    state.teams.forEach(team => {
-      scores[team.id] = {};
-      state.categories.forEach(category => {
-        scores[team.id][category.id] = form.elements[`score_${team.id}_${category.id}`].value;
-      });
-    });
+    grid.querySelectorAll('[data-raw-score]').forEach(input => { scores[input.dataset.team] = input.value; });
     saving = true;
-    form.querySelectorAll('button[type="submit"]').forEach(button => { button.disabled = true; });
+    saveButton.disabled = true;
     try {
-      const response = await axios.post(API, {assignment_id: state.selected.id, scores, finalize}, {
-        headers: {'X-CSRF-Token': csrf},
-      });
+      const response = await axios.post(API, {assignment_id: state.selected.id, scores}, {headers: {'X-CSRF-Token': csrf}});
       Notifications.success(response.data.message);
       await load(state.selected.id);
     } catch (error) {
-      Notifications.error(error.response?.data?.message || 'Unable to save scores.');
+      Notifications.error(error.response?.data?.message || 'Unable to save the raw score.');
     } finally {
       saving = false;
-      form.querySelectorAll('button[type="submit"]').forEach(button => { button.disabled = false; });
+      saveButton.disabled = false;
     }
   });
 
