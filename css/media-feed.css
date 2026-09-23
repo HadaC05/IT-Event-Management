@@ -448,8 +448,11 @@
   transform-origin: top left;
   transition: opacity .14s ease, transform .14s ease, visibility .14s ease;
 }
-.cite-reaction-picker:hover .cite-reaction-menu,
-.cite-reaction-picker:focus-within .cite-reaction-menu,
+.cite-reaction-picker.is-above .cite-reaction-menu {
+  top: auto;
+  bottom: calc(100% + .3rem);
+  transform-origin: bottom left;
+}
 .cite-reaction-picker.is-open .cite-reaction-menu {
   opacity: 1;
   visibility: visible;

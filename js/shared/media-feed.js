@@ -14,10 +14,10 @@
   };
 
   async function execute(payload, options={}) {
-    if(options.confirm && !(await window.Notifications.confirm({title:'Delete post?',message:options.confirm,action:'Delete'}))) return;
+    if(options.confirm && !(await window.Notifications.confirm({title:'Delete post?',message:options.confirm,action:'Delete'}))) return false;
     const value=payload instanceof FormData?Object.fromEntries(payload.entries()):payload;
     const key=[value.action,value.post_id||value.id||'',value.comment_id||'',value.event_id||'',value.type||'',value.active??value.pin??''].join(':');
-    if(state.pending.has(key))return;
+    if(state.pending.has(key))return false;
     state.pending.add(key);
     let saved=false;
     try{
@@ -32,7 +32,9 @@
         if(value.action==='approve'){
           try{await refreshPublicFeed();}catch{notify('error','Post approved, but the public feed could not refresh. Reload the page to see it.');}
         }
-      }else if(['reaction_toggle','comment_reaction_toggle','comment_create','comment_update','comment_delete','comment_pin'].includes(value.action)) {
+      }else if(['reaction_toggle','comment_reaction_toggle'].includes(value.action)) {
+        // The card updates its own reaction controls, keeping its comments and scroll position intact.
+      }else if(['comment_create','comment_update','comment_delete','comment_pin'].includes(value.action)) {
         const oldCard=state.root.querySelector(`[data-public-feed] [data-post-id="${Number(value.post_id)}"]`);
         const commentsOpen=oldCard?.querySelector('[data-comment-focus]')?.getAttribute('aria-expanded')==='true';
         const fresh=await CiteMediaApi.post(Number(value.post_id));
@@ -40,9 +42,11 @@
         if(index>=0)state.data.posts[index]=fresh;
         if(oldCard){const newCard=makePostCard(fresh);oldCard.replaceWith(newCard);if(commentsOpen)await newCard.openComments();}
       }else await load();
+      return true;
     }catch(error){
       notify('error',saved?'Your action was saved, but the post could not refresh. Reload the page.':error.response?.data?.message||'The media request failed.');
       if(value.action==='approve'||value.action==='reject')await loadModeration(state.queuePage);
+      return false;
     }finally{state.pending.delete(key);}
   }
 

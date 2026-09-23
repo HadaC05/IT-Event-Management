@@ -8,7 +8,7 @@ const post = {
   id: 15, user_id: 7, event_id: null, content: 'Two photos from the event',
   image_path: photo, images: [photo, photo], video_path: null,
   created_at: '2026-09-23 08:00:00', is_official: false, event_title: null,
-  author_name: 'Micah Dusil Lago', author_initials: 'ML', author_role: 'Faculty',
+  author_name: 'Micah Dusil Lago', author_initials: 'ML', author_role: 'Faculty', special_tag: 'Dev',
   profile_photo_path: photo, viewer_reaction: null, reactions_count: 0, comments_count: 0,
 };
 
@@ -40,8 +40,15 @@ const post = {
       await page.locator('[data-public-profile-root] [data-post-id="15"]').waitFor();
       assert.match(await page.locator('[data-public-profile-root] h1').textContent(), /Micah Dusil Lago/);
       assert.equal(await page.locator('[data-post-id="15"] .cite-post-gallery img').count(), 2);
+      assert.match(await page.locator('[data-post-id="15"] header').textContent(), /Dev/, 'Author tag stays visible on the post');
       assert.equal(await page.locator('[data-post-id="15"] [data-reaction-current]').count(), 1);
       assert.equal(await page.locator('[data-post-id="15"] [data-reaction-choice="love"]').count(), 1);
+      await page.locator('[data-post-id="15"]').evaluate(card => { window.reactionTestCard = card; });
+      await page.locator('[data-post-id="15"] [data-reaction-picker]').evaluate(element => element.scrollIntoView({block: 'center'}));
+      await page.locator('[data-post-id="15"] [data-reaction-current]').click();
+      await page.locator('[data-post-id="15"] [data-reaction-choice="like"]').click();
+      await page.waitForFunction(() => document.querySelector('[data-post-id="15"] [data-reaction-current]')?.getAttribute('aria-pressed') === 'true');
+      assert.equal(await page.locator('[data-post-id="15"]').evaluate(card => card === window.reactionTestCard), true, 'Reacting on the author page keeps the post in place');
       await page.locator('[data-post-id="15"] [data-open-post-image="1"]').click();
       assert.equal(await page.locator('.cite-image-dialog').evaluate(dialog => dialog.open), true);
       await page.keyboard.press('Escape');

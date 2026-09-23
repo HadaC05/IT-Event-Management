@@ -31,8 +31,14 @@
         viewer,
         permissions,
         action: async payload => {
-          try { await CiteMediaApi.send(payload); await renderPage(null); }
-          catch (error) { window.Notifications?.error(error.response?.data?.message || 'That action could not be completed.'); }
+          try {
+            await CiteMediaApi.send(payload);
+            if (!['reaction_toggle','comment_reaction_toggle'].includes(payload.action)) await renderPage(null);
+            return true;
+          } catch (error) {
+            window.Notifications?.error(error.response?.data?.message || 'That action could not be completed.');
+            return false;
+          }
         },
         edit: () => {},
       })));

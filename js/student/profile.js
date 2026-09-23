@@ -141,7 +141,7 @@ window.SharedNavigation.ready.then(async session => {
   async function execute(payload, options = {}) {
     if (options.confirm) {
       const accepted = await window.Notifications.confirm({title:'Delete post?',message:options.confirm,action:'Delete'});
-      if (!accepted) return;
+      if (!accepted) return false;
     }
     let saved=false;
     try {
@@ -150,7 +150,9 @@ window.SharedNavigation.ready.then(async session => {
         reactionToast?.remove();
         reactionToast=notify('success',response.message);
       }else notify('success',response.message);
-      if(['reaction_toggle','comment_reaction_toggle','comment_create','comment_update','comment_delete','comment_pin'].includes(payload.action)) {
+      if(['reaction_toggle','comment_reaction_toggle'].includes(payload.action)) {
+        // Keep the existing post and loaded comments in place while its emoji changes.
+      } else if(['comment_create','comment_update','comment_delete','comment_pin'].includes(payload.action)) {
         const oldCard=root.querySelector(`[data-profile-posts] [data-post-id="${Number(payload.post_id)}"]`);
         const commentsOpen=oldCard?.querySelector('[data-comment-focus]')?.getAttribute('aria-expanded')==='true';
         const fresh=await CiteMediaApi.post(Number(payload.post_id));
@@ -158,8 +160,9 @@ window.SharedNavigation.ready.then(async session => {
         if(index>=0)data.posts[index]=fresh;
         if(oldCard){const newCard=makeProfileCard(fresh);oldCard.replaceWith(newCard);if(commentsOpen)await newCard.openComments();}
       } else await load();
+      return true;
     }
-    catch(error){ notify('error',saved?'Your action was saved, but the post could not refresh. Reload the page.':error.response?.data?.message||'The post action could not be completed.'); }
+    catch(error){ notify('error',saved?'Your action was saved, but the post could not refresh. Reload the page.':error.response?.data?.message||'The post action could not be completed.'); return false; }
   }
 
   async function load() {

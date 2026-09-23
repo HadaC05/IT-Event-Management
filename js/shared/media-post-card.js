@@ -148,7 +148,7 @@
     const authorAvatar = post.profile_photo_path
       ? `<img class="h-12 w-12 shrink-0 rounded-full object-cover ring-2 ring-[#397565]/15" src="${esc(post.profile_photo_path)}" alt="${esc(post.author_name)} profile picture">`
       : `<span class="grid h-12 w-12 shrink-0 place-items-center rounded-full bg-[#397565] text-xs font-black text-white ring-2 ring-[#397565]/10">${esc(post.author_initials)}</span>`;
-    article.innerHTML = `<header class="flex items-center gap-3 p-4 sm:p-5"><a class="flex min-w-0 flex-1 items-center gap-3 rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-[#397565]" href="pages/shared/public-profile.html?user_id=${encodeURIComponent(post.user_id)}&v=20260924-profile-search-3" aria-label="View ${esc(post.author_name)} profile">${authorAvatar}<span class="min-w-0 flex-1"><span class="flex flex-wrap items-center gap-2"><strong class="truncate text-base">${esc(post.author_name)}</strong>${roleBadge}${post.is_official ? '<span class="rounded bg-[#C6F24E]/40 px-2 py-0.5 text-[10px] font-black text-[#397565]">Official</span>' : ""}</span><span class="mt-0.5 flex flex-wrap gap-2 text-[11px] text-[#121017]/50"><time>${esc(time(post.created_at))}</time>${post.event_title ? `<span>•</span><span class="font-bold text-[#397565]">${esc(post.event_title)}</span>` : ""}</span></span></a>${menuMarkup(post, viewer, permissions)}</header>`;
+    article.innerHTML = `<header class="flex items-center gap-3 p-4 sm:p-5"><a class="flex min-w-0 flex-1 items-center gap-3 rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-[#397565]" href="pages/shared/public-profile.html?user_id=${encodeURIComponent(post.user_id)}&v=20260924-profile-search-3" aria-label="View ${esc(post.author_name)} profile">${authorAvatar}<span class="min-w-0 flex-1"><span class="flex flex-wrap items-center gap-2"><strong class="truncate text-base">${esc(post.author_name)}</strong>${roleBadge}${devBadge}${post.is_official ? '<span class="rounded bg-[#C6F24E]/40 px-2 py-0.5 text-[10px] font-black text-[#397565]">Official</span>' : ""}</span><span class="mt-0.5 flex flex-wrap gap-2 text-[11px] text-[#121017]/50"><time>${esc(time(post.created_at))}</time>${post.event_title ? `<span>•</span><span class="font-bold text-[#397565]">${esc(post.event_title)}</span>` : ""}</span></span></a>${menuMarkup(post, viewer, permissions)}</header>`;
 
     article.insertAdjacentHTML("beforeend", `<div class="px-4 pb-4 sm:px-5 sm:pb-5"><p class="whitespace-pre-line text-sm leading-6">${esc(post.content)}</p></div>`);
 
@@ -158,7 +158,7 @@
 
     const engagement = document.createElement("div");
     engagement.className = "px-4 pb-4 pt-4 sm:px-5 sm:pb-5";
-    engagement.innerHTML = `<div class="flex items-center justify-between text-xs text-[#121017]/50"><div>${reactionSummary(post.reaction_counts, post.reactions_count, 'post', post.id)}</div><span>${post.comments_count} comment${post.comments_count === 1 ? "" : "s"}</span></div><div class="mt-2 flex items-center gap-2 border-y border-[#397565]/10 py-2">${reactionPickerMarkup("post", post.viewer_reaction)}<button class="min-h-10 rounded-xl px-3 text-xs font-bold text-[#121017]/55 hover:bg-[#F3F0E9]" type="button" data-comment-focus aria-expanded="false">${post.comments_count ? `View comments (${post.comments_count})` : 'Comment'}</button></div><div class="hidden" data-comments-panel><div class="grid gap-3 pt-4" data-comments></div><button class="mt-3 hidden min-h-10 rounded-xl border border-[#397565]/20 px-4 text-xs font-black text-[#397565]" type="button" data-more-comments>Load more comments</button><form class="mt-4 flex items-start gap-2 border-t border-[#397565]/10 pt-4" data-comment-form><textarea class="min-h-10 min-w-0 flex-1 resize-none border-0 bg-transparent px-1 py-2 text-sm outline-none placeholder:text-[#121017]/45" name="body" rows="1" maxlength="1000" placeholder="Add a comment…" required></textarea><button class="min-h-10 rounded-lg bg-[#397565] px-4 text-xs font-bold text-white">Comment</button></form></div>`;
+    engagement.innerHTML = `<div class="flex items-center justify-between text-xs text-[#121017]/50"><div data-post-reaction-summary>${reactionSummary(post.reaction_counts, post.reactions_count, 'post', post.id)}</div><span>${post.comments_count} comment${post.comments_count === 1 ? "" : "s"}</span></div><div class="mt-2 flex items-center gap-2 border-y border-[#397565]/10 py-2">${reactionPickerMarkup("post", post.viewer_reaction)}<button class="min-h-10 rounded-xl px-3 text-xs font-bold text-[#121017]/55 hover:bg-[#F3F0E9]" type="button" data-comment-focus aria-expanded="false">${post.comments_count ? `View comments (${post.comments_count})` : 'Comment'}</button></div><div class="hidden" data-comments-panel><div class="grid gap-3 pt-4" data-comments></div><button class="mt-3 hidden min-h-10 rounded-xl border border-[#397565]/20 px-4 text-xs font-black text-[#397565]" type="button" data-more-comments>Load more comments</button><form class="mt-4 flex items-start gap-2 border-t border-[#397565]/10 pt-4" data-comment-form><textarea class="min-h-10 min-w-0 flex-1 resize-none border-0 bg-transparent px-1 py-2 text-sm outline-none placeholder:text-[#121017]/45" name="body" rows="1" maxlength="1000" placeholder="Add a comment…" required></textarea><button class="min-h-10 rounded-lg bg-[#397565] px-4 text-xs font-bold text-white">Comment</button></form></div>`;
     const comments = engagement.querySelector("[data-comments]");
     const panel = engagement.querySelector("[data-comments-panel]");
     const toggle = engagement.querySelector("[data-comment-focus]");
@@ -174,6 +174,14 @@
       const scope = comment ? 'comment' : 'post';
       picker.querySelector('[data-reaction-current]').onclick = () => {
         const open = !picker.classList.contains('is-open');
+        if (open) {
+          const bounds = picker.getBoundingClientRect();
+          const mobileNav = document.querySelector('[data-shared-mobile-navigation]');
+          const navTop = mobileNav && getComputedStyle(mobileNav).display !== 'none' ? mobileNav.getBoundingClientRect().top : window.innerHeight;
+          const header = document.querySelector('[data-shared-header]');
+          const headerBottom = header && getComputedStyle(header).display !== 'none' ? header.getBoundingClientRect().bottom : 0;
+          picker.classList.toggle('is-above', navTop - bounds.bottom < 64 && bounds.top - headerBottom > navTop - bounds.bottom);
+        }
         picker.classList.toggle('is-open', open);
         picker.querySelector('[data-reaction-current]').setAttribute('aria-expanded', String(open));
       };
@@ -181,7 +189,7 @@
         picker.classList.remove('is-open');
         picker.querySelector('[data-reaction-current]').setAttribute('aria-expanded', 'false');
         const selected = comment ? comment.viewer_reaction : post.viewer_reaction;
-        submitReaction(picker, choice.dataset.reactionChoice, selected !== choice.dataset.reactionChoice);
+        submitReaction(picker, comment, choice.dataset.reactionChoice, selected !== choice.dataset.reactionChoice);
       });
       picker.dataset.reactionScope = scope;
     };
@@ -267,16 +275,53 @@
 
     bindReactionPicker(engagement.querySelector('[data-reaction-picker]'));
     engagement.querySelector('[data-open-reactions]')?.addEventListener('click', () => openReactionList(post.id));
-    async function submitReaction(picker, type, active) {
+    function showReaction(picker, comment, type, active) {
+      const target = comment || post;
+      const counts = {...(target.reaction_counts || {})};
+      const previous = target.viewer_reaction;
+      if (previous) {
+        counts[previous] = Math.max(0, Number(counts[previous] || 0) - 1);
+        if (!counts[previous]) delete counts[previous];
+      }
+      if (active) counts[type] = Number(counts[type] || 0) + 1;
+      target.viewer_reaction = active ? type : null;
+      target.reaction_counts = counts;
+      target.reactions_count = Object.values(counts).reduce((total, count) => total + Number(count), 0);
+
+      const host = picker.parentElement;
+      const replacement = document.createElement('template');
+      replacement.innerHTML = reactionPickerMarkup(comment ? 'comment' : 'post', target.viewer_reaction);
+      const nextPicker = replacement.content.firstElementChild;
+      picker.replaceWith(nextPicker);
+      bindReactionPicker(nextPicker, comment);
+
+      const markup = reactionSummary(counts, target.reactions_count, comment ? 'comment' : 'post', target.id);
+      if (comment) {
+        const oldSummary = host.querySelector(':scope > [data-open-reactions]');
+        oldSummary?.remove();
+        if (markup) {
+          const template = document.createElement('template');
+          template.innerHTML = markup;
+          const summary = template.content.firstElementChild;
+          summary.addEventListener('click', () => openReactionList(post.id, comment.id));
+          nextPicker.before(summary);
+        }
+      } else {
+        const summaryHost = engagement.querySelector('[data-post-reaction-summary]');
+        summaryHost.innerHTML = markup;
+        summaryHost.querySelector('[data-open-reactions]')?.addEventListener('click', () => openReactionList(post.id));
+      }
+    }
+    async function submitReaction(picker, comment, type, active) {
       const button = picker.querySelector('[data-reaction-current]');
       if (button.disabled) return;
       button.disabled = true;
       button.setAttribute('aria-busy', 'true');
       try {
-        const commentId = picker.closest('[data-comment-id]')?.dataset.commentId;
-        await action(commentId
-          ? { action: "comment_reaction_toggle", post_id: post.id, comment_id: Number(commentId), type, active }
+        const saved = await action(comment
+          ? { action: "comment_reaction_toggle", post_id: post.id, comment_id: comment.id, type, active }
           : { action: "reaction_toggle", post_id: post.id, type, active });
+        if (saved !== false) showReaction(picker, comment, type, active);
       } finally {
         if (button.isConnected) { button.disabled = false; button.removeAttribute('aria-busy'); }
       }
@@ -295,6 +340,12 @@
   document.addEventListener("click", (event) => {
     document.querySelectorAll(".cite-post-menu[open], .cite-comment-menu[open]").forEach((menu) => {
       if (!menu.contains(event.target)) menu.removeAttribute("open");
+    });
+    document.querySelectorAll('.cite-reaction-picker.is-open').forEach(picker => {
+      if (!picker.contains(event.target)) {
+        picker.classList.remove('is-open');
+        picker.querySelector('[data-reaction-current]')?.setAttribute('aria-expanded', 'false');
+      }
     });
   });
 

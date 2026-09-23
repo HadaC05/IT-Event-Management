@@ -40,6 +40,7 @@ const profile = {id: 1, full_name: 'Test Middle Student', initials: 'TS', id_num
       const errors = [];
       let commentRequests = 0;
       let reactionRequests = 0;
+      let postRequests = 0;
       let selectedReaction = null;
       let commentReaction = null;
       page.on('pageerror', error => errors.push(error.message));
@@ -67,7 +68,10 @@ const profile = {id: 1, full_name: 'Test Middle Student', initials: 'TS', id_num
             payload = {success: true, data: url.searchParams.has('cursor')
               ? {comments: comments.slice(20), next_cursor: null}
               : {comments: comments.slice(0, 20).map(comment => ({...comment, ...(comment.id === 1 && commentReaction ? {viewer_reaction: commentReaction, reactions_count: 1, reaction_counts: {[commentReaction]: 1}} : {})})), next_cursor: 'older-comments'}};
-          } else if (action === 'post') payload = {success: true, data: {...posts.find(post => post.id === Number(url.searchParams.get('post_id'))), viewer_reaction: selectedReaction, reactions_count: selectedReaction ? 1 : 0, reaction_counts: selectedReaction ? {[selectedReaction]: 1} : {}}};
+          } else if (action === 'post') {
+            postRequests++;
+            payload = {success: true, data: {...posts.find(post => post.id === Number(url.searchParams.get('post_id'))), viewer_reaction: selectedReaction, reactions_count: selectedReaction ? 1 : 0, reaction_counts: selectedReaction ? {[selectedReaction]: 1} : {}}};
+          }
           else if (action === 'reactions') payload = {success: true, data: {counts: {love: 1}, total: 1, reactors: [{user_id: 1, full_name: 'Test Student', initials: 'TS', role_name: 'Student', profile_photo_path: null, type: 'love', created_at: '2026-09-23 08:00:00'}], page: 1, has_more: false}};
           else payload = {success: true, data: {...common, viewer: pageViewer}};
         }
@@ -168,6 +172,7 @@ const profile = {id: 1, full_name: 'Test Middle Student', initials: 'TS', id_num
       await first.locator('[data-more-comments]').click();
       await page.waitForFunction(() => document.querySelectorAll('[data-post-id="25"] [data-comments] > div').length === 25);
       assert.equal(commentRequests, 2);
+       await first.evaluate(card => { window.reactionTestCard = card; });
        await first.locator('[data-reaction-picker][data-reaction-scope="post"] [data-reaction-current]').click();
        await page.evaluate(() => {
          const button = document.querySelector('[data-post-id="25"] [data-reaction-picker][data-reaction-scope="post"] [data-reaction-choice="like"]');
@@ -195,6 +200,9 @@ const profile = {id: 1, full_name: 'Test Middle Student', initials: 'TS', id_num
        await first.locator('[data-comment-id="1"] [data-open-reactions]').click();
        assert.equal(await page.locator('#cite-reactions-title').textContent(), 'Comment reactions', 'Comment reactors can be viewed');
        await page.keyboard.press('Escape');
+       assert.equal(await first.evaluate(card => card === window.reactionTestCard), true, 'Reacting keeps the same post in place');
+       assert.equal(await first.locator('[data-comments] > div').count(), 25, 'Reacting keeps all loaded comments');
+       assert.equal(postRequests, 0, 'Reacting does not reload the whole post');
        assert.equal(await page.locator('[data-toast-message]').filter({hasText: 'Action saved.'}).count(), 1, 'Reaction confirmations do not stack');
       assert.equal(await page.locator(`${root} [data-post-id]`).count(), 25, 'Engagement must not discard older loaded posts');
       assert.equal(await page.locator('[data-post-id="25"] [data-comment-focus]').getAttribute('aria-expanded'), 'true');
