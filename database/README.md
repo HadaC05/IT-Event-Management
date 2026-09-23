@@ -15,6 +15,23 @@ Override any default with the `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, and
 Application tables use the `tbl_` prefix, such as `tbl_users`, `tbl_roles`, and
 `tbl_posts`.
 
+## Setup for each collaborator
+
+Start Apache and MySQL in XAMPP before opening the site at
+`http://localhost/<project-folder>/`. A fresh clone does not create its MySQL
+database automatically. For a new, empty `event_db`, import
+`database/event_db.sql` through phpMyAdmin, then apply the unapplied files in
+`database/deploy_migrations/` in filename order. In particular, the activity
+scoring tables and competition schedule column are added by those migrations,
+not by the committed dump. Apply the competition schedule migration only once.
+
+The dump includes the attendance and finalized-score views used across the
+portals. If pages or the shared sidebar fail to load, check that MySQL is
+running and that the database has the current views, columns, and migrations.
+For an existing database with records to keep, back it up first and apply only
+the missing migrations; do not import the dump over those records. Production
+releases track and apply the files in `database/deploy_migrations/` automatically.
+
 For an existing installation, import `database/optimize_team_management.sql`
 to add the indexes used by the paged Team Management views. The migration is
 safe to run more than once and does not modify team or student records.
