@@ -15,7 +15,7 @@
 
     const form = document.querySelector('[data-task-form]');
     const officer = document.querySelector('[data-task-officer]');
-    const eventDay = document.querySelector('[data-task-event]');
+    const eventDays = document.querySelector('[data-task-events]');
     const scannerMode = form.elements.scanner_mode;
     const submit = document.querySelector('[data-task-submit]');
     const empty = document.querySelector('[data-task-officer-empty]');
@@ -31,15 +31,22 @@
             : "Specific access automatically uses the officer's own tribe.";
     };
 
+    const selectedEventDays = () => [...eventDays.querySelectorAll('input[type="checkbox"]:checked')].map(input => Number(input.value));
+
+    const syncSubmit = () => {
+        submit.disabled = !data.officers.length || !data.events.length || !selectedEventDays().length;
+    };
+
     const resetEdit = () => {
         editingId = null;
         form.reset();
+        eventDays.querySelectorAll('input[type="checkbox"]').forEach(input => { input.checked = false; });
         officer.disabled = !data.officers.length;
-        eventDay.disabled = !data.events.length;
         title.textContent = 'Event Responsibilities';
         submit.textContent = 'Assign event access';
         cancelEdit.classList.add('hidden');
         updateScannerNote();
+        syncSubmit();
     };
 
     const selectTab = name => tabs.forEach(tab => {
@@ -58,12 +65,11 @@
         officer.innerHTML = hasOfficers
             ? data.officers.map(item => `<option value="${item.id}">${esc(item.full_name)}</option>`).join('')
             : '<option value="">No active Officer access</option>';
-        eventDay.innerHTML = hasEvents
-            ? data.events.map(item => `<option value="${item.schedule_id}">${esc(item.title)} · ${esc(item.schedule_date)}</option>`).join('')
-            : '<option value="">No event days available</option>';
+        eventDays.innerHTML = hasEvents
+            ? data.events.map(item => `<label class="task-event-day"><input type="checkbox" name="event_schedule_ids[]" value="${item.schedule_id}"><span><strong>${esc(item.title)}</strong><small>${esc(item.schedule_date)}</small></span></label>`).join('')
+            : '<p class="px-3 py-5 text-center text-sm text-[#121017]/45">No event days available.</p>';
         officer.disabled = !hasOfficers;
-        eventDay.disabled = !hasEvents;
-        submit.disabled = !hasOfficers || !hasEvents;
+        syncSubmit();
         empty.classList.toggle('hidden', hasOfficers);
 
         const groups = data.assignment_groups || [];
@@ -88,6 +94,7 @@
     };
 
     tabs.forEach(tab => tab.addEventListener('click', () => selectTab(tab.dataset.officerTab)));
+    eventDays.addEventListener('change', syncSubmit);
     scannerMode.addEventListener('change', updateScannerNote);
     document.querySelector('[data-officer-tab="assignments"]')?.addEventListener('click', () => load().catch(error => window.Notifications?.error(error.response?.data?.message || 'Unable to load event access.')));
     document.querySelector('[data-dialog-open="event-responsibilities-dialog"]')?.addEventListener('click', async () => {
@@ -111,14 +118,17 @@
     form.addEventListener('submit', async event => {
         event.preventDefault();
         const wasEditing = editingId !== null;
-        const payload = wasEditing
-            ? { action: 'update', id: editingId, scanner_mode: scannerMode.value }
-            : {
-                action: 'assign',
-                officer_assignment_id: officer.value,
-                event_schedule_id: eventDay.value,
-                scanner_mode: scannerMode.value,
-            };
+        const scheduleIds = selectedEventDays();
+        if (!scheduleIds.length) {
+            window.Notifications?.error('Select at least one event day.');
+            return;
+        }
+        const payload = {
+            action: 'assign',
+            officer_assignment_id: officer.value,
+            event_schedule_ids: scheduleIds,
+            scanner_mode: scannerMode.value,
+        };
         submit.disabled = true;
         try {
             const response = await axios.post(API, payload, { headers: { 'X-CSRF-Token': csrf } });
@@ -140,15 +150,15 @@
                 const group = (data.assignment_groups || []).find(item => item.id === Number(edit.dataset.taskEdit));
                 if (!group) throw new Error('That event access is no longer active.');
                 editingId = group.id;
-                title.textContent = 'Edit attendance scanner access';
-                submit.textContent = 'Save access';
+                title.textContent = 'Edit or add event days';
+                submit.textContent = 'Save selected days';
                 cancelEdit.classList.remove('hidden');
                 officer.value = String(group.officer_assignment_id);
-                eventDay.value = String(group.event_schedule_id);
                 officer.disabled = true;
-                eventDay.disabled = true;
+                eventDays.querySelectorAll('input[type="checkbox"]').forEach(input => { input.checked = Number(input.value) === group.event_schedule_id; });
                 scannerMode.value = group.scanner_mode || 'specific';
                 updateScannerNote();
+                syncSubmit();
                 if (!dialog.open) dialog.showModal();
                 scannerMode.focus();
             } catch (error) {

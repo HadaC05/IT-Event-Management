@@ -654,15 +654,15 @@ details[open] > .attendance-scan-summary .attendance-scan-chevron {
 }
 
 .officers-table {
-  min-width: 1200px;
+  min-width: 1080px;
 }
 
 .officers-table col:nth-child(1) { width: 27%; }
-.officers-table col:nth-child(2) { width: 16%; }
+.officers-table col:nth-child(2) { width: 15%; }
 .officers-table col:nth-child(3) { width: 23%; }
-.officers-table col:nth-child(4) { width: 13%; }
+.officers-table col:nth-child(4) { width: 12%; }
 .officers-table col:nth-child(5) { width: 9%; }
-.officers-table col:nth-child(6) { width: 12%; }
+.officers-table col:nth-child(6) { width: 14%; }
 
 .officer-management-table th {
   overflow: hidden;
@@ -686,6 +686,67 @@ details[open] > .attendance-scan-summary .attendance-scan-chevron {
   min-width: 0;
   width: 100%;
   max-width: 100%;
+}
+
+#event-responsibilities-dialog .task-event-days {
+  display: grid;
+  gap: .5rem;
+  max-height: 15rem;
+  min-width: 0;
+  padding: .5rem;
+  overflow-x: hidden;
+  overflow-y: auto;
+  border: 1px solid rgba(18, 16, 23, .12);
+  border-radius: 5px;
+  background: rgba(243, 240, 233, .3);
+}
+
+#event-responsibilities-dialog .task-event-day {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: .75rem;
+  padding: .75rem;
+  border: 1px solid rgba(18, 16, 23, .08);
+  border-radius: 5px;
+  background: #fff;
+  cursor: pointer;
+}
+
+#event-responsibilities-dialog .task-event-day:hover {
+  background: rgba(57, 117, 101, .05);
+}
+
+#event-responsibilities-dialog .task-event-day input[type="checkbox"] {
+  width: 1rem;
+  min-width: 1rem;
+  max-width: 1rem;
+  height: 1rem;
+  flex: 0 0 1rem;
+  accent-color: #397565;
+}
+
+#event-responsibilities-dialog .task-event-day span {
+  display: block;
+  min-width: 0;
+}
+
+#event-responsibilities-dialog .task-event-day strong,
+#event-responsibilities-dialog .task-event-day small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#event-responsibilities-dialog .task-event-day strong {
+  font-size: .875rem;
+}
+
+#event-responsibilities-dialog .task-event-day small {
+  margin-top: .125rem;
+  color: rgba(18, 16, 23, .5);
+  font-size: .75rem;
 }
 
 @media (max-width: 639px) {

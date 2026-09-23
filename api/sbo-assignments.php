@@ -86,16 +86,23 @@ final class SboAssignmentRepository
     public function assign(array $input, int $actorId): int
     {
         $officerId = (int) ($input['officer_assignment_id'] ?? 0);
-        $scheduleId = (int) ($input['event_schedule_id'] ?? 0);
+        $rawScheduleIds = $input['event_schedule_ids'] ?? [$input['event_schedule_id'] ?? 0];
+        if (!is_array($rawScheduleIds)) $rawScheduleIds = [$rawScheduleIds];
+        $scheduleIds = array_values(array_unique(array_filter(array_map('intval', $rawScheduleIds), fn (int $id): bool => $id > 0)));
         $scannerMode = $this->scannerMode($input);
-        if ($officerId < 1 || $scheduleId < 1) throw new InvalidArgumentException('Officer and event day are required.');
+        if ($officerId < 1 || !$scheduleIds) throw new InvalidArgumentException('Officer and at least one event day are required.');
+        if (count($scheduleIds) > 50) throw new InvalidArgumentException('Select no more than 50 event days at once.');
 
         $this->db->beginTransaction();
         try {
-            $result = $this->saveBundle($officerId, $scheduleId, $scannerMode, $actorId);
-            $this->log($actorId, $result['event_id'], $officerId, 'sbo_event_assigned', 'Assigned attendance, scoring, and media event access.');
+            $anchorId = 0;
+            foreach ($scheduleIds as $scheduleId) {
+                $result = $this->saveBundle($officerId, $scheduleId, $scannerMode, $actorId);
+                if (!$anchorId) $anchorId = $result['anchor_id'];
+                $this->log($actorId, $result['event_id'], $officerId, 'sbo_event_assigned', 'Assigned attendance, scoring, and media event access.');
+            }
             $this->db->commit();
-            return $result['anchor_id'];
+            return $anchorId;
         } catch (Throwable $exception) {
             if ($this->db->inTransaction()) $this->db->rollBack();
             throw $exception;
@@ -328,7 +335,8 @@ try {
     $action = (string) ($input['action'] ?? 'assign');
     if ($action === 'assign') {
         $id = $repository->assign($input, (int) $actor['id']);
-        JsonResponse::send(['success' => true, 'message' => 'Event access assigned.', 'id' => $id]);
+        $dayCount = is_array($input['event_schedule_ids'] ?? null) ? count(array_unique(array_filter(array_map('intval', $input['event_schedule_ids'])))) : 1;
+        JsonResponse::send(['success' => true, 'message' => $dayCount === 1 ? 'Event-day access saved.' : "Access saved for $dayCount event days.", 'id' => $id]);
     }
     if ($action === 'update') {
         $repository->update($input, (int) $actor['id']);
