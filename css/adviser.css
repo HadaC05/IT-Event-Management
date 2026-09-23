@@ -3,6 +3,12 @@
   background: #f7f4ed;
 }
 
+@media (min-width: 1024px) {
+  .event-schedule-fields {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+}
+
 /* Use the same restrained corners throughout the adviser workspace. */
 [data-admin-shell] .admin-main :is(.rounded-xl, .rounded-2xl, .rounded-3xl),
 [data-admin-shell] .admin-main :is(input, select, textarea, button).rounded-lg {
@@ -641,6 +647,10 @@ details[open] > .attendance-scan-summary .attendance-scan-chevron {
   width: 100%;
   min-width: 980px;
   table-layout: fixed;
+}
+
+.responsibility-table {
+  min-width: 720px;
 }
 
 .officer-management-table th,

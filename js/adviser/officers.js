@@ -228,15 +228,15 @@ window.SharedNavigation.ready.then(() => {
             empty.className = 'text-xs text-[#121017]/50';
             empty.textContent = assignment.status === 'Active' ? 'No active event responsibility yet.' : 'This officer login is inactive.';
             responsibilityHost.append(empty);
-        } else assignment.event_responsibilities.forEach(task => {
+        } else eventGroups(assignment.event_responsibilities).forEach(eventAccess => {
             const item = document.createElement('div');
             item.className = 'rounded-xl border border-[#397565]/15 bg-[#397565]/5 p-3';
             const eventName = document.createElement('strong');
             eventName.className = 'block text-sm';
-            eventName.textContent = task.event_name;
+            eventName.textContent = eventAccess.name;
             const context = document.createElement('span');
             context.className = 'mt-1 block text-xs text-[#121017]/60';
-            context.textContent = `${task.schedule_date} · ${task.session_code.replace('_', ' ')} · ${task.responsibility} · ${task.team_name} · ${task.activity_name}`;
+            context.textContent = `${eventAccess.date} · Attendance, scoring, and media access`;
             item.append(eventName, context);
             responsibilityHost.append(item);
         });

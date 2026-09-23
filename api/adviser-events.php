@@ -336,7 +336,7 @@ final class EventManagementRepository
         return [
             'statuses' => $this->db->query('SELECT id,label FROM tbl_event_statuses ORDER BY id')->fetchAll(),
             'event_types' => $this->eventTypes(),
-            'attendance_modes' => $this->db->query('SELECT id,code,name FROM tbl_attendance_session_modes ORDER BY id')->fetchAll(),
+            'attendance_modes' => $this->db->query("SELECT id,code,name FROM tbl_attendance_session_modes WHERE code='whole_day' LIMIT 1")->fetchAll(),
             'locations' => $locations,
             'assignable_users' => $assignableRows,
             'audience_teams' => $teams,
@@ -801,8 +801,8 @@ final class EventManagementRepository
             return [];
         }
         if (count($input) > 31) $errors['attendance_days'][] = 'An event schedule cannot exceed 31 days.';
-        $modes = [];
-        foreach ($this->db->query('SELECT id,code FROM tbl_attendance_session_modes') as $mode) $modes[(int) $mode['id']] = $mode['code'];
+        $wholeDayModeId = (int) $this->scalar("SELECT id FROM tbl_attendance_session_modes WHERE code='whole_day' LIMIT 1");
+        if (!$wholeDayModeId) throw new LogicException('The whole-day attendance mode is not configured.');
         $existing = [];
         $existingByDate = [];
         if ($eventId) {
@@ -820,7 +820,7 @@ final class EventManagementRepository
             $field = 'attendance_days.'.$index;
             $date = trim((string) ($day['date'] ?? ''));
             $scheduleId = (int) ($day['id'] ?? 0);
-            $modeId = (int) ($day['attendance_session_mode_id'] ?? 0);
+            $modeId = $wholeDayModeId;
             if ($scheduleId && (!isset($existing[$scheduleId]) || in_array($scheduleId, $usedIds, true)))
                 $errors[$field.'.id'][] = 'This schedule no longer belongs to the event. Refresh and try again.';
             if ($scheduleId && isset($existingByDate[$date]) && $existingByDate[$date] !== $scheduleId)
@@ -835,8 +835,7 @@ final class EventManagementRepository
                 $errors[$field.'.date'][] = 'A day with scans or SBO assignments cannot be moved to another date.';
             if (in_array($date, $dates, true)) $errors[$field.'.date'][] = 'Each schedule date must be unique.';
             $dates[] = $date;
-            if (!isset($modes[$modeId])) $errors[$field.'.attendance_session_mode_id'][] = 'Select a valid attendance session.';
-            $code = $modes[$modeId] ?? 'none';
+            $code = 'whole_day';
             $times = [
                 'morning_in' => trim((string) ($day['morning_in'] ?? '')),
                 'morning_in_close' => trim((string) ($day['morning_in_close'] ?? '')),
