@@ -89,7 +89,7 @@
       : post.video_path
         ? `<video class="cite-review-media" src="${esc(post.video_path)}" controls preload="none" playsinline aria-label="Video submitted by ${esc(post.author_name)}"></video>`
         : '';
-    return `<article class="cite-review-card"><div class="cite-review-card-meta">${avatar}<div class="min-w-0"><strong>${esc(post.author_name)}</strong><p>${esc(post.event_title||'General post')} · ${esc(formatDate(post.created_at))}</p></div></div><p class="cite-review-content">${esc(post.content)}</p>${media}<div class="cite-review-actions"><button type="button" data-approve="${post.id}">Approve</button><button type="button" data-reject="${post.id}">Reject</button></div></article>`;
+    return `<article class="cite-review-card"><div class="cite-review-card-meta">${avatar}<div class="min-w-0"><strong>${esc(post.author_name)}</strong> ${CiteMediaPermissions.specialTagMarkup(post.special_tag)}<p>${esc(post.event_title||'General post')} · ${esc(formatDate(post.created_at))}</p></div></div><p class="cite-review-content">${esc(post.content)}</p>${media}<div class="cite-review-actions"><button type="button" data-approve="${post.id}">Approve</button><button type="button" data-reject="${post.id}">Reject</button></div></article>`;
   }
 
   function renderQueue(queue) {

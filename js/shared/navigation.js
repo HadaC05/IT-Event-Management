@@ -127,7 +127,7 @@
     if (role) document.body.dataset.navigationRole = role;
     if (!ROLE_PAGES[role]) return null;
     ensureStyles();
-    const [session, fragmentResponse] = await Promise.all([axios.get('api/auth.php?action=session'), axios.get('pages/shared/navigation.html?v=20260922-student-profile-1',{responseType:'text'})]);
+    const [session, fragmentResponse] = await Promise.all([axios.get('api/auth.php?action=session'), axios.get('pages/shared/navigation.html?v=20260923-dev-tag-1',{responseType:'text'})]);
     const expected = ROLE_LABELS[role];
     if (!session.data.authenticated || !ROLE_SESSION_ROLES[role].includes(session.data.user?.role)) {
       // Do not strand authenticated users on the public homepage when they open
@@ -153,6 +153,7 @@
     header.querySelector('[data-shared-account-role]').textContent = expected;
     header.querySelector('[data-shared-account-heading]').textContent = `${expected} account`;
     header.querySelector('[data-shared-account-menu-name]').textContent = name;
+    header.querySelectorAll('[data-shared-dev-badge]').forEach(badge => { badge.hidden = user.special_tag !== 'Dev'; });
     const visibleEmail = /@pending\.invalid$/i.test(String(user.email || '')) ? '' : String(user.email || '');
     header.querySelector('[data-shared-account-detail]').textContent = visibleEmail || (user.username ? `Login: ${user.username}` : '');
     const profileLink = header.querySelector('[data-shared-profile-link]');

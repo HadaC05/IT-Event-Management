@@ -33,6 +33,8 @@ try {
         $user->execute([$facultyRole,$person[0],$person[1],$person[2],'test',$person[3],$person[4]]);
         $ids[$person[2]] = (int)$db->lastInsertId();
     }
+    $db->prepare('UPDATE tbl_users SET id_number=? WHERE id=?')->execute(['02-2122-030923',$ids['micah']]);
+    $db->prepare('UPDATE tbl_users SET id_number=? WHERE id=?')->execute(['02-2324-01129',$ids['brian']]);
     $post = $db->prepare("INSERT INTO tbl_posts(user_id,content,status,created_at,updated_at) VALUES(?,?,'approved',CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)");
     $post->execute([$ids['micah'],'Hey']); $postId = (int)$db->lastInsertId();
     $post->execute([$ids['micah'],'Another post']); $otherPostId = (int)$db->lastInsertId();
@@ -46,6 +48,7 @@ try {
     $photo->execute(['assets/uploads/brian.jpg',$ids['brian']]);
     $page = $repo->commentsPage($postId);
     $assert(count($page['comments']) === 1 && count($page['comments'][0]['replies']) === 1, 'Reply appears beneath its parent comment');
+    $assert($page['comments'][0]['special_tag'] === null && $page['comments'][0]['replies'][0]['special_tag'] === 'Dev', 'Dev tag follows the correct reply author');
     $assert($page['comments'][0]['profile_photo_path'] === 'assets/uploads/domingo.jpg', 'Existing comments show a profile photo added later');
     $assert($page['comments'][0]['replies'][0]['id'] === $replyId && $page['comments'][0]['replies'][0]['profile_photo_path'] === 'assets/uploads/brian.jpg', 'Reply includes the author profile photo');
     $reject(fn() => $repo->saveComment($ids['brian'],$otherPostId,'Wrong post',null,$rootId), 'Replies cannot target comments on another post');

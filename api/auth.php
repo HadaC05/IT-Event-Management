@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/db_connect.php';
 require_once __DIR__ . '/ApiSupport.php';
+require_once __DIR__ . '/UserBadge.php';
 
 final class UserRepository
 {
@@ -59,6 +60,7 @@ final class UserRepository
             $account['middle_name'],
             $account['last_name'],
         ])));
+        $account['special_tag'] = UserBadge::forIdNumber($account['id_number']);
         return $account;
     }
 
@@ -136,6 +138,7 @@ final class AuthController
             $account['middle_name'],
             $account['last_name'],
         ])));
+        $account['special_tag'] = UserBadge::forIdNumber($account['id_number']);
 
         session_regenerate_id(true);
         $_SESSION['user'] = $account;

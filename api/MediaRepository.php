@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+require_once __DIR__.'/UserBadge.php';
+
 final class MediaForbiddenException extends DomainException {}
 
 final class MediaPermissions
@@ -52,6 +54,7 @@ final class MediaRepository
                 'full_name' => trim((string) ($actor['full_name'] ?? ($actor['first_name'] ?? '').' '.($actor['last_name'] ?? ''))),
                 'initials' => $this->initials($actor),
                 'profile_photo_path' => $actor['profile_photo_path'] ?? null,
+                'special_tag' => UserBadge::forIdNumber($actor['id_number'] ?? null),
             ],
             'permissions' => $permissions->values(),
             'active_events' => $activeEvents,
@@ -107,6 +110,7 @@ final class MediaRepository
         $profile['id'] = (int) $profile['id'];
         $profile['full_name'] = $this->name($profile);
         $profile['initials'] = $this->initials($profile);
+        $profile['special_tag'] = UserBadge::forIdNumber($profile['id_number']);
 
         $counts = ['approved'=>0,'pending'=>0,'rejected'=>0,'hidden'=>0];
         $countStatement = $this->db->prepare("SELECT status,COUNT(*) total FROM tbl_posts WHERE user_id=? AND deleted_at IS NULL GROUP BY status");
@@ -121,6 +125,7 @@ final class MediaRepository
                 'full_name' => $profile['full_name'],
                 'initials' => $profile['initials'],
                 'profile_photo_path' => $profile['profile_photo_path'],
+                'special_tag' => $profile['special_tag'],
             ],
             'profile' => $profile,
             'post_counts' => $counts,
@@ -426,7 +431,7 @@ final class MediaRepository
             $where .= ' AND (COALESCE(p.reviewed_at,p.created_at) < ? OR (COALESCE(p.reviewed_at,p.created_at) = ? AND p.id < ?))';
             array_push($params, $position['at'], $position['at'], (int) $position['id']);
         }
-        $statement = $this->db->prepare("SELECT p.id,p.user_id,p.event_id,p.content,p.image_path,p.video_path,'approved' status,p.created_at,p.updated_at,p.reviewed_at,p.is_official,COALESCE(p.reviewed_at,p.created_at) sort_at,e.title event_title,e.end_at,u.first_name,u.middle_name,u.last_name,u.profile_photo_path,r.name author_role,(SELECT pr.type FROM tbl_post_reactions pr WHERE pr.post_id=p.id AND pr.user_id=? LIMIT 1) viewer_reaction,(SELECT COUNT(*) FROM tbl_post_reactions pr WHERE pr.post_id=p.id) reactions_count,(SELECT COUNT(*) FROM tbl_post_comments pc WHERE pc.post_id=p.id) comments_count FROM tbl_posts p JOIN tbl_users u ON u.id=p.user_id JOIN tbl_roles r ON r.id=u.role_id LEFT JOIN tbl_events e ON e.id=p.event_id WHERE $where ORDER BY sort_at DESC,p.id DESC LIMIT 21");
+        $statement = $this->db->prepare("SELECT p.id,p.user_id,p.event_id,p.content,p.image_path,p.video_path,'approved' status,p.created_at,p.updated_at,p.reviewed_at,p.is_official,COALESCE(p.reviewed_at,p.created_at) sort_at,e.title event_title,e.end_at,u.id_number,u.first_name,u.middle_name,u.last_name,u.profile_photo_path,r.name author_role,(SELECT pr.type FROM tbl_post_reactions pr WHERE pr.post_id=p.id AND pr.user_id=? LIMIT 1) viewer_reaction,(SELECT COUNT(*) FROM tbl_post_reactions pr WHERE pr.post_id=p.id) reactions_count,(SELECT COUNT(*) FROM tbl_post_comments pc WHERE pc.post_id=p.id) comments_count FROM tbl_posts p JOIN tbl_users u ON u.id=p.user_id JOIN tbl_roles r ON r.id=u.role_id LEFT JOIN tbl_events e ON e.id=p.event_id WHERE $where ORDER BY sort_at DESC,p.id DESC LIMIT 21");
         $statement->execute($params);
         $rows = $statement->fetchAll();
         $hasMore = count($rows) > 20;
@@ -439,7 +444,7 @@ final class MediaRepository
     public function approvedPost(array $actor, int $postId): array
     {
         if ($postId < 1) throw new InvalidArgumentException('Choose a valid post.');
-        $statement = $this->db->prepare("SELECT p.id,p.user_id,p.event_id,p.content,p.image_path,p.video_path,'approved' status,p.created_at,p.updated_at,p.reviewed_at,p.is_official,e.title event_title,e.end_at,u.first_name,u.middle_name,u.last_name,u.profile_photo_path,r.name author_role,(SELECT pr.type FROM tbl_post_reactions pr WHERE pr.post_id=p.id AND pr.user_id=? LIMIT 1) viewer_reaction,(SELECT COUNT(*) FROM tbl_post_reactions pr WHERE pr.post_id=p.id) reactions_count,(SELECT COUNT(*) FROM tbl_post_comments pc WHERE pc.post_id=p.id) comments_count FROM tbl_posts p JOIN tbl_users u ON u.id=p.user_id JOIN tbl_roles r ON r.id=u.role_id LEFT JOIN tbl_events e ON e.id=p.event_id WHERE p.id=? AND p.status='approved' AND p.deleted_at IS NULL LIMIT 1");
+        $statement = $this->db->prepare("SELECT p.id,p.user_id,p.event_id,p.content,p.image_path,p.video_path,'approved' status,p.created_at,p.updated_at,p.reviewed_at,p.is_official,e.title event_title,e.end_at,u.id_number,u.first_name,u.middle_name,u.last_name,u.profile_photo_path,r.name author_role,(SELECT pr.type FROM tbl_post_reactions pr WHERE pr.post_id=p.id AND pr.user_id=? LIMIT 1) viewer_reaction,(SELECT COUNT(*) FROM tbl_post_reactions pr WHERE pr.post_id=p.id) reactions_count,(SELECT COUNT(*) FROM tbl_post_comments pc WHERE pc.post_id=p.id) comments_count FROM tbl_posts p JOIN tbl_users u ON u.id=p.user_id JOIN tbl_roles r ON r.id=u.role_id LEFT JOIN tbl_events e ON e.id=p.event_id WHERE p.id=? AND p.status='approved' AND p.deleted_at IS NULL LIMIT 1");
         $statement->execute([(int)$actor['id'],$postId]);
         $posts = $this->hydratePosts($statement->fetchAll());
         if (!$posts) throw new InvalidArgumentException('This post is no longer available.');
@@ -462,7 +467,7 @@ final class MediaRepository
             $where .= ' AND (c.is_pinned < ? OR (c.is_pinned=? AND (c.created_at > ? OR (c.created_at=? AND c.id > ?))))';
             array_push($params,$position['pin'],$position['pin'],$position['at'],$position['at'],(int)$position['id']);
         }
-        $statement = $this->db->prepare("SELECT c.id,c.post_id,c.parent_comment_id,c.user_id,c.body,c.is_pinned,c.created_at,c.updated_at,u.first_name,u.middle_name,u.last_name,u.profile_photo_path,r.name author_role FROM tbl_post_comments c JOIN tbl_users u ON u.id=c.user_id JOIN tbl_roles r ON r.id=u.role_id WHERE $where ORDER BY c.is_pinned DESC,c.created_at,c.id LIMIT 21");
+        $statement = $this->db->prepare("SELECT c.id,c.post_id,c.parent_comment_id,c.user_id,c.body,c.is_pinned,c.created_at,c.updated_at,u.id_number,u.first_name,u.middle_name,u.last_name,u.profile_photo_path,r.name author_role FROM tbl_post_comments c JOIN tbl_users u ON u.id=c.user_id JOIN tbl_roles r ON r.id=u.role_id WHERE $where ORDER BY c.is_pinned DESC,c.created_at,c.id LIMIT 21");
         $statement->execute($params);
         $rows = $statement->fetchAll();
         $hasMore = count($rows) > 20;
@@ -473,7 +478,7 @@ final class MediaRepository
         if ($rows) {
             $ids = array_column($rows, 'id');
             $marks = implode(',', array_fill(0, count($ids), '?'));
-            $replies = $this->db->prepare("SELECT c.id,c.post_id,c.parent_comment_id,c.user_id,c.body,c.is_pinned,c.created_at,c.updated_at,u.first_name,u.middle_name,u.last_name,u.profile_photo_path,r.name author_role FROM tbl_post_comments c JOIN tbl_users u ON u.id=c.user_id JOIN tbl_roles r ON r.id=u.role_id WHERE c.post_id=? AND c.parent_comment_id IN ($marks) ORDER BY c.created_at,c.id");
+            $replies = $this->db->prepare("SELECT c.id,c.post_id,c.parent_comment_id,c.user_id,c.body,c.is_pinned,c.created_at,c.updated_at,u.id_number,u.first_name,u.middle_name,u.last_name,u.profile_photo_path,r.name author_role FROM tbl_post_comments c JOIN tbl_users u ON u.id=c.user_id JOIN tbl_roles r ON r.id=u.role_id WHERE c.post_id=? AND c.parent_comment_id IN ($marks) ORDER BY c.created_at,c.id");
             $replies->execute([$postId, ...$ids]);
             $replyRows = $replies->fetchAll();
             $this->hydrateComments($replyRows);
@@ -493,6 +498,8 @@ final class MediaRepository
             $comment['is_pinned'] = (bool)$comment['is_pinned'];
             $comment['author_name'] = $this->name($comment);
             $comment['author_initials'] = $this->initials($comment);
+            $comment['special_tag'] = UserBadge::forIdNumber($comment['id_number']);
+            unset($comment['id_number']);
             foreach (['first_name','middle_name','last_name'] as $field) unset($comment[$field]);
         }
         unset($comment);
@@ -528,6 +535,8 @@ final class MediaRepository
             $post['comments_count'] = (int) $post['comments_count'];
             $post['author_name'] = $this->name($post);
             $post['author_initials'] = $this->initials($post);
+            $post['special_tag'] = UserBadge::forIdNumber($post['id_number']);
+            unset($post['id_number']);
             $post['reaction_counts'] = $reactionCounts[$post['id']] ?? [];
             unset($post['sort_at']);
             foreach (['first_name','middle_name','last_name'] as $field) unset($post[$field]);
@@ -548,12 +557,12 @@ final class MediaRepository
 
     private function moderationQueue(int $limit, int $offset): array
     {
-        $statement = $this->db->prepare("SELECT p.id,p.user_id,p.event_id,p.content,p.image_path,p.video_path,p.status,p.created_at,e.title event_title,u.first_name,u.middle_name,u.last_name,u.profile_photo_path FROM tbl_posts p JOIN tbl_users u ON u.id=p.user_id LEFT JOIN tbl_events e ON e.id=p.event_id WHERE p.deleted_at IS NULL AND p.status='pending' ORDER BY p.created_at ASC,p.id ASC LIMIT ? OFFSET ?");
+        $statement = $this->db->prepare("SELECT p.id,p.user_id,p.event_id,p.content,p.image_path,p.video_path,p.status,p.created_at,e.title event_title,u.id_number,u.first_name,u.middle_name,u.last_name,u.profile_photo_path FROM tbl_posts p JOIN tbl_users u ON u.id=p.user_id LEFT JOIN tbl_events e ON e.id=p.event_id WHERE p.deleted_at IS NULL AND p.status='pending' ORDER BY p.created_at ASC,p.id ASC LIMIT ? OFFSET ?");
         $statement->bindValue(1, $limit, PDO::PARAM_INT);
         $statement->bindValue(2, $offset, PDO::PARAM_INT);
         $statement->execute();
         $posts = $statement->fetchAll();
-        foreach ($posts as &$post) { foreach (['id','user_id','event_id'] as $field) $post[$field] = $post[$field] === null ? null : (int) $post[$field]; $post['author_name'] = $this->name($post); $post['author_initials'] = $this->initials($post); foreach (['first_name','middle_name','last_name'] as $field) unset($post[$field]); }
+        foreach ($posts as &$post) { foreach (['id','user_id','event_id'] as $field) $post[$field] = $post[$field] === null ? null : (int) $post[$field]; $post['author_name'] = $this->name($post); $post['author_initials'] = $this->initials($post); $post['special_tag'] = UserBadge::forIdNumber($post['id_number']); foreach (['id_number','first_name','middle_name','last_name'] as $field) unset($post[$field]); }
         unset($post);
         return $posts;
     }
