@@ -42,8 +42,8 @@ final class StudentAttendanceQrRepository
                 $state = 'closed';
                 if ($outAt) $state = 'already_out';
                 elseif (AttendanceScanWindows::isOpen($windows['out'], $now)) {
-                    $state = $inAt ? 'out_open' : 'time_in_required';
-                    if ($inAt) $phase = 'out';
+                    $state = $inAt ? 'out_open' : 'out_open_without_in';
+                    $phase = 'out';
                 } elseif ($inAt) $state = 'waiting_out';
                 elseif (AttendanceScanWindows::isOpen($windows['in'], $now)) {
                     $state = 'in_open'; $phase = 'in';

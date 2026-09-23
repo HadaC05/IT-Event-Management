@@ -50,7 +50,6 @@ try {
     $outClose=$now->modify('+20 minutes')->format('H:i:s');
     $db->prepare("UPDATE tbl_events SET start_at=?,end_at=?,audience_type='all_students',location_id=1,attendance_location_policy='warning' WHERE id=1")
         ->execute([$today.' 00:00:00',$today.' 23:59:59']);
-    $db->prepare("UPDATE tbl_sbo_officer_assignments SET scanner_team_id=1,scanner_mode='specific' WHERE id=1")->execute();
     $db->prepare('UPDATE tbl_locations SET latitude=?,longitude=?,radius=? WHERE id=1')->execute([8.4699237,124.6342058,100]);
     $db->prepare('UPDATE tbl_event_attendance_schedules SET schedule_date=?,attendance_session_mode_id=2,
         whole_day_in_time=?,whole_day_in_close_time=?,whole_day_out_open_time=?,whole_day_out_time=? WHERE id=1')
@@ -144,12 +143,24 @@ try {
     $out=$card((int)$team1[0]['id']);
     $assert($out['phase']==='out'&&$out['token']!==$in['token'],'adviser extension opens a distinct Time Out QR');
     $noIn=$card((int)$team2[2]['id']);
-    $assert($noIn['token']===null&&$noIn['state']==='time_in_required','no Time Out QR without Time In');
-    $forged=rtrim(strtr(base64_encode(random_bytes(24)),'+/','-_'),'=');
-    $db->prepare('INSERT INTO tbl_attendance_qr_tokens(event_id,user_id,session,phase,schedule_date,token,issued_at,expires_at)
-        VALUES(1,?,\'whole_day\',\'out\',?,?,?,?)')
-        ->execute([$team2[2]['id'],$today,$forged,$now->format('Y-m-d H:i:s'),$now->modify('+5 minutes')->format('Y-m-d H:i:s')]);
-    $reject(fn()=>$scanner->scan(15,$scan($forged,'out',$inside)),LogicException::class,'Time Out without Time In rejected server-side');
+    $assert($noIn['phase']==='out'&&$noIn['state']==='out_open_without_in'&&is_string($noIn['token']),
+        'student receives a Time Out QR without Time In');
+    $noInResult=$scanner->scan(15,$scan($noIn['token'],'out',$inside));
+    $assert($noInResult['checkpoint']==='out'&&$noInResult['time_in_missing']===true,
+        'scanner records Time Out and flags the missing Time In');
+    $noInAttendance=$db->prepare('SELECT status,checked_in_at,morning_in_at,morning_out_at FROM tbl_attendances WHERE event_id=1 AND user_id=? AND attendance_date=?');
+    $noInAttendance->execute([$team2[2]['id'],$today]);$noInSaved=$noInAttendance->fetch();
+    $assert($noInSaved['status']==='absent'&&$noInSaved['checked_in_at']===null&&$noInSaved['morning_in_at']===null&&$noInSaved['morning_out_at']!==null,
+        'Time Out-only scan preserves the missing Time In and does not mark attendance present');
+    $noInEntry=$db->prepare('SELECT phase,status FROM tbl_attendance_entries WHERE attendance_id=(SELECT id FROM tbl_attendances WHERE event_id=1 AND user_id=? AND attendance_date=?)');
+    $noInEntry->execute([$team2[2]['id'],$today]);$noInEntries=$noInEntry->fetchAll();
+    $assert(count($noInEntries)===1&&$noInEntries[0]['phase']==='out'&&$noInEntries[0]['status']==='absent',
+        'only the actual Time Out scan is recorded');
+    $reject(fn()=>$scanner->scan(15,$scan($noIn['token'],'out',$inside)),LogicException::class,
+        'Time Out-only QR cannot be replayed');
+    $afterNoIn=$card((int)$team2[2]['id']);
+    $assert($afterNoIn['state']==='already_out'&&$afterNoIn['token']===null&&$afterNoIn['in_at']===null,
+        'student sees completed Time Out with Time In still missing');
     $outResult=$scanner->scan(15,$scan($out['token'],'out',$outside));
     $assert($outResult['checkpoint']==='out'&&$outResult['location']['status']==='outside','Time Out scan saves separate location');
     $reject(fn()=>$scanner->scan(15,$scan($out['token'],'out',$inside)),LogicException::class,'duplicate/replayed Time Out QR rejected');

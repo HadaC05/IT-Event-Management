@@ -84,16 +84,14 @@ final class SboAttendanceRepository {
             if($parent){
                 $attendanceId=(int)$parent['id'];
                 $entry=$this->row('SELECT id FROM tbl_attendance_entries WHERE attendance_id=? AND event_schedule_id=? AND session_code=? AND phase=? LIMIT 1 FOR UPDATE',[$attendanceId,$a['event_schedule_id'],$a['session_code'],$checkpoint]);
-                $inEntry=$checkpoint==='out'?$this->row("SELECT id FROM tbl_attendance_entries WHERE attendance_id=? AND event_schedule_id=? AND session_code=? AND phase='in' LIMIT 1 FOR UPDATE",[$attendanceId,$a['event_schedule_id'],$a['session_code']]):false;
             }else{
-                if($checkpoint==='out')throw new LogicException('Record time in before scanning time out.');
-                $this->db->prepare("INSERT INTO tbl_attendances(event_id,user_id,attendance_date,status,checked_in_at,recorded_by,created_at,updated_at) VALUES(?,?,?,'present',?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)")
-                    ->execute([$a['event_id'],$student['id'],$a['schedule_date'],$now,$officer]);
+                $this->db->prepare('INSERT INTO tbl_attendances(event_id,user_id,attendance_date,status,checked_in_at,recorded_by,created_at,updated_at) VALUES(?,?,?,?,?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)')
+                    ->execute([$a['event_id'],$student['id'],$a['schedule_date'],$checkpoint==='in'?'present':'absent',$checkpoint==='in'?$now:null,$officer]);
                 $attendanceId=(int)$this->db->lastInsertId();
                 $entry=false;
-                $inEntry=false;
-                $parent=[$inColumn=>null,$outColumn=>null,'checked_in_at'=>$now];
+                $parent=[$inColumn=>null,$outColumn=>null,'checked_in_at'=>$checkpoint==='in'?$now:null];
             }
+            $timeInMissing=$checkpoint==='out'&&$parent[$inColumn]===null&&($a['session_code']==='afternoon'||$parent['checked_in_at']===null);
             if($entry)throw new LogicException($mode==='qr'?'This QR was already scanned.':'Time '.$checkpoint.' already recorded for this session.');
             if($mode==='qr'){
                 $locked=$this->row('SELECT id,token,phase,schedule_date,expires_at,used_at FROM tbl_attendance_qr_tokens WHERE id=? FOR UPDATE',[$student['qr_id']]);
@@ -107,8 +105,6 @@ final class SboAttendanceRepository {
                     ->execute([$now,$now,$attendanceId]);
             }else{
                 if($parent[$outColumn]!==null)throw new LogicException($mode==='qr'?'This QR was already scanned.':'Time out already recorded for this session.');
-                if($a['session_code']==='afternoon'?($parent[$inColumn]===null&&!$inEntry):($parent[$inColumn]===null&&$parent['checked_in_at']===null&&!$inEntry))
-                    throw new LogicException('Record time in before scanning time out.');
                 $this->db->prepare("UPDATE tbl_attendances SET {$outColumn}=?,updated_at=CURRENT_TIMESTAMP WHERE id=?")
                     ->execute([$now,$attendanceId]);
             }
@@ -116,8 +112,9 @@ final class SboAttendanceRepository {
                 (attendance_id,event_schedule_id,sbo_event_assignment_id,session_code,phase,activity_id,team_id,recorded_by,scanner_mode_snapshot,scanned_at,status,
                 scan_latitude,scan_longitude,location_accuracy_m,distance_from_venue_m,distance_from_venue_box_m,location_status,location_captured_at,location_unavailable_reason,
                 venue_location_id,venue_name_snapshot,venue_latitude_snapshot,venue_longitude_snapshot,venue_radius_snapshot_m,created_at,updated_at)
-                VALUES(?,?,?,?,?,?,?,?,?,?,'present',?,?,?,?,?,?,?,?,?,?,?,?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)")
+                VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)")
                 ->execute([$attendanceId,$a['event_schedule_id'],$id,$a['session_code'],$checkpoint,$a['activity_id'],$membership['id'],$officer,$a['scanner_mode']==='general'?'general':'specific',$now,
+                    $timeInMissing?'absent':'present',
                     $location['latitude'],$location['longitude'],$location['accuracy_m'],$location['distance_m'],$location['distance_from_box_m'],$location['status'],$location['captured_at'],$location['reason'],
                     $location['venue_id'],$location['venue_name'],$location['venue_latitude'],$location['venue_longitude'],$location['venue_radius_m']]);
             if($mode==='qr'){
@@ -138,7 +135,7 @@ final class SboAttendanceRepository {
         }
         catch(Throwable $e){if($this->db->inTransaction())$this->db->rollBack();throw $e;}
         return ['student'=>['id_number'=>$student['id_number'],'full_name'=>$this->name($student),'team_id'=>(int)$membership['id'],'team_name'=>$membership['name']],
-            'session_name'=>$a['session_name'],'checkpoint'=>$checkpoint,'scanned_at'=>$now,'location'=>$location,
+            'session_name'=>$a['session_name'],'checkpoint'=>$checkpoint,'time_in_missing'=>$timeInMissing,'scanned_at'=>$now,'location'=>$location,
             'recent_scans'=>$faculty?$this->facultyRecent($a):$this->recent($a),
             'counts'=>$faculty?$this->facultyCounts($a):$this->counts($a)];
     }

@@ -67,13 +67,15 @@
     }).format(new Date(value.replace(' ', 'T') + '+08:00')) : '—';
 
     const qrStatus = card => {
-        if (card.state === 'already_out') return `Already timed out at ${displayTime(card.out_at)}.`;
+        if (card.state === 'already_out') return card.in_at
+            ? `Already timed out at ${displayTime(card.out_at)}.`
+            : `Timed out at ${displayTime(card.out_at)}. Your Time In is still missing; ask the adviser if it needs correction.`;
         if (card.state === 'waiting_out') return `Already timed in at ${displayTime(card.in_at)}. Time Out opens at ${displayTime(card.out_opens_at)}.`;
         if (card.state === 'out_open') return `Already timed in at ${displayTime(card.in_at)}. Time Out is open now.`;
+        if (card.state === 'out_open_without_in') return 'Time Out is open. Show this QR even if you missed Time In. Your Time In will remain missing.';
         if (card.state === 'in_open') return 'Time In is open now. Show this QR to your assigned officer.';
         if (card.state === 'waiting_in') return `Time In opens at ${displayTime(card.in_opens_at)}.`;
-        if (card.state === 'time_in_required') return 'Time Out is open, but a recorded Time In is required first.';
-        if (card.state === 'time_in_closed') return `Time In is closed. Time Out opens at ${displayTime(card.out_opens_at)} and requires a prior Time In.`;
+        if (card.state === 'time_in_closed') return `Time In is closed. Time Out opens at ${displayTime(card.out_opens_at)}; you can still use a Time Out QR then.`;
         if (card.state === 'already_in') return `Already timed in at ${displayTime(card.in_at)}.`;
         return 'No attendance QR is scannable now.';
     };
