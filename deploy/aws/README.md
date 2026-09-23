@@ -2,14 +2,32 @@
 
 Production site: https://cite-events.duckdns.org/ITEventManagement/
 
-The production server checks the public GitHub `main` branch about once per
-minute. A new commit is unpacked into a separate release, PHP syntax is checked,
+The production server checks the GitHub `main` branch about once per minute
+using a read-only SSH deploy key. A new commit is unpacked into a separate
+release, PHP syntax is checked,
 the live database is backed up, new additive SQL migrations are applied, and the
 web symlink is switched. The new release stays live only if its homepage, session
 API, protected API, and SQL-file access checks pass. Uploaded media and the
 production database connection file live outside the Git releases.
-The server reads the public repository directly, so no GitHub secret or webhook
-is needed.
+The server needs a read-only deploy key registered in the repository's GitHub
+Settings → Deploy keys. The private key stays on the server; no GitHub token or
+webhook is needed. The deployment service runs as root, so configure its SSH
+identity and GitHub host key under `/root/.ssh/`. The deploy script expects the
+private key at `/root/.ssh/cite-events-deploy`. Register only the matching
+`.pub` file in GitHub; never upload or share the private key.
+
+For an existing server, generate that key without overwriting an existing one,
+then copy its public half into GitHub Settings → Deploy keys → Add deploy key.
+Leave **Allow write access** unchecked. Add GitHub's published Ed25519 host key
+to `/root/.ssh/known_hosts` before testing the SSH connection; see
+[GitHub's SSH fingerprints](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/githubs-ssh-key-fingerprints).
+
+If an older installation still has the HTTPS repository URL, change the
+`repository=` line in `/usr/local/sbin/cite-events-deploy` to
+`git@github.com:HadaC05/IT-Event-Management.git` and add the
+`GIT_SSH_COMMAND` export from this script after setting up the key.
+The installed script is a separate copy: changing this repository file alone
+cannot repair a deployment service that can no longer fetch GitHub.
 
 The one-time server installation places `cite-events-deploy.sh` at
 `/usr/local/sbin/cite-events-deploy` and the service/timer under

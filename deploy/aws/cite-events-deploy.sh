@@ -6,6 +6,7 @@ set -Eeuo pipefail
 # Apache serves the new release.
 export PATH=/usr/sbin:/usr/bin:/sbin:/bin
 export GIT_TERMINAL_PROMPT=0
+export GIT_SSH_COMMAND='ssh -i /root/.ssh/cite-events-deploy -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes'
 check_only=false
 if [[ "${1:-}" == '--check' ]]; then
     check_only=true
@@ -14,7 +15,7 @@ elif [[ "$#" -ne 0 ]]; then
     exit 2
 fi
 
-repository='https://github.com/HadaC05/IT-Event-Management.git'
+repository='git@github.com:HadaC05/IT-Event-Management.git'
 state='/srv/cite-events'
 staging="${state}/staging"
 releases="${state}/releases"
