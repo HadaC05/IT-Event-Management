@@ -26,8 +26,8 @@ final class AdviserDashboardRepository
                 'active_teams' => $this->scalar('SELECT COUNT(*) FROM tbl_teams WHERE is_active = 1'),
                 'students_present' => $this->todayPresentStudents(),
                 'upcoming_events' => $this->scalar('SELECT COUNT(*) FROM tbl_events WHERE deleted_at IS NULL AND start_at > CURRENT_TIMESTAMP'),
-                'points_awarded' => (float) $this->database->query('SELECT COALESCE(SUM(points), 0) FROM vw_finalized_scores')->fetchColumn(),
-                'ranked_teams' => $this->scalar('SELECT COUNT(DISTINCT tbl_teams.id) FROM tbl_teams JOIN vw_finalized_scores ON vw_finalized_scores.team_id = tbl_teams.id WHERE tbl_teams.is_active = 1'),
+                'points_awarded' => (float) $this->database->query('SELECT COALESCE(SUM(points), 0) FROM (SELECT points FROM vw_finalized_scores UNION ALL SELECT overall_points FROM tbl_activity_score_results) finalized_points')->fetchColumn(),
+                'ranked_teams' => $this->scalar('SELECT COUNT(DISTINCT tbl_teams.id) FROM tbl_teams JOIN (SELECT team_id FROM vw_finalized_scores UNION SELECT team_id FROM tbl_activity_score_results) finalized_teams ON finalized_teams.team_id = tbl_teams.id WHERE tbl_teams.is_active = 1'),
                 'attendance_rate' => $attendance['rate'],
             ],
             'today_attendance' => $attendance,
@@ -163,14 +163,14 @@ final class AdviserDashboardRepository
             "SELECT COUNT(*) FROM tbl_events AS events
              WHERE events.deleted_at IS NULL
                AND events.end_at >= CURRENT_TIMESTAMP - INTERVAL 30 DAY
-               AND NOT EXISTS (SELECT 1 FROM tbl_score_categories AS categories WHERE categories.event_id = events.id)"
+               AND NOT EXISTS (SELECT 1 FROM tbl_event_activities AS activities WHERE activities.event_id = events.id)"
         );
         $attendanceIncomplete = $this->incompleteAttendanceEvents();
 
         $items = [];
         if ($pendingPosts > 0) $items[] = ['count' => $pendingPosts, 'label' => 'Posts waiting for review', 'description' => 'Approve or reject student submissions.', 'href' => 'pages/adviser/posts.html'];
         if ($unassignedStudents > 0) $items[] = ['count' => $unassignedStudents, 'label' => 'Students without a tribe', 'description' => 'Assign active students for the current school year.', 'href' => 'pages/adviser/teams.html'];
-        if ($scoringSetup > 0) $items[] = ['count' => $scoringSetup, 'label' => 'Events need scoring setup', 'description' => 'Create criteria before judging begins.', 'href' => 'pages/adviser/scores.html'];
+        if ($scoringSetup > 0) $items[] = ['count' => $scoringSetup, 'label' => 'Events need scoring setup', 'description' => 'Add competitions before judging begins.', 'href' => 'pages/adviser/scores.html'];
         if ($attendanceIncomplete > 0) $items[] = ['count' => $attendanceIncomplete, 'label' => 'Attendance rosters incomplete', 'description' => 'Finish attendance for started events.', 'href' => 'pages/adviser/attendance.html'];
 
         return [
@@ -214,7 +214,7 @@ final class AdviserDashboardRepository
         $rows = $this->database->query(
             "SELECT tbl_teams.id, tbl_teams.name, COUNT(DISTINCT tbl_team_user.user_id) AS members_count, SUM(tbl_scores.points) AS total_score
              FROM tbl_teams
-             JOIN vw_finalized_scores AS tbl_scores ON tbl_scores.team_id = tbl_teams.id
+             JOIN (SELECT team_id,points FROM vw_finalized_scores UNION ALL SELECT team_id,overall_points AS points FROM tbl_activity_score_results) AS tbl_scores ON tbl_scores.team_id = tbl_teams.id
              LEFT JOIN tbl_team_user ON tbl_team_user.team_id = tbl_teams.id
              WHERE tbl_teams.is_active = 1
              GROUP BY tbl_teams.id

@@ -2,14 +2,12 @@
 
 declare(strict_types=1);
 
-require_once __DIR__.'/db_connect.php';
-require_once __DIR__.'/ApiSupport.php';
+require_once __DIR__ . '/db_connect.php';
+require_once __DIR__ . '/ApiSupport.php';
 
 final class UserRepository
 {
-    public function __construct(private readonly PDO $database)
-    {
-    }
+    public function __construct(private readonly PDO $database) {}
 
     public function findLoginCandidates(string $login): array
     {
@@ -94,12 +92,10 @@ final class UserRepository
 
 final class AuthController
 {
-    private const MAX_ATTEMPTS = 6;
-    private const WINDOW_SECONDS = 60;
+    private const MAX_FAILED_ATTEMPTS = 5;
+    private const LOCKOUT_SECONDS = 600;
 
-    public function __construct(private readonly UserRepository $users)
-    {
-    }
+    public function __construct(private readonly UserRepository $users) {}
 
     public function login(array $input): array
     {
@@ -108,14 +104,12 @@ final class AuthController
         $password = (string) ($input['password'] ?? '');
 
         if ($login === '' || mb_strlen($login) > 255 || $password === '') {
-            $this->recordFailure();
-            throw new InvalidArgumentException('Enter your username or Student ID and password.');
+            throw new InvalidArgumentException($this->recordFailure('Enter your username or Student ID and password.'));
         }
 
         $candidates = $this->users->findLoginCandidates($login);
         if (filter_var($login, FILTER_VALIDATE_EMAIL) !== false && count($candidates) > 1) {
-            $this->recordFailure();
-            throw new InvalidArgumentException('This email belongs to more than one account. Sign in with your account username.');
+            throw new InvalidArgumentException($this->recordFailure('This email belongs to more than one account. Sign in with your account username.'));
         }
 
         $account = null;
@@ -127,13 +121,11 @@ final class AuthController
         }
 
         if ($account === null) {
-            $this->recordFailure();
-            throw new InvalidArgumentException('The username or Student ID, or the password, is incorrect.');
+            throw new InvalidArgumentException($this->recordFailure('The username or Student ID, or the password, is incorrect.'));
         }
 
         if (strtolower((string) $account['status']) === 'inactive') {
-            $this->recordFailure();
-            throw new InvalidArgumentException('This account is inactive. Please contact the SBO Adviser.');
+            throw new InvalidArgumentException($this->recordFailure('This account is inactive. Please contact the SBO Adviser.'));
         }
 
         unset($account['password']);
@@ -147,7 +139,7 @@ final class AuthController
 
         session_regenerate_id(true);
         $_SESSION['user'] = $account;
-        unset($_SESSION['login_attempts'], $_SESSION['login_window_started']);
+        unset($_SESSION['login_attempts'], $_SESSION['login_lockout_until']);
         $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
 
         if (!empty($input['remember'])) {
@@ -165,7 +157,7 @@ final class AuthController
 
         return [
             'user' => $account,
-            'message' => 'Signed in successfully, '.$account['first_name'].'. Opening your portal now.',
+            'message' => 'Signed in successfully, ' . $account['first_name'] . '. Opening your portal now.',
             'redirect_url' => $redirectUrl,
             'csrf_token' => $_SESSION['csrf_token'],
         ];
@@ -207,21 +199,33 @@ final class AuthController
 
     private function guardRateLimit(): void
     {
-        $started = (int) ($_SESSION['login_window_started'] ?? 0);
-        if ($started === 0 || time() - $started >= self::WINDOW_SECONDS) {
-            $_SESSION['login_window_started'] = time();
-            $_SESSION['login_attempts'] = 0;
+        $lockoutUntil = (int) ($_SESSION['login_lockout_until'] ?? 0);
+        if ($lockoutUntil <= 0) {
             return;
         }
 
-        if ((int) ($_SESSION['login_attempts'] ?? 0) >= self::MAX_ATTEMPTS) {
-            throw new OverflowException('Too many sign-in attempts. Please wait one minute and try again.');
+        $secondsRemaining = $lockoutUntil - time();
+        if ($secondsRemaining <= 0) {
+            unset($_SESSION['login_attempts'], $_SESSION['login_lockout_until']);
+            return;
         }
+
+        $minutesRemaining = (int) ceil($secondsRemaining / 60);
+        throw new OverflowException("You have 0 attempts remaining. Sign-in is locked. Try again in {$minutesRemaining} minute" . ($minutesRemaining === 1 ? '.' : 's.'));
     }
 
-    private function recordFailure(): void
+    private function recordFailure(string $message): string
     {
-        $_SESSION['login_attempts'] = (int) ($_SESSION['login_attempts'] ?? 0) + 1;
+        $attempts = (int) ($_SESSION['login_attempts'] ?? 0) + 1;
+        $_SESSION['login_attempts'] = $attempts;
+        $remainingAttempts = max(0, self::MAX_FAILED_ATTEMPTS - $attempts);
+
+        if ($remainingAttempts === 0) {
+            $_SESSION['login_lockout_until'] = time() + self::LOCKOUT_SECONDS;
+            return $message . ' You have 0 attempts remaining. Sign-in is locked for 10 minutes.';
+        }
+
+        return $message . " You have {$remainingAttempts} more " . ($remainingAttempts === 1 ? 'attempt' : 'attempts') . ' remaining.';
     }
 }
 
@@ -252,7 +256,7 @@ if ($action === 'session') {
             }
         } catch (Throwable $exception) {
             error_log($exception->getMessage());
-            JsonResponse::send(['success'=>false,'message'=>'Your session could not be verified.'], 500);
+            JsonResponse::send(['success' => false, 'message' => 'Your session could not be verified.'], 500);
         }
     }
     JsonResponse::send([
@@ -312,4 +316,3 @@ try {
     error_log($exception->getMessage());
     JsonResponse::send(['success' => false, 'message' => 'Sign-in is temporarily unavailable.'], 500);
 }
-

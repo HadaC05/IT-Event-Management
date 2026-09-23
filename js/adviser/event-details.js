@@ -6,6 +6,7 @@ window.SharedNavigation.ready.then((context) => {
       undefined;
   let csrf = context.csrfToken,
     data;
+  const activityFilterState = { search: "", schedule: "", status: "" };
   const $ = (selector) => document.querySelector(selector),
     format = (value, options) =>
       new Intl.DateTimeFormat("en-US", options).format(
@@ -20,7 +21,7 @@ window.SharedNavigation.ready.then((context) => {
   const tabButtons = document.querySelectorAll("[data-event-tab]"),
     tabPanels = document.querySelectorAll("[data-event-tab-panel]");
   function activateTab(name, updateUrl = false) {
-    const tab = ["activities", "attendance"].includes(name) ? name : "details";
+    const tab = ["activities", "attendance", "scores"].includes(name) ? name : "details";
     tabButtons.forEach((button) => {
       const active = button.dataset.eventTab === tab;
       button.setAttribute("aria-selected", String(active));
@@ -34,7 +35,7 @@ window.SharedNavigation.ready.then((context) => {
     });
     if (updateUrl) {
       const url = new URL(location.href);
-      url.hash = tab === "activities" ? "event-activities" : tab === "attendance" ? "event-attendance" : "";
+      url.hash = tab === "activities" ? "event-activities" : tab === "attendance" ? "event-attendance" : tab === "scores" ? "event-scores" : "";
       history.pushState(null, "", url);
     }
   }
@@ -42,12 +43,12 @@ window.SharedNavigation.ready.then((context) => {
     button.addEventListener("click", () => activateTab(button.dataset.eventTab, true));
   });
   window.addEventListener("hashchange", () =>
-    activateTab(location.hash === "#event-activities" ? "activities" : location.hash === "#event-attendance" ? "attendance" : "details"),
+    activateTab(location.hash === "#event-activities" ? "activities" : location.hash === "#event-attendance" ? "attendance" : location.hash === "#event-scores" ? "scores" : "details"),
   );
   window.addEventListener("popstate", () =>
-    activateTab(location.hash === "#event-activities" ? "activities" : location.hash === "#event-attendance" ? "attendance" : "details"),
+    activateTab(location.hash === "#event-activities" ? "activities" : location.hash === "#event-attendance" ? "attendance" : location.hash === "#event-scores" ? "scores" : "details"),
   );
-  activateTab(location.hash === "#event-activities" ? "activities" : location.hash === "#event-attendance" ? "attendance" : "details");
+  activateTab(location.hash === "#event-activities" ? "activities" : location.hash === "#event-attendance" ? "attendance" : location.hash === "#event-scores" ? "scores" : "details");
   const statusClass = (label) =>
     ({
       upcoming: "bg-[#2F3AE0]/8 text-[#2F3AE0]",
@@ -83,9 +84,11 @@ window.SharedNavigation.ready.then((context) => {
     $("[data-edit-link]").href = `pages/adviser/event-edit.html?id=${event.id}`;
     const scoreLink = $("[data-event-scores]");
     if (scoreLink)
-      scoreLink.href = `pages/adviser/scoreboard.html?event_id=${event.id}`;
+      scoreLink.href = `pages/adviser/score-configuration.html?event_id=${event.id}`;
     if ($("[data-attendance-roster-link]"))
       $("[data-attendance-roster-link]").href = `pages/adviser/attendance-roster.html?event_id=${event.id}`;
+    if ($("[data-scores-workspace-link]"))
+      $("[data-scores-workspace-link]").href = `pages/adviser/score-configuration.html?event_id=${event.id}`;
     const date = (value) =>
         format(value, { month: "short", day: "numeric", year: "numeric" }),
       time = (value) => format(value, { hour: "numeric", minute: "2-digit" }),
@@ -176,6 +179,7 @@ window.SharedNavigation.ready.then((context) => {
       );
     renderAssigned();
     renderAttendance();
+    renderScores();
     const feature = $("[data-feature-form]"),
       canFeature =
         ["upcoming", "ongoing"].includes(event.status_label) &&
@@ -206,6 +210,43 @@ window.SharedNavigation.ready.then((context) => {
     $("[data-attendance-days]").innerHTML = days.length ? days.map((day) => `<div class="grid gap-2 px-5 py-4 text-xs sm:grid-cols-[150px_repeat(4,1fr)] sm:px-6"><strong>${format(`${day.date} 12:00:00`, { weekday: "short", month: "short", day: "numeric", year: "numeric" })}</strong><span><b>${number(day.recorded)}</b> recorded</span><span class="text-[#397565]"><b>${number(day.present)}</b> present</span><span class="text-red-600"><b>${number(day.absent)}</b> absent</span><span class="text-slate-500"><b>${number(day.unrecorded)}</b> awaiting</span></div>`).join("") : '<p class="px-5 py-8 text-center text-xs text-slate-500">No attendance schedule has been configured for this event.</p>';
     const assignments = data.event.attendance_assignments || [];
     $("[data-attendance-officers]").innerHTML = assignments.length ? assignments.map((assignment) => `<tr><td class="px-5 py-3 sm:px-6"><strong>${EventForm.escapeHtml(assignment.officer_name)}</strong><small class="mt-0.5 block text-slate-400">${EventForm.escapeHtml(assignment.username || "SBO Officer")}</small></td><td class="px-4 py-3">${format(`${assignment.schedule_date} 12:00:00`, { month: "short", day: "numeric", year: "numeric" })}<small class="mt-0.5 block text-slate-400">${EventForm.escapeHtml(assignment.session_code.replace("_", " "))}</small></td><td class="px-4 py-3">${EventForm.escapeHtml(assignment.scanner_mode === "general" ? "All eligible attendees" : assignment.scanner_team_name || assignment.team_name || "Assigned team")}</td><td class="px-4 py-3">${EventForm.escapeHtml(assignment.activity_name || "Attendance")}</td><td class="px-5 py-3 sm:px-6"><span class="rounded-full px-2 py-1 text-[10px] font-bold ${assignment.status === "active" ? "bg-emerald-50 text-[#397565]" : "bg-slate-100 text-slate-500"}">${EventForm.escapeHtml(assignment.status)}</span></td></tr>`).join("") : '<tr><td class="px-5 py-8 text-center text-slate-500 sm:px-6" colspan="5">No SBO officers are assigned to attendance for this event yet.</td></tr>';
+  }
+  function renderScores() {
+    const overview = data.event.score_overview || {};
+    const number = (value) => Number(value || 0).toLocaleString("en-PH");
+    $("[data-score-summary]").innerHTML = [
+      ["Competitions", overview.activities_count, "bg-slate-50 text-slate-700"],
+      ["Eligible teams", overview.eligible_teams_count, "bg-blue-50 text-[#2F3AE0]"],
+      ["Draft raw scores", overview.raw_score_count, "bg-amber-50 text-amber-700"],
+      ["Finalized results", overview.finalized_activities_count, "bg-emerald-50 text-[#397565]"],
+    ].map(([label, value, classes]) => `<article class="rounded-2xl p-4 ${classes}"><p class="text-[10px] font-extrabold uppercase tracking-wider">${label}</p><strong class="mt-2 block text-2xl font-black">${number(value)}</strong></article>`).join("");
+    const activities = overview.activities || [];
+    const activityHost = $("[data-score-activities]");
+    activityHost.innerHTML = activities.length ? activities.map((activity) => {
+      const finalized = activity.result_count > 0;
+      const scoreProgress = overview.eligible_teams_count ? Math.min(100, activity.scored_teams_count / overview.eligible_teams_count * 100) : 0;
+      const status = finalized ? "Finalized" : activity.status === "ongoing" ? "Ongoing" : activity.status === "upcoming" ? "Upcoming" : activity.status === "inactive" ? "Inactive" : activity.raw_score_count ? "Draft scoring" : "Ready to score";
+      const tone = finalized ? "bg-emerald-50 text-[#397565]" : activity.status === "ongoing" ? "bg-amber-50 text-amber-700" : activity.status === "upcoming" ? "bg-sky-50 text-sky-700" : activity.status === "inactive" ? "bg-slate-100 text-slate-500" : "bg-[#C6F24E]/35 text-[#397565]";
+      const detail = finalized ? `${number(activity.result_count)} team results finalized and published.` : activity.raw_score_count ? `${number(activity.scored_teams_count)} of ${number(overview.eligible_teams_count)} teams have raw scores.` : activity.placement_rules_count ? "Points are set. Start entering raw scores." : "Set points for each placement before entering scores.";
+      const schedule = activity.schedule_date ? format(`${activity.schedule_date} 12:00:00`, { weekday: "short", month: "short", day: "numeric", year: "numeric" }) : "Schedule not set";
+      return `<article class="px-5 py-5 sm:px-6"><div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"><div class="min-w-0 flex-1"><div class="flex flex-wrap items-center gap-2"><h3 class="text-sm font-bold">${EventForm.escapeHtml(activity.name)}</h3><span class="rounded-full px-2 py-0.5 text-[10px] font-bold ${tone}">${status}</span></div><p class="mt-1 text-xs text-slate-500">${schedule} · ${detail}</p>${!finalized && overview.eligible_teams_count ? `<div class="mt-3 h-1.5 max-w-md overflow-hidden rounded-full bg-slate-100"><i class="block h-full rounded-full bg-[#397565]" style="width:${scoreProgress}%"></i></div>` : ""}</div><div class="flex shrink-0 flex-wrap gap-2">${finalized ? `<a class="inline-flex min-h-10 items-center justify-center rounded-lg border border-[#397565]/25 px-3 text-xs font-bold text-[#397565] hover:bg-emerald-50" href="pages/adviser/score-configuration.html?event_id=${id}&activity_id=${activity.id}">View results</a>` : `<button class="min-h-10 rounded-lg border border-[#397565]/25 px-3 text-xs font-bold text-[#397565] hover:bg-emerald-50" type="button" data-set-points="${activity.id}">Set points</button><a class="inline-flex min-h-10 items-center justify-center rounded-lg bg-[#397565] px-3 text-xs font-bold text-white" href="pages/adviser/score-configuration.html?event_id=${id}&activity_id=${activity.id}">Open scoring</a>`}</div></div></article>`;
+    }).join("") : '<p class="px-5 py-8 text-center text-xs text-slate-500">No activities have been added to this event yet.</p>';
+    activityHost.onclick = (event) => {
+      const button = event.target.closest("[data-set-points]");
+      if (!button) return;
+      const activity = activities.find((item) => item.id === Number(button.dataset.setPoints));
+      if (activity) openPointsDialog(activity);
+    };
+  }
+  const pointsRow = (placement = "", points = "") => `<div class="grid gap-3" style="grid-template-columns:minmax(0,1fr) minmax(0,1fr) 88px" data-points-row><input class="h-10 rounded-lg border border-slate-300 px-3 text-sm font-bold" type="number" min="1" max="255" step="1" inputmode="numeric" data-points-placement value="${placement}" placeholder="Place" required><input class="h-10 rounded-lg border border-slate-300 px-3 text-sm font-bold" type="number" min="0" max="255" step="1" inputmode="numeric" data-points-value value="${points}" placeholder="Points" required><button class="min-h-10 rounded-lg border border-red-200 text-xs font-bold text-red-600" type="button" data-points-remove>Remove</button></div>`;
+  function openPointsDialog(activity) {
+    const dialog = $("[data-points-dialog]"), form = $("[data-points-form]");
+    form.reset();
+    form.elements.activity_id.value = activity.id;
+    $("[data-points-activity-name]").textContent = activity.name;
+    $("[data-points-rule-list]").innerHTML = activity.placement_rules?.length ? activity.placement_rules.map((rule) => pointsRow(rule.placement, rule.points)).join("") : pointsRow(1, "");
+    $("[data-points-error]").classList.add("hidden");
+    dialog.showModal();
   }
   function renderAssigned() {
     const event = data.event,
@@ -256,6 +297,7 @@ window.SharedNavigation.ready.then((context) => {
     form.reset();
     form.elements.activity_id.value = "";
     populateActivityOptions();
+    populateActivitySchedules();
     $("[data-activity-form-title]").textContent = "Add activity";
     $("[data-activity-save]").textContent = "Add activity";
     $("[data-activity-error]").classList.add("hidden");
@@ -272,11 +314,26 @@ window.SharedNavigation.ready.then((context) => {
       ? `Showing activities for ${data.event.type_label || "this event type"}.`
       : "Create an activity in the Activity Catalog for this event type first.";
   }
+  function populateActivitySchedules(selectedId = "") {
+    const select = activityForm.elements.event_schedule_id;
+    const schedules = data.event.attendance_schedules || [];
+    select.replaceChildren(new Option(schedules.length ? "Select an event day" : "No event days have been scheduled", ""));
+    schedules.forEach((schedule) => {
+      const date = new Date(`${schedule.schedule_date}T00:00:00`);
+      const label = Number.isNaN(date.getTime()) ? schedule.schedule_date : date.toLocaleDateString("en-PH", { weekday: "long", month: "long", day: "numeric", year: "numeric" });
+      select.add(new Option(label, schedule.id, false, String(schedule.id) === String(selectedId)));
+    });
+    select.disabled = !schedules.length;
+    $("[data-activity-schedule-note]").textContent = schedules.length
+      ? "Choose one of the days configured for this event."
+      : "Add an event day before scheduling a competition.";
+  }
   function openActivityDialog(activity = null) {
     resetActivityForm();
     if (activity) {
       activityForm.elements.activity_id.value = activity.id;
       populateActivityOptions(activity.catalog_activity_id);
+      populateActivitySchedules(activity.event_schedule_id);
       activityForm.elements.name.value = activity.name;
       $("[data-activity-form-title]").textContent = "Edit activity";
       $("[data-activity-save]").textContent = "Save changes";
@@ -287,21 +344,36 @@ window.SharedNavigation.ready.then((context) => {
   function renderActivities() {
     const host = $("[data-activity-list]");
     host.replaceChildren();
-    const activities = data.event.activities || [];
-    $("[data-activity-count]").textContent = `(${activities.length})`;
+    const allActivities = data.event.activities || [];
+    const filterForm = $("[data-activity-filters]");
+    const scheduleSelect = filterForm.elements.schedule;
+    const scheduleOptions = [...new Set(allActivities.map((activity) => activity.schedule_date).filter(Boolean))].sort();
+    const currentSchedule = activityFilterState.schedule;
+    scheduleSelect.replaceChildren(new Option("All schedules", ""));
+    scheduleOptions.forEach((schedule) => scheduleSelect.add(new Option(new Date(`${schedule}T00:00:00`).toLocaleDateString("en-PH", { month: "short", day: "numeric", year: "numeric" }), schedule, false, schedule === currentSchedule)));
+    const search = activityFilterState.search.toLocaleLowerCase();
+    const activities = allActivities.filter((activity) => (!search || activity.name.toLocaleLowerCase().includes(search)) && (!activityFilterState.schedule || activity.schedule_date === activityFilterState.schedule) && (!activityFilterState.status || activity.status === activityFilterState.status)).sort((a, b) => {
+      const scheduleA = a.schedule_date || "9999-12-31";
+      const scheduleB = b.schedule_date || "9999-12-31";
+      return scheduleA.localeCompare(scheduleB) || a.name.localeCompare(b.name, undefined, { sensitivity: "base" });
+    });
+    $("[data-activity-count]").textContent = `(${activities.length}${activities.length !== allActivities.length ? ` of ${allActivities.length}` : ""})`;
     if (!activities.length) {
-      host.innerHTML = '<div class="py-9 text-center"><strong class="text-sm text-[#121017]">No activities yet</strong><p class="mt-1 text-xs text-slate-500">Use Add activity to start this event’s program.</p></div>';
+      host.innerHTML = allActivities.length ? '<tr><td class="px-5 py-9 text-center text-xs text-slate-500 sm:px-6" colspan="4">No activities match the current filters.</td></tr>' : '<tr><td class="px-5 py-9 text-center sm:px-6" colspan="4"><strong class="text-sm text-[#121017]">No activities yet</strong><p class="mt-1 text-xs text-slate-500">Use Add activity to start this event’s program.</p></td></tr>';
       return;
     }
     activities.forEach((activity) => {
-      const item = document.createElement("article");
-      item.className = "flex flex-col gap-3 py-4 sm:flex-row sm:items-center sm:justify-between";
-      item.innerHTML = `<div class="min-w-0"><div class="flex flex-wrap items-center gap-2"><h3 class="font-bold text-[#121017]">${EventForm.escapeHtml(activity.name)}</h3><span class="rounded px-2 py-0.5 text-[10px] font-bold ${activity.status === "active" ? "bg-[#C6F24E]/35 text-[#397565]" : "bg-slate-100 text-slate-500"}">${activity.status === "active" ? "Active" : "Inactive"}</span></div></div><div class="flex shrink-0 flex-wrap gap-2"><a class="inline-flex min-h-9 items-center rounded-lg bg-[#397565] px-3 text-xs font-bold text-white" href="pages/adviser/scoreboard.html?event_id=${id}&activity_id=${activity.id}">Score teams</a><button class="min-h-9 rounded-lg border border-slate-300 px-3 text-xs font-bold text-slate-700" type="button" data-edit>Edit</button><button class="min-h-9 rounded-lg border border-slate-300 px-3 text-xs font-bold text-slate-700" type="button" data-toggle>${activity.status === "active" ? "Deactivate" : "Activate"}</button></div>`;
+      const item = document.createElement("tr");
+      item.className = "align-middle";
+      const statusStyle = { active: "bg-[#C6F24E]/35 text-[#397565]", upcoming: "bg-sky-100 text-sky-700", ongoing: "bg-amber-100 text-amber-800", completed: "bg-emerald-100 text-emerald-800", inactive: "bg-slate-100 text-slate-500" }[activity.status] || "bg-slate-100 text-slate-500";
+      const statusLabel = activity.status ? activity.status.charAt(0).toUpperCase() + activity.status.slice(1) : "Active";
+      const scheduledFor = activity.schedule_date ? new Date(`${activity.schedule_date}T00:00:00`).toLocaleDateString("en-PH", { month: "short", day: "numeric", year: "numeric" }) : "Schedule not set";
+      item.innerHTML = `<td class="px-5 py-4 sm:px-6"><strong class="text-sm text-[#121017]">${EventForm.escapeHtml(activity.name)}</strong></td><td class="px-4 py-4 text-xs font-bold text-slate-700">${scheduledFor}</td><td class="px-4 py-4"><span class="rounded px-2 py-0.5 text-[10px] font-bold ${statusStyle}">${statusLabel}</span></td><td class="px-5 py-4 sm:px-6"><div class="flex justify-end gap-2"><button class="min-h-9 rounded-lg border border-slate-300 px-3 text-xs font-bold text-slate-700" type="button" data-edit>Edit</button><button class="min-h-9 rounded-lg border border-slate-300 px-3 text-xs font-bold text-slate-700" type="button" data-toggle>${activity.status === "inactive" ? "Include" : "Remove"}</button></div></td>`;
       item.querySelector("[data-edit]").onclick = () => openActivityDialog(activity);
       item.querySelector("[data-toggle]").onclick = async (event) => {
         event.currentTarget.disabled = true;
         try {
-          await post({ action: "activity_status", id, activity_id: activity.id, status: activity.status === "active" ? "inactive" : "active" });
+          await post({ action: "activity_status", id, activity_id: activity.id, status: activity.status === "inactive" ? "active" : "inactive" });
           toast("success", "Activity status updated.");
           await load();
         } catch (error) {
@@ -313,6 +385,49 @@ window.SharedNavigation.ready.then((context) => {
     });
   }
   const activityForm = $("[data-activity-form]");
+  const activityFilters = $("[data-activity-filters]");
+  activityFilters.elements.search.addEventListener("input", () => {
+    activityFilterState.search = activityFilters.elements.search.value.trim();
+    renderActivities();
+  });
+  activityFilters.elements.schedule.addEventListener("change", () => {
+    activityFilterState.schedule = activityFilters.elements.schedule.value;
+    renderActivities();
+  });
+  activityFilters.elements.status.addEventListener("change", () => {
+    activityFilterState.status = activityFilters.elements.status.value;
+    renderActivities();
+  });
+  const pointsDialog = $("[data-points-dialog]"), pointsForm = $("[data-points-form]");
+  document.querySelectorAll("[data-points-cancel]").forEach((button) => button.onclick = () => pointsDialog.close());
+  pointsForm.onclick = (event) => {
+    if (event.target.closest("[data-points-add]")) {
+      const placements = [...pointsForm.querySelectorAll("[data-points-placement]")].map((input) => Number(input.value) || 0);
+      $("[data-points-rule-list]").insertAdjacentHTML("beforeend", pointsRow(Math.max(0, ...placements) + 1, ""));
+    }
+    const remove = event.target.closest("[data-points-remove]");
+    if (remove && pointsForm.querySelectorAll("[data-points-row]").length > 1) remove.closest("[data-points-row]").remove();
+  };
+  pointsForm.onsubmit = async (event) => {
+    event.preventDefault();
+    if (!pointsForm.reportValidity()) return;
+    const placementRules = {};
+    let duplicate = false;
+    pointsForm.querySelectorAll("[data-points-row]").forEach((row) => {
+      const placement = row.querySelector("[data-points-placement]").value;
+      if (placementRules[placement] !== undefined) duplicate = true;
+      placementRules[placement] = row.querySelector("[data-points-value]").value;
+    });
+    const errorHost = $("[data-points-error]"), saveButton = $("[data-points-save]");
+    if (duplicate) { errorHost.textContent = "Each placement can be configured only once."; errorHost.classList.remove("hidden"); return; }
+    errorHost.classList.add("hidden"); saveButton.disabled = true;
+    try {
+      const response = await axios.post("api/activity-scoring.php?action=placement-rules-save", { event_id: id, activity_id: Number(pointsForm.elements.activity_id.value), placement_rules: placementRules }, { headers: { "X-CSRF-Token": csrf } });
+      pointsDialog.close(); toast("success", response.data.message || "Points saved."); await load();
+    } catch (error) {
+      errorHost.textContent = error.response?.data?.message || "Points could not be saved."; errorHost.classList.remove("hidden");
+    } finally { saveButton.disabled = false; }
+  };
   activityForm.dataset.axiosForm = "";
   const activityDialog = $("[data-activity-dialog]");
   $("[data-activity-add]").onclick = () => openActivityDialog();
@@ -329,12 +444,12 @@ window.SharedNavigation.ready.then((context) => {
     errorHost.classList.add("hidden");
     saveButton.disabled = true;
     try {
-      await post({ action: activityId ? "activity_update" : "activity_create", id, activity_id: activityId, catalog_activity_id: Number(form.elements.catalog_activity_id.value), name: form.elements.name.value.trim() });
+      await post({ action: activityId ? "activity_update" : "activity_create", id, activity_id: activityId, catalog_activity_id: Number(form.elements.catalog_activity_id.value), event_schedule_id: Number(form.elements.event_schedule_id.value), name: form.elements.name.value.trim() });
       toast("success", activityId ? "Activity updated." : "Activity added.");
       activityDialog.close();
       location.reload();
     } catch (error) {
-      errorHost.textContent = error.response?.data?.errors?.catalog_activity_id?.[0] || error.response?.data?.errors?.name?.[0] || error.response?.data?.message || "Unable to save activity.";
+      errorHost.textContent = error.response?.data?.errors?.catalog_activity_id?.[0] || error.response?.data?.errors?.event_schedule_id?.[0] || error.response?.data?.errors?.name?.[0] || error.response?.data?.message || "Unable to save activity.";
       errorHost.classList.remove("hidden");
     } finally {
       saveButton.disabled = false;

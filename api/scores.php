@@ -31,7 +31,7 @@ final class ScoreManagementRepository
 
         $count = $this->db->prepare('SELECT COUNT(*) FROM tbl_events e'.$whereSql); $count->execute($params);
         $total = (int)$count->fetchColumn(); $lastPage = max(1, (int)ceil($total / $perPage)); $page = min($page, $lastPage);
-        $sql = "SELECT e.id,e.title,e.location,e.start_at,e.end_at,
+        $sql = "SELECT e.id,e.title,e.location,e.poster_path,e.start_at,e.end_at,
             (SELECT COUNT(*) FROM tbl_score_categories c WHERE c.event_id=e.id) score_categories_count,
             (SELECT COUNT(*) FROM tbl_scores s WHERE s.event_id=e.id AND s.score_category_id IS NOT NULL) scores_count,
             (SELECT COUNT(DISTINCT s.team_id) FROM tbl_scores s WHERE s.event_id=e.id AND s.score_category_id IS NOT NULL) scored_teams_count,
@@ -39,50 +39,53 @@ final class ScoreManagementRepository
             (SELECT COUNT(*) FROM tbl_teams t WHERE (t.is_active=1 OR EXISTS(SELECT 1 FROM tbl_scores sx WHERE sx.team_id=t.id AND sx.event_id=e.id)) AND (SELECT COUNT(DISTINCT st.score_category_id) FROM tbl_scores st WHERE st.event_id=e.id AND st.team_id=t.id)=(SELECT COUNT(*) FROM tbl_score_categories c2 WHERE c2.event_id=e.id) AND EXISTS(SELECT 1 FROM tbl_score_categories c3 WHERE c3.event_id=e.id)) completed_teams_count,
             (SELECT COUNT(*) FROM tbl_score_sheets sh WHERE sh.event_id=e.id) score_sheets_count,
             (SELECT COUNT(*) FROM tbl_score_sheets sh WHERE sh.event_id=e.id AND sh.status='finalized') finalized_score_sheets_count,
+            (SELECT COUNT(*) FROM tbl_event_activities ea WHERE ea.event_id=e.id) activity_count,
+            (SELECT COUNT(*) FROM tbl_event_activities ea WHERE ea.event_id=e.id AND ea.status='ongoing') ongoing_activity_count,
+            (SELECT COUNT(*) FROM tbl_event_activities ea WHERE ea.event_id=e.id AND ea.status='completed') completed_activity_count,
+            (SELECT COUNT(*) FROM tbl_activity_raw_scores ars WHERE ars.event_id=e.id) raw_score_count,
+            (SELECT COUNT(DISTINCT ar.activity_id) FROM tbl_activity_score_results ar WHERE ar.event_id=e.id) finalized_activity_count,
             COALESCE((SELECT SUM(s.points) FROM tbl_scores s WHERE s.event_id=e.id),0) scores_sum_points
             FROM tbl_events e $whereSql ORDER BY e.start_at DESC LIMIT :limit OFFSET :offset";
         $statement = $this->db->prepare($sql); foreach ($params as $key => $value) $statement->bindValue(':'.$key, $value);
         $statement->bindValue(':limit', $perPage, PDO::PARAM_INT); $statement->bindValue(':offset', ($page - 1) * $perPage, PDO::PARAM_INT); $statement->execute();
         $events = $statement->fetchAll();
         foreach ($events as &$event) {
-            foreach (['id','score_categories_count','scores_count','scored_teams_count','eligible_teams_count','completed_teams_count','score_sheets_count','finalized_score_sheets_count'] as $key) $event[$key] = (int)$event[$key];
+            foreach (['id','score_categories_count','scores_count','scored_teams_count','eligible_teams_count','completed_teams_count','score_sheets_count','finalized_score_sheets_count','activity_count','ongoing_activity_count','completed_activity_count','raw_score_count','finalized_activity_count'] as $key) $event[$key] = (int)$event[$key];
             $event['scores_sum_points'] = (float)$event['scores_sum_points'];
             $event['schedule_state'] = $this->scheduleState($event, $now);
             $allowedTeamIds=(new AcademicPeriodScope($this->db))->teamIdsForEvent((int)$event['id'],true);
             $event['eligible_teams_count']=count($allowedTeamIds);
-            $criteria = $this->rows('SELECT name,max_points FROM tbl_score_categories WHERE event_id=? ORDER BY sort_order,id LIMIT 4', [(int)$event['id']]);
-            foreach ($criteria as &$criterion) $criterion['max_points'] = (float)$criterion['max_points'];
-            unset($criterion);
-            $event['criteria'] = $criteria;
+            $event['competitions'] = $this->rows('SELECT ea.id,ea.name,ea.status,(SELECT COUNT(*) FROM tbl_activity_raw_scores ars WHERE ars.event_id=ea.event_id AND ars.activity_id=ea.id) raw_score_count,(SELECT COUNT(*) FROM tbl_activity_score_results ar WHERE ar.event_id=ea.event_id AND ar.activity_id=ea.id) result_count FROM tbl_event_activities ea WHERE ea.event_id=? ORDER BY ea.id', [(int)$event['id']]);
+            foreach ($event['competitions'] as &$competition) {foreach(['id','raw_score_count','result_count'] as $key)$competition[$key]=(int)$competition[$key];} unset($competition);
             $teamMarks=$allowedTeamIds?implode(',',array_fill(0,count($allowedTeamIds),'?')):'0';
-            $teamProgress = $allowedTeamIds?$this->rows("SELECT t.id,t.name,t.color,COUNT(DISTINCT s.score_category_id) scored_categories
-                FROM tbl_teams t LEFT JOIN tbl_scores s ON s.team_id=t.id AND s.event_id=? AND s.score_category_id IS NOT NULL
+            $teamProgress = $allowedTeamIds?$this->rows("SELECT t.id,t.name,t.color,COUNT(DISTINCT s.activity_id) scored_categories
+                FROM tbl_teams t LEFT JOIN tbl_activity_raw_scores s ON s.team_id=t.id AND s.event_id=?
                 WHERE t.id IN ($teamMarks)
                 GROUP BY t.id ORDER BY lower(t.name),t.name", array_merge([(int)$event['id']],$allowedTeamIds)):[];
             foreach ($teamProgress as &$team) {
                 $team['id'] = (int)$team['id'];
                 $team['scored_categories'] = (int)$team['scored_categories'];
-                $team['complete'] = $event['score_categories_count'] > 0 && $team['scored_categories'] >= $event['score_categories_count'];
+                $team['complete'] = $event['activity_count'] > 0 && $team['scored_categories'] >= $event['activity_count'];
             }
             unset($team);
             $event['team_progress'] = $teamProgress;
             $event['completed_teams_count']=count(array_filter($teamProgress,static fn(array$team):bool=>$team['complete']));
-            $event['scoring_state'] = $event['score_categories_count'] === 0
+            $event['scoring_state'] = $event['activity_count'] === 0
                 ? 'not_setup'
-                : ($event['score_sheets_count'] > 0 && $event['score_sheets_count'] === $event['finalized_score_sheets_count']
+                : ($event['finalized_activity_count'] === $event['activity_count']
                     ? 'finalized'
-                    : ($event['scores_count'] > 0
+                    : ($event['raw_score_count'] > 0
                         ? ($event['eligible_teams_count'] > 0 && $event['completed_teams_count'] === $event['eligible_teams_count'] ? 'complete' : 'scoring')
                         : 'ready'));
         }
         unset($event);
         $summary = $this->db->query("SELECT
             (SELECT COUNT(*) FROM tbl_events WHERE deleted_at IS NULL) events,
-            (SELECT COUNT(DISTINCT event_id) FROM tbl_score_categories) configured,
-            (SELECT COUNT(*) FROM tbl_events e WHERE e.deleted_at IS NULL AND EXISTS(SELECT 1 FROM tbl_score_categories c WHERE c.event_id=e.id) AND NOT EXISTS(SELECT 1 FROM tbl_scores s WHERE s.event_id=e.id AND s.score_category_id IS NOT NULL)) ready,
-            (SELECT COUNT(*) FROM tbl_events e WHERE e.deleted_at IS NULL AND EXISTS(SELECT 1 FROM tbl_score_sheets sh WHERE sh.event_id=e.id) AND NOT EXISTS(SELECT 1 FROM tbl_score_sheets sh WHERE sh.event_id=e.id AND sh.status<>'finalized')) finalized,
-            (SELECT COUNT(*) FROM (SELECT DISTINCT event_id,team_id FROM tbl_scores WHERE score_category_id IS NOT NULL) AS scored_pairs) AS results,
-            COALESCE((SELECT SUM(points) FROM tbl_scores),0) points")->fetch();
+            (SELECT COUNT(DISTINCT event_id) FROM tbl_event_activities) configured,
+            (SELECT COUNT(*) FROM tbl_events e WHERE e.deleted_at IS NULL AND EXISTS(SELECT 1 FROM tbl_event_activities ea WHERE ea.event_id=e.id) AND NOT EXISTS(SELECT 1 FROM tbl_activity_raw_scores ars WHERE ars.event_id=e.id)) ready,
+            (SELECT COUNT(*) FROM tbl_events e WHERE e.deleted_at IS NULL AND EXISTS(SELECT 1 FROM tbl_event_activities ea WHERE ea.event_id=e.id) AND (SELECT COUNT(*) FROM tbl_event_activities ea WHERE ea.event_id=e.id)=(SELECT COUNT(DISTINCT ar.activity_id) FROM tbl_activity_score_results ar WHERE ar.event_id=e.id)) finalized,
+            (SELECT COUNT(*) FROM (SELECT DISTINCT event_id,team_id FROM tbl_activity_score_results) AS scored_pairs) AS results,
+            COALESCE((SELECT SUM(overall_points) FROM tbl_activity_score_results),0) points")->fetch();
         foreach (['events','configured','ready','finalized','results'] as $key) $summary[$key] = (int)$summary[$key]; $summary['points'] = (float)$summary['points'];
         return ['events'=>$events,'summary'=>$summary,'pagination'=>['current_page'=>$page,'last_page'=>$lastPage,'per_page'=>$perPage,'total'=>$total,'from'=>$total?($page-1)*$perPage+1:null,'to'=>$total?min($page*$perPage,$total):null]];
     }

@@ -34,7 +34,7 @@ final class OfficerManagementRepository
                 OR EXISTS (SELECT 1 FROM tbl_sbo_event_assignments sea
                     JOIN tbl_event_attendance_schedules eas ON eas.id=sea.event_schedule_id
                     JOIN tbl_events ev ON ev.id=eas.event_id AND ev.deleted_at IS NULL
-                    JOIN tbl_event_activities act ON act.id=sea.activity_id AND act.status='active'
+                    JOIN tbl_event_activities act ON act.id=sea.activity_id AND act.status<>'inactive'
                     JOIN tbl_teams task_team ON task_team.id=sea.team_id AND task_team.is_active=1
                     WHERE sea.officer_assignment_id=a.id AND sea.status='active' AND a.status='Active'
                       AND ev.title LIKE :q_event ESCAPE '\\\\'))";
@@ -102,7 +102,7 @@ final class OfficerManagementRepository
                 JOIN tbl_sbo_officer_assignments oa ON oa.id=sea.officer_assignment_id AND oa.status='Active'
                 JOIN tbl_event_attendance_schedules s ON s.id=sea.event_schedule_id
                 JOIN tbl_events e ON e.id=s.event_id AND e.deleted_at IS NULL
-                JOIN tbl_event_activities a ON a.id=sea.activity_id AND a.status='active'
+                JOIN tbl_event_activities a ON a.id=sea.activity_id AND a.status<>'inactive'
                 JOIN tbl_teams t ON t.id=sea.team_id AND t.is_active=1
                 LEFT JOIN tbl_teams scanner_team ON scanner_team.id=sea.scanner_team_id
                 WHERE sea.status='active' AND sea.officer_assignment_id IN ($marks)
