@@ -134,10 +134,10 @@
                     <p class="mt-6 max-w-2xl text-base leading-7 text-[#121017]/58 sm:text-lg">Discover competitions, activities, and memorable moments created for the CITE community.</p>
 
                     <div class="mt-8 flex flex-wrap gap-3">
-                        <a class="inline-flex min-h-12 items-center gap-3 rounded-lg bg-[#397565] px-5 text-sm font-extrabold text-white shadow-[0_8px_20px_rgba(57,117,101,.22)] transition hover:-translate-y-0.5 hover:bg-[#2e6355]" href="#upcoming">Explore Events <span class="text-lg" aria-hidden="true">→</span></a>
-                        <a class="inline-flex min-h-12 items-center gap-3 rounded-lg border border-[#2F3AE0] bg-white/45 px-5 text-sm font-extrabold text-[#2F3AE0] transition hover:-translate-y-0.5 hover:bg-[#2F3AE0] hover:text-white" href="#upcoming">View Event Calendar <svg class="h-4 w-4 fill-none stroke-current stroke-2" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M7 3v4m10-4v4M3 10h18"/></svg></a>
+                        <button class="inline-flex min-h-12 items-center rounded-lg bg-[#397565] px-5 text-sm font-extrabold text-white shadow-[0_8px_20px_rgba(57,117,101,.22)] transition hover:-translate-y-0.5 hover:bg-[#2e6355]" type="button" data-login-open>Sign in to your portal</button>
+                        <a class="inline-flex min-h-12 items-center rounded-lg border border-[#2F3AE0] bg-white/45 px-5 text-sm font-extrabold text-[#2F3AE0] transition hover:-translate-y-0.5 hover:bg-[#2F3AE0] hover:text-white" href="#upcoming">Explore Events</a>
                     </div>
-                    <p class="mt-4 max-w-2xl text-sm leading-6 text-[#121017]/65">New here? Explore events without signing in. Students and staff can choose Sign in from the menu to see their events, attendance, and tasks.</p>
+                    <p class="mt-4 max-w-2xl text-sm leading-6 text-[#121017]/65">New here? Explore events without signing in. Students and staff can sign in to see their own events, attendance, and tasks.</p>
 
                     <div class="relative mt-10" data-feature-carousel aria-label="Featured CITE events">
                                                     <div class="poster-glow poster-grid relative grid min-h-[320px] place-items-center overflow-hidden rounded-[14px] p-8 text-center text-white shadow-[0_22px_45px_rgba(18,16,23,.16)]">
@@ -201,30 +201,21 @@
     </footer>
 
             <dialog id="login-modal" class="login-dialog m-auto rounded-2xl border-0 bg-[#F3F0E9] p-0 text-[#121017] shadow-[0_30px_90px_rgba(18,16,23,.35)]" aria-labelledby="login-title">
-            <div class="relative p-6 sm:p-9">
+            <div class="relative p-5 sm:p-9">
                 <button class="absolute right-4 top-4 grid h-10 w-10 place-items-center rounded-full text-2xl text-[#121017]/45 transition hover:bg-[#121017]/7 hover:text-[#121017]" type="button" data-login-close aria-label="Close sign-in dialog">×</button>
 
                 <div class="flex items-center gap-3 pr-10">
-                    <img class="h-14 w-14 rounded-full object-contain" src="assets/images/cite-logo.png" alt="CITE logo">
+                    <img class="h-12 w-12 rounded-full object-contain" src="assets/images/cite-logo.png" alt="CITE logo">
                     <div><p class="text-lg font-black tracking-[-.03em]">CITE<span class="text-[#397565]">.</span></p><p class="text-[10px] font-black uppercase tracking-[.14em] text-[#397565]">Campus Events</p></div>
                 </div>
 
-                <header class="mt-7">
-                    <h2 class="text-3xl font-black tracking-[-.045em]" id="login-title">Sign in to your account</h2>
-                    <p class="mt-2 text-sm leading-6 text-[#121017]/52">Use your account ID or username. First time here? Follow the example below.</p>
+                <header class="mt-5">
+                    <h2 class="text-2xl font-black tracking-[-.045em]" id="login-title">Sign in</h2>
                 </header>
 
                 <p class="mt-6 hidden rounded-xl border border-[#397565]/25 bg-[#397565]/5 px-4 py-3 text-sm font-bold leading-6 text-[#397565]" data-password-change-success role="status" aria-live="polite">Password changed. Enter your same ID or username and your new password below.</p>
 
-                <section class="mt-5 rounded-xl border border-[#397565]/25 bg-white px-4 py-3" data-first-login-guide aria-labelledby="first-login-title">
-                    <h3 class="text-sm font-extrabold text-[#397565]" id="first-login-title">First time signing in?</h3>
-                    <p class="mt-1 text-xs leading-5 text-[#121017]/70">If you were given an ID, enter the <strong>full ID as your username</strong>. For your first password, use <strong>that ID + your last name in CAPITAL LETTERS</strong>, with no spaces or punctuation.</p>
-                    <p class="mt-2 rounded-lg bg-[#397565]/5 px-3 py-2 text-xs leading-5 text-[#121017]">Example only: <strong>02-0000-000000</strong> + <strong>LAGO</strong> = <strong>02-0000-000000LAGO</strong>. The same rule works with any ID format.</p>
-                    <p class="mt-2 text-xs leading-5 text-[#121017]/70">You’ll create your own password next. Already changed it or been given separate credentials? Use those instead.</p>
-                </section>
-
-                
-                <form class="mt-5 grid gap-5" method="POST" action="api/auth.php?action=login" data-login-form>
+                <form class="mt-5 grid gap-4" method="POST" action="api/auth.php?action=login" data-login-form>
                     <p class="hidden rounded-xl border border-[#FF6B2C]/25 bg-[#FF6B2C]/10 px-4 py-3 text-sm font-semibold leading-5 text-[#9A340B]" data-login-error role="alert"></p>
                     <label class="grid gap-2">
                         <span class="text-sm font-extrabold">Username or ID</span>
@@ -250,7 +241,13 @@
                     <button class="inline-flex min-h-13 items-center justify-center gap-2 rounded-xl bg-[#397565] px-5 font-extrabold text-white shadow-[0_9px_24px_rgba(57,117,101,.22)] transition hover:bg-[#2e6355] disabled:cursor-wait disabled:opacity-70" type="submit" data-login-submit>Sign in <span class="text-xl" aria-hidden="true">→</span></button>
                     <p class="hidden text-center text-sm font-semibold text-[#397565]" data-login-status role="status" aria-live="polite"></p>
                 </form>
-                <p class="mt-5 text-center text-xs leading-5 text-[#121017]/60">Forgot your password or never received one? Ask your SBO Adviser to reset your account.</p>
+                <p class="mt-4 text-center text-xs leading-5 text-[#121017]/60">Forgot your password? Ask your SBO Adviser to reset your account.</p>
+                <section class="mt-5 rounded-xl border border-[#397565]/25 bg-white px-4 py-3" data-first-login-guide aria-labelledby="first-login-title">
+                    <h3 class="text-sm font-extrabold text-[#397565]" id="first-login-title">First time signing in?</h3>
+                    <p class="mt-1 text-xs leading-5 text-[#121017]/70">Use your full ID as your username. Your first password is your ID + LAST NAME in capitals, with no spaces or punctuation.</p>
+                    <p class="mt-2 rounded-lg bg-[#397565]/5 px-3 py-2 text-xs leading-5 text-[#121017]">Example only: <strong>02-0000-000000</strong> + <strong>LAGO</strong> = <strong>02-0000-000000LAGO</strong></p>
+                    <p class="mt-2 text-xs leading-5 text-[#121017]/70">You’ll set a new password after signing in.</p>
+                </section>
             </div>
         </dialog>
 
