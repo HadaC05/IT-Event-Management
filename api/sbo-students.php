@@ -20,12 +20,13 @@ final class SboStudentsRepository{
    JOIN tbl_user_statuses us ON us.id=u.status AND us.label='active'
    JOIN tbl_team_user tu ON tu.user_id=u.id
    JOIN tbl_teams t ON t.id=tu.team_id AND t.is_active=1
+   JOIN tbl_academic_periods ap ON ap.id=? AND ap.school_year_id=t.school_year_id
    LEFT JOIN tbl_year_levels yl ON yl.id=u.year_level
    LEFT JOIN tbl_attendances ad ON ad.user_id=u.id AND ad.event_id=? AND ad.attendance_date=?
-   LEFT JOIN tbl_attendance_entries ae ON ae.attendance_id=ad.id AND ae.event_schedule_id=? AND ae.session_code=? AND ae.activity_id=? AND ae.team_id=tu.team_id AND ae.phase='in'
+   LEFT JOIN tbl_attendance_entries ae ON ae.attendance_id=ad.id AND ae.event_schedule_id=? AND ae.session_code=? AND ae.activity_id=? AND ae.phase='in'
    WHERE (?='general' OR tu.team_id=?)
-    AND EXISTS(SELECT 1 FROM tbl_event_membership_snapshots ms WHERE ms.event_id=? AND ms.user_id=u.id AND ms.team_id=tu.team_id)";
-  $params=[(int)$selected['event_id'],$selected['schedule_date'],(int)$selected['event_schedule_id'],$selected['session_code'],(int)$selected['activity_id'],$scope,(int)$selected['scanner_team_id'],(int)$selected['event_id']];
+    AND EXISTS(SELECT 1 FROM tbl_event_membership_snapshots ms WHERE ms.event_id=? AND ms.user_id=u.id)";
+  $params=[(int)$selected['academic_period_id'],(int)$selected['event_id'],$selected['schedule_date'],(int)$selected['event_schedule_id'],$selected['session_code'],(int)$selected['activity_id'],$scope,(int)$selected['scanner_team_id'],(int)$selected['event_id']];
   if($search!==''){
    $from.=" AND (u.id_number LIKE ? ESCAPE '\\\\' OR u.first_name LIKE ? ESCAPE '\\\\' OR u.middle_name LIKE ? ESCAPE '\\\\' OR u.last_name LIKE ? ESCAPE '\\\\' OR CONCAT_WS(' ',u.first_name,NULLIF(u.middle_name,''),u.last_name) LIKE ? ESCAPE '\\\\')";
    $term='%'.addcslashes($search,'%_\\').'%';array_push($params,$term,$term,$term,$term,$term);

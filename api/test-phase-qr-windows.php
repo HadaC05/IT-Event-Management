@@ -100,8 +100,12 @@ try {
     $q=$db->prepare('SELECT COUNT(*) FROM tbl_attendances WHERE event_id=1 AND user_id=?');$q->execute([$team2[0]['id']]);
     $assert((int)$q->fetchColumn()===0,'wrong-team rejection does not create attendance');
     $db->prepare('UPDATE tbl_team_user SET team_id=1 WHERE user_id=? AND team_id=2')->execute([$team2[0]['id']]);
+    $snapshotTeam=$db->prepare('SELECT team_id FROM tbl_event_membership_snapshots WHERE event_id=1 AND user_id=?');
+    $snapshotTeam->execute([$team2[0]['id']]);
+    $assert((int)$snapshotTeam->fetchColumn()===2,'historical event snapshot keeps the previous tribe after a move');
     $moved=$scanner->scan(15,$scan($team2In['token'],'in',$inside));
-    $assert($moved['student']['team_id']===1,'same QR works after student moves to allowed team');
+    $assert($moved['student']['team_id']===1&&$moved['student']['team_name']!=='',
+        'same QR records and reports the current tribe after a move');
     try {$scanner->scan(15,$scan($team2In['token'],'in',$inside));$assert(false,'duplicate QR rejected');}
     catch(LogicException $error){$assert($error->getMessage()==='This QR was already scanned.','duplicate attendance has clear QR message');}
     $otherTeamQr=$card((int)$team2[1]['id']);

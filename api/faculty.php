@@ -152,10 +152,13 @@ final class FacultyRepository
               1+(SELECT COUNT(*) FROM tbl_event_attendance_schedules prior WHERE prior.event_id=e.id AND prior.schedule_date<s.schedule_date) day_number
             FROM tbl_event_attendance_schedules s JOIN tbl_events e ON e.id=s.event_id AND e.deleted_at IS NULL
             JOIN tbl_teams t ON t.id=? AND t.is_active=1
+            JOIN tbl_academic_periods ap ON ap.id=e.academic_period_id AND ap.school_year_id=t.school_year_id
             JOIN tbl_attendance_session_modes m ON m.id=s.attendance_session_mode_id
             WHERE (e.audience_type='all_students'
               OR (e.audience_type='selected_tribes' AND EXISTS(SELECT 1 FROM tbl_event_team et WHERE et.event_id=e.id AND et.team_id=t.id))
-              OR (e.audience_type IN ('selected_year_levels','specific_students') AND EXISTS(SELECT 1 FROM tbl_event_membership_snapshots ms WHERE ms.event_id=e.id AND ms.team_id=t.id)))
+              OR (e.audience_type IN ('selected_year_levels','specific_students') AND EXISTS(
+                  SELECT 1 FROM tbl_event_membership_snapshots ms JOIN tbl_team_user current_team ON current_team.user_id=ms.user_id AND current_team.team_id=t.id
+                  WHERE ms.event_id=e.id)))
               AND s.schedule_date=CURDATE() AND CURDATE() BETWEEN DATE(e.start_at) AND DATE(e.end_at)
             ORDER BY e.start_at,s.id",[$teamId]);
         $sessions=[]; $now=AttendanceScanWindows::now();

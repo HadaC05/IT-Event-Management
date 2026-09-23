@@ -63,13 +63,13 @@ final class SboAttendanceRepository {
         if(!$student)throw new InvalidArgumentException($mode==='qr'?'Invalid QR code or student not found.':'Student ID was not found.');
         if($mode==='qr'&&$student['qr_phase']!==$checkpoint)
             throw new InvalidArgumentException('This student QR is for Time '.($student['qr_phase']==='in'?'In':'Out').', not Time '.($checkpoint==='in'?'In':'Out').'.');
-        $membership=$this->row('SELECT ms.team_id id,COALESCE(ms.team_name,t.name) name FROM tbl_event_membership_snapshots ms LEFT JOIN tbl_teams t ON t.id=ms.team_id WHERE ms.event_id=? AND ms.user_id=? LIMIT 1',[(int)$a['event_id'],(int)$student['id']]);
+        $membership=$this->auth->currentTeamForEvent((int)$a['event_id'],(int)$student['id']);
         if(!$membership){
-            throw new InvalidArgumentException('Scan rejected. This student has no active team.');
+            throw new InvalidArgumentException('Scan rejected. This student has no active tribe for the event school year.');
         }
         if($a['scanner_mode']!=='general'&&(int)$membership['id']!==$a['scanner_team_id'])
             throw new InvalidArgumentException('Scan rejected. This student belongs to '.$membership['name'].', but your scanner is limited to '.$a['scanner_team_name'].'.');
-        if(!$this->auth->studentIsEligible($a,(int)$student['id'],(int)$membership['id']))throw new InvalidArgumentException('This student is not registered for the current event.');
+        if(!$this->auth->studentIsEligible($a,(int)$student['id']))throw new InvalidArgumentException('This student is not registered for the current event.');
         $location=$this->location($a,$input['location']??null);
         $now=$nowDate->format('Y-m-d H:i:s');
         $inColumn=$a['session_code']==='afternoon'?'afternoon_in_at':'morning_in_at';
@@ -248,7 +248,7 @@ final class SboAttendanceRepository {
           (SELECT COUNT(*) FROM tbl_attendance_entries ae WHERE ae.event_schedule_id=? AND ae.session_code=? AND ae.team_id=? AND ae.phase='in') total,
           (SELECT COUNT(*) FROM tbl_attendance_entries ae WHERE ae.event_schedule_id=? AND ae.session_code=? AND ae.team_id=? AND ae.phase='out') checked_out,
           (SELECT COUNT(DISTINCT ms.user_id) FROM tbl_event_membership_snapshots ms
-             WHERE ms.event_id=? AND ms.team_id=?
+             WHERE ms.event_id=? AND EXISTS(SELECT 1 FROM tbl_team_user tu WHERE tu.user_id=ms.user_id AND tu.team_id=?)
              AND NOT EXISTS(SELECT 1 FROM tbl_attendances atd JOIN tbl_attendance_entries ae ON ae.attendance_id=atd.id
                WHERE atd.user_id=ms.user_id AND atd.event_id=? AND ae.event_schedule_id=? AND ae.session_code=? AND ae.phase='in')) remaining");
         $q->execute([$a['event_schedule_id'],$a['session_code'],$a['scanner_team_id'],
@@ -261,8 +261,11 @@ final class SboAttendanceRepository {
           (SELECT COUNT(*) FROM tbl_attendance_entries ae WHERE ae.sbo_event_assignment_id=? AND ae.event_schedule_id=? AND ae.session_code=? AND ae.phase='in') total,
           (SELECT COUNT(*) FROM tbl_attendance_entries ae WHERE ae.sbo_event_assignment_id=? AND ae.event_schedule_id=? AND ae.session_code=? AND ae.phase='out') checked_out,
           (SELECT COUNT(DISTINCT ms.user_id) FROM tbl_event_membership_snapshots ms
-             WHERE ms.event_id=? AND ms.team_id IS NOT NULL
-             AND (?='general' OR ms.team_id=?)
+             JOIN tbl_events e ON e.id=ms.event_id
+             JOIN tbl_academic_periods ap ON ap.id=e.academic_period_id
+             JOIN tbl_team_user tu ON tu.user_id=ms.user_id
+             JOIN tbl_teams current_team ON current_team.id=tu.team_id AND current_team.school_year_id=ap.school_year_id AND current_team.is_active=1
+             WHERE ms.event_id=? AND (?='general' OR current_team.id=?)
              AND NOT EXISTS(SELECT 1 FROM tbl_attendances atd JOIN tbl_attendance_entries ae ON ae.attendance_id=atd.id
                WHERE atd.user_id=ms.user_id AND atd.event_id=? AND ae.event_schedule_id=? AND ae.session_code=? AND ae.phase='in')) remaining");
         $q->execute([$a['id'],$a['event_schedule_id'],$a['session_code'],$a['id'],$a['event_schedule_id'],$a['session_code'],

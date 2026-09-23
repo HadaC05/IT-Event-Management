@@ -36,7 +36,12 @@ final class SboAuthorization
           WHERE oa.officer_user_id=? AND sea.status='active' AND r.code=?
             AND (e.audience_type='all_students'
               OR (e.audience_type='selected_tribes' AND EXISTS(SELECT 1 FROM tbl_event_team et WHERE et.event_id=e.id AND et.team_id=t.id))
-              OR (e.audience_type IN ('selected_year_levels','specific_students') AND EXISTS(SELECT 1 FROM tbl_event_membership_snapshots ms WHERE ms.event_id=e.id AND ms.team_id=t.id)))
+              OR (e.audience_type IN ('selected_year_levels','specific_students') AND (
+                  (r.code='attendance' AND EXISTS(
+                      SELECT 1 FROM tbl_event_membership_snapshots ms JOIN tbl_team_user current_team ON current_team.user_id=ms.user_id AND current_team.team_id=t.id
+                      WHERE ms.event_id=e.id))
+                  OR (r.code<>'attendance' AND EXISTS(
+                      SELECT 1 FROM tbl_event_membership_snapshots ms WHERE ms.event_id=e.id AND ms.team_id=t.id))))
             AND (
               (CURDATE() BETWEEN DATE(e.start_at) AND DATE(e.end_at)$dateClause)
               OR e.start_at > CURRENT_TIMESTAMP
@@ -81,10 +86,21 @@ final class SboAuthorization
         throw new DomainException('Unauthorized officer assignment.');
     }
 
-    public function studentIsEligible(array $assignment, int $studentId, int $studentTeamId): bool
+    public function currentTeamForEvent(int $eventId, int $studentId): array|false
     {
-        $statement=$this->db->prepare('SELECT COUNT(*) FROM tbl_event_membership_snapshots WHERE event_id=? AND user_id=? AND team_id=?');
-        $statement->execute([(int)$assignment['event_id'],$studentId,$studentTeamId]);
+        $statement=$this->db->prepare('SELECT t.id,t.name FROM tbl_events e
+            JOIN tbl_academic_periods ap ON ap.id=e.academic_period_id
+            JOIN tbl_team_user tu ON tu.user_id=?
+            JOIN tbl_teams t ON t.id=tu.team_id AND t.school_year_id=ap.school_year_id AND t.is_active=1
+            WHERE e.id=? LIMIT 1');
+        $statement->execute([$studentId,$eventId]);
+        return $statement->fetch();
+    }
+
+    public function studentIsEligible(array $assignment, int $studentId): bool
+    {
+        $statement=$this->db->prepare('SELECT COUNT(*) FROM tbl_event_membership_snapshots WHERE event_id=? AND user_id=?');
+        $statement->execute([(int)$assignment['event_id'],$studentId]);
         return (bool) $statement->fetchColumn();
     }
 }
