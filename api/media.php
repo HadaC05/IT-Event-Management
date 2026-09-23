@@ -53,7 +53,13 @@ try {
             $repository->toggleReaction($userId,$postId,(string)($input['type'] ?? ''),$desired);
             return 'Reaction updated.';
         })(),
-        'comment_create','comment_update' => (function () use ($repository,$userId,$postId,$input,$action) { $repository->saveComment($userId,$postId,(string)($input['body'] ?? ''),$action === 'comment_update' ? (int)($input['comment_id'] ?? 0) : null); return $action === 'comment_create' ? 'Comment added.' : 'Comment updated.'; })(),
+        'comment_create','comment_update' => (function () use ($repository,$userId,$postId,$input,$action) {
+            $parentId=$action === 'comment_create' && isset($input['parent_comment_id']) ? filter_var($input['parent_comment_id'],FILTER_VALIDATE_INT) : null;
+            if($parentId===false)throw new InvalidArgumentException('Choose a valid comment to reply to.');
+            $repository->saveComment($userId,$postId,(string)($input['body'] ?? ''),$action === 'comment_update' ? (int)($input['comment_id'] ?? 0) : null,$parentId);
+            if($action === 'comment_update')return 'Comment updated.';
+            return $parentId !== null ? 'Reply added.' : 'Comment added.';
+        })(),
         'comment_delete' => (function () use ($repository,$userId,$postId,$input) { $repository->deleteComment($userId,$postId,(int)($input['comment_id'] ?? 0)); return 'Comment deleted.'; })(),
         'comment_pin' => (function () use ($repository,$userId,$postId,$input) { $repository->pinComment($userId,$postId,(int)($input['comment_id'] ?? 0),!empty($input['pin'])); return !empty($input['pin']) ? 'Comment pinned.' : 'Comment unpinned.'; })(),
         'carousel_update' => (function () use ($repository,$actor,$input) { $repository->updateCarousel($actor,$input,$_FILES); return 'Event carousel updated.'; })(),

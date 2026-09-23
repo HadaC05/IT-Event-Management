@@ -324,13 +324,19 @@ final class MediaRepository
         }
     }
 
-    public function saveComment(int $userId, int $postId, string $body, ?int $commentId): void
+    public function saveComment(int $userId, int $postId, string $body, ?int $commentId, ?int $parentCommentId = null): void
     {
         $this->publicPost($postId);
         $body = trim($body);
         if ($body === '' || mb_strlen($body) > 1000) throw new InvalidArgumentException('Comment must contain 1 to 1,000 characters.');
         if ($commentId === null) {
-            $this->db->prepare('INSERT INTO tbl_post_comments(post_id,user_id,body,created_at,updated_at) VALUES(?,?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)')->execute([$postId, $userId, $body]);
+            if ($parentCommentId !== null) {
+                if ($parentCommentId < 1) throw new InvalidArgumentException('Choose a valid comment to reply to.');
+                $parent = $this->db->prepare('SELECT id FROM tbl_post_comments WHERE id=? AND post_id=? AND parent_comment_id IS NULL');
+                $parent->execute([$parentCommentId, $postId]);
+                if (!$parent->fetchColumn()) throw new InvalidArgumentException('The comment you are replying to is unavailable.');
+            }
+            $this->db->prepare('INSERT INTO tbl_post_comments(post_id,parent_comment_id,user_id,body,created_at,updated_at) VALUES(?,?,?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)')->execute([$postId, $parentCommentId, $userId, $body]);
             return;
         }
         $this->ownedComment($userId, $postId, $commentId);
@@ -353,12 +359,12 @@ final class MediaRepository
             $post = $post->fetch();
             if (!$post) throw new InvalidArgumentException('This post is not publicly available.');
             if ((int) $post['user_id'] !== $userId) throw new MediaForbiddenException('Only the post author can pin a comment.');
-            $statement = $this->db->prepare('SELECT id,is_pinned FROM tbl_post_comments WHERE id=? AND post_id=? FOR UPDATE');
+            $statement = $this->db->prepare('SELECT id,is_pinned FROM tbl_post_comments WHERE id=? AND post_id=? AND parent_comment_id IS NULL FOR UPDATE');
             $statement->execute([$commentId, $postId]);
             $comment = $statement->fetch();
             if (!$comment) throw new InvalidArgumentException('Comment not found.');
             if ((bool) $comment['is_pinned'] === $pin) { $this->db->commit(); return; }
-            if ($pin) $this->db->prepare('UPDATE tbl_post_comments SET is_pinned=0 WHERE post_id=?')->execute([$postId]);
+            if ($pin) $this->db->prepare('UPDATE tbl_post_comments SET is_pinned=0 WHERE post_id=? AND parent_comment_id IS NULL')->execute([$postId]);
             $update = $this->db->prepare('UPDATE tbl_post_comments SET is_pinned=?,updated_at=CURRENT_TIMESTAMP WHERE id=? AND post_id=?');
             $update->execute([$pin ? 1 : 0, $commentId, $postId]);
             if ($update->rowCount() !== 1) throw new RuntimeException('The comment pin was not updated.');
@@ -446,7 +452,7 @@ final class MediaRepository
         $exists = $this->db->prepare("SELECT id FROM tbl_posts WHERE id=? AND status='approved' AND deleted_at IS NULL LIMIT 1");
         $exists->execute([$postId]);
         if (!$exists->fetchColumn()) throw new InvalidArgumentException('This post is no longer available.');
-        $where = 'c.post_id=?';
+        $where = 'c.post_id=? AND c.parent_comment_id IS NULL';
         $params = [$postId];
         if ($cursor !== null && $cursor !== '') {
             $position = $this->decodeCursor($cursor, ['pin','at','id']);
@@ -456,22 +462,40 @@ final class MediaRepository
             $where .= ' AND (c.is_pinned < ? OR (c.is_pinned=? AND (c.created_at > ? OR (c.created_at=? AND c.id > ?))))';
             array_push($params,$position['pin'],$position['pin'],$position['at'],$position['at'],(int)$position['id']);
         }
-        $statement = $this->db->prepare("SELECT c.id,c.post_id,c.user_id,c.body,c.is_pinned,c.created_at,c.updated_at,u.first_name,u.middle_name,u.last_name,r.name author_role FROM tbl_post_comments c JOIN tbl_users u ON u.id=c.user_id JOIN tbl_roles r ON r.id=u.role_id WHERE $where ORDER BY c.is_pinned DESC,c.created_at,c.id LIMIT 21");
+        $statement = $this->db->prepare("SELECT c.id,c.post_id,c.parent_comment_id,c.user_id,c.body,c.is_pinned,c.created_at,c.updated_at,u.first_name,u.middle_name,u.last_name,u.profile_photo_path,r.name author_role FROM tbl_post_comments c JOIN tbl_users u ON u.id=c.user_id JOIN tbl_roles r ON r.id=u.role_id WHERE $where ORDER BY c.is_pinned DESC,c.created_at,c.id LIMIT 21");
         $statement->execute($params);
         $rows = $statement->fetchAll();
         $hasMore = count($rows) > 20;
         if ($hasMore) array_pop($rows);
         $last = $rows ? $rows[count($rows)-1] : null;
         $nextCursor = $hasMore && $last ? $this->encodeCursor(['pin'=>(int)$last['is_pinned'],'at'=>$last['created_at'],'id'=>(int)$last['id']]) : null;
-        foreach ($rows as &$comment) {
+        $this->hydrateComments($rows);
+        if ($rows) {
+            $ids = array_column($rows, 'id');
+            $marks = implode(',', array_fill(0, count($ids), '?'));
+            $replies = $this->db->prepare("SELECT c.id,c.post_id,c.parent_comment_id,c.user_id,c.body,c.is_pinned,c.created_at,c.updated_at,u.first_name,u.middle_name,u.last_name,u.profile_photo_path,r.name author_role FROM tbl_post_comments c JOIN tbl_users u ON u.id=c.user_id JOIN tbl_roles r ON r.id=u.role_id WHERE c.post_id=? AND c.parent_comment_id IN ($marks) ORDER BY c.created_at,c.id");
+            $replies->execute([$postId, ...$ids]);
+            $replyRows = $replies->fetchAll();
+            $this->hydrateComments($replyRows);
+            $positions = array_flip($ids);
+            foreach ($rows as &$comment) $comment['replies'] = [];
+            unset($comment);
+            foreach ($replyRows as $reply) $rows[$positions[$reply['parent_comment_id']]]['replies'][] = $reply;
+        }
+        return ['comments'=>$rows,'next_cursor'=>$nextCursor];
+    }
+
+    private function hydrateComments(array &$comments): void
+    {
+        foreach ($comments as &$comment) {
             foreach (['id','post_id','user_id'] as $field) $comment[$field] = (int)$comment[$field];
+            $comment['parent_comment_id'] = $comment['parent_comment_id'] === null ? null : (int)$comment['parent_comment_id'];
             $comment['is_pinned'] = (bool)$comment['is_pinned'];
             $comment['author_name'] = $this->name($comment);
             $comment['author_initials'] = $this->initials($comment);
             foreach (['first_name','middle_name','last_name'] as $field) unset($comment[$field]);
         }
         unset($comment);
-        return ['comments'=>$rows,'next_cursor'=>$nextCursor];
     }
 
     private function encodeCursor(array $position): string
