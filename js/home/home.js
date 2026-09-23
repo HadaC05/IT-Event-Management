@@ -152,6 +152,7 @@
         input.addEventListener('keydown', event => {
             if (event.key === 'Enter') {
                 event.preventDefault();
+                closeNav();
                 document.querySelector('#upcoming')?.scrollIntoView({ behavior: 'smooth' });
             }
         });
@@ -163,15 +164,24 @@
         if (!navToggle || !navMenu) return;
         navMenu.hidden = true;
         navToggle.setAttribute('aria-expanded', 'false');
+        navToggle.setAttribute('aria-label', 'Open menu');
     };
     navToggle?.addEventListener('click', event => {
         event.stopPropagation();
         const opening = navMenu.hidden;
         navMenu.hidden = !opening;
         navToggle.setAttribute('aria-expanded', String(opening));
+        navToggle.setAttribute('aria-label', opening ? 'Close menu' : 'Open menu');
     });
+    navMenu?.addEventListener('click', event => event.stopPropagation());
     document.querySelectorAll('[data-nav-close]').forEach(item => item.addEventListener('click', closeNav));
     document.addEventListener('click', closeNav);
+    document.addEventListener('keydown', event => {
+        if (event.key === 'Escape' && navMenu && !navMenu.hidden) {
+            closeNav();
+            navToggle.focus();
+        }
+    });
 
     const loginModal = document.querySelector('#login-modal');
     const passwordChangeSuccess = loginModal?.querySelector('[data-password-change-success]');

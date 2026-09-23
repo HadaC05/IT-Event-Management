@@ -104,23 +104,12 @@
                 <span class="text-xl font-black tracking-[-.04em]">CITE<span class="text-[#397565]">.</span></span>
             </a>
 
-            <label class="relative ml-1 hidden max-w-[440px] flex-1 lg:block">
-                <span class="sr-only">Search events</span>
-                <svg class="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 fill-none stroke-[#121017]/45 stroke-2" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>
-                <input id="event-search" class="h-11 w-full rounded-lg border border-[#121017]/10 bg-white/45 pl-11 pr-4 text-sm outline-none transition placeholder:text-[#121017]/45 focus:border-[#397565] focus:bg-white focus:ring-4 focus:ring-[#397565]/10" type="search" placeholder="Search events, competitions, activities..." data-event-search>
-            </label>
-
-            <div class="ml-auto hidden items-center gap-1 lg:flex">
-                <a class="inline-flex h-11 items-center rounded-lg px-3 text-sm font-extrabold text-[#121017]/65 transition hover:bg-[#397565]/8 hover:text-[#397565]" href="#discover">Discover</a>
-                <a class="inline-flex h-11 items-center rounded-lg px-3 text-sm font-extrabold text-[#121017]/65 transition hover:bg-[#397565]/8 hover:text-[#397565]" href="#upcoming">Events</a>
-                                    <button class="ml-3 inline-flex h-11 shrink-0 items-center gap-2 rounded-lg bg-[#397565] px-5 text-sm font-extrabold text-white shadow-[0_7px_18px_rgba(57,117,101,.22)] transition hover:-translate-y-0.5 hover:bg-[#2e6355]" type="button" data-login-open>Sign in <span aria-hidden="true">→</span></button>
-                            </div>
-
-            <div class="relative ml-auto lg:hidden">
-                <button class="grid h-11 w-11 place-items-center rounded-lg border border-[#121017]/12 bg-white/35 text-[#121017] transition hover:border-[#397565]/45 hover:bg-white/70" type="button" aria-label="Open navigation" aria-expanded="false" aria-controls="nav-menu" data-nav-toggle>
+            <div class="relative ml-auto">
+                <button class="grid h-11 w-11 place-items-center rounded-lg border border-[#121017]/12 bg-white/80 text-[#121017] shadow-sm transition hover:border-[#397565]/45 hover:bg-[#397565]/5 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#397565]/20" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="nav-menu" title="Menu" data-nav-toggle>
                     <svg class="h-5 w-5 fill-none stroke-current stroke-2" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
                 </button>
                 <div id="nav-menu" class="absolute right-0 top-[calc(100%+.75rem)] z-50 w-[min(19rem,calc(100vw-2.5rem))] rounded-xl border border-[#121017]/10 bg-white/95 p-3 shadow-[0_20px_50px_rgba(18,16,23,.16)] backdrop-blur-xl" hidden>
+                    <p class="px-3 pb-2 text-[10px] font-black uppercase tracking-[.16em] text-[#397565]">Explore CITE</p>
                     <label class="relative mb-2 block">
                         <span class="sr-only">Search events</span>
                         <svg class="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 fill-none stroke-[#121017]/40 stroke-2" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>
@@ -129,8 +118,8 @@
                     <a class="flex min-h-11 items-center justify-between rounded-lg px-3 text-sm font-extrabold transition hover:bg-[#397565]/10 hover:text-[#397565]" href="#discover" data-nav-close>Discover <span aria-hidden="true">→</span></a>
                     <a class="flex min-h-11 items-center justify-between rounded-lg px-3 text-sm font-extrabold transition hover:bg-[#397565]/10 hover:text-[#397565]" href="#upcoming" data-nav-close>Events <span aria-hidden="true">→</span></a>
                     <div class="mt-2 border-t border-[#121017]/8 pt-3">
-                                                    <button class="flex min-h-11 w-full items-center justify-between rounded-lg bg-[#397565] px-4 text-sm font-extrabold text-white" type="button" data-login-open data-nav-close>Sign in <span aria-hidden="true">→</span></button>
-                                            </div>
+                        <button class="flex min-h-11 w-full items-center justify-between rounded-lg bg-[#397565] px-4 text-sm font-extrabold text-white transition hover:bg-[#2e6355]" type="button" data-login-open data-nav-close>Sign in <span aria-hidden="true">→</span></button>
+                    </div>
                 </div>
             </div>
         </nav>
@@ -146,9 +135,9 @@
 
                     <div class="mt-8 flex flex-wrap gap-3">
                         <a class="inline-flex min-h-12 items-center gap-3 rounded-lg bg-[#397565] px-5 text-sm font-extrabold text-white shadow-[0_8px_20px_rgba(57,117,101,.22)] transition hover:-translate-y-0.5 hover:bg-[#2e6355]" href="#upcoming">Explore Events <span class="text-lg" aria-hidden="true">→</span></a>
-                        <button class="inline-flex min-h-12 items-center gap-3 rounded-lg border border-[#2F3AE0] bg-white/45 px-5 text-sm font-extrabold text-[#2F3AE0] transition hover:-translate-y-0.5 hover:bg-[#2F3AE0] hover:text-white" type="button" data-login-open>Sign in to your portal <span aria-hidden="true">→</span></button>
+                        <a class="inline-flex min-h-12 items-center gap-3 rounded-lg border border-[#2F3AE0] bg-white/45 px-5 text-sm font-extrabold text-[#2F3AE0] transition hover:-translate-y-0.5 hover:bg-[#2F3AE0] hover:text-white" href="#upcoming">View Event Calendar <svg class="h-4 w-4 fill-none stroke-current stroke-2" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M7 3v4m10-4v4M3 10h18"/></svg></a>
                     </div>
-                    <p class="mt-4 max-w-2xl text-sm leading-6 text-[#121017]/65">New here? Explore events without signing in. Students and staff can sign in to see their own events, attendance, and tasks.</p>
+                    <p class="mt-4 max-w-2xl text-sm leading-6 text-[#121017]/65">New here? Explore events without signing in. Students and staff can choose Sign in from the menu to see their events, attendance, and tasks.</p>
 
                     <div class="relative mt-10" data-feature-carousel aria-label="Featured CITE events">
                                                     <div class="poster-glow poster-grid relative grid min-h-[320px] place-items-center overflow-hidden rounded-[14px] p-8 text-center text-white shadow-[0_22px_45px_rgba(18,16,23,.16)]">
@@ -284,6 +273,6 @@
         </dialog>
     <script src="js/vendor/axios.min.js"></script>
     <script src="js/shared/password-gate.js?v=20260923-first-login-1"></script>
-    <script src="js/home/home.js?v=20260923-first-login-1"></script>
+    <script src="js/home/home.js?v=20260923-compact-menu-1"></script>
 </body>
 </html>
