@@ -48,13 +48,12 @@
     slide.setAttribute('aria-label', `Featured event ${number} of ${total}: ${event.title || 'Campus event'}`);
     slide.setAttribute('aria-hidden', 'true');
     slide.inert = true;
-    if (event.poster_path) {
-      const poster = document.createElement('img');
-      poster.className = 'student-home-event__poster';
-      poster.src = event.poster_path;
-      poster.alt = '';
-      slide.append(poster);
-    }
+    const poster = document.createElement('img');
+    poster.className = 'student-home-event__poster';
+    poster.src = event.poster_path;
+    poster.alt = '';
+    poster.loading = number === 1 ? 'eager' : 'lazy';
+    slide.append(poster);
     const content = document.createElement('div');
     content.className = 'student-home-event__content';
     const eyebrow = document.createElement('p');
@@ -78,11 +77,6 @@
     actions.append(link);
     content.append(eyebrow, title, description, details, actions);
     slide.append(content);
-    const numberMark = document.createElement('span');
-    numberMark.className = 'student-stage__number';
-    numberMark.setAttribute('aria-hidden', 'true');
-    numberMark.textContent = String(number).padStart(2, '0');
-    slide.append(numberMark);
     return slide;
   };
 
@@ -90,17 +84,21 @@
     stop();
     slidesHost.querySelectorAll('[data-home-slide]:not([data-home-intro])').forEach(slide => slide.remove());
     const featured = Array.isArray(events)
-      ? events.filter(event => Number(event.is_featured) === 1).slice(0, 6)
+      ? events.filter(event => event.poster_path).slice(0, 6)
       : [];
-    featured.forEach((event, index) => slidesHost.append(eventSlide(event, index + 2, featured.length + 1)));
-    slides = [...slidesHost.querySelectorAll('[data-home-slide]')];
-    intro.setAttribute('aria-label', `Campus introduction, slide 1 of ${slides.length}`);
+    intro.hidden = featured.length > 0;
+    intro.inert = intro.hidden;
+    intro.classList.toggle('is-active', !intro.hidden);
+    intro.setAttribute('aria-hidden', intro.hidden ? 'true' : 'false');
+    featured.forEach((event, index) => slidesHost.append(eventSlide(event, index + 1, featured.length)));
+    slides = intro.hidden ? [...slidesHost.querySelectorAll('.student-home-event')] : [intro];
+    intro.setAttribute('aria-label', 'No event photos available');
     controls.hidden = slides.length < 2;
     dotsHost.replaceChildren();
     dots = slides.map((slide, index) => {
       const dot = document.createElement('button');
       dot.type = 'button';
-      dot.setAttribute('aria-label', index === 0 ? 'Show campus introduction' : `Show ${featured[index - 1].title || 'campus event'}`);
+      dot.setAttribute('aria-label', featured.length ? `Show ${featured[index].title || 'campus event'}` : 'Show event photo placeholder');
       dot.addEventListener('click', () => { show(index); start(); });
       dotsHost.append(dot);
       return dot;

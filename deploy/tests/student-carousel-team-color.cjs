@@ -12,6 +12,7 @@ const team = {id: 47, name: 'Hero Academia', color: '#FACC15', school_year: '202
 const featured = [
   {id: 11, title: 'Campus Welcome', description: 'Meet the CITE community.', start_at: '2026-09-24 08:00:00', location: 'Main Hall', poster_path: null, is_featured: 1},
   {id: 12, title: 'Team Games', description: 'Play alongside your team.', start_at: '2026-09-25 09:00:00', location: 'Gymnasium', poster_path: 'assets/images/cite_favicon.png', is_featured: 1},
+  {id: 14, title: 'CITE Fair', description: 'See what is next.', start_at: '2026-09-27 09:00:00', location: 'Campus', poster_path: 'assets/images/cite_favicon.png', is_featured: 1},
   {id: 13, title: 'Ordinary Event', description: 'Not chosen for the carousel.', start_at: '2026-09-26 09:00:00', location: 'Library', poster_path: null, is_featured: 0},
 ];
 
@@ -41,25 +42,31 @@ const featured = [
       });
 
       await page.goto(`${base}/pages/student/home.html`, {waitUntil: 'domcontentloaded'});
-      await page.locator('[data-home-slide]').nth(2).waitFor({state: 'attached'});
-      assert.equal(await page.locator('[data-home-slide]').count(), 3, 'Intro and two featured events form the homepage carousel');
+      await page.locator('[data-home-slide].is-active .student-home-event__poster').waitFor();
+      assert.equal(await page.locator('.student-home-event').count(), 2, 'Only event photos become carousel slides');
       assert.equal(await page.getByRole('heading', {name: 'Ordinary Event'}).count(), 0, 'Ordinary events stay out of the featured hero');
       assert.equal(await page.locator('[data-event-carousel]').count(), 0, 'Student homepage does not repeat the event carousel below the hero');
-      assert.equal(await page.locator('[data-home-intro]').getAttribute('aria-hidden'), 'false');
+      assert.equal(await page.locator('[data-home-intro]').isVisible(), false, 'Text fallback stays hidden when event photos exist');
+      assert.equal(await page.locator('[data-home-slide].is-active h2').textContent(), 'Team Games');
+      assert.equal(await page.getByRole('link', {name: 'Attendance here'}).isVisible(), true, 'Attendance QR link is visible without waiting for a carousel slide');
       await page.locator('[data-home-carousel-next]').click();
-      assert.equal(await page.locator('[data-home-slide].is-active h2').textContent(), 'Campus Welcome');
+      assert.equal(await page.locator('[data-home-slide].is-active h2').textContent(), 'CITE Fair');
       if (process.env.CITE_SCREENSHOT_DIR && width === 390) await page.screenshot({path: path.join(process.env.CITE_SCREENSHOT_DIR, 'student-home-event.png')});
       assert.equal(await page.locator('[data-home-carousel-dots] button[aria-current="true"]').count(), 1);
       await page.locator('[data-home-carousel-next]').click();
       assert.equal(await page.locator('[data-home-slide].is-active h2').textContent(), 'Team Games');
       assert.equal(await page.locator('[data-home-slide].is-active .student-home-event__poster').evaluate(node => getComputedStyle(node).zIndex), '0', 'Event poster is layered above the card background');
       await page.locator('[data-home-carousel-prev]').click();
-      assert.equal(await page.locator('[data-home-slide].is-active h2').textContent(), 'Campus Welcome');
+      assert.equal(await page.locator('[data-home-slide].is-active h2').textContent(), 'CITE Fair');
       await page.evaluate(() => StudentHomeCarousel.render([{title: 'Older event', is_featured: 0}]));
-      assert.equal(await page.locator('[data-home-slide]').count(), 1, 'Non-featured fallback events leave the campus introduction intact');
+      assert.equal(await page.locator('.student-home-event').count(), 0, 'Events without photos are not shown as photo slides');
+      assert.equal(await page.locator('[data-home-intro]').isVisible(), true, 'A useful fallback appears when no event photos exist');
       assert.equal(await page.locator('[data-home-carousel-controls]').isVisible(), false, 'One slide has no carousel controls');
       const homeWidth = await page.evaluate(() => document.documentElement.scrollWidth);
       assert.ok(homeWidth <= width + 1, `Home has no horizontal overflow at ${width}px`);
+      await page.getByRole('link', {name: 'Attendance here'}).click();
+      await page.waitForURL('**/pages/student/attendance.html#attendance-qr');
+      assert.equal(await page.locator('#attendance-qr').count(), 1, 'Quick access lands at the QR section');
 
       await page.goto(`${base}/pages/student/team.html`, {waitUntil: 'domcontentloaded'});
       await page.getByRole('heading', {name: 'Hero Academia', exact: true}).waitFor();

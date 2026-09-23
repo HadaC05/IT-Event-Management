@@ -99,11 +99,13 @@ body[data-navigation-role="student"] {
 .student-home-carousel__slides { display: grid; }
 .student-home-slide { grid-area: 1 / 1; width: 100%; padding-bottom: clamp(5rem, 7vw, 6rem); visibility: hidden; opacity: 0; pointer-events: none; transition: opacity .35s ease, visibility .35s ease; }
 .student-home-slide.is-active { visibility: visible; opacity: 1; pointer-events: auto; }
+.student-home-slide[hidden] { display: none; }
+.student-home-event { display: flex; min-height: clamp(19rem, 34vw, 28rem); align-items: flex-end; }
 .student-home-event__poster { position: absolute; z-index: 0; inset: 0; width: 100%; height: 100%; object-fit: cover; }
-.student-home-event::before { z-index: 1; background: linear-gradient(90deg, rgba(13, 45, 38, .95), rgba(13, 45, 38, .62) 72%, rgba(13, 45, 38, .4)), repeating-linear-gradient(125deg, transparent 0 23px, rgba(255,255,255,.04) 24px 25px); }
+.student-home-event::before { z-index: 1; background: linear-gradient(0deg, rgba(13, 45, 38, .96), rgba(13, 45, 38, .46) 55%, rgba(13, 45, 38, .08)); }
 .student-home-event::after { display: none; }
-.student-home-event__content { position: relative; z-index: 2; }
-.student-home-event .student-stage__number { z-index: 2; }
+.student-home-event__content { position: relative; z-index: 2; max-width: 42rem; }
+.student-home-event .student-stage__title { font-size: clamp(2rem, 4vw, 3.5rem); }
 .student-home-event__details { margin-top: .8rem; color: rgba(255,255,255,.8); font-size: .8rem; font-weight: 700; }
 .student-home-carousel__controls { position: absolute; right: 1.25rem; bottom: 1.25rem; z-index: 2; display: flex; align-items: center; gap: .4rem; padding: .25rem; border: 1px solid rgba(255,255,255,.2); border-radius: 999px; background: rgba(10, 38, 32, .72); color: #fff; backdrop-filter: blur(12px); }
 .student-home-carousel__controls[hidden] { display: none; }
@@ -223,6 +225,7 @@ body[data-student-page="profile"] .student-profile-cover::after {
 
 @media (max-width: 639px) {
   .student-stage { min-height: 12rem; border-radius: 1.35rem; }
+  .student-home-event { min-height: 21rem; }
   .student-stage::after { right: -12rem; }
   .student-stage__number { right: .8rem; font-size: 8rem; }
   .student-team-hero { border-radius: 1.35rem; }
