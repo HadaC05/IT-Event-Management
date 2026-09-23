@@ -121,11 +121,11 @@ window.SharedNavigation.ready.then(() => {
         idNumber.required = student || faculty;
         if (faculty) {
             if (idLabel) idLabel.textContent = 'Faculty ID';
-            idNumber.placeholder = '23-2324-F';
+            idNumber.placeholder = 'xx-xxx-F';
             idNumber.maxLength = 11;
             idNumber.inputMode = 'text';
-            idNumber.pattern = '2[0-9]-[0-9]{3,6}-[A-Za-z]';
-            idNumber.title = 'Use two digits starting with 2, 3–6 middle digits, and one final letter.';
+            idNumber.pattern = '[0-9]{2}-[0-9]{3,6}-[A-Za-z]';
+            idNumber.title = 'Use two digits, 3–6 middle digits, and one final letter (for example, 18-035-F).';
             userForm.elements.username.value = idNumber.value.toUpperCase();
         } else if (student || !role) {
             if (idLabel) idLabel.textContent = student ? 'Student ID' : 'ID number';
