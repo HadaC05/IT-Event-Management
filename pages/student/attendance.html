@@ -12,7 +12,7 @@
     <script src="js/shared/password-gate.js?v=20260917-1"></script>
     <script src="js/shared/navigation.js?v=20260923-notifications-1" defer></script>
     <script src="js/student/portal.js?v=20260915-2" defer></script>
-    <script src="js/student/attendance.js?v=20260923-qr-refresh-load-1" defer></script>
+    <script src="js/student/attendance.js?v=20260924-final-status-1" defer></script>
 </head>
 <body class="min-h-screen bg-[#F7F4ED] font-sans text-[#121017] antialiased" data-navigation-role="student" data-student-page="attendance">
     <div data-student-sidebar-host></div>
@@ -55,9 +55,9 @@
                 <header class="flex items-center justify-between gap-4 border-b border-[#121017]/8 p-5 sm:px-7 sm:py-5">
                     <div>
                         <h2 class="text-lg font-black" id="student-attendance-history-heading">Attendance history</h2>
-                        <p class="mt-1 text-xs text-[#121017]/45">Completed sessions and Adviser corrections appear here.</p>
+                        <p class="mt-1 text-xs text-[#121017]/45">Each eligible event day shows its Time In, Time Out, and final status.</p>
                     </div>
-                    <span class="rounded-full bg-[#F7F4ED] px-3 py-1.5 text-[10px] font-black" data-record-count>0 records</span>
+                    <span class="rounded-full bg-[#F7F4ED] px-3 py-1.5 text-[10px] font-black" data-record-count>0 event days</span>
                 </header>
                 <div class="divide-y divide-[#121017]/7" data-attendance-records></div>
             </section>

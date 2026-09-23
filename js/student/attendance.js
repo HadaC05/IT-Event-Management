@@ -13,9 +13,10 @@
     const statusTone = status => ({
         present: 'bg-[#397565]/10 text-[#397565]',
         absent: 'bg-[#FF6B2C]/12 text-[#c84510]',
+        pending: 'bg-[#C6F24E]/25 text-[#397565]',
     })[status] || 'bg-[#121017]/7 text-[#121017]/50';
 
-    const attendanceStatus = status => ['present', 'late'].includes(String(status || '').toLowerCase()) ? 'present' : 'absent';
+    const attendanceStatus = status => ['present', 'absent', 'pending'].includes(String(status || '').toLowerCase()) ? String(status).toLowerCase() : 'pending';
 
     const record = item => {
         const status = attendanceStatus(item.status);
@@ -28,16 +29,11 @@
                 </div>
                 <span class="rounded-full px-3 py-1 text-[9px] font-black uppercase ${statusTone(status)}">${escapeHtml(status)}</span>
             </div>
-            <dl class="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
-                ${(item.attendance_mode === 'whole_day' ? [
-                    ['Time in', item.morning_in_at || item.checked_in_at],
-                    ['Time out', item.morning_out_at],
-                ] : [
-                    ['Morning in', item.morning_in_at],
-                    ['Morning out', item.morning_out_at],
-                    ['Afternoon in', item.afternoon_in_at],
-                    ['Afternoon out', item.afternoon_out_at],
-                ]).map(([label, value]) => `
+            <dl class="mt-4 grid grid-cols-2 gap-3">
+                ${[
+                    ['Time in', item.time_in_at],
+                    ['Time out', item.time_out_at],
+                ].map(([label, value]) => `
                     <div class="rounded-xl bg-[#F7F4ED] p-3">
                         <dt class="text-[9px] font-black uppercase text-[#121017]/35">${label}</dt>
                         <dd class="mt-1 text-xs font-black">${timeOnly(value)}</dd>
@@ -123,11 +119,14 @@
         const response = await axios.get('api/student-portal.php', {params: {page: 'attendance'}});
         const {summary, current_event: event, records} = response.data.data;
 
-        const present = Number(summary.present || 0) + Number(summary.late || 0);
-        const absent = Number(summary.absent || 0) + Number(summary.excused || 0);
+        const present = Number(summary.present || 0);
+        const absent = Number(summary.absent || 0);
+        const pending = Number(summary.pending || 0);
         document.querySelector('[data-attendance-summary]').innerHTML = [
+            summaryItem('Event days', Number(summary.total || 0), 'text-[#121017]', '#'),
             summaryItem('Present', present, 'text-[#397565]', '✓'),
             summaryItem('Absent', absent, 'text-[#c84510]', '×'),
+            summaryItem('Pending', pending, 'text-[#397565]', '…'),
         ].join('');
         const rate = document.querySelector('[data-attendance-rate]');
         if (summary.total > 0) {
@@ -138,10 +137,10 @@
         }
         state.event = event;
         renderAction();
-        document.querySelector('[data-record-count]').textContent = `${records.length} ${records.length === 1 ? 'record' : 'records'}`;
+        document.querySelector('[data-record-count]').textContent = `${records.length} ${records.length === 1 ? 'event day' : 'event days'}`;
         document.querySelector('[data-attendance-records]').innerHTML = records.length
             ? records.map(record).join('')
-            : '<div class="px-6 py-10 text-center"><span class="mx-auto grid h-10 w-10 place-items-center rounded-full bg-[#397565]/8 text-[#397565]">✓</span><h3 class="mt-3 font-black">No attendance recorded yet</h3><p class="mt-1 text-sm text-[#121017]/45">Your completed sessions will appear here.</p></div>';
+            : '<div class="px-6 py-10 text-center"><span class="mx-auto grid h-10 w-10 place-items-center rounded-full bg-[#397565]/8 text-[#397565]">✓</span><h3 class="mt-3 font-black">No attendance event days yet</h3><p class="mt-1 text-sm text-[#121017]/45">Eligible event days will appear here when their schedule begins.</p></div>';
     };
 
     let qrBusy = false;
