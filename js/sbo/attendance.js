@@ -11,7 +11,7 @@
   const notify=(type,message,options)=>window.Notifications?.[type]?.(message,options);
   let csrf='',assignments=[],selected=null,scanner=null,QrScanner=null,cameras=[],cameraIndex=0,position=null;
   let locationReason='not_provided',locationRequest=null,locationWatchId=null,gpsEnabled=false,gpsGeneration=0,gpsManuallyDisabled=false,isProcessing=false,cooldownUntil=0,lastToken='',lastTokenAt=0,lastTokenIgnoreMs=3000,lastScanToast=null,contextTimer=0,startGeneration=0,cameraHintTimer=0;
-  let qrModulePromise=null,checkpoint='in';
+  let qrModulePromise=null,checkpoint='in',decodeErrorReported=false;
   const shownGpsNotices=new Map();
   const time=value=>value?new Intl.DateTimeFormat('en-PH',{hour:'numeric',minute:'2-digit'}).format(new Date('2000-01-01T'+value)):'—';
   const date=value=>value?new Intl.DateTimeFormat('en-PH',{dateStyle:'medium'}).format(new Date(value.replace(' ','T'))):'—';
@@ -121,6 +121,7 @@
       :!boundaryConfigured
         ?'The event location boundary is not configured.'
         :'Move inside one of the event location boxes before strict attendance scanning.';
+    renderPhaseStatus();
   }
   function getLocation(force=false){
     if(!gpsEnabled)return Promise.resolve(null);
@@ -221,21 +222,33 @@
   }
   function renderCounts(counts){
     const timedIn=Number(counts.total)||0, timedOut=Number(counts.checked_out)||0, remaining=Number(counts.remaining)||0;
-    $('[data-scan-in]').textContent=timedIn.toLocaleString('en-PH');
-    $('[data-scan-out]').textContent=timedOut.toLocaleString('en-PH');
-    $('[data-scan-remaining]').textContent=remaining.toLocaleString('en-PH');
+    const scanIn=$('[data-scan-in]'),scanOut=$('[data-scan-out]'),scanRemaining=$('[data-scan-remaining]');
+    if(scanIn)scanIn.textContent=timedIn.toLocaleString('en-PH');
+    if(scanOut)scanOut.textContent=timedOut.toLocaleString('en-PH');
+    if(scanRemaining)scanRemaining.textContent=remaining.toLocaleString('en-PH');
     const percentage=Math.round(timedIn/Math.max(1,timedIn+remaining)*100);
-    $('[data-scan-progress]').setAttribute('aria-valuenow',String(percentage));
-    $('[data-scan-progress-fill]').style.width=`${percentage}%`;
+    const progress=$('[data-scan-progress]'),progressFill=$('[data-scan-progress-fill]');
+    if(progress)progress.setAttribute('aria-valuenow',String(percentage));
+    if(progressFill)progressFill.style.width=`${percentage}%`;
     $('[data-scan-counts]').textContent=`${timedIn} timed in · ${timedOut} timed out · ${remaining} remaining ${selected?.scanner_mode==='general'?'eligible students':'from your assigned team'}`;
   }
   function renderPhaseStatus(){
-    $('[data-session-state]').textContent=selected?.assignment_state==='upcoming'
-      ?'This is an upcoming assignment. Attendance scanning is not available until the scheduled event session.'
-      :selected?.[`${checkpoint}_window_open`]
-      ?`Time ${checkpoint==='in'?'In':'Out'} scanning is open.`
-      :selected?.is_session_active?'The other checkpoint is open. Select it above.'
-        :'No QR is scannable now. Wait for the next window or ask the adviser to extend it.';
+    const phase=checkpoint==='in'?'In':'Out';
+    const message=!selected?'No attendance assignment is selected.'
+      :selected.assignment_state==='upcoming'?'This assignment is upcoming. Scanning opens during its scheduled session.'
+      :!selected[`${checkpoint}_window_open`]
+        ?selected.is_session_active?'The other checkpoint is open. Select it above.':'No QR is scannable now. Wait for the next window or ask the adviser to extend it.'
+      :!window.isSecureContext?'Open this page over HTTPS to use the camera and GPS.'
+      :!configuredVenues().length?'The event venue boundary is not configured. Ask the adviser to set it.'
+      :!gpsEnabled?'Time '+phase+' is open. Turn On GPS to enable attendance scanning.'
+      :!freshPosition()?'Time '+phase+' is open. Waiting for a fresh GPS reading; check location permission or tap Refresh.'
+      :selected.location_policy==='strict'&&!insideSelectedVenue()?'Move inside an event location boundary to scan attendance.'
+      :!navigator.mediaDevices?'Time '+phase+' is open. Camera is unavailable in this browser; Record by ID remains available.'
+      :'Time '+phase+' scanning is open.';
+    const sessionState=$('[data-session-state]');
+    if(sessionState.textContent!==message)sessionState.textContent=message;
+    openButton.title=openButton.disabled?message:'';
+    manualButton.title=manualButton.disabled?message:'';
   }
   function setCheckpoint(next){
     checkpoint=next;lastToken='';lastTokenAt=0;lastTokenIgnoreMs=3000;
@@ -257,8 +270,9 @@
   document.querySelectorAll('[data-checkpoint-option]').forEach(button=>button.addEventListener('click',()=>setCheckpoint(button.dataset.checkpointOption)));
   function renderAssignment(next){
     if(!selected)return;
-    $('[data-attendance-hero-state]').textContent=selected.assignment_state==='upcoming'?'Upcoming':selected.is_session_active?'Session open':'Session closed';
-    $('[data-attendance-hero-detail]').textContent=`${selected.event_name} · Day ${selected.day_number} · ${selected.session_name}`;
+    const heroState=$('[data-attendance-hero-state]'),heroDetail=$('[data-attendance-hero-detail]');
+    if(heroState)heroState.textContent=selected.assignment_state==='upcoming'?'Upcoming':selected.is_session_active?'Session open':'Session closed';
+    if(heroDetail)heroDetail.textContent=`${selected.event_name} · Day ${selected.day_number} · ${selected.session_name}`;
     const assignmentSummary=$('[data-assignment-summary]');
     const detailsOpen=Boolean(assignmentSummary.querySelector('details')?.open);
     const upcoming=selected.assignment_state==='upcoming';
@@ -355,7 +369,15 @@
     try{
       if(!QrScanner)QrScanner=await loadQrModule();
       if(generation!==startGeneration||!dialog.open)return;
-      scanner=new QrScanner(video,onDecode,{preferredCamera:'environment',maxScansPerSecond:10,highlightScanRegion:true,highlightCodeOutline:true,returnDetailedScanResult:true});
+      decodeErrorReported=false;
+      scanner=new QrScanner(video,onDecode,{preferredCamera:'environment',maxScansPerSecond:10,highlightScanRegion:true,highlightCodeOutline:true,returnDetailedScanResult:true,onDecodeError:error=>{
+        if(error===QrScanner.NO_QR_CODE_FOUND||decodeErrorReported)return;
+        decodeErrorReported=true;
+        console.error('Attendance QR decoder failed',error);
+        $('[data-camera-status]').textContent='Camera active; QR reader unavailable';
+        $('[data-camera-message]').textContent='The QR reader could not start. Close the scanner and try again.';
+        scanNotice('error','The QR reader could not start. Close the scanner and try again.',{title:'QR scanner unavailable',duration:8000});
+      }});
       const current=scanner;
       $('[data-camera-status]').textContent='Waiting for camera…';
       cameraHintTimer=setTimeout(()=>{
@@ -369,8 +391,10 @@
       clearTimeout(cameraHintTimer);cameraHintTimer=0;
       cameraButton.textContent='Pause camera';cameraButton.hidden=false;cameraButton.disabled=false;
       preview.classList.remove('is-loading');preview.classList.add('is-active');
-      $('[data-camera-status]').textContent='Camera: active';
-      $('[data-camera-message]').textContent='Point the student QR token inside the highlighted region.';
+      if(!decodeErrorReported){
+        $('[data-camera-status]').textContent='Camera: active';
+        $('[data-camera-message]').textContent='Point the student QR token inside the highlighted region.';
+      }
       try{cameras=await QrScanner.listCameras();cameraIndex=0;if(scanner===current)switchButton.hidden=cameras.length<2;}catch{cameras=[];switchButton.hidden=true;}
       try{if(scanner===current)flashButton.hidden=!(await current.hasFlash());}catch{flashButton.hidden=true;}
     }catch(error){if(generation===startGeneration){notify('error','Camera is unavailable: '+(error?.message||'check permission.'));await stop();$('[data-camera-status]').textContent='Camera unavailable';$('[data-camera-message]').textContent='Allow camera access, then retry.';$('[data-modal-scan-result]').dataset.state='error';$('[data-modal-scan-result]').textContent='Camera could not start. Check permission and retry.';}}
@@ -402,6 +426,6 @@
   window.addEventListener('pagehide',()=>{clearInterval(contextTimer);stopLocationWatch();if(dialog.open)dialog.close();stop();});
   document.addEventListener('visibilitychange',()=>{if(document.hidden){if(dialog.open)dialog.close();stop();}});
   const initialize=isFaculty?window.SharedNavigation.ready:window.SboPortal.initialize('attendance');
-  initialize.then(async context=>{csrf=context.csrfToken;const accountMenu=document.querySelector(isFaculty?'[data-shared-account-menu]':'[data-sbo-account-menu]');if(accountMenu){accountMenu.classList.remove('ml-auto');gpsToggle.classList.add('ml-auto');accountMenu.before(gpsToggle);}await load();if(selected?.is_session_active)loadQrModule().catch(()=>{});contextTimer=setInterval(async()=>{if(isProcessing)return;const old=selected?.id,wasActive=selected?.is_session_active;await load(old||0);if(!wasActive&&selected?.is_session_active)loadQrModule().catch(()=>{});if(!selected?.is_session_active){if(dialog.open)dialog.close();await stop();}},30000);})
-    .catch(error=>notify('error',error.response?.data?.message||error.message));
+  initialize.then(async context=>{csrf=context.csrfToken;const accountMenu=document.querySelector(isFaculty?'[data-shared-account-menu]':'[data-sbo-account-menu]');if(accountMenu){accountMenu.classList.remove('ml-auto');gpsToggle.classList.add('ml-auto');accountMenu.before(gpsToggle);}await load();if(selected?.is_session_active)loadQrModule().catch(()=>{});contextTimer=setInterval(async()=>{if(isProcessing)return;const old=selected?.id,wasActive=selected?.is_session_active;try{await load(old||0);if(!wasActive&&selected?.is_session_active)loadQrModule().catch(()=>{});if(!selected?.is_session_active){if(dialog.open)dialog.close();await stop();}}catch(error){console.error('Attendance refresh failed',error);notify('error',error.response?.data?.message||'Attendance could not refresh. Reload the page and try again.');}},30000);})
+    .catch(error=>{console.error('Attendance initialization failed',error);openButton.disabled=true;manualButton.disabled=true;const message=error.response?.data?.message||'Attendance could not load. Reload the page and try again.';notify('error',message);const alert=document.createElement('p');alert.setAttribute('role','alert');alert.className='mb-4 rounded-xl border border-[#FF6B2C]/30 bg-[#FF6B2C]/10 p-4 text-sm font-bold text-[#9A360C]';alert.textContent=message;document.querySelector('main')?.prepend(alert);});
 })();
