@@ -102,10 +102,17 @@ try{
     $officerUser=(int)$db->lastInsertId();
     $otherTeam=(int)$db->query("SELECT id FROM tbl_teams WHERE is_active=1 AND id<>$team ORDER BY id LIMIT 1")->fetchColumn();
     if(!$otherTeam)throw new RuntimeException('The QR atomicity fixture requires two active tribes.');
-    $db->prepare("INSERT INTO tbl_sbo_officer_assignments(student_id,officer_user_id,team_id,scanner_mode,scanner_team_id,position,term,assigned_by,status,created_at,updated_at) VALUES(?,?,?,'specific',?,'Atomic officer','Atomic term',?,'Active',CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)")->execute([$studentId,$officerUser,$otherTeam,$otherTeam,$actor]);
+    $db->prepare("INSERT INTO tbl_sbo_officer_assignments(student_id,officer_user_id,assigned_by,status,created_at,updated_at) VALUES(?,?,?,'Active',CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)")->execute([$studentId,$officerUser,$actor]);
     $officerAssignment=(int)$db->lastInsertId();
     $db->prepare("INSERT INTO tbl_sbo_event_assignments(officer_assignment_id,event_schedule_id,session_code,activity_id,team_id,responsibility_id,status,assigned_by,created_at,updated_at) VALUES(?,?,'whole_day',?,?,(SELECT id FROM tbl_officer_responsibilities WHERE code='attendance'),'active',?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)")->execute([$officerAssignment,$schedule,$activity,$otherTeam,$actor]);
     $task=(int)$db->lastInsertId();
+    $editRepo=new SboAssignmentRepository($db);
+    $editPayload=['officer_assignment_id'=>$officerAssignment,'event_schedule_id'=>$schedule,'session_code'=>'whole_day','activity_name'=>'Atomic activity','team_id'=>$team,'responsibility'=>'media'];
+    $editId=$editRepo->assign($editPayload,$actor);
+    $editRepo->update(['id'=>$editId]+array_replace($editPayload,['responsibility'=>'attendance','scanner_mode'=>'general']),$actor);
+    $edited=current(array_filter($editRepo->index()['tasks'],fn($row)=>(int)$row['id']===$editId));
+    $assert($edited&&$edited['responsibility']==='attendance'&&$edited['scanner_mode']==='general'&&$edited['scanner_team_id']===null,'editing responsibility updates the existing assignment and scanner scope');
+    $editRepo->end($editId,$actor);
 
     $db->exec("CREATE TRIGGER fail_activity_log BEFORE INSERT ON tbl_activity_logs FOR EACH ROW SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='forced audit failure'");
     $users=new UserManagementRepository($db);$teamsRepo=new TeamManagementRepository($db);$scores=new ScoreManagementRepository($db);$events=new EventManagementRepository($db);$assignments=new SboAssignmentRepository($db);$announcements=new AnnouncementRepository($db);$attendance=new AttendanceManagementRepository($db);$media=new MediaRepository($db);$officers=new OfficerManagementRepository($db);$authUsers=new UserRepository($db);
@@ -200,7 +207,6 @@ try{
     $fails(fn()=>$scanner->scan($officerUser,$scanPayload),'wrong-team scanner rejects the QR');
     $tokenCheck=$db->prepare('SELECT used_at FROM tbl_attendance_qr_tokens WHERE token=?');$tokenCheck->execute([$qrCard['token']]);
     $assert($tokenCheck->fetchColumn()===null,'wrong-team rejection does not consume the QR');
-    $db->prepare('UPDATE tbl_sbo_officer_assignments SET scanner_team_id=? WHERE id=?')->execute([$team,$officerAssignment]);
     $db->prepare('UPDATE tbl_sbo_event_assignments SET team_id=? WHERE id=?')->execute([$team,$task]);
     $fails(fn()=>$scanner->scan($officerUser,$scanPayload),'late activity-log failure aborts attendance scan');
     $tokenCheck->execute([$qrCard['token']]);$assert($tokenCheck->fetchColumn()===null,'late attendance failure rolls back QR consumption');

@@ -649,6 +649,62 @@ details[open] > .attendance-scan-summary .attendance-scan-chevron {
   vertical-align: middle;
 }
 
+#event-responsibilities-dialog form,
+#event-responsibilities-dialog label,
+#event-responsibilities-dialog [data-task-attendance-scanner] {
+  min-width: 0;
+}
+
+#event-responsibilities-dialog select,
+#event-responsibilities-dialog input {
+  min-width: 0;
+  width: 100%;
+  max-width: 100%;
+}
+
+@media (max-width: 639px) {
+  .responsibility-table {
+    min-width: 0;
+  }
+
+  .responsibility-table colgroup,
+  .responsibility-table thead {
+    display: none;
+  }
+
+  .responsibility-table tbody,
+  .responsibility-table tr,
+  .responsibility-table td {
+    display: block;
+    width: 100%;
+  }
+
+  .responsibility-table tr {
+    padding: 12px 16px;
+    border-top: 1px solid rgba(18, 16, 23, .08);
+  }
+
+  .responsibility-table td {
+    padding: 6px 0;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  .responsibility-table td[data-label]::before {
+    content: attr(data-label);
+    display: block;
+    margin-bottom: 2px;
+    color: rgba(18, 16, 23, .5);
+    font-size: 10px;
+    font-weight: 800;
+    text-transform: uppercase;
+  }
+
+  .responsibility-table td[data-label="Actions"] > div {
+    justify-content: flex-start;
+  }
+}
+
 @media (max-width: 767px) {
   .event-detail-hero {
     min-height: 0;

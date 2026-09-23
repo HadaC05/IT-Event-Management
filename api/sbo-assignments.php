@@ -37,7 +37,7 @@ final class SboAssignmentRepository
         $teams=$this->db->query('SELECT id,name,color,school_year_id FROM tbl_teams WHERE is_active=1 ORDER BY name')->fetchAll();
         foreach($teams as &$team){$team['id']=(int)$team['id'];$team['school_year_id']=(int)$team['school_year_id'];}unset($team);
 
-        $tasks=$this->db->query("SELECT sea.id,sea.officer_assignment_id,sea.event_schedule_id,sea.session_code,r.code responsibility,sea.scanner_mode,sea.scanner_team_id,sea.status,
+        $tasks=$this->db->query("SELECT sea.id,sea.officer_assignment_id,sea.event_schedule_id,sea.session_code,sea.activity_id,sea.team_id,r.code responsibility,sea.scanner_mode,sea.scanner_team_id,sea.status,
           e.id event_id,e.title event_name,s.schedule_date,a.name activity_name,t.name team_name,scanner_team.name scanner_team_name,
           u.first_name,u.middle_name,u.last_name,u.username
           FROM tbl_sbo_event_assignments sea
@@ -50,7 +50,7 @@ final class SboAssignmentRepository
           JOIN tbl_teams t ON t.id=sea.team_id AND t.is_active=1
           LEFT JOIN tbl_teams scanner_team ON scanner_team.id=sea.scanner_team_id
           WHERE sea.status='active' ORDER BY s.schedule_date DESC,e.title,u.last_name")->fetchAll();
-        foreach($tasks as &$task){foreach(['id','officer_assignment_id','event_schedule_id','event_id'] as $key)$task[$key]=(int)$task[$key];$task['scanner_team_id']=$task['scanner_team_id']===null?null:(int)$task['scanner_team_id'];$task['officer_name']=$this->name($task);}unset($task);
+        foreach($tasks as &$task){foreach(['id','officer_assignment_id','event_schedule_id','activity_id','team_id','event_id'] as $key)$task[$key]=(int)$task[$key];$task['scanner_team_id']=$task['scanner_team_id']===null?null:(int)$task['scanner_team_id'];$task['officer_name']=$this->name($task);}unset($task);
         return compact('officers','events','teams','tasks');
     }
 
@@ -106,6 +106,52 @@ final class SboAssignmentRepository
             $this->db->prepare("INSERT INTO tbl_activity_logs(actor_id,event_id,officer_assignment_id,action,acting_role,description,created_at,updated_at) VALUES(?,?,?,'sbo_event_assigned','SBO Adviser',?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)")->execute([$actorId,(int)$scheduleRow['event_id'],$officer,"Assigned $responsibility responsibility for $activityName."]);
             $this->db->commit();return$id;
         } catch(Throwable $exception){if($this->db->inTransaction())$this->db->rollBack();throw$exception;}
+    }
+
+    public function update(array $input,int $actorId): void
+    {
+        $id=(int)($input['id']??0);
+        $officer=(int)($input['officer_assignment_id']??0);$schedule=(int)($input['event_schedule_id']??0);
+        $session=trim((string)($input['session_code']??''));$activityName=trim((string)($input['activity_name']??''));
+        $team=(int)($input['team_id']??0);$responsibility=trim((string)($input['responsibility']??''));
+        if($id<1||$officer<1||$schedule<1||$team<1)throw new InvalidArgumentException('Officer, event day, and team are required.');
+        if(!in_array($session,self::SESSIONS,true))throw new InvalidArgumentException('Select a valid session.');
+        if($activityName===''||mb_strlen($activityName)>120)throw new InvalidArgumentException('Activity name is required and may not exceed 120 characters.');
+        $this->db->beginTransaction();
+        try {
+            $task=$this->row('SELECT * FROM tbl_sbo_event_assignments WHERE id=? AND status=? FOR UPDATE',[$id,'active']);
+            if(!$task)throw new InvalidArgumentException('That active responsibility was not found.');
+            if(!$this->scalar("SELECT COUNT(*) FROM tbl_sbo_officer_assignments oa JOIN tbl_users u ON u.id=oa.officer_user_id JOIN tbl_roles r ON r.id=u.role_id AND r.name='SBO Officer' JOIN tbl_user_statuses us ON us.id=u.status AND us.label='active' WHERE oa.id=? AND oa.status='Active'",[$officer]))throw new InvalidArgumentException('Select an active SBO Officer.');
+            $scheduleRow=$this->row('SELECT s.event_id,m.code session_mode,e.event_type_id FROM tbl_event_attendance_schedules s JOIN tbl_attendance_session_modes m ON m.id=s.attendance_session_mode_id JOIN tbl_events e ON e.id=s.event_id AND e.deleted_at IS NULL WHERE s.id=? FOR UPDATE',[$schedule]);
+            if(!$scheduleRow)throw new InvalidArgumentException('The selected event day no longer exists.');
+            $validSessions=$scheduleRow['session_mode']==='whole_day'?['whole_day']:($scheduleRow['session_mode']==='two_sessions'?['morning','afternoon']:[]);
+            if(!in_array($session,$validSessions,true))throw new InvalidArgumentException('That session is not enabled for this event day.');
+            if(!(new AcademicPeriodScope($this->db))->teamIsInEvent((int)$scheduleRow['event_id'],$team))throw new InvalidArgumentException('That team is outside the event academic period or participant scope.');
+            $responsibilityId=(int)$this->scalar('SELECT id FROM tbl_officer_responsibilities WHERE code=?',[$responsibility]);
+            if(!$responsibilityId)throw new InvalidArgumentException('Select a valid responsibility.');
+            [$scannerMode,$scannerTeamId]=$this->scannerScope($input,$responsibility,(int)$scheduleRow['event_id'],$team,true);
+            $activity=$this->row('SELECT id,status FROM tbl_event_activities WHERE event_id=? AND lower(name)=lower(?) LIMIT 1 FOR UPDATE',[(int)$scheduleRow['event_id'],$activityName]);
+            if($activity){
+                $activityId=(int)$activity['id'];
+                if($activity['status']!=='active')$this->db->prepare("UPDATE tbl_event_activities SET status='active',updated_at=CURRENT_TIMESTAMP WHERE id=?")->execute([$activityId]);
+            }else{
+                if($scheduleRow['event_type_id']===null)throw new InvalidArgumentException('Assign an event type before adding an activity.');
+                $this->db->prepare("INSERT INTO tbl_activities(label,event_type_id,status,created_at,updated_at) VALUES(?,?,'active',CURRENT_TIMESTAMP,CURRENT_TIMESTAMP) ON DUPLICATE KEY UPDATE status='active',updated_at=CURRENT_TIMESTAMP")->execute([$activityName,(int)$scheduleRow['event_type_id']]);
+                $catalogId=(int)$this->scalar('SELECT id FROM tbl_activities WHERE event_type_id=? AND label=?',[(int)$scheduleRow['event_type_id'],$activityName]);
+                $this->db->prepare("INSERT INTO tbl_event_activities(event_id,activity_id,name,status,created_by,created_at,updated_at) VALUES(?,?,?,'active',?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)")->execute([(int)$scheduleRow['event_id'],$catalogId,$activityName,$actorId]);
+                $activityId=(int)$this->db->lastInsertId();
+            }
+            $identityChanged=(int)$task['officer_assignment_id']!==$officer||(int)$task['event_schedule_id']!==$schedule||$task['session_code']!==$session||(int)$task['activity_id']!==$activityId||(int)$task['team_id']!==$team||(int)$task['responsibility_id']!==$responsibilityId;
+            if($identityChanged){
+                foreach(['tbl_attendance_entries','tbl_score_sheets','tbl_posts'] as $table)
+                    if($this->scalar("SELECT COUNT(*) FROM $table WHERE sbo_event_assignment_id=?",[$id]))throw new InvalidArgumentException('This responsibility already has attendance, scores, or posts. End it and create a new responsibility to preserve those records.');
+            }
+            $duplicate=$this->scalar("SELECT id FROM tbl_sbo_event_assignments WHERE id<>? AND officer_assignment_id=? AND event_schedule_id=? AND session_code=? AND activity_id=? AND team_id=? AND responsibility_id=? AND status='active' LIMIT 1",[$id,$officer,$schedule,$session,$activityId,$team,$responsibilityId]);
+            if($duplicate)throw new InvalidArgumentException('This responsibility is already assigned.');
+            $this->db->prepare('UPDATE tbl_sbo_event_assignments SET officer_assignment_id=?,event_schedule_id=?,session_code=?,activity_id=?,team_id=?,responsibility_id=?,scanner_mode=?,scanner_team_id=?,updated_at=CURRENT_TIMESTAMP WHERE id=?')->execute([$officer,$schedule,$session,$activityId,$team,$responsibilityId,$scannerMode,$scannerTeamId,$id]);
+            $this->db->prepare("INSERT INTO tbl_activity_logs(actor_id,event_id,officer_assignment_id,action,acting_role,description,created_at,updated_at) VALUES(?,?,?,'sbo_event_updated','SBO Adviser',?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)")->execute([$actorId,(int)$scheduleRow['event_id'],$officer,"Updated $responsibility responsibility for $activityName."]);
+            $this->db->commit();
+        }catch(Throwable $exception){if($this->db->inTransaction())$this->db->rollBack();throw$exception;}
     }
 
     public function end(int $id,int $actorId): void
@@ -181,6 +227,7 @@ try{
     if(!SessionManager::validateCsrf($_SERVER['HTTP_X_CSRF_TOKEN']??null))JsonResponse::send(['success'=>false,'message'=>'Your session expired.'],403);
     $input=json_decode(file_get_contents('php://input'),true);if(!is_array($input))$input=$_POST;$action=(string)($input['action']??'assign');
     if($action==='assign'){$id=$repository->assign($input,(int)$actor['id']);JsonResponse::send(['success'=>true,'message'=>'Event responsibility assigned.','id'=>$id]);}
+    if($action==='update'){$repository->update($input,(int)$actor['id']);JsonResponse::send(['success'=>true,'message'=>'Event responsibility updated.']);}
     if($action==='end'){$repository->end((int)($input['id']??0),(int)$actor['id']);JsonResponse::send(['success'=>true,'message'=>'Event responsibility ended.']);}
     if($action==='criterion'){$repository->addCriterion($input);JsonResponse::send(['success'=>true,'message'=>'Scoring criterion added.']);}
     if($action==='reopen'){$repository->reopen((int)($input['task_id']??0),(int)$actor['id']);JsonResponse::send(['success'=>true,'message'=>'Score sheet reopened for editing.']);}
