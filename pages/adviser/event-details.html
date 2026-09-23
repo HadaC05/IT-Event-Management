@@ -23,7 +23,8 @@
     <main class="admin-main mx-auto w-full max-w-[1500px] px-4 py-7 sm:px-6 lg:px-10 lg:py-9 xl:px-16"
       data-page-content>
       <div class="mb-5">
-        <a class="text-xs font-bold text-slate-500 hover:text-emerald-700" href="pages/adviser/events.html">← Back to
+        <a class="text-xs font-bold text-slate-500 hover:text-emerald-700" href="pages/adviser/events.html">&larr; Back
+          to
           events</a>
       </div>
       <section
@@ -40,7 +41,7 @@
               class="rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-bold text-slate-500" data-type-badge></span>
           </div>
           <h1 class="mt-2 text-3xl font-black leading-tight tracking-tight sm:text-4xl xl:text-5xl" data-event-title>
-            Loading event…
+            Loading event&hellip;
           </h1>
           <p class="mt-3 max-w-xl whitespace-pre-line text-xs leading-5 text-slate-500" data-event-description></p>
           <div class="event-detail-hero__meta mt-5" data-event-hero-meta></div>
@@ -181,14 +182,34 @@
             type="button" data-activity-add>+ Add activity</button>
         </div>
         <form class="flex gap-3 overflow-x-auto border-b border-slate-100 px-5 py-4 sm:px-6" data-activity-filters>
-          <label class="min-w-[200px] flex-1"><span class="sr-only">Search activities</span><input class="h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-xs font-medium outline-none focus:border-[#397565]" type="search" name="search" placeholder="Search activity name..." /></label>
-          <label class="w-44 shrink-0"><span class="sr-only">Filter by schedule</span><select class="h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-xs font-medium outline-none focus:border-[#397565]" name="schedule"><option value="">All schedules</option></select></label>
-          <label class="w-36 shrink-0"><span class="sr-only">Filter by status</span><select class="h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-xs font-medium outline-none focus:border-[#397565]" name="status"><option value="">All statuses</option><option value="active">Active</option><option value="upcoming">Upcoming</option><option value="ongoing">Ongoing</option><option value="completed">Completed</option><option value="inactive">Inactive</option></select></label>
+          <label class="min-w-[200px] flex-1"><span class="sr-only">Search activities</span><input
+              class="h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-xs font-medium outline-none focus:border-[#397565]"
+              type="search" name="search" placeholder="Search activity name..." /></label>
+          <label class="w-44 shrink-0"><span class="sr-only">Filter by schedule</span><select
+              class="h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-xs font-medium outline-none focus:border-[#397565]"
+              name="schedule">
+              <option value="">All schedules</option>
+            </select></label>
+          <label class="w-36 shrink-0"><span class="sr-only">Filter by status</span><select
+              class="h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-xs font-medium outline-none focus:border-[#397565]"
+              name="status">
+              <option value="">All statuses</option>
+              <option value="active">Active</option>
+              <option value="upcoming">Upcoming</option>
+              <option value="ongoing">Ongoing</option>
+              <option value="completed">Completed</option>
+              <option value="inactive">Inactive</option>
+            </select></label>
         </form>
         <div class="overflow-x-auto">
           <table class="w-full min-w-[680px] border-collapse text-left">
             <thead class="bg-slate-50 text-[10px] font-extrabold uppercase tracking-wider text-slate-400">
-              <tr><th class="px-5 py-3.5 sm:px-6">Activity name</th><th class="px-4 py-3.5">Schedule</th><th class="px-4 py-3.5">Status</th><th class="px-5 py-3.5 text-right sm:px-6">Action</th></tr>
+              <tr>
+                <th class="px-5 py-3.5 sm:px-6">Activity name</th>
+                <th class="px-4 py-3.5">Schedule</th>
+                <th class="px-4 py-3.5">Status</th>
+                <th class="px-5 py-3.5 text-right sm:px-6">Action</th>
+              </tr>
             </thead>
             <tbody class="divide-y divide-slate-100" data-activity-list></tbody>
           </table>
@@ -236,9 +257,7 @@
         data-event-tab-panel="scores">
         <div class="mb-5 flex flex-wrap items-end justify-between gap-4">
           <div>
-            <p class="text-[10px] font-extrabold uppercase tracking-wider text-[#397565]">Scoring workspace</p>
             <h2 class="mt-1 text-lg font-extrabold">Competition scoring</h2>
-            <p class="mt-1 text-xs text-slate-500">Set placement rules, enter each team’s raw score, then finalize the result.</p>
           </div>
           <a class="inline-flex min-h-10 items-center rounded-lg bg-[#397565] px-4 text-xs font-bold text-white"
             data-scores-workspace-link>Manage scores</a>
@@ -265,7 +284,7 @@
         </div>
         <button
           class="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-slate-200 text-xl text-slate-500 hover:bg-slate-50"
-          type="button" data-activity-cancel aria-label="Close activity form">×</button>
+          type="button" data-activity-cancel aria-label="Close activity form">&times;</button>
       </div>
       <div class="grid gap-4 px-5 py-5 sm:px-6">
         <label class="grid gap-1.5 text-xs font-bold">Activity
@@ -300,12 +319,35 @@
       </div>
     </form>
   </dialog>
-  <dialog class="m-auto w-[min(620px,calc(100%_-_2rem))] rounded-2xl border-0 bg-white p-0 text-[#121017] shadow-2xl backdrop:bg-[#121017]/60" data-points-dialog aria-labelledby="points-dialog-title">
+  <dialog
+    class="m-auto w-[min(620px,calc(100%_-_2rem))] rounded-2xl border-0 bg-white p-0 text-[#121017] shadow-2xl backdrop:bg-[#121017]/60"
+    data-points-dialog aria-labelledby="points-dialog-title">
     <form data-points-form>
       <input type="hidden" name="activity_id" value="" />
-      <header class="flex items-start justify-between gap-4 border-b border-slate-200 px-5 py-5 sm:px-6"><div><p class="text-[10px] font-extrabold uppercase tracking-wider text-[#397565]">Competition scoring</p><h2 class="mt-1 text-xl font-extrabold" id="points-dialog-title">Set points</h2><p class="mt-1 text-xs text-slate-500" data-points-activity-name></p><p class="mt-1 text-xs text-slate-400">Unlisted placements receive zero points.</p></div><button class="grid h-9 w-9 place-items-center rounded-lg border border-slate-200 text-xl text-slate-500 hover:bg-slate-50" type="button" data-points-cancel aria-label="Close points form">×</button></header>
-      <div class="p-5 sm:p-6"><div class="mb-2 grid gap-3 text-[10px] font-extrabold uppercase tracking-wide text-slate-400" style="grid-template-columns:minmax(0,1fr) minmax(0,1fr) 88px"><span>Place</span><span>Points</span><span class="text-center">Action</span></div><div class="grid gap-3" data-points-rule-list></div><button class="mt-4 text-xs font-bold text-[#397565] hover:underline" type="button" data-points-add>+ Add placement</button><p class="mt-3 hidden text-xs font-semibold text-red-600" data-points-error role="alert"></p></div>
-      <footer class="flex justify-end gap-2 border-t border-slate-200 px-5 py-4 sm:px-6"><button class="min-h-10 rounded-lg border border-slate-300 px-4 text-xs font-bold text-slate-600" type="button" data-points-cancel>Cancel</button><button class="min-h-10 rounded-lg bg-[#397565] px-5 text-xs font-bold text-white disabled:opacity-50" type="submit" data-points-save>Save points</button></footer>
+      <header class="flex items-start justify-between gap-4 border-b border-slate-200 px-5 py-5 sm:px-6">
+        <div>
+          <p class="text-[10px] font-extrabold uppercase tracking-wider text-[#397565]">Competition scoring</p>
+          <h2 class="mt-1 text-xl font-extrabold" id="points-dialog-title">Set points</h2>
+          <p class="mt-1 text-xs text-slate-500" data-points-activity-name></p>
+          <p class="mt-1 text-xs text-slate-400">Unlisted placements receive zero points.</p>
+        </div><button
+          class="grid h-9 w-9 place-items-center rounded-lg border border-slate-200 text-xl text-slate-500 hover:bg-slate-50"
+          type="button" data-points-cancel aria-label="Close points form">&times;</button>
+      </header>
+      <div class="p-5 sm:p-6">
+        <div class="mb-2 grid gap-3 text-[10px] font-extrabold uppercase tracking-wide text-slate-400"
+          style="grid-template-columns:minmax(0,1fr) minmax(0,1fr) 88px"><span>Place</span><span>Points</span><span
+            class="text-center">Action</span></div>
+        <div class="grid gap-3" data-points-rule-list></div><button
+          class="mt-4 text-xs font-bold text-[#397565] hover:underline" type="button" data-points-add>+ Add
+          placement</button>
+        <p class="mt-3 hidden text-xs font-semibold text-red-600" data-points-error role="alert"></p>
+      </div>
+      <footer class="flex justify-end gap-2 border-t border-slate-200 px-5 py-4 sm:px-6"><button
+          class="min-h-10 rounded-lg border border-slate-300 px-4 text-xs font-bold text-slate-600" type="button"
+          data-points-cancel>Cancel</button><button
+          class="min-h-10 rounded-lg bg-[#397565] px-5 text-xs font-bold text-white disabled:opacity-50" type="submit"
+          data-points-save>Save points</button></footer>
     </form>
   </dialog>
   <div
