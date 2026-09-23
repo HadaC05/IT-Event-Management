@@ -22,6 +22,7 @@ const assignment = {
       const context = await browser.newContext({viewport: {width: 390, height: 844}, geolocation: {latitude: 8.4699237, longitude: 124.6342058}});
       await context.grantPermissions(['geolocation'], {origin});
       const page = await context.newPage();
+      await page.clock.install();
       const errors = [];
       page.on('pageerror', error => errors.push(error.message));
       await page.route('**/api/**', route => {
@@ -76,6 +77,71 @@ const assignment = {
       assert.equal(await page.locator('[data-manual-submit]').isDisabled(), true);
       assert.match(await page.locator('[data-session-state]').textContent(), /Turn On GPS/);
       console.log(`PASS: ${role} explains why scanning is disabled when GPS is off`);
+
+      // A stationary phone may never fire another watchPosition callback.
+      // Only explicit getCurrentPosition calls can keep this mock fresh.
+      await page.evaluate(() => {
+        window.gpsTest = {requests: 0, mode: 'fresh'};
+        const result = () => ({coords: {latitude: 8.4699237, longitude: 124.6342058, accuracy: 10}, timestamp: Date.now()});
+        Object.defineProperty(navigator, 'geolocation', {configurable: true, value: {
+          watchPosition(success) { queueMicrotask(() => success(result())); return 1; },
+          clearWatch() {},
+          getCurrentPosition(success, error) {
+            window.gpsTest.requests++;
+            queueMicrotask(() => window.gpsTest.mode === 'fresh' ? success(result()) : error({code: window.gpsTest.mode === 'denied' ? 1 : 3}));
+          },
+        }});
+      });
+      await page.locator('[data-gps-toggle]').click();
+      await page.waitForFunction(() => !document.querySelector('[data-scanner-open]').disabled);
+      await page.clock.runFor(95000);
+      assert.equal(await page.locator('[data-scanner-open]').isDisabled(), false, `${role} keeps a stationary phone ready beyond the 30-second GPS expiry`);
+      assert.ok(await page.evaluate(() => window.gpsTest.requests >= 4), `${role} actively refreshes GPS even without watch updates`);
+      console.log(`PASS: ${role} refreshes stationary-phone GPS for 95 seconds`);
+
+      await page.evaluate(() => { window.gpsTest.mode = 'timeout'; });
+      await page.clock.runFor(40000);
+      assert.equal(await page.locator('[data-scanner-open]').isDisabled(), true, `${role} blocks scanning when fresh GPS cannot be acquired`);
+      assert.equal(await page.locator('[data-manual-submit]').isDisabled(), true, `${role} also protects manual attendance from stale GPS`);
+      await page.evaluate(() => { window.gpsTest.mode = 'fresh'; });
+      await page.clock.runFor(15000);
+      assert.equal(await page.locator('[data-scanner-open]').isDisabled(), false, `${role} recovers automatically when GPS becomes available again`);
+      console.log(`PASS: ${role} blocks stale GPS and recovers after a temporary outage`);
+
+      await page.evaluate(() => {
+        window.gpsTest.hidden = true;
+        Object.defineProperty(document, 'hidden', {configurable: true, get: () => window.gpsTest.hidden});
+        document.dispatchEvent(new Event('visibilitychange'));
+      });
+      const requestsWhenHidden = await page.evaluate(() => window.gpsTest.requests);
+      await page.clock.runFor(40000);
+      assert.equal(await page.evaluate(() => window.gpsTest.requests), requestsWhenHidden, `${role} pauses GPS refresh while hidden`);
+      await page.evaluate(() => {
+        window.gpsTest.hidden = false;
+        document.dispatchEvent(new Event('visibilitychange'));
+      });
+      await page.waitForFunction(() => !document.querySelector('[data-scanner-open]').disabled);
+      assert.ok(await page.evaluate(() => window.gpsTest.requests) > requestsWhenHidden, `${role} refreshes immediately on returning to the page`);
+      console.log(`PASS: ${role} pauses location requests in the background and refreshes on return`);
+
+      await page.evaluate(() => { window.gpsTest.mode = 'denied'; });
+      await page.clock.runFor(40000);
+      assert.equal(await page.locator('[data-scanner-open]').isDisabled(), true);
+      const requestsAfterDenial = await page.evaluate(() => window.gpsTest.requests);
+      await page.clock.runFor(40000);
+      assert.equal(await page.evaluate(() => window.gpsTest.requests), requestsAfterDenial, `${role} does not repeatedly request denied permission`);
+      await page.evaluate(() => { window.gpsTest.mode = 'fresh'; });
+      if (await page.locator('[data-gps-policy-dialog]').isVisible()) await page.locator('[data-gps-policy-confirm]').click();
+      await page.locator('[data-location-refresh]').click();
+      await page.waitForFunction(() => !document.querySelector('[data-scanner-open]').disabled);
+      console.log(`PASS: ${role} respects denied permission and supports an explicit retry`);
+
+      await page.locator('[data-gps-toggle]').click();
+      const requestsWhenOff = await page.evaluate(() => window.gpsTest.requests);
+      await page.clock.runFor(40000);
+      assert.equal(await page.evaluate(() => window.gpsTest.requests), requestsWhenOff, `${role} stops requesting location when GPS is turned off`);
+      assert.equal(await page.locator('[data-scanner-open]').isDisabled(), true);
+      assert.deepEqual(errors, [], `${role} GPS recovery has no uncaught errors`);
       await context.close();
     }
   } finally {

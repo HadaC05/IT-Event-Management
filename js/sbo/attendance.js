@@ -12,6 +12,7 @@
   let csrf='',assignments=[],selected=null,scanner=null,QrScanner=null,cameras=[],cameraIndex=0,position=null;
   let locationReason='not_provided',locationRequest=null,locationWatchId=null,gpsEnabled=false,gpsGeneration=0,gpsManuallyDisabled=false,isProcessing=false,cooldownUntil=0,lastToken='',lastTokenAt=0,lastTokenIgnoreMs=3000,lastScanToast=null,contextTimer=0,startGeneration=0,cameraHintTimer=0;
   let qrModulePromise=null,checkpoint='in',decodeErrorReported=false;
+  let locationRefreshTimer=0;
   const shownGpsNotices=new Map();
   const time=value=>value?new Intl.DateTimeFormat('en-PH',{hour:'numeric',minute:'2-digit'}).format(new Date('2000-01-01T'+value)):'—';
   const date=value=>value?new Intl.DateTimeFormat('en-PH',{dateStyle:'medium'}).format(new Date(value.replace(' ','T'))):'—';
@@ -171,9 +172,24 @@
     if(locationWatchId!==null)navigator.geolocation.clearWatch(locationWatchId);
     locationWatchId=null;
   }
+  function stopLocationRefresh(){
+    window.clearInterval(locationRefreshTimer);
+    locationRefreshTimer=0;
+  }
+  function startLocationRefresh(){
+    stopLocationRefresh();
+    // watchPosition reports movement; it does not guarantee periodic readings.
+    // Renew before the 30-second limit, including while the scanner is open.
+    locationRefreshTimer=window.setInterval(()=>{
+      if(!gpsEnabled||document.hidden||!selected?.is_session_active)return;
+      renderLocation();
+      if(locationRequest||locationReason==='permission_denied')return;
+      if(!position||Date.now()-position.timestamp>=15000)getLocation(true);
+    },5000);
+  }
   function turnOffGps(manual=false){
     if(manual)gpsManuallyDisabled=true;
-    gpsGeneration++;stopLocationWatch();locationRequest=null;gpsEnabled=false;position=null;locationReason='not_provided';
+    gpsGeneration++;stopLocationRefresh();stopLocationWatch();locationRequest=null;gpsEnabled=false;position=null;locationReason='not_provided';
     locationRefresh.disabled=false;locationRefresh.textContent='Refresh';renderLocation();
   }
   function toggleGps(){
@@ -185,14 +201,14 @@
       if(!gpsPolicyDialog.open)gpsPolicyDialog.showModal();
       return;
     }
-    gpsManuallyDisabled=false;gpsGeneration++;gpsEnabled=true;locationReason='checking';renderLocation();getLocation(true).catch(()=>{});
+    gpsManuallyDisabled=false;gpsGeneration++;gpsEnabled=true;locationReason='checking';startLocationRefresh();renderLocation();getLocation(true).catch(()=>{});
   }
   async function autoStartGps(){
     if(gpsEnabled||gpsManuallyDisabled||!selected||!navigator.geolocation||!navigator.permissions?.query)return freshPosition()?position:null;
     try{
       const permission=await navigator.permissions.query({name:'geolocation'});
       if(permission.state!=='granted'||gpsEnabled||gpsManuallyDisabled)return freshPosition()?position:null;
-      gpsGeneration++;gpsEnabled=true;locationReason='checking';renderLocation();return await getLocation(true);
+      gpsGeneration++;gpsEnabled=true;locationReason='checking';startLocationRefresh();renderLocation();return await getLocation(true);
     }catch{return null;}
   }
   function showGpsPolicyNotice(force=false){
@@ -423,8 +439,11 @@
   gpsPolicyDialog.addEventListener('click',event=>{if(event.target===gpsPolicyDialog)gpsPolicyDialog.close();});
   selector.addEventListener('change',async()=>{if(dialog.open)dialog.close();await stop();turnOffGps();await load(Number(selector.value));});
   $('[data-manual-form]').addEventListener('submit',async event=>{event.preventDefault();const field=event.currentTarget.elements.student_id;const value=field.value.trim();if(!value)return;if(await submit({mode:'manual',student_id:value}))field.value='';});
-  window.addEventListener('pagehide',()=>{clearInterval(contextTimer);stopLocationWatch();if(dialog.open)dialog.close();stop();});
-  document.addEventListener('visibilitychange',()=>{if(document.hidden){if(dialog.open)dialog.close();stop();}});
+  window.addEventListener('pagehide',()=>{clearInterval(contextTimer);stopLocationRefresh();stopLocationWatch();if(dialog.open)dialog.close();stop();});
+  document.addEventListener('visibilitychange',()=>{
+    if(document.hidden){stopLocationRefresh();stopLocationWatch();if(dialog.open)dialog.close();stop();}
+    else if(gpsEnabled){startLocationRefresh();if(locationReason!=='permission_denied')getLocation(true);}
+  });
   const initialize=isFaculty?window.SharedNavigation.ready:window.SboPortal.initialize('attendance');
   initialize.then(async context=>{csrf=context.csrfToken;const accountMenu=document.querySelector(isFaculty?'[data-shared-account-menu]':'[data-sbo-account-menu]');if(accountMenu){accountMenu.classList.remove('ml-auto');gpsToggle.classList.add('ml-auto');accountMenu.before(gpsToggle);}await load();if(selected?.is_session_active)loadQrModule().catch(()=>{});contextTimer=setInterval(async()=>{if(isProcessing)return;const old=selected?.id,wasActive=selected?.is_session_active;try{await load(old||0);if(!wasActive&&selected?.is_session_active)loadQrModule().catch(()=>{});if(!selected?.is_session_active){if(dialog.open)dialog.close();await stop();}}catch(error){console.error('Attendance refresh failed',error);notify('error',error.response?.data?.message||'Attendance could not refresh. Reload the page and try again.');}},30000);})
     .catch(error=>{console.error('Attendance initialization failed',error);openButton.disabled=true;manualButton.disabled=true;const message=error.response?.data?.message||'Attendance could not load. Reload the page and try again.';notify('error',message);const alert=document.createElement('p');alert.setAttribute('role','alert');alert.className='mb-4 rounded-xl border border-[#FF6B2C]/30 bg-[#FF6B2C]/10 p-4 text-sm font-bold text-[#9A360C]';alert.textContent=message;document.querySelector('main')?.prepend(alert);});
