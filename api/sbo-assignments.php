@@ -127,6 +127,46 @@ final class SboAssignmentRepository
         }
     }
 
+    public function syncEvent(array $input, int $actorId): void
+    {
+        $officerId = (int) ($input['officer_assignment_id'] ?? 0);
+        $eventId = (int) ($input['event_id'] ?? 0);
+        $rawScheduleIds = $input['event_schedule_ids'] ?? [];
+        if (!is_array($rawScheduleIds)) throw new InvalidArgumentException('Choose valid event days.');
+        $scheduleIds = array_values(array_unique(array_filter(array_map('intval', $rawScheduleIds), fn (int $id): bool => $id > 0)));
+        $scannerMode = $this->scannerMode($input);
+        if ($officerId < 1 || $eventId < 1 || !$scheduleIds) throw new InvalidArgumentException('Officer, event, and at least one event day are required.');
+        if (count($scheduleIds) > 50) throw new InvalidArgumentException('Select no more than 50 event days at once.');
+
+        $this->db->beginTransaction();
+        try {
+            $active = $this->db->prepare("SELECT sea.id FROM tbl_sbo_event_assignments sea
+                JOIN tbl_event_attendance_schedules s ON s.id=sea.event_schedule_id
+                WHERE sea.officer_assignment_id=? AND s.event_id=? AND sea.status='active' FOR UPDATE");
+            $active->execute([$officerId, $eventId]);
+            if (!$active->fetchColumn()) throw new InvalidArgumentException('That active event access was not found.');
+
+            $marks = implode(',', array_fill(0, count($scheduleIds), '?'));
+            $valid = $this->db->prepare("SELECT COUNT(*) FROM tbl_event_attendance_schedules WHERE event_id=? AND id IN ($marks)");
+            $valid->execute([$eventId, ...$scheduleIds]);
+            if ((int) $valid->fetchColumn() !== count($scheduleIds)) throw new InvalidArgumentException('Select event days from this event only.');
+
+            foreach ($scheduleIds as $scheduleId) $this->saveBundle($officerId, $scheduleId, $scannerMode, $actorId);
+
+            $remove = $this->db->prepare("UPDATE tbl_sbo_event_assignments sea
+                JOIN tbl_event_attendance_schedules s ON s.id=sea.event_schedule_id
+                SET sea.status='inactive',sea.ended_by=?,sea.ended_at=CURRENT_TIMESTAMP,sea.updated_at=CURRENT_TIMESTAMP
+                WHERE sea.officer_assignment_id=? AND s.event_id=? AND sea.status='active'
+                AND sea.event_schedule_id NOT IN ($marks)");
+            $remove->execute([$actorId, $officerId, $eventId, ...$scheduleIds]);
+            $this->log($actorId, $eventId, $officerId, 'sbo_event_updated', 'Updated event schedules and attendance scanner access.');
+            $this->db->commit();
+        } catch (Throwable $exception) {
+            if ($this->db->inTransaction()) $this->db->rollBack();
+            throw $exception;
+        }
+    }
+
     public function update(array $input, int $actorId): void
     {
         $id = (int) ($input['id'] ?? 0);
@@ -392,6 +432,10 @@ try {
     if ($action === 'end_event') {
         $repository->endEvent((int) ($input['officer_assignment_id'] ?? 0), (int) ($input['event_id'] ?? 0), (int) $actor['id']);
         JsonResponse::send(['success' => true, 'message' => 'Event access ended for every schedule.']);
+    }
+    if ($action === 'sync_event') {
+        $repository->syncEvent($input, (int) $actor['id']);
+        JsonResponse::send(['success' => true, 'message' => 'Selected event schedules saved.']);
     }
     if ($action === 'criterion') {
         $repository->addCriterion($input);

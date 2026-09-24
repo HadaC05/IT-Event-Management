@@ -4,6 +4,7 @@
     const API = 'api/sbo-assignments.php';
     let csrf = '';
     let editingId = null;
+    let editingEventId = null;
     let data = { officers: [], events: [], tasks: [], assignment_groups: [] };
 
     const esc = value => String(value ?? '')
@@ -156,9 +157,10 @@
 
     const resetEdit = () => {
         editingId = null;
+        editingEventId = null;
         removeMixedScannerOption();
         form.reset();
-        eventDays.querySelectorAll('input[type="checkbox"]').forEach(input => { input.checked = false; });
+        eventDays.querySelectorAll('input[type="checkbox"]').forEach(input => { input.checked = false; input.disabled = false; });
         officer.disabled = !data.officers.length;
         title.textContent = 'Event Responsibilities';
         submit.textContent = 'Assign event access';
@@ -184,7 +186,7 @@
             ? data.officers.map(item => `<option value="${item.id}">${esc(item.full_name)}</option>`).join('')
             : '<option value="">No active Officer access</option>';
         eventDays.innerHTML = hasEvents
-            ? data.events.map(item => `<label class="task-event-day"><input type="checkbox" name="event_schedule_ids[]" value="${item.schedule_id}"><span><strong>${esc(item.title)}</strong><small>${esc(item.schedule_date)}</small></span></label>`).join('')
+            ? data.events.map(item => `<label class="task-event-day"><input type="checkbox" name="event_schedule_ids[]" value="${item.schedule_id}" data-event-id="${item.id}"><span><strong>${esc(item.title)}</strong><small>${esc(item.schedule_date)}</small></span></label>`).join('')
             : '<p class="px-3 py-5 text-center text-sm text-[#121017]/45">No event days available.</p>';
         officer.disabled = !hasOfficers;
         syncSubmit();
@@ -246,11 +248,12 @@
             return;
         }
         const payload = {
-            action: 'assign',
+            action: wasEditing ? 'sync_event' : 'assign',
             officer_assignment_id: officer.value,
             event_schedule_ids: scheduleIds,
             scanner_mode: scannerMode.value,
         };
+        if (wasEditing) payload.event_id = editingEventId;
         submit.disabled = true;
         try {
             const response = await axios.post(API, payload, { headers: { 'X-CSRF-Token': csrf } });
@@ -272,13 +275,17 @@
                 const group = (data.assignment_groups || []).find(item => item.key === edit.dataset.taskEdit);
                 if (!group) throw new Error('That event access is no longer active.');
                 editingId = group.key;
+                editingEventId = group.event_id;
                 title.textContent = `Edit ${group.event_name}`;
                 submit.textContent = 'Save selected schedules';
                 cancelEdit.classList.remove('hidden');
                 officer.value = String(group.officer_assignment_id);
                 officer.disabled = true;
                 const scheduleIds = new Set(group.schedules.map(schedule => schedule.event_schedule_id));
-                eventDays.querySelectorAll('input[type="checkbox"]').forEach(input => { input.checked = scheduleIds.has(Number(input.value)); });
+                eventDays.querySelectorAll('input[type="checkbox"]').forEach(input => {
+                    input.disabled = Number(input.dataset.eventId) !== group.event_id;
+                    input.checked = !input.disabled && scheduleIds.has(Number(input.value));
+                });
                 removeMixedScannerOption();
                 if (group.scanner_mode === 'mixed') {
                     const mixedOption = new Option('Mixed — choose General or Specific', '', true, true);
