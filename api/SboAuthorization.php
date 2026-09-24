@@ -32,9 +32,7 @@ final class SboAuthorization
           JOIN tbl_events e ON e.id=s.event_id AND e.deleted_at IS NULL
           JOIN tbl_academic_periods ap ON ap.id=e.academic_period_id
           JOIN tbl_school_years sy ON sy.id=ap.school_year_id
-          JOIN tbl_event_activities a ON a.event_id=e.id AND a.status<>'inactive'
-            AND ((r.code='scoring' AND (a.event_schedule_id=sea.event_schedule_id OR a.event_schedule_id IS NULL))
-              OR (r.code<>'scoring' AND a.id=sea.activity_id))
+          JOIN tbl_event_activities a ON a.id=sea.activity_id AND a.event_id=e.id AND a.status<>'inactive'
           JOIN tbl_teams t ON t.id=sea.team_id AND t.is_active=1 AND t.school_year_id=ap.school_year_id
           LEFT JOIN tbl_teams allowed_team ON allowed_team.id=COALESCE(sea.scanner_team_id,sea.team_id)
           WHERE oa.officer_user_id=? AND sea.status='active' AND r.code=?

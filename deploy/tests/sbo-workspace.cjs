@@ -14,7 +14,7 @@ const assignment = {
   is_session_active: false, in_window_open: false, out_window_open: false,
   location_policy: 'warning', venues: [], venue_name: 'CITE Hall',
 };
-const scoring = {...assignment, assignment_state: 'active'};
+const scoring = {...assignment, activity_id: 3, activity_name: 'Design Challenge', selection_id: '11:3', assignment_state: 'current'};
 const students = [
   {id: 1, id_number: '2026-001', full_name: 'Michaella Jane Calunsag', year_level: 'Fourth Year', team_name: 'Titan Slayers', attendance_status: 'present', email: 'michaella@example.test'},
   {id: 2, id_number: '2026-002', full_name: 'Brian D. Ragasi', year_level: 'Fourth Year', team_name: 'Titan Slayers', attendance_status: 'not_recorded', email: 'pending.2@pending.invalid'},
@@ -36,7 +36,7 @@ async function respond(route, empty) {
   if (url.pathname.endsWith('/sbo-scores.php')) payload = {success: true, data: {
     assignments: empty ? [] : [scoring], selected: empty ? null : scoring,
     categories: empty ? [] : [{id: 3, name: 'Creativity', min_points: 0, max_points: 50}, {id: 4, name: 'Execution', min_points: 0, max_points: 50}],
-    teams: empty ? [] : [{id: 7, name: 'Titan Slayers'}], scores: empty ? {} : {7: {3: 25, 4: 30}}, sheet: empty ? null : {status: 'draft'},
+    teams: empty ? [] : [{id: 7, name: 'Titan Slayers'}], raw_scores: empty ? {} : {7: 55}, finalized: false,
   }};
   if (url.pathname.endsWith('/sbo-attendance.php')) payload = {success: true, data: {
     assignments: empty ? [] : [assignment], selected_assignment: empty ? null : assignment,
@@ -65,9 +65,9 @@ async function respond(route, empty) {
           assert.equal(await page.getByText('pending.2@pending.invalid').count(), 0);
         }
         if (pageName === 'scores') {
-          await page.locator('[data-score-hero-state]').getByText('In progress').waitFor();
-          assert.equal(await page.locator('[data-total="7"]').textContent(), '55.00');
-          assert.equal(await page.locator('[data-score-grid] input').count(), 2);
+          await page.locator('[data-score-hero-state]').getByText('Saved').waitFor();
+          assert.equal(await page.locator('[data-score-grid] input').inputValue(), '55');
+          assert.equal(await page.locator('[data-score-grid] input').count(), 1);
           if (width <= 760) assert.equal(await page.locator('[data-score-form] footer').evaluate(element => getComputedStyle(element).position), 'static');
         }
         if (pageName === 'attendance') {
