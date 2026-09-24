@@ -66,6 +66,7 @@ final class SboAssignmentRepository
                     'id' => $task['id'],
                     'officer_assignment_id' => $task['officer_assignment_id'],
                     'event_schedule_id' => $task['event_schedule_id'],
+                    'event_id' => $task['event_id'],
                     'officer_name' => $task['officer_name'],
                     'event_name' => $task['event_name'],
                     'schedule_date' => $task['schedule_date'],

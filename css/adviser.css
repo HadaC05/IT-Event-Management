@@ -653,6 +653,12 @@ details[open] > .attendance-scan-summary .attendance-scan-chevron {
   min-width: 720px;
 }
 
+.responsibility-table col:nth-child(1) { width: 30%; }
+.responsibility-table col:nth-child(2) { width: 23%; }
+.responsibility-table col:nth-child(3) { width: 17%; }
+.responsibility-table col:nth-child(4) { width: 13%; }
+.responsibility-table col:nth-child(5) { width: 17%; }
+
 .officers-table {
   min-width: 1080px;
 }

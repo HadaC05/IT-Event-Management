@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -7,135 +8,451 @@
     <title>SBO Officer Management | CITE Events</title>
     <link rel="icon" type="image/png" sizes="512x512" href="assets/images/cite_favicon.png">
     <link rel="stylesheet" href="css/tailwind.css">
-    <link rel="stylesheet" href="css/adviser.css?v=20260924-multi-day-1">
+    <link rel="stylesheet" href="css/adviser.css?v=20260924-action-row-1">
     <script src="js/shared/notifications.js?v=20260917-7" defer></script>
     <script src="js/shared/interactions.js?v=20260917-flat-1" defer></script>
 </head>
-<body class="app-shell min-h-screen bg-white font-sans text-[#121017] antialiased" data-admin-shell data-navigation-role="adviser">
+
+<body class="app-shell min-h-screen bg-white font-sans text-[#121017] antialiased" data-admin-shell
+    data-navigation-role="adviser">
     <span class="route-progress" data-route-progress data-active="false" aria-hidden="true"></span>
 
     <div data-shared-navigation-host></div>
     <div class="min-h-screen lg:ml-20">
 
-        <main class="admin-main mx-auto w-full max-w-[1500px] px-4 py-7 sm:px-6 lg:px-10 lg:py-9 xl:px-16" data-page-content>
+        <main class="admin-main mx-auto w-full max-w-[1500px] px-4 py-7 sm:px-6 lg:px-10 lg:py-9 xl:px-16"
+            data-page-content>
             <header class="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-                <div><p class="mb-2 text-xs font-black uppercase tracking-[.14em] text-[#397565]">Account assignments</p><h1 class="text-3xl font-black tracking-tight sm:text-4xl">SBO Officer Management</h1><p class="mt-2 text-sm text-[#121017]/55">Manage officer accounts and event responsibilities.</p></div>
+                <div>
+
+                    <h1 class="text-3xl font-black tracking-tight sm:text-4xl">SBO Officer Management</h1>
+                </div>
             </header>
 
-            <div class="mb-5 grid w-full grid-cols-2 rounded-xl border border-[#121017]/10 bg-[#F3F0E9]/55 p-1" role="tablist" aria-label="SBO officer management sections">
-                <button class="w-full rounded-lg bg-white px-4 py-2 text-sm font-black text-[#397565] shadow-sm" type="button" role="tab" aria-selected="true" aria-controls="officer-list-panel" id="officer-list-tab" data-officer-tab="officers">Officers</button>
-                <button class="w-full rounded-lg px-4 py-2 text-sm font-black text-[#121017]/55 transition hover:text-[#397565]" type="button" role="tab" aria-selected="false" aria-controls="officer-assignments-panel" id="officer-assignments-tab" data-officer-tab="assignments">Assignments</button>
+            <div class="mb-5 grid w-full grid-cols-2 rounded-xl border border-[#121017]/10 bg-[#F3F0E9]/55 p-1"
+                role="tablist" aria-label="SBO officer management sections">
+                <button class="w-full rounded-lg bg-white px-4 py-2 text-sm font-black text-[#397565] shadow-sm"
+                    type="button" role="tab" aria-selected="true" aria-controls="officer-list-panel"
+                    id="officer-list-tab" data-officer-tab="officers">Officers</button>
+                <button
+                    class="w-full rounded-lg px-4 py-2 text-sm font-black text-[#121017]/55 transition hover:text-[#397565]"
+                    type="button" role="tab" aria-selected="false" aria-controls="officer-assignments-panel"
+                    id="officer-assignments-tab" data-officer-tab="assignments">Assignments</button>
             </div>
 
-            <section id="officer-list-panel" role="tabpanel" aria-labelledby="officer-list-tab" data-officer-tab-panel="officers" class="overflow-hidden rounded-2xl border border-[#121017]/10 bg-white shadow-sm">
+            <section id="officer-list-panel" role="tabpanel" aria-labelledby="officer-list-tab"
+                data-officer-tab-panel="officers"
+                class="overflow-hidden rounded-2xl border border-[#121017]/10 bg-white shadow-sm">
                 <header class="border-b border-[#121017]/8 px-5 py-5">
-                    <div class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between"><div><h2 class="text-lg font-black">Officers</h2><p class="mt-1 text-xs text-[#121017]/45" data-officer-result-count></p></div><button class="inline-flex min-h-10 items-center justify-center rounded-xl bg-[#397565] px-4 text-xs font-black text-white shadow-lg" type="button" data-dialog-open="assign-officer-dialog">+ Create Officer Access</button></div>
-                    <form class="mt-4 grid gap-2 sm:grid-cols-[minmax(0,1fr)_180px]" data-officer-filters data-axios-form>
-                        <label class="relative"><span class="sr-only">Search officers or events</span><svg class="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 fill-none stroke-[#121017]/35 stroke-2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg><input class="h-11 w-full rounded-xl border border-[#121017]/10 bg-[#F3F0E9]/45 pl-10 pr-3 text-sm outline-none transition placeholder:text-[#121017]/35 focus:border-[#397565] focus:bg-white" type="search" name="search" maxlength="100" placeholder="Search officer, event, ID, or tribe…" autocomplete="off"></label>
-                        <label><span class="sr-only">Filter by assignment status</span><select class="h-11 w-full rounded-xl border border-[#121017]/10 bg-[#F3F0E9]/45 px-3 text-sm text-[#121017]/60 outline-none focus:border-[#397565] focus:bg-white" name="status"><option value="">Any status</option><option value="active">Active</option><option value="inactive">Inactive</option></select></label>
+                    <div class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+                        <div>
+                            <h2 class="text-lg font-black">Officers</h2>
+                            <p class="mt-1 text-xs text-[#121017]/45" data-officer-result-count></p>
+                        </div><button
+                            class="inline-flex min-h-10 items-center justify-center rounded-xl bg-[#397565] px-4 text-xs font-black text-white shadow-lg"
+                            type="button" data-dialog-open="assign-officer-dialog">+ Create Officer Access</button>
+                    </div>
+                    <form class="mt-4 grid gap-2 sm:grid-cols-[minmax(0,1fr)_180px]" data-officer-filters
+                        data-axios-form>
+                        <label class="relative"><span class="sr-only">Search officers or events</span><svg
+                                class="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 fill-none stroke-[#121017]/35 stroke-2"
+                                viewBox="0 0 24 24">
+                                <circle cx="11" cy="11" r="7" />
+                                <path d="m20 20-4-4" />
+                            </svg><input
+                                class="h-11 w-full rounded-xl border border-[#121017]/10 bg-[#F3F0E9]/45 pl-10 pr-3 text-sm outline-none transition placeholder:text-[#121017]/35 focus:border-[#397565] focus:bg-white"
+                                type="search" name="search" maxlength="100"
+                                placeholder="Search officer, event, ID, or tribe…" autocomplete="off"></label>
+                        <label><span class="sr-only">Filter by assignment status</span><select
+                                class="h-11 w-full rounded-xl border border-[#121017]/10 bg-[#F3F0E9]/45 px-3 text-sm text-[#121017]/60 outline-none focus:border-[#397565] focus:bg-white"
+                                name="status">
+                                <option value="">Any status</option>
+                                <option value="active">Active</option>
+                                <option value="inactive">Inactive</option>
+                            </select></label>
                     </form>
                 </header>
-                <div class="overflow-x-auto"><table class="officer-management-table officers-table w-full text-left text-sm"><colgroup><col><col><col><col><col><col></colgroup><thead class="border-y border-[#121017]/8 bg-[#F3F0E9]/45 text-[10px] font-black uppercase tracking-wider text-[#121017]/50"><tr><th class="px-5 py-3">Student</th><th class="px-4 py-3">Student ID</th><th class="px-4 py-3">Officer username</th><th class="px-4 py-3">Access created</th><th class="px-4 py-3">Status</th><th class="px-5 py-3 text-right">Action</th></tr></thead><tbody class="divide-y divide-[#121017]/8" data-officer-list></tbody></table></div>
+                <div class="overflow-x-auto">
+                    <table class="officer-management-table officers-table w-full text-left text-sm">
+                        <colgroup>
+                            <col>
+                            <col>
+                            <col>
+                            <col>
+                            <col>
+                            <col>
+                        </colgroup>
+                        <thead
+                            class="border-y border-[#121017]/8 bg-[#F3F0E9]/45 text-[10px] font-black uppercase tracking-wider text-[#121017]/50">
+                            <tr>
+                                <th class="px-5 py-3">Student</th>
+                                <th class="px-4 py-3">Student ID</th>
+                                <th class="px-4 py-3">Officer username</th>
+                                <th class="px-4 py-3">Access created</th>
+                                <th class="px-4 py-3">Status</th>
+                                <th class="px-5 py-3 text-right">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-[#121017]/8" data-officer-list></tbody>
+                    </table>
+                </div>
                 <div class="hidden border-t border-[#121017]/8 px-5 py-4" data-officer-pagination></div>
             </section>
 
-            <section id="officer-assignments-panel" role="tabpanel" aria-labelledby="officer-assignments-tab" data-officer-tab-panel="assignments" class="hidden overflow-hidden rounded-2xl border border-[#121017]/10 bg-white shadow-sm">
-                <div class="flex flex-col gap-4 px-5 py-5 sm:flex-row sm:items-center sm:justify-between"><div><p class="text-xs font-black uppercase tracking-wider text-[#397565]">Backend-enforced access</p><h2 class="mt-1 text-xl font-black">Assignments</h2><p class="mt-1 text-sm text-[#121017]/55">Manage event access for active SBO officers.</p></div><button class="inline-flex min-h-11 items-center justify-center rounded-xl bg-[#397565] px-5 text-sm font-black text-white shadow-lg" type="button" data-dialog-open="event-responsibilities-dialog">Event Responsibilities</button></div>
+            <section id="officer-assignments-panel" role="tabpanel" aria-labelledby="officer-assignments-tab"
+                data-officer-tab-panel="assignments"
+                class="hidden overflow-hidden rounded-2xl border border-[#121017]/10 bg-white shadow-sm">
+                <div class="flex flex-col gap-4 px-5 py-5 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                        <h2 class="mt-1 text-xl font-black">Assignments</h2>
+                    </div><button
+                        class="inline-flex min-h-11 items-center justify-center rounded-xl bg-[#397565] px-5 text-sm font-black text-white shadow-lg"
+                        type="button" data-dialog-open="event-responsibilities-dialog">Event Responsibilities</button>
+                </div>
                 <section class="border-t border-[#121017]/8">
-                    <div class="px-5 py-4"><h3 class="font-black">Active event access</h3></div>
-                    <div class="overflow-x-auto"><table class="officer-management-table responsibility-table w-full text-left text-sm"><colgroup><col class="w-[30%]"><col class="w-[35%]"><col class="w-[20%]"><col class="w-[15%]"></colgroup><thead class="border-y border-[#121017]/8 bg-[#F3F0E9]/45 text-[10px] font-black uppercase tracking-wider text-[#121017]/50"><tr><th class="px-5 py-3">Officer</th><th class="px-4 py-3">Event day</th><th class="px-4 py-3">Attendance scanner access</th><th class="px-5 py-3 text-right">Action</th></tr></thead><tbody class="divide-y divide-[#121017]/8" data-task-list></tbody></table></div>
+                    <div class="px-5 py-4">
+                        <div class="flex flex-col gap-3">
+                            <p class="text-xs text-[#121017]/45" data-task-result-count>Loading assignments…</p>
+                            <form class="grid gap-2 sm:grid-cols-[1.2fr_repeat(3,1fr)]" data-assignment-filters><label
+                                    class="relative"><span class="sr-only">Search assignments</span><svg
+                                        class="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 fill-none stroke-[#121017]/35 stroke-2"
+                                        viewBox="0 0 24 24" aria-hidden="true">
+                                        <circle cx="11" cy="11" r="7" />
+                                        <path d="m20 20-4-4" />
+                                    </svg><input
+                                        class="h-11 w-full rounded-xl border border-[#121017]/10 bg-[#F3F0E9]/45 pl-10 pr-3 text-sm outline-none transition placeholder:text-[#121017]/35 focus:border-[#397565] focus:bg-white"
+                                        type="search" name="search" maxlength="100"
+                                        placeholder="Search officer, event, or tribe…"
+                                        autocomplete="off"></label><label><span class="sr-only">Filter by
+                                        event</span><select
+                                        class="h-11 w-full rounded-xl border border-[#121017]/10 bg-[#F3F0E9]/45 px-3 text-sm text-[#121017]/60 outline-none focus:border-[#397565] focus:bg-white"
+                                        name="event">
+                                        <option value="">All events</option>
+                                    </select></label><label><span class="sr-only">Filter by event day</span><select
+                                        class="h-11 w-full rounded-xl border border-[#121017]/10 bg-[#F3F0E9]/45 px-3 text-sm text-[#121017]/60 outline-none focus:border-[#397565] focus:bg-white"
+                                        name="event_day">
+                                        <option value="">All event days</option>
+                                    </select></label><label><span class="sr-only">Filter by scanner access</span><select
+                                        class="h-11 w-full rounded-xl border border-[#121017]/10 bg-[#F3F0E9]/45 px-3 text-sm text-[#121017]/60 outline-none focus:border-[#397565] focus:bg-white"
+                                        name="scanner_mode">
+                                        <option value="">All scanner access</option>
+                                        <option value="specific">Specific access</option>
+                                        <option value="general">General access</option>
+                                    </select></label></form>
+                        </div>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="officer-management-table responsibility-table w-full text-left text-sm">
+                            <colgroup>
+                                <col class="w-[30%]">
+                                <col class="w-[23%]">
+                                <col class="w-[17%]">
+                                <col class="w-[13%]">
+                                <col class="w-[17%]">
+                            </colgroup>
+                            <thead
+                                class="border-y border-[#121017]/8 bg-[#F3F0E9]/45 text-[10px] font-black uppercase tracking-wider text-[#121017]/50">
+                                <tr>
+                                    <th class="px-5 py-3">Officer</th>
+                                    <th class="px-4 py-3">Event</th>
+                                    <th class="px-4 py-3">Individual event day</th>
+                                    <th class="px-4 py-3">Attendance scanner access</th>
+                                    <th class="px-5 py-3 text-right">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-[#121017]/8" data-task-list></tbody>
+                        </table>
+                    </div>
                 </section>
             </section>
         </main>
     </div>
 
-    <dialog class="m-auto max-h-[calc(100vh_-_2rem)] w-[min(820px,calc(100%_-_2rem))] overflow-y-auto rounded-2xl border-0 bg-white p-0 shadow-2xl backdrop:bg-[#121017]/60" id="event-responsibilities-dialog" data-modal-size="large" data-modal-kind="form">
+    <dialog
+        class="m-auto max-h-[calc(100vh_-_2rem)] w-[min(820px,calc(100%_-_2rem))] overflow-y-auto rounded-2xl border-0 bg-white p-0 shadow-2xl backdrop:bg-[#121017]/60"
+        id="event-responsibilities-dialog" data-modal-size="large" data-modal-kind="form">
         <form data-task-form data-axios-form>
-            <header class="sticky top-0 z-10 flex items-start justify-between gap-3 border-b border-[#121017]/8 border-t-4 border-t-[#397565] bg-white px-4 py-4 sm:px-6 sm:py-5"><div class="min-w-0"><p class="text-xs font-black uppercase tracking-wider text-[#397565]">Backend-enforced access</p><h2 class="mt-1 text-xl font-black sm:text-2xl" data-task-dialog-title>Event Responsibilities</h2><p class="mt-1 text-sm text-[#121017]/50">Assign an SBO officer to one or more event days. Attendance, scoring, and media access are included automatically.</p></div><button class="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#F3F0E9] text-xl" type="button" data-dialog-close aria-label="Close">×</button></header>
+            <header
+                class="sticky top-0 z-10 flex items-start justify-between gap-3 border-b border-[#121017]/8 border-t-4 border-t-[#397565] bg-white px-4 py-4 sm:px-6 sm:py-5">
+                <div class="min-w-0">
+                    <p class="text-xs font-black uppercase tracking-wider text-[#397565]">Backend-enforced access</p>
+                    <h2 class="mt-1 text-xl font-black sm:text-2xl" data-task-dialog-title>Event Responsibilities</h2>
+                    <p class="mt-1 text-sm text-[#121017]/50">Assign an SBO officer to one or more event days.
+                        Attendance, scoring, and media access are included automatically.</p>
+                </div><button class="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#F3F0E9] text-xl"
+                    type="button" data-dialog-close aria-label="Close">×</button>
+            </header>
             <div class="grid min-w-0 grid-cols-1 gap-4 p-4 sm:grid-cols-2 sm:p-6">
-                    <div class="hidden rounded-xl bg-[#397565]/7 p-4 sm:col-span-2" data-task-officer-empty><strong class="block text-sm font-black text-[#397565]">Create Officer access first</strong><p class="mt-1 text-xs leading-5 text-[#121017]/55">No active Officer assignment exists. The student needs a separate Officer sign-in and assignment.</p><button class="mt-3 min-h-10 rounded-xl bg-[#397565] px-4 text-xs font-black text-white" type="button" data-task-create-officer>Create Officer Access</button></div>
-                    <label class="grid gap-2 sm:col-span-2"><span class="text-sm font-bold">SBO Officer</span><select class="h-12 rounded-xl border border-[#121017]/12 px-3" name="officer_assignment_id" required data-task-officer></select></label>
-                    <fieldset class="grid gap-2 sm:col-span-2"><legend class="text-sm font-bold">Event days <span class="text-[#d9470a]">*</span></legend><p class="text-xs text-[#121017]/45">Select days to add or update. Existing days stay assigned until you use End on that day.</p><div class="task-event-days" data-task-events></div></fieldset>
-                    <div class="grid gap-2 sm:col-span-2" data-task-attendance-scanner>
-                        <label class="grid gap-2"><span class="text-sm font-bold">Attendance scanner access</span><select class="h-12 rounded-xl border border-[#121017]/12 px-3" name="scanner_mode"><option value="specific">Specific tribe/team only</option><option value="general">General — all eligible tribes/teams</option></select></label>
-                        <p class="rounded-xl bg-[#397565]/7 px-4 py-3 text-xs leading-5 text-[#397565] sm:col-span-2" data-task-scanner-general-note>Specific access uses the officer's own tribe. General access can scan any student eligible for the event.</p>
-                    </div>
-                    <div class="flex flex-col-reverse gap-2 sm:col-span-2 sm:flex-row sm:justify-end"><button class="hidden min-h-11 rounded-xl border border-[#121017]/15 px-5 text-sm font-bold" type="button" data-task-cancel-edit>Cancel edit</button><button class="min-h-11 rounded-xl bg-[#397565] px-5 text-sm font-black text-white" type="submit" data-task-submit>Assign event access</button></div>
-            </div>
-        </form>
-    </dialog>
-
-    <dialog class="m-auto max-h-[calc(100vh_-_2rem)] w-[min(680px,calc(100%_-_2rem))] overflow-y-auto rounded-2xl border-0 bg-white p-0 shadow-2xl backdrop:bg-[#121017]/60" id="assign-officer-dialog" data-modal-size="large" data-modal-kind="form">
-        <form data-assign-officer-form data-axios-form>
-            <header class="sticky top-0 z-10 flex items-start justify-between border-b border-[#121017]/8 border-t-4 border-t-[#397565] bg-white px-6 py-5"><div><p class="text-xs font-black uppercase tracking-wider text-[#397565]">Separate officer sign-in</p><h2 class="mt-1 text-2xl font-black">Create Officer Access</h2><p class="mt-1 text-sm text-[#121017]/50">Choose one or more students to create separate Officer sign-ins.</p></div><button class="grid h-10 w-10 place-items-center rounded-xl bg-[#F3F0E9] text-xl" type="button" data-dialog-close aria-label="Close">×</button></header>
-            <div class="grid gap-5 p-6">
-                <fieldset class="grid gap-3"><legend class="text-sm font-bold">Select students</legend>
-                    <div class="grid gap-2 sm:grid-cols-[minmax(0,1fr)_180px]"><label class="relative"><span class="sr-only">Search students</span><svg class="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 fill-none stroke-[#397565] stroke-2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg><input class="h-11 w-full rounded-xl border border-[#121017]/12 bg-[#F3F0E9]/45 pl-10 pr-3 text-sm outline-none focus:border-[#397565] focus:bg-white focus:ring-4 focus:ring-[#397565]/10" type="search" placeholder="Name, ID, or email…" autocomplete="off" data-officer-student-search></label><label><span class="sr-only">Filter by year level</span><select class="h-11 w-full rounded-xl border border-[#121017]/12 bg-[#F3F0E9]/45 px-3 text-sm outline-none focus:border-[#397565] focus:bg-white" data-officer-year-filter><option value="">All year levels</option></select></label></div>
-                    <div class="flex flex-wrap items-center justify-between gap-2"><span class="text-xs text-[#121017]/45" data-officer-candidate-count>Open this dialog to load eligible students.</span><button class="min-h-10 rounded-xl border border-[#397565]/25 px-4 text-xs font-black text-[#397565] hover:bg-[#397565]/5" type="button" data-select-filtered-students>Select page</button></div>
-                    <div class="max-h-52 space-y-2 overflow-y-auto rounded-xl border border-[#121017]/10 bg-[#F3F0E9]/25 p-2" data-officer-student-list></div>
-                    <nav class="hidden items-center justify-between gap-3 border-t border-[#121017]/8 pt-3 text-xs text-[#121017]/50" data-officer-candidate-pagination aria-label="Eligible student pages"></nav>
-                    <p class="text-[10px] font-bold text-[#397565]" data-selected-student-label aria-live="polite">Select one student to continue.</p>
+                <div class="hidden rounded-xl bg-[#397565]/7 p-4 sm:col-span-2" data-task-officer-empty><strong
+                        class="block text-sm font-black text-[#397565]">Create Officer access first</strong>
+                    <p class="mt-1 text-xs leading-5 text-[#121017]/55">No active Officer assignment exists. The student
+                        needs a separate Officer sign-in and assignment.</p><button
+                        class="mt-3 min-h-10 rounded-xl bg-[#397565] px-4 text-xs font-black text-white" type="button"
+                        data-task-create-officer>Create Officer Access</button>
+                </div>
+                <label class="grid gap-2 sm:col-span-2"><span class="text-sm font-bold">SBO Officer</span><select
+                        class="h-12 rounded-xl border border-[#121017]/12 px-3" name="officer_assignment_id" required
+                        data-task-officer></select></label>
+                <fieldset class="grid gap-2 sm:col-span-2">
+                    <legend class="text-sm font-bold">Event days <span class="text-[#d9470a]">*</span></legend>
+                    <p class="text-xs text-[#121017]/45">Select days to add or update. Existing days stay assigned until
+                        you use End on that day.</p>
+                    <div class="task-event-days" data-task-events></div>
                 </fieldset>
-                <div class="rounded-xl bg-[#397565]/7 px-4 py-3 text-xs leading-5 text-[#397565]"><strong class="block text-sm">The student login will not change.</strong><span class="mt-1 block">The system will create a separate Officer username and one-time password after you confirm. The officer must replace that password at first sign-in.</span></div>
+                <div class="grid gap-2 sm:col-span-2" data-task-attendance-scanner>
+                    <label class="grid gap-2"><span class="text-sm font-bold">Attendance scanner access</span><select
+                            class="h-12 rounded-xl border border-[#121017]/12 px-3" name="scanner_mode">
+                            <option value="specific">Specific tribe/team only</option>
+                            <option value="general">General — all eligible tribes/teams</option>
+                        </select></label>
+                    <p class="rounded-xl bg-[#397565]/7 px-4 py-3 text-xs leading-5 text-[#397565] sm:col-span-2"
+                        data-task-scanner-general-note>Specific access uses the officer's own tribe. General access can
+                        scan any student eligible for the event.</p>
+                </div>
+                <div class="flex flex-col-reverse gap-2 sm:col-span-2 sm:flex-row sm:justify-end"><button
+                        class="hidden min-h-11 rounded-xl border border-[#121017]/15 px-5 text-sm font-bold"
+                        type="button" data-task-cancel-edit>Cancel edit</button><button
+                        class="min-h-11 rounded-xl bg-[#397565] px-5 text-sm font-black text-white" type="submit"
+                        data-task-submit>Assign event access</button></div>
             </div>
-            <footer class="sticky bottom-0 flex justify-end gap-2 border-t border-[#121017]/8 bg-white/95 px-6 py-4"><button class="min-h-11 rounded-xl border border-[#121017]/12 px-4 text-sm font-bold" type="button" data-dialog-close>Cancel</button><button class="min-h-11 rounded-xl px-5 text-sm font-black" type="submit" data-modal-primary>Create Officer Access</button></footer>
         </form>
     </dialog>
 
-    <dialog class="m-auto w-[min(560px,calc(100%_-_2rem))] rounded-2xl border-0 bg-white p-0 shadow-2xl backdrop:bg-[#121017]/60" id="officer-credentials-dialog" data-modal-size="medium" data-modal-kind="form" aria-labelledby="officer-credentials-title" aria-describedby="officer-credentials-description">
+    <dialog
+        class="m-auto max-h-[calc(100vh_-_2rem)] w-[min(680px,calc(100%_-_2rem))] overflow-y-auto rounded-2xl border-0 bg-white p-0 shadow-2xl backdrop:bg-[#121017]/60"
+        id="assign-officer-dialog" data-modal-size="large" data-modal-kind="form">
+        <form data-assign-officer-form data-axios-form>
+            <header
+                class="sticky top-0 z-10 flex items-start justify-between border-b border-[#121017]/8 border-t-4 border-t-[#397565] bg-white px-6 py-5">
+                <div>
+                    <p class="text-xs font-black uppercase tracking-wider text-[#397565]">Separate officer sign-in</p>
+                    <h2 class="mt-1 text-2xl font-black">Create Officer Access</h2>
+                    <p class="mt-1 text-sm text-[#121017]/50">Choose one or more students to create separate Officer
+                        sign-ins.</p>
+                </div><button class="grid h-10 w-10 place-items-center rounded-xl bg-[#F3F0E9] text-xl" type="button"
+                    data-dialog-close aria-label="Close">×</button>
+            </header>
+            <div class="grid gap-5 p-6">
+                <fieldset class="grid gap-3">
+                    <legend class="text-sm font-bold">Select students</legend>
+                    <div class="grid gap-2 sm:grid-cols-[minmax(0,1fr)_180px]"><label class="relative"><span
+                                class="sr-only">Search students</span><svg
+                                class="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 fill-none stroke-[#397565] stroke-2"
+                                viewBox="0 0 24 24">
+                                <circle cx="11" cy="11" r="7" />
+                                <path d="m20 20-4-4" />
+                            </svg><input
+                                class="h-11 w-full rounded-xl border border-[#121017]/12 bg-[#F3F0E9]/45 pl-10 pr-3 text-sm outline-none focus:border-[#397565] focus:bg-white focus:ring-4 focus:ring-[#397565]/10"
+                                type="search" placeholder="Name, ID, or email…" autocomplete="off"
+                                data-officer-student-search></label><label><span class="sr-only">Filter by year
+                                level</span><select
+                                class="h-11 w-full rounded-xl border border-[#121017]/12 bg-[#F3F0E9]/45 px-3 text-sm outline-none focus:border-[#397565] focus:bg-white"
+                                data-officer-year-filter>
+                                <option value="">All year levels</option>
+                            </select></label></div>
+                    <div class="flex flex-wrap items-center justify-between gap-2"><span
+                            class="text-xs text-[#121017]/45" data-officer-candidate-count>Open this dialog to load
+                            eligible students.</span><button
+                            class="min-h-10 rounded-xl border border-[#397565]/25 px-4 text-xs font-black text-[#397565] hover:bg-[#397565]/5"
+                            type="button" data-select-filtered-students>Select page</button></div>
+                    <div class="max-h-52 space-y-2 overflow-y-auto rounded-xl border border-[#121017]/10 bg-[#F3F0E9]/25 p-2"
+                        data-officer-student-list></div>
+                    <nav class="hidden items-center justify-between gap-3 border-t border-[#121017]/8 pt-3 text-xs text-[#121017]/50"
+                        data-officer-candidate-pagination aria-label="Eligible student pages"></nav>
+                    <p class="text-[10px] font-bold text-[#397565]" data-selected-student-label aria-live="polite">
+                        Select one student to continue.</p>
+                </fieldset>
+                <div class="rounded-xl bg-[#397565]/7 px-4 py-3 text-xs leading-5 text-[#397565]"><strong
+                        class="block text-sm">The student login will not change.</strong><span class="mt-1 block">The
+                        system will create a separate Officer username and one-time password after you confirm. The
+                        officer must replace that password at first sign-in.</span></div>
+            </div>
+            <footer class="sticky bottom-0 flex justify-end gap-2 border-t border-[#121017]/8 bg-white/95 px-6 py-4">
+                <button class="min-h-11 rounded-xl border border-[#121017]/12 px-4 text-sm font-bold" type="button"
+                    data-dialog-close>Cancel</button><button class="min-h-11 rounded-xl px-5 text-sm font-black"
+                    type="submit" data-modal-primary>Create Officer Access</button>
+            </footer>
+        </form>
+    </dialog>
+
+    <dialog
+        class="m-auto w-[min(560px,calc(100%_-_2rem))] rounded-2xl border-0 bg-white p-0 shadow-2xl backdrop:bg-[#121017]/60"
+        id="officer-credentials-dialog" data-modal-size="medium" data-modal-kind="form"
+        aria-labelledby="officer-credentials-title" aria-describedby="officer-credentials-description">
         <div>
-            <header class="border-t-4 border-t-[#397565] px-6 pb-4 pt-5"><p class="text-xs font-black uppercase tracking-wider text-[#397565]">Officer access created</p><h2 class="mt-1 text-2xl font-black" id="officer-credentials-title">Save these credentials now</h2><p class="mt-2 text-sm leading-6 text-[#121017]/55" id="officer-credentials-description">For security, this one-time password will not be shown again after you close this window.</p></header>
+            <header class="border-t-4 border-t-[#397565] px-6 pb-4 pt-5">
+                <p class="text-xs font-black uppercase tracking-wider text-[#397565]">Officer access created</p>
+                <h2 class="mt-1 text-2xl font-black" id="officer-credentials-title">Save these credentials now</h2>
+                <p class="mt-2 text-sm leading-6 text-[#121017]/55" id="officer-credentials-description">For security,
+                    this one-time password will not be shown again after you close this window.</p>
+            </header>
             <div class="grid gap-4 border-y border-[#121017]/8 px-6 py-5">
-                <div class="flex items-center gap-3"><span class="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-[#397565] text-xs font-black text-white" data-credential-initials>SO</span><div class="min-w-0"><strong class="block truncate text-sm font-black" data-credential-name></strong><span class="block text-xs text-[#121017]/50">Separate SBO Officer sign-in</span></div></div>
+                <div class="flex items-center gap-3"><span
+                        class="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-[#397565] text-xs font-black text-white"
+                        data-credential-initials>SO</span>
+                    <div class="min-w-0"><strong class="block truncate text-sm font-black"
+                            data-credential-name></strong><span class="block text-xs text-[#121017]/50">Separate SBO
+                            Officer sign-in</span></div>
+                </div>
                 <dl class="grid gap-3 rounded-xl bg-[#F3F0E9]/55 p-4">
-                    <div class="grid gap-1 sm:grid-cols-2 sm:items-center"><dt class="text-[10px] font-black uppercase tracking-wider text-[#121017]/45">Officer username</dt><dd><code class="break-words text-sm font-black text-[#121017]" data-credential-username></code></dd></div>
-                    <div class="grid gap-1 border-t border-[#121017]/8 pt-3 sm:grid-cols-2 sm:items-center"><dt class="text-[10px] font-black uppercase tracking-wider text-[#121017]/45">One-time password</dt><dd><code class="break-words text-sm font-black text-[#121017]" data-credential-password></code></dd></div>
+                    <div class="grid gap-1 sm:grid-cols-2 sm:items-center">
+                        <dt class="text-[10px] font-black uppercase tracking-wider text-[#121017]/45">Officer username
+                        </dt>
+                        <dd><code class="break-words text-sm font-black text-[#121017]" data-credential-username></code>
+                        </dd>
+                    </div>
+                    <div class="grid gap-1 border-t border-[#121017]/8 pt-3 sm:grid-cols-2 sm:items-center">
+                        <dt class="text-[10px] font-black uppercase tracking-wider text-[#121017]/45">One-time password
+                        </dt>
+                        <dd><code class="break-words text-sm font-black text-[#121017]" data-credential-password></code>
+                        </dd>
+                    </div>
                 </dl>
                 <div class="hidden grid gap-3" data-credential-list></div>
-                <p class="text-xs leading-5 text-[#121017]/55">The student username and password are unchanged. Give these Officer credentials only to the selected student; they will be required to create a new private password at first sign-in.</p>
-                <p class="hidden rounded-xl bg-[#397565]/8 px-4 py-3 text-xs font-bold text-[#397565]" data-credential-feedback role="status" aria-live="polite"></p>
+                <p class="text-xs leading-5 text-[#121017]/55">The student username and password are unchanged. Give
+                    these Officer credentials only to the selected student; they will be required to create a new
+                    private password at first sign-in.</p>
+                <p class="hidden rounded-xl bg-[#397565]/8 px-4 py-3 text-xs font-bold text-[#397565]"
+                    data-credential-feedback role="status" aria-live="polite"></p>
             </div>
-            <footer class="flex flex-col-reverse gap-2 px-6 py-4 sm:flex-row sm:justify-end"><button class="min-h-11 rounded-xl border border-[#397565]/25 px-4 text-sm font-black text-[#397565]" type="button" data-download-officer-credentials>Download credential slip</button><button class="min-h-11 rounded-xl border border-[#121017]/12 px-4 text-sm font-black" type="button" data-copy-officer-credentials>Copy credentials</button><button class="min-h-11 rounded-xl px-5 text-sm font-black" type="button" data-credential-done data-modal-primary>Done</button></footer>
+            <footer class="flex flex-col-reverse gap-2 px-6 py-4 sm:flex-row sm:justify-end"><button
+                    class="min-h-11 rounded-xl border border-[#397565]/25 px-4 text-sm font-black text-[#397565]"
+                    type="button" data-download-officer-credentials>Download credential slip</button><button
+                    class="min-h-11 rounded-xl border border-[#121017]/12 px-4 text-sm font-black" type="button"
+                    data-copy-officer-credentials>Copy credentials</button><button
+                    class="min-h-11 rounded-xl px-5 text-sm font-black" type="button" data-credential-done
+                    data-modal-primary>Done</button></footer>
         </div>
     </dialog>
 
-    <dialog class="m-auto max-h-[calc(100vh_-_2rem)] w-[min(620px,calc(100%_-_2rem))] overflow-y-auto rounded-2xl border-0 bg-white p-0 shadow-2xl backdrop:bg-[#121017]/60" id="officer-details-dialog" data-modal-size="large" data-modal-kind="detail">
+    <dialog
+        class="m-auto max-h-[calc(100vh_-_2rem)] w-[min(620px,calc(100%_-_2rem))] overflow-y-auto rounded-2xl border-0 bg-white p-0 shadow-2xl backdrop:bg-[#121017]/60"
+        id="officer-details-dialog" data-modal-size="large" data-modal-kind="detail">
         <div>
-            <header class="flex items-start justify-between gap-4 border-b border-[#121017]/8 px-6 py-5"><div class="flex min-w-0 items-center gap-4"><span class="grid h-14 w-14 shrink-0 place-items-center rounded-full bg-[#397565] text-sm font-black text-white">SO</span><div><p class="text-[10px] font-black uppercase tracking-[.14em] text-[#397565]">Linked account</p><h2 class="mt-1 text-2xl font-black">SBO Officer Details</h2><p class="mt-1 text-xs text-[#121017]/50" data-details-student-id></p></div></div><button type="button" data-dialog-close aria-label="Close officer details">×</button></header>
+            <header class="flex items-start justify-between gap-4 border-b border-[#121017]/8 px-6 py-5">
+                <div class="flex min-w-0 items-center gap-4"><span
+                        class="grid h-14 w-14 shrink-0 place-items-center rounded-full bg-[#397565] text-sm font-black text-white">SO</span>
+                    <div>
+                        <p class="text-[10px] font-black uppercase tracking-[.14em] text-[#397565]">Linked account</p>
+                        <h2 class="mt-1 text-2xl font-black">SBO Officer Details</h2>
+                        <p class="mt-1 text-xs text-[#121017]/50" data-details-student-id></p>
+                    </div>
+                </div><button type="button" data-dialog-close aria-label="Close officer details">×</button>
+            </header>
             <div class="px-6 py-2">
                 <dl class="divide-y divide-[#121017]/8">
-                    <div class="grid gap-1 py-4 sm:grid-cols-[170px_minmax(0,1fr)]"><dt class="text-[10px] font-black uppercase tracking-wider text-[#121017]/40">Student identity</dt><dd><strong class="block text-sm font-black" data-details-student-name></strong><span class="mt-1 block text-xs text-[#121017]/55" data-details-student-email></span></dd></div>
-                    <div class="grid gap-1 py-4 sm:grid-cols-[170px_minmax(0,1fr)]"><dt class="text-[10px] font-black uppercase tracking-wider text-[#121017]/40">Officer login</dt><dd><div class="flex flex-wrap items-center gap-3"><strong class="text-sm font-black" data-details-officer-username></strong><span class="rounded-full bg-[#397565]/8 px-3 py-1 text-[10px] font-black uppercase text-[#397565]" data-details-status></span></div><span class="mt-1.5 block text-xs text-[#121017]/50" data-details-password-state></span></dd></div>
-                    <div class="grid gap-1 py-4 sm:grid-cols-[170px_minmax(0,1fr)]"><dt class="text-[10px] font-black uppercase tracking-wider text-[#121017]/40">Events in charge</dt><dd class="grid gap-2" data-details-event-responsibilities></dd></div>
-                    <div class="grid gap-1 py-4 sm:grid-cols-[170px_minmax(0,1fr)]"><dt class="text-[10px] font-black uppercase tracking-wider text-[#121017]/40">Account separation</dt><dd class="text-xs leading-5 text-[#121017]/55">Changing the SBO password does not change the student's own account password.</dd></div>
+                    <div class="grid gap-1 py-4 sm:grid-cols-[170px_minmax(0,1fr)]">
+                        <dt class="text-[10px] font-black uppercase tracking-wider text-[#121017]/40">Student identity
+                        </dt>
+                        <dd><strong class="block text-sm font-black" data-details-student-name></strong><span
+                                class="mt-1 block text-xs text-[#121017]/55" data-details-student-email></span></dd>
+                    </div>
+                    <div class="grid gap-1 py-4 sm:grid-cols-[170px_minmax(0,1fr)]">
+                        <dt class="text-[10px] font-black uppercase tracking-wider text-[#121017]/40">Officer login</dt>
+                        <dd>
+                            <div class="flex flex-wrap items-center gap-3"><strong class="text-sm font-black"
+                                    data-details-officer-username></strong><span
+                                    class="rounded-full bg-[#397565]/8 px-3 py-1 text-[10px] font-black uppercase text-[#397565]"
+                                    data-details-status></span></div><span
+                                class="mt-1.5 block text-xs text-[#121017]/50" data-details-password-state></span>
+                        </dd>
+                    </div>
+                    <div class="grid gap-1 py-4 sm:grid-cols-[170px_minmax(0,1fr)]">
+                        <dt class="text-[10px] font-black uppercase tracking-wider text-[#121017]/40">Events in charge
+                        </dt>
+                        <dd class="grid gap-2" data-details-event-responsibilities></dd>
+                    </div>
+                    <div class="grid gap-1 py-4 sm:grid-cols-[170px_minmax(0,1fr)]">
+                        <dt class="text-[10px] font-black uppercase tracking-wider text-[#121017]/40">Account separation
+                        </dt>
+                        <dd class="text-xs leading-5 text-[#121017]/55">Changing the SBO password does not change the
+                            student's own account password.</dd>
+                    </div>
                 </dl>
             </div>
-            <footer class="flex flex-wrap justify-end gap-2 border-t border-[#121017]/8 px-6 py-4"><button class="min-h-11 rounded-xl border border-[#397565]/25 px-4 text-sm font-black text-[#397565]" type="button" data-details-assign-event>Assign to event</button><button class="min-h-11 rounded-xl px-5 text-sm font-black" type="button" data-details-change-password data-modal-primary>Change SBO Password</button></footer>
+            <footer class="flex flex-wrap justify-end gap-2 border-t border-[#121017]/8 px-6 py-4"><button
+                    class="min-h-11 rounded-xl border border-[#397565]/25 px-4 text-sm font-black text-[#397565]"
+                    type="button" data-details-assign-event>Assign to event</button><button
+                    class="min-h-11 rounded-xl px-5 text-sm font-black" type="button" data-details-change-password
+                    data-modal-primary>Change SBO Password</button></footer>
         </div>
     </dialog>
 
-    <dialog class="m-auto w-[min(520px,calc(100%_-_2rem))] rounded-2xl border-0 bg-white p-0 shadow-2xl backdrop:bg-[#121017]/60" id="change-officer-password-dialog" data-modal-size="medium" data-modal-kind="form">
+    <dialog
+        class="m-auto w-[min(520px,calc(100%_-_2rem))] rounded-2xl border-0 bg-white p-0 shadow-2xl backdrop:bg-[#121017]/60"
+        id="change-officer-password-dialog" data-modal-size="medium" data-modal-kind="form">
         <form data-change-officer-password-form data-axios-form>
             <input type="hidden" name="assignment_id">
-            <header class="border-b border-[#121017]/8 border-t-4 border-t-[#397565] px-6 py-5"><div class="flex items-start justify-between gap-4"><div><p class="text-xs font-black uppercase tracking-wider text-[#397565]">SBO Officer account only</p><h2 class="mt-1 text-2xl font-black">Change Officer Password</h2></div><button class="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#F3F0E9] text-xl" type="button" data-dialog-close aria-label="Close">×</button></div><div class="mt-4 rounded-xl bg-[#F3F0E9]/35 px-4 py-3"><strong class="block text-sm font-black" data-password-officer-name></strong><span class="mt-1 block text-xs text-[#121017]/55" data-password-student-email></span><span class="mt-1 block text-xs font-bold text-[#397565]" data-password-officer-username></span></div></header>
+            <header class="border-b border-[#121017]/8 border-t-4 border-t-[#397565] px-6 py-5">
+                <div class="flex items-start justify-between gap-4">
+                    <div>
+                        <p class="text-xs font-black uppercase tracking-wider text-[#397565]">SBO Officer account only
+                        </p>
+                        <h2 class="mt-1 text-2xl font-black">Change Officer Password</h2>
+                    </div><button class="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#F3F0E9] text-xl"
+                        type="button" data-dialog-close aria-label="Close">×</button>
+                </div>
+                <div class="mt-4 rounded-xl bg-[#F3F0E9]/35 px-4 py-3"><strong class="block text-sm font-black"
+                        data-password-officer-name></strong><span class="mt-1 block text-xs text-[#121017]/55"
+                        data-password-student-email></span><span class="mt-1 block text-xs font-bold text-[#397565]"
+                        data-password-officer-username></span></div>
+            </header>
             <div class="grid gap-4 p-6">
-                <label class="grid gap-2"><span class="text-sm font-bold">New SBO password</span><span class="relative"><input class="h-12 w-full rounded-xl border border-[#121017]/12 px-3 pr-12 text-sm outline-none focus:border-[#397565]" name="password" type="password" minlength="8" required autocomplete="new-password"><button class="absolute right-3 top-1/2 grid h-9 w-9 -translate-y-1/2 place-items-center rounded-lg text-[#121017]/45 hover:bg-[#397565]/8 hover:text-[#397565]" type="button" data-password-toggle aria-label="Show new password" aria-pressed="false"><svg class="h-5 w-5 fill-none stroke-current stroke-2" viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12Z"/><circle cx="12" cy="12" r="2.5"/></svg></button></span></label>
-                <label class="grid gap-2"><span class="text-sm font-bold">Confirm new SBO password</span><span class="relative"><input class="h-12 w-full rounded-xl border border-[#121017]/12 px-3 pr-12 text-sm outline-none focus:border-[#397565]" name="password_confirmation" type="password" minlength="8" required autocomplete="new-password"><button class="absolute right-3 top-1/2 grid h-9 w-9 -translate-y-1/2 place-items-center rounded-lg text-[#121017]/45 hover:bg-[#397565]/8 hover:text-[#397565]" type="button" data-password-toggle aria-label="Show password confirmation" aria-pressed="false"><svg class="h-5 w-5 fill-none stroke-current stroke-2" viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12Z"/><circle cx="12" cy="12" r="2.5"/></svg></button></span></label>
-                <p class="rounded-xl bg-[#397565]/7 px-4 py-3 text-xs leading-5 text-[#397565]">This changes only the separate SBO Officer login. The student's own account and password stay unchanged. The officer will be asked to change this password after signing in.</p>
+                <label class="grid gap-2"><span class="text-sm font-bold">New SBO password</span><span
+                        class="relative"><input
+                            class="h-12 w-full rounded-xl border border-[#121017]/12 px-3 pr-12 text-sm outline-none focus:border-[#397565]"
+                            name="password" type="password" minlength="8" required autocomplete="new-password"><button
+                            class="absolute right-3 top-1/2 grid h-9 w-9 -translate-y-1/2 place-items-center rounded-lg text-[#121017]/45 hover:bg-[#397565]/8 hover:text-[#397565]"
+                            type="button" data-password-toggle aria-label="Show new password" aria-pressed="false"><svg
+                                class="h-5 w-5 fill-none stroke-current stroke-2" viewBox="0 0 24 24"
+                                aria-hidden="true">
+                                <path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12Z" />
+                                <circle cx="12" cy="12" r="2.5" />
+                            </svg></button></span></label>
+                <label class="grid gap-2"><span class="text-sm font-bold">Confirm new SBO password</span><span
+                        class="relative"><input
+                            class="h-12 w-full rounded-xl border border-[#121017]/12 px-3 pr-12 text-sm outline-none focus:border-[#397565]"
+                            name="password_confirmation" type="password" minlength="8" required
+                            autocomplete="new-password"><button
+                            class="absolute right-3 top-1/2 grid h-9 w-9 -translate-y-1/2 place-items-center rounded-lg text-[#121017]/45 hover:bg-[#397565]/8 hover:text-[#397565]"
+                            type="button" data-password-toggle aria-label="Show password confirmation"
+                            aria-pressed="false"><svg class="h-5 w-5 fill-none stroke-current stroke-2"
+                                viewBox="0 0 24 24" aria-hidden="true">
+                                <path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12Z" />
+                                <circle cx="12" cy="12" r="2.5" />
+                            </svg></button></span></label>
+                <p class="rounded-xl bg-[#397565]/7 px-4 py-3 text-xs leading-5 text-[#397565]">This changes only the
+                    separate SBO Officer login. The student's own account and password stay unchanged. The officer will
+                    be asked to change this password after signing in.</p>
             </div>
-            <footer class="flex justify-end gap-2 border-t border-[#121017]/8 bg-white px-6 py-4"><button class="min-h-11 rounded-xl border border-[#121017]/12 px-4 text-sm font-bold" type="button" data-dialog-close>Cancel</button><button class="min-h-11 rounded-xl px-5 text-sm font-black" type="submit" data-modal-primary>Change SBO Password</button></footer>
+            <footer class="flex justify-end gap-2 border-t border-[#121017]/8 bg-white px-6 py-4"><button
+                    class="min-h-11 rounded-xl border border-[#121017]/12 px-4 text-sm font-bold" type="button"
+                    data-dialog-close>Cancel</button><button class="min-h-11 rounded-xl px-5 text-sm font-black"
+                    type="submit" data-modal-primary>Change SBO Password</button></footer>
         </form>
     </dialog>
 
-    <dialog class="m-auto w-[min(460px,calc(100%_-_2rem))] rounded-2xl border-0 bg-white p-0 shadow-2xl backdrop:bg-[#121017]/60" data-confirm-dialog data-modal-size="small" data-modal-kind="confirmation">
-        <div class="p-6"><h2 class="text-xl font-black" data-confirm-title>Confirm action</h2><p class="mt-2 text-sm leading-6 text-[#121017]/55" data-confirm-message></p><div class="mt-6 flex justify-end gap-2"><button class="min-h-10 rounded-xl border border-[#121017]/12 px-4 text-sm font-bold" type="button" data-confirm-cancel>Cancel</button><button class="min-h-10 rounded-xl bg-[#FF6B2C] px-5 text-sm font-black text-white" type="button" data-confirm-accept>Confirm</button></div></div>
+    <dialog
+        class="m-auto w-[min(460px,calc(100%_-_2rem))] rounded-2xl border-0 bg-white p-0 shadow-2xl backdrop:bg-[#121017]/60"
+        data-confirm-dialog data-modal-size="small" data-modal-kind="confirmation">
+        <div class="p-6">
+            <h2 class="text-xl font-black" data-confirm-title>Confirm action</h2>
+            <p class="mt-2 text-sm leading-6 text-[#121017]/55" data-confirm-message></p>
+            <div class="mt-6 flex justify-end gap-2"><button
+                    class="min-h-10 rounded-xl border border-[#121017]/12 px-4 text-sm font-bold" type="button"
+                    data-confirm-cancel>Cancel</button><button
+                    class="min-h-10 rounded-xl bg-[#FF6B2C] px-5 text-sm font-black text-white" type="button"
+                    data-confirm-accept>Confirm</button></div>
+        </div>
     </dialog>
-    <div class="pointer-events-none fixed right-4 top-12 z-[80] mt-12 grid w-[min(380px,calc(100%_-_2rem))] gap-3" data-notification-region aria-live="polite" aria-atomic="true"></div>
+    <div class="pointer-events-none fixed right-4 top-12 z-[80] mt-12 grid w-[min(380px,calc(100%_-_2rem))] gap-3"
+        data-notification-region aria-live="polite" aria-atomic="true"></div>
     <script src="js/vendor/axios.min.js"></script>
     <script src="js/shared/password-gate.js?v=20260917-1"></script>
     <script src="js/shared/navigation.js?v=20260924-media-merge-1"></script>
     <script src="js/adviser/officers.js?v=20260924-table-compact-1"></script>
-    <script src="js/adviser/sbo-assignments.js?v=20260924-multi-day-1"></script>
+    <script src="js/adviser/sbo-assignments.js?v=20260924-action-row-1"></script>
     <script src="js/adviser/sbo-scoring-admin.js"></script>
 </body>
+
 </html>

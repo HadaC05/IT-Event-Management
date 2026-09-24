@@ -24,11 +24,70 @@
     const title = document.querySelector('[data-task-dialog-title]');
     const scannerNote = document.querySelector('[data-task-scanner-general-note]');
     const tabs = [...document.querySelectorAll('[data-officer-tab]')];
+    const assignmentFilters = document.querySelector('[data-assignment-filters]');
+    const assignmentSearch = assignmentFilters.elements.search;
+    const assignmentEvent = assignmentFilters.elements.event;
+    const assignmentDay = assignmentFilters.elements.event_day;
+    const assignmentScannerMode = assignmentFilters.elements.scanner_mode;
+    const assignmentCount = document.querySelector('[data-task-result-count]');
+    let assignmentSearchTimer;
 
     const updateScannerNote = () => {
         scannerNote.textContent = scannerMode.value === 'general'
             ? 'General access can scan any student eligible for the event.'
             : "Specific access automatically uses the officer's own tribe.";
+    };
+
+    const renderAssignmentDayOptions = groups => {
+        const selected = assignmentDay.value;
+        const days = [...new Map(groups.map(group => [String(group.event_schedule_id), {
+            id: group.event_schedule_id,
+            label: `${group.schedule_date} — ${group.event_name}`,
+        }])).values()].sort((left, right) => right.label.localeCompare(left.label));
+        assignmentDay.replaceChildren(new Option('All event days', ''));
+        days.forEach(day => assignmentDay.add(new Option(day.label, day.id)));
+        assignmentDay.value = [...assignmentDay.options].some(option => option.value === selected) ? selected : '';
+    };
+
+    const renderAssignmentEventOptions = groups => {
+        const selected = assignmentEvent.value;
+        const events = [...new Map(groups.map(group => [String(group.event_id), {
+            id: group.event_id,
+            name: group.event_name,
+        }])).values()].sort((left, right) => left.name.localeCompare(right.name));
+        assignmentEvent.replaceChildren(new Option('All events', ''));
+        events.forEach(event => assignmentEvent.add(new Option(event.name, event.id)));
+        assignmentEvent.value = [...assignmentEvent.options].some(option => option.value === selected) ? selected : '';
+    };
+
+    const renderFilteredAssignmentGroups = () => {
+        const allGroups = data.assignment_groups || [];
+        const query = assignmentSearch.value.trim().toLocaleLowerCase();
+        const eventId = assignmentEvent.value;
+        const eventDay = assignmentDay.value;
+        const scannerMode = assignmentScannerMode.value;
+        const groups = allGroups.filter(group => {
+            const searchable = [group.officer_name, group.event_name, group.team_name, group.schedule_date]
+                .join(' ').toLocaleLowerCase();
+            return (!query || searchable.includes(query))
+                && (!eventId || String(group.event_id) === eventId)
+                && (!eventDay || String(group.event_schedule_id) === eventDay)
+                && (!scannerMode || group.scanner_mode === scannerMode);
+        });
+        assignmentCount.textContent = `${groups.length} ${groups.length === 1 ? 'event-day access' : 'event-day accesses'}${groups.length !== allGroups.length ? ` of ${allGroups.length}` : ''}`;
+        const taskList = document.querySelector('[data-task-list]');
+        taskList.innerHTML = groups.length ? groups.map(group => {
+            const scannerLabel = group.scanner_mode === 'general'
+                ? 'General — all eligible tribes/teams'
+                : `Specific — ${esc(group.team_name || "officer's tribe")}`;
+            return `<tr>
+                <td data-label="Officer" class="whitespace-nowrap px-5 py-4 font-black">${esc(group.officer_name)}</td>
+                <td data-label="Event" class="px-4 py-4 font-bold">${esc(group.event_name)}</td>
+                <td data-label="Individual event day" class="whitespace-nowrap px-4 py-4 text-[#121017]/65">${esc(group.schedule_date)}</td>
+                <td data-label="Attendance scanner access" class="px-4 py-4 text-[#121017]/65">${scannerLabel}</td>
+                <td data-label="Action" class="px-5 py-4 text-right"><div class="flex flex-nowrap justify-end gap-2 whitespace-nowrap"><button class="min-h-9 rounded-lg border border-[#397565]/25 px-3 text-xs font-black text-[#397565]" type="button" data-task-edit="${group.id}">Edit</button><button class="min-h-9 rounded-lg border border-[#FF6B2C]/25 px-3 text-xs font-black text-[#d9470a]" type="button" data-task-end="${group.id}">End</button></div></td>
+            </tr>`;
+        }).join('') : `<tr><td class="px-5 py-8 text-center text-sm text-[#121017]/45" colspan="5">${allGroups.length ? 'No event access matches these filters.' : 'No event access assigned.'}</td></tr>`;
     };
 
     const selectedEventDays = () => [...eventDays.querySelectorAll('input[type="checkbox"]:checked')].map(input => Number(input.value));
@@ -85,6 +144,9 @@
                 <td data-label="Action" class="px-5 py-4 text-right"><div class="flex flex-wrap justify-end gap-2"><button class="min-h-9 rounded-lg border border-[#397565]/25 px-3 text-xs font-black text-[#397565]" type="button" data-task-edit="${group.id}">Edit</button><button class="min-h-9 rounded-lg border border-[#FF6B2C]/25 px-3 text-xs font-black text-[#d9470a]" type="button" data-task-end="${group.id}">End</button></div></td>
             </tr>`;
         }).join('') : '<tr><td class="px-5 py-8 text-center text-sm text-[#121017]/45" colspan="4">No event access assigned.</td></tr>';
+        renderAssignmentEventOptions(data.assignment_groups || []);
+        renderAssignmentDayOptions(data.assignment_groups || []);
+        renderFilteredAssignmentGroups();
     };
 
     const load = async () => {
@@ -94,6 +156,14 @@
     };
 
     tabs.forEach(tab => tab.addEventListener('click', () => selectTab(tab.dataset.officerTab)));
+    assignmentFilters.addEventListener('submit', event => event.preventDefault());
+    assignmentSearch.addEventListener('input', () => {
+        clearTimeout(assignmentSearchTimer);
+        assignmentSearchTimer = setTimeout(renderFilteredAssignmentGroups, 180);
+    });
+    assignmentDay.addEventListener('change', renderFilteredAssignmentGroups);
+    assignmentEvent.addEventListener('change', renderFilteredAssignmentGroups);
+    assignmentScannerMode.addEventListener('change', renderFilteredAssignmentGroups);
     eventDays.addEventListener('change', syncSubmit);
     scannerMode.addEventListener('change', updateScannerNote);
     document.querySelector('[data-officer-tab="assignments"]')?.addEventListener('click', () => load().catch(error => window.Notifications?.error(error.response?.data?.message || 'Unable to load event access.')));
