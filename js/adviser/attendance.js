@@ -33,6 +33,14 @@ window.SharedNavigation.ready.then(() => {
     return `${date}, ${time(start)} → ${endDate}, ${time(end)}`;
   }
 
+  function attendanceDay(event) {
+    const date = new Date(`${event.attendance_date}T00:00:00`);
+    const formatted = Number.isNaN(date.getTime())
+      ? event.attendance_date
+      : new Intl.DateTimeFormat("en-PH", { month: "short", day: "numeric", year: "numeric" }).format(date);
+    return `Day ${event.attendance_day_number} of ${event.attendance_day_count} · ${formatted}`;
+  }
+
   function initializeShell() {
     const sidebar = $("#sidebar");
     const scrim = $("[data-sidebar-scrim]");
@@ -102,7 +110,7 @@ window.SharedNavigation.ready.then(() => {
   function attendancePresentation(event) {
     const expected = event.expected_count;
     const recorded = event.attendances_count;
-    const scheduleState = event.schedule_state;
+    const scheduleState = event.attendance_day_state;
     if (!expected) return {
       label: "No roster",
       tone: "bg-[#FF6B2C]/10 text-[#D64A12]",
@@ -155,7 +163,7 @@ window.SharedNavigation.ready.then(() => {
     const attendance = attendancePresentation(event);
     return `<button class="group flex min-h-36 w-full flex-col justify-between rounded-2xl border border-[#121017]/10 bg-white p-5 text-left shadow-sm transition hover:border-[#397565]/40 hover:shadow-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#397565]" type="button" data-event-id="${event.id}" aria-label="View ${escapeHtml(event.title)} attendance">
       <span class="flex w-full items-start justify-between gap-3"><strong class="text-lg font-black leading-tight">${escapeHtml(event.title)}</strong><span class="shrink-0 rounded-full px-2.5 py-1 text-[9px] font-black uppercase tracking-wide ${attendance.tone}">${attendance.label}</span></span>
-      <span class="mt-3 block text-xs text-[#121017]/50">${eventSchedule(event)}<br>${escapeHtml(event.location || "Venue not specified")}</span>
+      <span class="mt-3 block text-xs text-[#121017]/50">${escapeHtml(attendanceDay(event))}<br>${escapeHtml(event.location || "Venue not specified")}</span>
       <span class="mt-4 flex w-full items-center justify-between border-t border-[#121017]/8 pt-3 text-xs font-bold text-[#397565]"><span>${recorded.toLocaleString()} of ${expected.toLocaleString()} recorded</span><span class="group-hover:translate-x-1 transition-transform">View details →</span></span>
     </button>`;
   }
@@ -163,13 +171,14 @@ window.SharedNavigation.ready.then(() => {
   function openEvent(event) {
     const attendance = attendancePresentation(event);
     $("[data-event-dialog-title]").textContent = event.title;
-    $("[data-event-dialog-schedule]").textContent = `${eventSchedule(event)} · ${event.location || "Venue not specified"}`;
+    $("[data-event-dialog-schedule]").textContent = `${attendanceDay(event)} · ${event.location || "Venue not specified"}`;
     $("[data-event-dialog-status]").textContent = attendance.detail;
     $("[data-event-dialog-counts]").innerHTML = `
       <div class="rounded-2xl bg-[#397565]/8 p-4"><span class="text-xs font-bold text-[#397565]">Present</span><strong class="mt-1 block text-3xl font-black text-[#397565]">${Number(event.present_count).toLocaleString()}</strong></div>
-      <div class="rounded-2xl bg-red-50 p-4"><span class="text-xs font-bold text-red-700">Absent</span><strong class="mt-1 block text-3xl font-black text-red-700">${Number(event.absent_count).toLocaleString()}</strong></div>`;
-    $("[data-event-dialog-recorded]").textContent = `${event.attendances_count} of ${event.expected_count} students recorded`;
-    $("[data-event-dialog-roster]").href = `pages/adviser/attendance-roster.html?event_id=${encodeURIComponent(event.id)}`;
+      <div class="rounded-2xl bg-red-50 p-4"><span class="text-xs font-bold text-red-700">Absent</span><strong class="mt-1 block text-3xl font-black text-red-700">${Number(event.absent_count).toLocaleString()}</strong></div>
+      <div class="rounded-2xl bg-[#121017]/5 p-4"><span class="text-xs font-bold text-[#121017]/55">Awaiting</span><strong class="mt-1 block text-3xl font-black text-[#121017]">${Number(event.awaiting_count).toLocaleString()}</strong></div>`;
+    $("[data-event-dialog-recorded]").textContent = `${event.attendances_count} of ${event.expected_count} students finalized`;
+    $("[data-event-dialog-roster]").href = `pages/adviser/attendance-roster.html?event_id=${encodeURIComponent(event.id)}&date=${encodeURIComponent(event.attendance_date)}`;
     eventDialog.showModal();
   }
 

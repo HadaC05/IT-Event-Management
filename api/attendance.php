@@ -37,19 +37,27 @@ final class AttendanceManagementRepository
 
         $count = $this->db->prepare('SELECT COUNT(*) FROM tbl_events e'.$whereSql); $count->execute($params);
         $total = (int)$count->fetchColumn(); $lastPage=max(1,(int)ceil($total/$perPage)); $page=min($page,$lastPage);
-        $sql = "SELECT e.id,e.title,e.location,e.start_at,e.end_at,e.audience_type,
-            COUNT(a.id) attendances_count,
-            SUM(CASE WHEN a.effective_status IN ('present','late') THEN 1 ELSE 0 END) attended_count,
-            SUM(CASE WHEN a.effective_status IN ('present','late') THEN 1 ELSE 0 END) present_count,
-            SUM(CASE WHEN a.effective_status IN ('absent','excused') THEN 1 ELSE 0 END) absent_count
-          FROM tbl_events e LEFT JOIN vw_attendance_effective a ON a.event_id=e.id $whereSql
-          GROUP BY e.id ORDER BY e.start_at DESC LIMIT :limit OFFSET :offset";
+        $sql = "SELECT e.id,e.title,e.location,e.start_at,e.end_at,e.audience_type
+          FROM tbl_events e $whereSql
+          ORDER BY e.start_at DESC LIMIT :limit OFFSET :offset";
         $statement=$this->db->prepare($sql); foreach($params as $key=>$value)$statement->bindValue(':'.$key,$value);
         $statement->bindValue(':limit',$perPage,PDO::PARAM_INT);$statement->bindValue(':offset',($page-1)*$perPage,PDO::PARAM_INT);$statement->execute();
         $events=$statement->fetchAll();
         foreach($events as &$event){
-            foreach(['id','attendances_count','attended_count','present_count','absent_count'] as $key)$event[$key]=(int)$event[$key];
-            $event['expected_count']=count($this->expectedIds($event));
+            $event['id']=(int)$event['id'];
+            $dates=$this->scheduleDates($event);$date=$this->summaryDate($dates);$day=$this->daySummary($event['id'],$date);
+            $event['attendance_date']=$date;
+            $event['attendance_day_number']=array_search($date,$dates,true)+1;
+            $event['attendance_day_count']=count($dates);
+            $event['expected_count']=$day['expected'];
+            $event['attendances_count']=$day['recorded'];
+            $event['attended_count']=$day['present'];
+            $event['present_count']=$day['present'];
+            $event['absent_count']=$day['absent'];
+            $event['awaiting_count']=$day['awaiting'];
+            $event['attendance_closed']=$day['closed'];
+            $today=substr($now,0,10);
+            $event['attendance_day_state']=$date>$today?'upcoming':($day['closed']?'completed':'ongoing');
             $event['coverage_rate']=$event['expected_count']?min(100,round($event['attendances_count']/$event['expected_count']*100,1)):null;
             $event['attendance_rate']=$event['attendances_count']?round($event['attended_count']/$event['attendances_count']*100,1):null;
             $event['schedule_state']=$this->scheduleState($event,$now);
@@ -121,8 +129,7 @@ final class AttendanceManagementRepository
         $statement=$this->db->prepare($sql);$allParams=array_merge($participantParams,[$eventId,$date],$filterParams,[$perPage,($page-1)*$perPage]);
         foreach($allParams as $index=>$value)$statement->bindValue($index+1,$value,is_int($value)?PDO::PARAM_INT:PDO::PARAM_STR);$statement->execute();$participants=$statement->fetchAll();
         foreach($participants as &$participant){$participant['id']=(int)$participant['id'];$participant['full_name']=$this->fullName($participant);$participant['is_expected']=(bool)$participant['is_expected'];$participant['has_scan_evidence']=(bool)$participant['has_scan_evidence'];$participant['has_time_in']=(bool)$participant['has_time_in'];$participant['has_time_out']=(bool)$participant['has_time_out'];$participant['scan_state']=$participant['manual_status']!==null?'manual':($participant['has_time_in']&&$participant['has_time_out']?'complete':($attendanceClosed?'closed_absent':($participant['has_scan_evidence']?'incomplete':'none')));}unset($participant);
-        $counts=array_fill_keys(self::STATUSES,0);$countsStatement=$this->db->prepare("SELECT effective_status,COUNT(*) total FROM vw_attendance_effective a WHERE event_id=? AND attendance_date=? AND (a.manual_status IS NOT NULL OR (EXISTS(SELECT 1 FROM tbl_attendance_entries final_in WHERE final_in.attendance_id=a.id AND final_in.phase='in') AND EXISTS(SELECT 1 FROM tbl_attendance_entries final_out WHERE final_out.attendance_id=a.id AND final_out.phase='out'))) GROUP BY effective_status");$countsStatement->execute([$eventId,$date]);foreach($countsStatement as $row){$group=in_array($row['effective_status'],['present','late'],true)?'present':'absent';$counts[$group]+=(int)$row['total'];}
-        if($attendanceClosed)$counts['absent']=max(0,$participantTotal-$counts['present']);
+        $daySummary=$this->daySummary($eventId,$date,$expected,$participantTotal);$counts=['present'=>$daySummary['present'],'absent'=>$daySummary['absent']];
         $recordedCount=array_sum($counts);$attended=$counts['present'];
         $options=$this->db->query('SELECT id,title,start_at FROM tbl_events WHERE deleted_at IS NULL ORDER BY start_at DESC')->fetchAll();foreach($options as &$option)$option['id']=(int)$option['id'];unset($option);
         return ['event'=>$event,'event_options'=>$options,'attendance_dates'=>$dates,'attendance_date'=>$date,'participants'=>$participants,'participant_total'=>$participantTotal,'counts'=>$counts,'summary'=>['expected'=>$expected,'recorded'=>$recordedCount,'unrecorded'=>max(0,$expected-$recordedCount),'completion'=>$expected?min(100,round($recordedCount/$expected*100,1)):null,'attended'=>$attended,'rate'=>$recordedCount?round($attended/$recordedCount*100,1):null],'pagination'=>['current_page'=>$page,'last_page'=>$lastPage,'per_page'=>$perPage,'total'=>$total,'from'=>$total?($page-1)*$perPage+1:null,'to'=>$total?min($page*$perPage,$total):null]];
@@ -162,6 +169,25 @@ final class AttendanceManagementRepository
 
     private function event(int $id): array{$statement=$this->db->prepare('SELECT id,title,location,start_at,end_at,audience_type FROM tbl_events WHERE id=? AND deleted_at IS NULL');$statement->execute([$id]);$event=$statement->fetch();if(!$event)throw new InvalidArgumentException('Event not found.');$event['id']=(int)$event['id'];return $event;}
     private function scheduleDates(array $event): array{$dates=array_map('strval',$this->column('SELECT schedule_date FROM tbl_event_attendance_schedules WHERE event_id=? ORDER BY schedule_date',[$event['id']]));return $dates?:[substr((string)$event['start_at'],0,10)];}
+    private function summaryDate(array $dates):string
+    {
+        $today=(new DateTimeImmutable('now',new DateTimeZone('Asia/Manila')))->format('Y-m-d');
+        foreach($dates as $date)if($date>=$today)return $date;
+        return (string)end($dates);
+    }
+    private function daySummary(int $eventId,string $date,?int $expected=null,?int $participantTotal=null):array
+    {
+        if($expected===null){$statement=$this->db->prepare('SELECT COUNT(*) FROM tbl_event_membership_snapshots WHERE event_id=?');$statement->execute([$eventId]);$expected=(int)$statement->fetchColumn();}
+        if($participantTotal===null){$statement=$this->db->prepare('SELECT COUNT(DISTINCT a.user_id) FROM tbl_attendances a LEFT JOIN tbl_event_membership_snapshots snapshot ON snapshot.event_id=a.event_id AND snapshot.user_id=a.user_id WHERE a.event_id=? AND a.attendance_date=? AND snapshot.user_id IS NULL');$statement->execute([$eventId,$date]);$participantTotal=$expected+(int)$statement->fetchColumn();}
+        $counts=array_fill_keys(self::STATUSES,0);
+        $statement=$this->db->prepare("SELECT effective_status,COUNT(*) total FROM vw_attendance_effective a WHERE event_id=? AND attendance_date=? AND (a.manual_status IS NOT NULL OR (EXISTS(SELECT 1 FROM tbl_attendance_entries final_in WHERE final_in.attendance_id=a.id AND final_in.phase='in') AND EXISTS(SELECT 1 FROM tbl_attendance_entries final_out WHERE final_out.attendance_id=a.id AND final_out.phase='out'))) GROUP BY effective_status");
+        $statement->execute([$eventId,$date]);
+        foreach($statement as $row){$group=in_array($row['effective_status'],['present','late'],true)?'present':'absent';$counts[$group]+=(int)$row['total'];}
+        $closed=$this->attendanceClosed($eventId,$date);
+        if($closed)$counts['absent']=max(0,$participantTotal-$counts['present']);
+        $recorded=array_sum($counts);
+        return ['expected'=>$expected,'participant_total'=>$participantTotal,'present'=>$counts['present'],'absent'=>$counts['absent'],'recorded'=>$recorded,'awaiting'=>max(0,$participantTotal-$recorded),'closed'=>$closed];
+    }
     private function attendanceClosed(int $eventId,string $date):bool
     {
         $statement=$this->db->prepare("SELECT CASE m.code WHEN 'whole_day' THEN s.whole_day_out_time WHEN 'two_sessions' THEN COALESCE(s.afternoon_out_time,s.morning_out_time) ELSE NULL END close_time FROM tbl_event_attendance_schedules s JOIN tbl_attendance_session_modes m ON m.id=s.attendance_session_mode_id WHERE s.event_id=? AND s.schedule_date=? LIMIT 1");
