@@ -57,7 +57,7 @@ final class ReportRepository
         $definitions = [
             'attendance' => [
                 ['Student ID', 'Student', 'Year Level', 'Tribe', 'Event', 'Academic Period', 'Attendance Date', 'Status', 'Time In', 'Time Out'],
-                fn (array $r): array => [$r['id_number'], $r['student_name'], $r['year_level'], $r['team_name'], $r['event_title'], $r['academic_period_label'], $r['attendance_date'], ucfirst($r['status']), $r['time_in_at'], $r['time_out_at']],
+                fn (array $r): array => [$r['id_number'], $this->lastNameFirst($r), $r['year_level'], $r['team_name'], $r['event_title'], $r['academic_period_label'], $r['attendance_date'], ucfirst($r['status']), $this->formatAttendanceTime($r['time_in_at']), $this->formatAttendanceTime($r['time_out_at'])],
             ],
             'participation' => [
                 ['Event', 'Academic Period', 'Schedule', 'Venue', 'Status', 'Expected Students', 'Recorded Students', 'Attended Students', 'Participation Rate'],
@@ -95,7 +95,7 @@ final class ReportRepository
         $resultStatus = "CASE WHEN a.manual_status IS NOT NULL OR $scanComplete THEN CASE WHEN a.effective_status IN ('present','late') THEN 'present' ELSE 'absent' END WHEN a.cutoff_passed=1 THEN 'absent' ELSE 'incomplete' END";
         $closeTime = "CASE mode.code WHEN 'whole_day' THEN schedule.whole_day_out_time WHEN 'two_sessions' THEN COALESCE(schedule.afternoon_out_time,schedule.morning_out_time) ELSE NULL END";
         $cutoffPassed = "EXISTS(SELECT 1 FROM tbl_event_attendance_schedules schedule JOIN tbl_attendance_session_modes mode ON mode.id=schedule.attendance_session_mode_id WHERE schedule.event_id=base.event_id AND schedule.schedule_date=base.attendance_date AND $closeTime IS NOT NULL AND CURRENT_TIMESTAMP>=TIMESTAMP(schedule.schedule_date,$closeTime))";
-        $attendanceSource = "(SELECT base.id,base.event_id,base.user_id,base.attendance_date,base.effective_status,base.manual_status,CASE WHEN $cutoffPassed THEN 1 ELSE 0 END cutoff_passed FROM vw_attendance_effective base UNION ALL SELECT NULL,schedule.event_id,membership.user_id,schedule.schedule_date,'absent',NULL,1 FROM tbl_event_attendance_schedules schedule JOIN tbl_attendance_session_modes mode ON mode.id=schedule.attendance_session_mode_id JOIN tbl_event_membership_snapshots membership ON membership.event_id=schedule.event_id WHERE $closeTime IS NOT NULL AND CURRENT_TIMESTAMP>=TIMESTAMP(schedule.schedule_date,$closeTime) AND NOT EXISTS(SELECT 1 FROM tbl_attendances existing WHERE existing.event_id=schedule.event_id AND existing.user_id=membership.user_id AND existing.attendance_date=schedule.schedule_date)) a";
+        $attendanceSource = "(SELECT base.id,base.event_id,base.user_id,base.attendance_date,base.effective_status,base.manual_status,base.checked_in_at,base.morning_out_at,base.afternoon_out_at,CASE WHEN $cutoffPassed THEN 1 ELSE 0 END cutoff_passed FROM vw_attendance_effective base UNION ALL SELECT NULL,schedule.event_id,membership.user_id,schedule.schedule_date,'absent',NULL,NULL,NULL,NULL,1 FROM tbl_event_attendance_schedules schedule JOIN tbl_attendance_session_modes mode ON mode.id=schedule.attendance_session_mode_id JOIN tbl_event_membership_snapshots membership ON membership.event_id=schedule.event_id WHERE $closeTime IS NOT NULL AND CURRENT_TIMESTAMP>=TIMESTAMP(schedule.schedule_date,$closeTime) AND NOT EXISTS(SELECT 1 FROM tbl_attendances existing WHERE existing.event_id=schedule.event_id AND existing.user_id=membership.user_id AND existing.attendance_date=schedule.schedule_date)) a";
         if ($filters['event_id']) {$where[] = 'a.event_id=?'; $params[] = $filters['event_id'];}
         if ($filters['school_year_id']) {$where[] = 'EXISTS(SELECT 1 FROM tbl_events period_event JOIN tbl_academic_periods ap ON ap.id=period_event.academic_period_id WHERE period_event.id=a.event_id AND ap.school_year_id=?)'; $params[] = $filters['school_year_id'];}
         if ($filters['academic_period_id']) {$where[] = 'EXISTS(SELECT 1 FROM tbl_events period_event WHERE period_event.id=a.event_id AND period_event.academic_period_id=?)'; $params[] = $filters['academic_period_id'];}
@@ -111,7 +111,13 @@ final class ReportRepository
         $from = "FROM $attendanceSource LEFT JOIN tbl_events e ON e.id=a.event_id LEFT JOIN tbl_academic_periods ap ON ap.id=e.academic_period_id LEFT JOIN tbl_school_years sy ON sy.id=ap.school_year_id LEFT JOIN tbl_users u ON u.id=a.user_id LEFT JOIN tbl_year_levels yl ON yl.id=u.year_level $whereSql";
         $summary = $this->row("SELECT COUNT(*) records,SUM(CASE WHEN $finalized AND $resultStatus='present' THEN 1 ELSE 0 END) attended,SUM(CASE WHEN $finalized AND $resultStatus='absent' THEN 1 ELSE 0 END) absent $from", $params);
         $total = (int) $summary['records'];
-        $sql = "SELECT a.id,a.attendance_date,$resultStatus status,(SELECT MIN(scan_in.scanned_at) FROM tbl_attendance_entries scan_in WHERE scan_in.attendance_id=a.id AND scan_in.phase='in') time_in_at,(SELECT MAX(scan_out.scanned_at) FROM tbl_attendance_entries scan_out WHERE scan_out.attendance_id=a.id AND scan_out.phase='out') time_out_at,e.title event_title,CONCAT('SY ',sy.label,' · ',ap.term_name) academic_period_label,u.id_number,TRIM(CONCAT_WS(' ',u.first_name,NULLIF(u.middle_name,''),u.last_name)) student_name,yl.label year_level,(SELECT ms.team_name FROM tbl_event_membership_snapshots ms WHERE ms.event_id=a.event_id AND ms.user_id=a.user_id LIMIT 1) team_name $from ORDER BY DATE(a.attendance_date) DESC,a.id DESC";
+        $sql = "SELECT a.id,a.attendance_date,$resultStatus status,
+            COALESCE((SELECT MIN(scan_in.scanned_at) FROM tbl_attendance_entries scan_in WHERE scan_in.attendance_id=a.id AND scan_in.phase='in'),a.checked_in_at) time_in_at,
+            COALESCE((SELECT MAX(scan_out.scanned_at) FROM tbl_attendance_entries scan_out WHERE scan_out.attendance_id=a.id AND scan_out.phase='out'),a.afternoon_out_at,a.morning_out_at) time_out_at,
+            e.title event_title,CONCAT('SY ',sy.label,' · ',ap.term_name) academic_period_label,u.id_number,
+            u.first_name,u.middle_name,u.last_name,TRIM(CONCAT_WS(' ',u.first_name,NULLIF(u.middle_name,''),u.last_name)) student_name,
+            yl.label year_level,(SELECT ms.team_name FROM tbl_event_membership_snapshots ms WHERE ms.event_id=a.event_id AND ms.user_id=a.user_id LIMIT 1) team_name
+            $from ORDER BY COALESCE(yl.id,0) DESC,u.last_name ASC,u.first_name ASC,u.middle_name ASC,a.attendance_date DESC,a.id DESC";
         $rows = $this->pagedRows($sql, $params, $total, $filters['page'], $all);
         $finalizedTotal=(int)($summary['attended']??0)+(int)($summary['absent']??0);
         return ['rows' => $rows['rows'], 'pagination' => $rows['pagination'], 'summary' => [
@@ -268,6 +274,21 @@ final class ReportRepository
     private function scalar(string $sql, array $params = []): mixed { $statement = $this->db->prepare($sql); $statement->execute($params); return $statement->fetchColumn(); }
     private function validDate(string $value): bool { $date = DateTimeImmutable::createFromFormat('!Y-m-d', $value); return $date !== false && $date->format('Y-m-d') === $value; }
     private function escapeLike(string $value): string { return str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $value); }
+    private function lastNameFirst(array $row): string
+    {
+        $last = trim((string) ($row['last_name'] ?? ''));
+        $given = trim(implode(' ', array_filter([
+            trim((string) ($row['first_name'] ?? '')),
+            trim((string) ($row['middle_name'] ?? '')),
+        ])));
+        return $last !== '' && $given !== '' ? $last.', '.$given : ($last ?: ($given ?: 'Deleted user'));
+    }
+    private function formatAttendanceTime(mixed $value): ?string
+    {
+        if ($value === null || $value === '') return null;
+        $time = DateTimeImmutable::createFromFormat('Y-m-d H:i:s', (string) $value);
+        return $time ? $time->format('Y-m-d h:i:s A') : (string) $value;
+    }
     private function sanitizeCsv(mixed $value): mixed { return is_string($value) && preg_match('/^[=+\-@]/', $value) ? "'".$value : $value; }
 }
 
