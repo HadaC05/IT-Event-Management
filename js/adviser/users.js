@@ -88,6 +88,11 @@ window.SharedNavigation.ready.then(() => {
         fillSelect(userForm.elements.faculty_team_id, teams.map(team => ({id:team.id,label:team.name})), user?.faculty_team_id ?? '');
         userForm.elements.password.required = !user;
         userForm.elements.password_confirmation.required = !user;
+        userForm.elements.password.disabled = Boolean(user);
+        userForm.elements.password_confirmation.disabled = Boolean(user);
+        userForm.elements.password.closest('label')?.classList.toggle('hidden', Boolean(user));
+        userForm.elements.password_confirmation.closest('label')?.classList.toggle('hidden', Boolean(user));
+        userForm.querySelector('[data-password-strength]')?.classList.toggle('hidden', Boolean(user));
         const passwordLabel = userForm.elements.password.closest('label')?.querySelector('span:first-child');
         if (passwordLabel) {
             passwordLabel.innerHTML = user
@@ -214,11 +219,64 @@ window.SharedNavigation.ready.then(() => {
 
     const resetUserPassword = user => {
         closeUserMenu();
-        editUser(user);
-        requestAnimationFrame(() => {
-            userForm.elements.password.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            userForm.elements.password.focus();
+        const dialog = document.createElement('dialog');
+        dialog.dataset.modalSize = 'medium';
+        dialog.dataset.modalKind = 'form';
+        dialog.className = 'm-auto w-[min(520px,calc(100%_-_2rem))] rounded-2xl border-0 bg-white p-0 text-[#121017] shadow-2xl backdrop:bg-[#121017]/60';
+        dialog.innerHTML = `
+            <form>
+                <header class="border-b border-[#121017]/8 border-t-4 border-t-[#397565] px-6 py-5">
+                    <div class="flex items-start justify-between gap-4"><div><p class="text-xs font-black uppercase tracking-wider text-[#397565]">Account access only</p><h2 class="mt-1 text-2xl font-black">Reset Password</h2></div><button class="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#F3F0E9] text-xl" type="button" data-dialog-close aria-label="Close">×</button></div>
+                    <div class="mt-4 rounded-xl bg-[#F3F0E9]/35 px-4 py-3"><strong class="block text-sm font-black"></strong><span class="mt-1 block text-xs font-bold text-[#397565]"></span></div>
+                </header>
+                <div class="grid gap-4 p-6">
+                    <label class="grid gap-2"><span class="text-sm font-bold">New temporary password</span><span class="relative"><input class="h-12 w-full rounded-xl border border-[#121017]/12 px-3 pr-12 text-sm outline-none focus:border-[#397565]" name="password" type="password" minlength="8" required autocomplete="new-password"><button class="absolute right-3 top-1/2 grid h-9 w-9 -translate-y-1/2 place-items-center rounded-lg text-xs font-black text-[#397565] hover:bg-[#397565]/8" type="button" data-password-toggle aria-label="Show new password" aria-pressed="false">Show</button></span></label>
+                    <label class="grid gap-2"><span class="text-sm font-bold">Confirm temporary password</span><span class="relative"><input class="h-12 w-full rounded-xl border border-[#121017]/12 px-3 pr-12 text-sm outline-none focus:border-[#397565]" name="password_confirmation" type="password" minlength="8" required autocomplete="new-password"><button class="absolute right-3 top-1/2 grid h-9 w-9 -translate-y-1/2 place-items-center rounded-lg text-xs font-black text-[#397565] hover:bg-[#397565]/8" type="button" data-password-toggle aria-label="Show password confirmation" aria-pressed="false">Show</button></span></label>
+                    <p class="rounded-xl bg-[#397565]/7 px-4 py-3 text-xs leading-5 text-[#397565]">This only changes the login password. It does not modify this account’s profile, events, attendance, team, or other existing data. The user will be required to choose a new private password after signing in.</p>
+                </div>
+                <footer class="flex justify-end gap-2 border-t border-[#121017]/8 bg-white px-6 py-4"><button class="min-h-11 rounded-xl border border-[#121017]/12 px-4 text-sm font-bold" type="button" data-dialog-close>Cancel</button><button class="min-h-11 rounded-xl bg-[#397565] px-5 text-sm font-black text-white" type="submit">Reset password</button></footer>
+            </form>`;
+
+        const form = dialog.querySelector('form');
+        form.querySelector('header strong').textContent = user.full_name;
+        form.querySelector('header strong + span').textContent = `${user.role} login: ${loginLabel(user)}`;
+        const confirmation = form.elements.password_confirmation;
+        const validateConfirmation = () => confirmation.setCustomValidity(
+            form.elements.password.value === confirmation.value ? '' : 'Passwords do not match.',
+        );
+        form.elements.password.addEventListener('input', validateConfirmation);
+        confirmation.addEventListener('input', validateConfirmation);
+        form.querySelectorAll('[data-password-toggle]').forEach(button => button.addEventListener('click', () => {
+            const input = button.parentElement.querySelector('input');
+            const showing = input.type === 'text';
+            input.type = showing ? 'password' : 'text';
+            button.textContent = showing ? 'Show' : 'Hide';
+            button.setAttribute('aria-pressed', String(!showing));
+        }));
+        dialog.querySelectorAll('[data-dialog-close]').forEach(button => button.addEventListener('click', () => dialog.close()));
+        dialog.addEventListener('close', () => dialog.remove());
+        form.addEventListener('submit', async event => {
+            event.preventDefault();
+            validateConfirmation();
+            if (!form.reportValidity()) return;
+            const submit = event.submitter || form.querySelector('button[type="submit"]');
+            window.Notifications?.setLoading(submit, true, 'Resetting password…');
+            try {
+                const data = Object.fromEntries(new FormData(form));
+                data.action = 'reset_password';
+                data.id = user.id;
+                const response = await axios.post('api/users.php', data, { headers: { 'X-CSRF-Token': csrfToken } });
+                dialog.close();
+                notify('success', response.data.message || 'Password reset successfully.');
+            } catch (error) {
+                showError(error);
+            } finally {
+                window.Notifications?.setLoading(submit, false);
+            }
         });
+        document.body.append(dialog);
+        dialog.showModal();
+        requestAnimationFrame(() => form.elements.password.focus());
     };
 
     const resetOfficerPassword = user => {
@@ -495,7 +553,6 @@ window.SharedNavigation.ready.then(() => {
         actions.className = 'px-6 py-5 text-right';
         const controls = document.createElement('div');
         controls.className = 'inline-flex items-center gap-2';
-        controls.append(actionButton(isManageable(user.role) ? 'View / Edit' : 'View Details', 'inline-flex min-h-10 items-center rounded-xl border border-[#397565]/25 bg-[#397565]/8 px-4 text-xs font-extrabold text-[#397565]', () => isManageable(user.role) ? editUser(user) : viewUser(user)));
         const more = actionButton('⋯', 'grid h-10 w-10 place-items-center rounded-xl border border-[#121017]/10 text-lg font-black text-[#121017]/45 hover:bg-[#F3F0E9]/60', event => openUserMenu(event.currentTarget, user));
         more.dataset.userMenuTrigger = '';
         more.setAttribute('aria-label', `More actions for ${user.full_name}`);
@@ -526,8 +583,7 @@ window.SharedNavigation.ready.then(() => {
                     ? (user.faculty_team_name ? `Attendance · ${user.faculty_team_name}` : 'Assign a team to enable attendance')
                     : user.role === 'Student' ? '—' : `${user.assigned_events.length} assigned events`;
         const controls = document.createElement('div');
-        controls.className = 'mt-4 flex items-center gap-2 border-t border-slate-100 pt-4';
-        controls.append(actionButton(isManageable(user.role) ? 'View / Edit' : 'View Details', 'min-h-10 flex-1 rounded-lg border border-[#397565]/25 bg-[#397565]/8 px-3 text-xs font-bold text-[#397565]', () => isManageable(user.role) ? editUser(user) : viewUser(user)));
+        controls.className = 'mt-4 flex justify-end border-t border-slate-100 pt-4';
         const more = actionButton('⋯', 'grid h-10 w-10 place-items-center rounded-lg border border-[#121017]/10 text-lg font-black text-[#121017]/45', event => openUserMenu(event.currentTarget, user));
         more.dataset.userMenuTrigger = '';
         more.setAttribute('aria-label', `More actions for ${user.full_name}`);

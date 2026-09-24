@@ -9,7 +9,7 @@
     <title>User Management | CITE Events</title>
     <link rel="icon" type="image/png" sizes="512x512" href="assets/images/cite_favicon.png">
     <link rel="stylesheet" href="css/tailwind.css" />
-    <link rel="stylesheet" href="css/adviser.css?v=20260920-roster-1" />
+    <link rel="stylesheet" href="css/adviser.css?v=20260925-mobile-management-1" />
     <script src="js/shared/notifications.js?v=20260917-7" defer></script>
     <script src="js/shared/interactions.js?v=20260917-flat-1" defer></script>
 </head>
@@ -26,15 +26,15 @@
                 <div>
                     <h1 class="text-3xl font-extrabold tracking-tight text-[#121017] sm:text-4xl">User Management</h1>
                 </div>
-                <div class="flex flex-wrap gap-2">
+                <div class="grid w-full gap-2 sm:flex sm:w-auto sm:flex-wrap">
                     <button
-                        class="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-[#397565]/25 bg-white px-5 text-sm font-extrabold text-[#397565] transition hover:bg-[#397565]/7"
+                        class="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-[#397565]/25 bg-white px-5 text-sm font-extrabold text-[#397565] transition hover:bg-[#397565]/7 sm:w-auto"
                         type="button" data-roster-import-open>Import roster</button>
                     <button
-                        class="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-[#397565]/25 bg-white px-5 text-sm font-extrabold text-[#397565] transition hover:bg-[#397565]/7"
+                        class="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-[#397565]/25 bg-white px-5 text-sm font-extrabold text-[#397565] transition hover:bg-[#397565]/7 sm:w-auto"
                         type="button" data-faculty-import-open>Import faculty</button>
                     <button
-                        class="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-emerald-600 px-5 text-sm font-extrabold text-white shadow-lg shadow-emerald-600/15 transition hover:bg-emerald-700"
+                        class="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 px-5 text-sm font-extrabold text-white shadow-lg shadow-emerald-600/15 transition hover:bg-emerald-700 sm:w-auto"
                         type="button" data-dialog-open="add-user-dialog"><span class="text-xl font-normal"
                             aria-hidden="true">+</span>Add User</button>
                 </div>
@@ -53,9 +53,9 @@
                         </div>
                     </div>
 
-                    <form class="mt-5 grid gap-2 md:grid-cols-[minmax(260px,1fr)_170px_170px_auto]" method="GET"
+                    <form class="mt-5 grid gap-2 sm:grid-cols-2 lg:grid-cols-[minmax(260px,1fr)_170px_170px_auto]" method="GET"
                         action="pages/adviser/users.html">
-                        <label class="relative"><svg
+                        <label class="relative sm:col-span-2 lg:col-span-1"><svg
                                 class="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 fill-none stroke-slate-400"
                                 viewBox="0 0 24 24" aria-hidden="true">
                                 <circle cx="11" cy="11" r="7" />
@@ -2607,7 +2607,7 @@
     <script src="js/vendor/axios.min.js"></script>
     <script src="js/shared/password-gate.js?v=20260917-1"></script>
     <script src="js/shared/navigation.js?v=20260924-media-merge-1"></script>
-    <script src="js/adviser/users.js?v=20260924-sbo-password-reset-1"></script>
+    <script src="js/adviser/users.js?v=20260925-isolated-password-reset-2"></script>
 </body>
 
 </html>
