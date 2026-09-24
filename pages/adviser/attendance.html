@@ -1,92 +1,263 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <base href="../../">
-    <meta name="csrf-token" content="">
-    <title>Attendance | CITE Events</title>
-    <link
-    rel="icon"
-    type="image/png"
-    sizes="512x512"
-    href="assets/images/cite_favicon.png"
->
-<link rel="stylesheet" href="css/tailwind.css" />
-<link rel="stylesheet" href="css/adviser.css?v=20260918-filter-layout" />
-<script src="js/shared/notifications.js?v=20260917-7" defer></script>
-    <script src="js/shared/interactions.js?v=20260917-flat-1" defer></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <base href="../../">
+  <meta name="csrf-token" content="">
+  <title>Attendance | CITE Events</title>
+  <link rel="icon" type="image/png" sizes="512x512" href="assets/images/cite_favicon.png">
+  <link rel="stylesheet" href="css/tailwind.css" />
+  <link rel="stylesheet" href="css/adviser.css?v=20260918-filter-layout" />
+  <script src="js/shared/notifications.js?v=20260917-7" defer></script>
+  <script src="js/shared/interactions.js?v=20260917-flat-1" defer></script>
 </head>
-<body class="app-shell min-h-screen bg-white font-sans text-[#121017] antialiased" data-admin-shell data-navigation-role="adviser">
-    <span class="route-progress" data-route-progress data-active="false" aria-hidden="true"></span>
 
-    <div data-shared-navigation-host></div>
-    <div class="min-h-screen lg:ml-20">
-        <main class="admin-main mx-auto w-full max-w-[1500px] px-4 py-7 sm:px-6 lg:px-10 lg:py-9 xl:px-16" data-page-content>
-<header class="border-b border-[#121017]/12 pb-7"><div class="flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between"><div><p class="mb-3 inline-flex items-center gap-2 text-[10px] font-black uppercase tracking-[.18em] text-[#397565]"><span class="h-1.5 w-1.5 rounded-full bg-[#C6F24E] ring-2 ring-[#397565]/15"></span>Attendance</p><h1 class="text-4xl font-black tracking-[-.05em] text-[#121017] sm:text-5xl">Event Attendance</h1><p class="mt-3 max-w-2xl text-sm leading-6 text-[#121017]/52">Record and monitor attendance for event participants.</p></div><a class="hidden min-h-11 items-center justify-center gap-2 rounded-xl border border-[#397565]/25 bg-white/45 px-5 text-xs font-black text-[#397565] transition hover:border-[#397565] hover:bg-[#397565] hover:text-white" href="pages/adviser/events.html" data-manage-events>Manage Events <span>→</span></a></div>
-<p class="mt-6 text-xs font-black text-[#121017]/48" data-attendance-summary>Loading attendance summary…</p></header>
-<section class="py-8" aria-labelledby="attendance-directory-heading"><header class="mb-5"><div class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between"><div><p class="text-[10px] font-black uppercase tracking-[.16em] text-[#397565]">Attendance workspace</p><h2 id="attendance-directory-heading" class="mt-1 text-xl font-black tracking-[-.025em] text-[#121017]">Choose an event</h2><p class="mt-1 text-[10px] font-semibold text-[#121017]/40" data-result-count>Loading events…</p></div><button class="hidden text-[10px] font-black text-[#FF6B2C] transition hover:text-[#c94414]" type="button" data-clear-filters>Clear all filters</button></div>
-<form class="mt-5 hidden gap-2 md:grid-cols-[minmax(260px,1fr)_190px_auto]" data-attendance-filters><label class="relative"><svg class="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 fill-none stroke-[#121017]/35 stroke-2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg><span class="sr-only">Search events</span><input class="h-11 w-full rounded-xl border border-[#121017]/10 bg-white/65 pl-10 pr-3 text-sm text-[#121017] outline-none transition placeholder:text-[#121017]/30 focus:border-[#397565] focus:bg-white focus:ring-4 focus:ring-[#397565]/10" name="search" maxlength="100" placeholder="Search event or venue…"></label><label class="relative"><span class="sr-only">Filter by schedule</span><select class="h-11 w-full appearance-none rounded-xl border border-[#121017]/10 bg-white/65 px-3 pr-9 text-xs font-bold text-[#121017]/60 outline-none transition focus:border-[#397565] focus:bg-white focus:ring-4 focus:ring-[#397565]/10" name="timing"><option value="">Any schedule</option><option value="upcoming">Upcoming</option><option value="ongoing">Ongoing</option><option value="completed">Ended</option></select><svg class="pointer-events-none absolute right-3.5 top-1/2 h-4 w-4 -translate-y-1/2 fill-none stroke-[#397565] stroke-2" viewBox="0 0 24 24"><path d="m7 10 5 5 5-5"/></svg></label></form></header>
-<nav class="mb-4 hidden flex-wrap items-center justify-between gap-3 border-y border-[#121017]/8 py-3 text-xs" data-pagination aria-label="Event pages"></nav><div class="grid gap-4 md:grid-cols-2 xl:grid-cols-3" data-event-list></div><nav class="mt-5 hidden flex-wrap items-center justify-between gap-3 border-t border-[#121017]/8 pt-4 text-xs" data-pagination aria-label="Event pages"></nav></section>
-<details class="hidden" data-scan-details aria-hidden="true">
-  <summary class="flex min-h-14 cursor-pointer list-none items-center justify-between rounded-2xl border border-[#121017]/10 bg-white px-5 text-sm font-black text-[#397565] marker:hidden">Scan locations <span class="text-xs text-[#121017]/50 group-open:rotate-180" aria-hidden="true">⌄</span></summary>
-<section class="border-t border-[#121017]/10 py-8" aria-labelledby="scan-locations-heading">
-  <header class="mb-5"><p class="text-[10px] font-black uppercase tracking-[.16em] text-[#397565]">SBO QR attendance</p>
-    <h2 class="mt-1 text-xl font-black" id="scan-locations-heading">Scan locations</h2>
-    <p class="mt-1 text-xs text-[#121017]/50">Recent officer scans with reported device GPS and venue checks. GPS is approximate and may be spoofed.</p></header>
-  <form class="grid gap-3" data-scan-filters>
-    <input type="hidden" name="page" value="1">
-    <div class="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
-      <fieldset class="grid gap-1"><legend class="text-xs font-bold">Calendar date</legend><div class="flex gap-1"><button class="h-11 w-11 shrink-0 rounded-xl border border-[#121017]/10 bg-white text-base font-black text-[#397565]" type="button" data-date-previous aria-label="Previous day">&larr;</button><input class="h-11 min-w-0 flex-1 rounded-xl border border-[#121017]/10 bg-white px-3 text-xs font-bold" type="date" name="schedule_date" required><button class="h-11 w-11 shrink-0 rounded-xl border border-[#121017]/10 bg-white text-base font-black text-[#397565]" type="button" data-date-next aria-label="Next day">&rarr;</button><button class="h-11 shrink-0 rounded-xl bg-[#397565] px-4 text-[10px] font-black text-white" type="button" data-date-today>Today</button></div></fieldset>
-      <label class="grid gap-1 text-xs font-bold">Event type<select class="h-11 rounded-xl border border-[#121017]/10 bg-white px-3" name="event_type_id"><option value="">All event types</option></select></label>
-      <label class="grid gap-1 text-xs font-bold">Specific event<select class="h-11 rounded-xl border border-[#121017]/10 bg-white px-3" name="event_id"><option value="">All events matching date and type</option></select></label>
-    </div>
-    <div class="attendance-secondary-filters grid gap-3 sm:grid-cols-2">
-      <label class="grid gap-1 text-xs font-bold">Session<select class="h-11 rounded-xl border border-[#121017]/10 bg-white px-3" name="session"><option value="">All recorded sessions</option><option value="morning">Morning session</option><option value="afternoon">Afternoon session</option><option value="whole_day">Whole-day session</option></select></label>
-      <label class="grid gap-1 text-xs font-bold">Team / tribe<select class="h-11 rounded-xl border border-[#121017]/10 bg-white px-3" name="team_id"><option value="">All teams</option></select></label>
-      <label class="grid gap-1 text-xs font-bold">SBO officer<select class="h-11 rounded-xl border border-[#121017]/10 bg-white px-3" name="officer_id"><option value="">All officers</option></select></label>
-      <label class="grid gap-1 text-xs font-bold">Location status<select class="h-11 rounded-xl border border-[#121017]/10 bg-white px-3" name="location_status"><option value="">All statuses</option><option value="inside">Inside</option><option value="outside">Outside</option><option value="unavailable">Unavailable</option></select></label>
-      <div class="grid gap-1 text-xs font-bold"><span>Distance group</span><details class="attendance-distance-filter relative" data-distance-filter><summary class="flex h-11 cursor-pointer list-none items-center justify-between rounded-xl border border-[#121017]/10 bg-white px-3"><span data-distance-filter-label>All distance groups</span><span class="text-[#397565]" aria-hidden="true">⌄</span></summary><div class="attendance-distance-menu absolute right-0 top-[calc(100%+.4rem)] grid w-64 gap-1 rounded-xl border border-[#121017]/10 bg-white p-2 shadow-xl"><label class="flex min-h-10 cursor-pointer items-center gap-2 rounded-lg px-2 hover:bg-[#F3F0E9]"><input class="h-4 w-4 accent-[#397565]" type="checkbox" data-distance-all>All distance groups</label><label class="flex min-h-10 cursor-pointer items-center gap-2 rounded-lg px-2 hover:bg-[#F3F0E9]"><input class="h-4 w-4 accent-[#397565]" type="checkbox" name="distance_group[]" value="nearby">All nearby outside scans <small class="ml-auto text-[#121017]/40">≤250 m</small></label><label class="flex min-h-10 cursor-pointer items-center gap-2 rounded-lg px-2 hover:bg-[#F3F0E9]"><input class="h-4 w-4 accent-[#397565]" type="checkbox" name="distance_group[]" value="far">All far-from-venue scans <small class="ml-auto text-[#121017]/40">&gt;250 m</small></label><label class="flex min-h-10 cursor-pointer items-center gap-2 rounded-lg px-2 hover:bg-[#F3F0E9]"><input class="h-4 w-4 accent-[#397565]" type="checkbox" name="distance_group[]" value="inside">All in-venue scans</label></div></details></div>
-    </div>
-  </form>
-  <section class="mt-5 overflow-hidden rounded-2xl border border-[#121017]/10 bg-white shadow-sm" data-latest-scan-map aria-labelledby="latest-scan-map-heading">
-    <header class="flex flex-col gap-2 border-b border-[#121017]/8 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
-      <div><p class="text-[9px] font-black uppercase tracking-[.16em] text-[#397565]">Live scan positions</p><h3 class="mt-1 text-base font-black" id="latest-scan-map-heading">Latest position per SBO officer</h3></div>
-      <div class="flex flex-wrap items-center gap-3 sm:justify-end"><div class="grid gap-1 text-left sm:text-right"><span class="text-[10px] font-bold text-[#121017]/45" data-latest-map-updated>Waiting for scan data...</span><span class="text-[9px] font-black uppercase tracking-wider text-[#397565]"><i class="mr-1 inline-block h-2 w-4 border border-dashed border-[#397565] bg-[#C6F24E]/20"></i>Venue box boundary</span><span class="hidden flex-wrap items-center gap-x-3 gap-y-1 text-[9px] font-black text-[#121017]/55 sm:justify-end" data-team-map-legend></span></div><button class="hidden min-h-9 rounded-xl border border-[#397565]/25 bg-[#397565]/8 px-3 text-[10px] font-black text-[#397565] hover:bg-[#397565] hover:text-white" type="button" data-map-reset>Reset map</button></div>
-    </header>
-    <div class="relative min-h-80 bg-[#F3F0E9] sm:min-h-96">
-      <div class="absolute inset-0 z-0" data-latest-map-canvas aria-label="Latest SBO attendance scan locations"></div>
-      <div class="absolute inset-0 grid place-items-center px-6 text-center" data-latest-map-empty><div><svg class="mx-auto h-9 w-9 fill-none stroke-[#397565] stroke-2" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 10c0 5-8 11-8 11S4 15 4 10a8 8 0 1 1 16 0ZM12 10h.01"></path></svg><strong class="mt-3 block text-sm">No scan location available</strong><p class="mt-1 text-xs text-[#121017]/45" data-latest-map-empty-message>The newest matching scan will appear here when GPS coordinates are available.</p></div></div>
-    </div>
-    <div class="hidden gap-3 overflow-x-auto border-t border-[#121017]/8 px-5 py-4 text-xs" data-latest-map-details></div>
-  </section>
-  <div class="attendance-scan-list mt-5 grid gap-2" data-scan-locations><p class="text-sm text-[#121017]/50">Loading scan locations…</p></div>
-  <nav class="mt-4 hidden items-center justify-between gap-3 border-t border-[#121017]/8 pt-4 text-xs" data-scan-pagination aria-label="Attendance scan pages"></nav>
-</section>
-</details>
-</main>
-    </div>
-    <div class="pointer-events-none fixed right-4 top-4 z-[80] grid w-[min(380px,calc(100%_-_2rem))] gap-2.5 sm:right-6 sm:top-6" data-notification-region data-flash-type="" data-flash-message="" aria-live="polite" aria-atomic="true"></div>
-<div class="pointer-events-none fixed bottom-4 right-4 z-[75] w-[min(470px,calc(100%_-_2rem))] sm:bottom-6 sm:right-6" data-snackbar-region aria-live="polite" aria-atomic="true"></div>
+<body class="app-shell min-h-screen bg-white font-sans text-[#121017] antialiased" data-admin-shell
+  data-navigation-role="adviser">
+  <span class="route-progress" data-route-progress data-active="false" aria-hidden="true"></span>
 
-<dialog class="m-auto max-h-[calc(100dvh-2rem)] w-[min(520px,calc(100%_-_2rem))] overflow-y-auto rounded-3xl border-0 bg-white p-0 text-[#121017] shadow-2xl backdrop:bg-[#121017]/60" data-event-attendance-dialog aria-labelledby="event-attendance-title">
-  <div class="flex items-start justify-between gap-4 border-b border-[#121017]/10 px-5 py-4 sm:px-6"><div><p class="text-[10px] font-black uppercase tracking-widest text-[#397565]">Event attendance</p><h2 class="mt-1 text-xl font-black" id="event-attendance-title" data-event-dialog-title></h2><p class="mt-1 text-xs text-[#121017]/50" data-event-dialog-schedule></p></div><button class="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-[#121017]/10 text-lg" type="button" data-event-dialog-close aria-label="Close event details">×</button></div>
-  <div class="p-5 sm:p-6"><div class="grid grid-cols-2 gap-3" data-event-dialog-counts></div><p class="mt-4 text-sm font-bold" data-event-dialog-recorded></p><p class="mt-1 text-xs text-[#121017]/55" data-event-dialog-status></p><a class="mt-6 flex min-h-11 items-center justify-center rounded-xl bg-[#397565] px-5 text-sm font-black text-white" data-event-dialog-roster href="#">Open roster →</a></div>
-</dialog>
+  <div data-shared-navigation-host></div>
+  <div class="min-h-screen lg:ml-20">
+    <main class="admin-main mx-auto w-full max-w-[1500px] px-4 py-7 sm:px-6 lg:px-10 lg:py-9 xl:px-16"
+      data-page-content>
+      <header class="border-b border-[#121017]/12 pb-7">
+        <div class="flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
+          <div>
 
-<dialog class="m-auto w-[min(440px,calc(100%_-_2rem))] rounded-2xl border-0 bg-white p-0 text-slate-700 shadow-2xl backdrop:bg-[#121017]/60 backdrop:backdrop-blur-[2px]" data-confirm-dialog aria-labelledby="confirm-title" aria-describedby="confirm-message">
+            <h1 class="text-4xl font-black tracking-[-.05em] text-[#121017] sm:text-5xl">Event Attendance</h1>
+          </div><a
+            class="hidden min-h-11 items-center justify-center gap-2 rounded-xl border border-[#397565]/25 bg-white/45 px-5 text-xs font-black text-[#397565] transition hover:border-[#397565] hover:bg-[#397565] hover:text-white"
+            href="pages/adviser/events.html" data-manage-events>Manage Events <span>→</span></a>
+        </div>
+        <p class="mt-6 text-xs font-black text-[#121017]/48" data-attendance-summary>Loading attendance summary…</p>
+      </header>
+      <section class="py-8" aria-labelledby="attendance-directory-heading">
+        <header class="mb-5">
+          <div class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <p class="text-[10px] font-black uppercase tracking-[.16em] text-[#397565]">Attendance workspace</p>
+              <h2 id="attendance-directory-heading" class="mt-1 text-xl font-black tracking-[-.025em] text-[#121017]">
+                Choose an event</h2>
+              <p class="mt-1 text-[10px] font-semibold text-[#121017]/40" data-result-count>Loading events…</p>
+            </div><button class="hidden text-[10px] font-black text-[#FF6B2C] transition hover:text-[#c94414]"
+              type="button" data-clear-filters>Clear all filters</button>
+          </div>
+          <form class="mt-5 hidden gap-2 md:grid-cols-[minmax(260px,1fr)_190px_auto]" data-attendance-filters><label
+              class="relative"><svg
+                class="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 fill-none stroke-[#121017]/35 stroke-2"
+                viewBox="0 0 24 24">
+                <circle cx="11" cy="11" r="7" />
+                <path d="m20 20-4-4" />
+              </svg><span class="sr-only">Search events</span><input
+                class="h-11 w-full rounded-xl border border-[#121017]/10 bg-white/65 pl-10 pr-3 text-sm text-[#121017] outline-none transition placeholder:text-[#121017]/30 focus:border-[#397565] focus:bg-white focus:ring-4 focus:ring-[#397565]/10"
+                name="search" maxlength="100" placeholder="Search event or venue…"></label><label class="relative"><span
+                class="sr-only">Filter by schedule</span><select
+                class="h-11 w-full appearance-none rounded-xl border border-[#121017]/10 bg-white/65 px-3 pr-9 text-xs font-bold text-[#121017]/60 outline-none transition focus:border-[#397565] focus:bg-white focus:ring-4 focus:ring-[#397565]/10"
+                name="timing">
+                <option value="">Any schedule</option>
+                <option value="upcoming">Upcoming</option>
+                <option value="ongoing">Ongoing</option>
+                <option value="completed">Ended</option>
+              </select><svg
+                class="pointer-events-none absolute right-3.5 top-1/2 h-4 w-4 -translate-y-1/2 fill-none stroke-[#397565] stroke-2"
+                viewBox="0 0 24 24">
+                <path d="m7 10 5 5 5-5" />
+              </svg></label></form>
+        </header>
+        <nav class="mb-4 hidden flex-wrap items-center justify-between gap-3 border-y border-[#121017]/8 py-3 text-xs"
+          data-pagination aria-label="Event pages"></nav>
+        <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-3" data-event-list></div>
+        <nav class="mt-5 hidden flex-wrap items-center justify-between gap-3 border-t border-[#121017]/8 pt-4 text-xs"
+          data-pagination aria-label="Event pages"></nav>
+      </section>
+      <details class="hidden" data-scan-details aria-hidden="true">
+        <summary
+          class="flex min-h-14 cursor-pointer list-none items-center justify-between rounded-2xl border border-[#121017]/10 bg-white px-5 text-sm font-black text-[#397565] marker:hidden">
+          Scan locations <span class="text-xs text-[#121017]/50 group-open:rotate-180" aria-hidden="true">⌄</span>
+        </summary>
+        <section class="border-t border-[#121017]/10 py-8" aria-labelledby="scan-locations-heading">
+          <header class="mb-5">
+            <p class="text-[10px] font-black uppercase tracking-[.16em] text-[#397565]">SBO QR attendance</p>
+            <h2 class="mt-1 text-xl font-black" id="scan-locations-heading">Scan locations</h2>
+            <p class="mt-1 text-xs text-[#121017]/50">Recent officer scans with reported device GPS and venue checks.
+              GPS is approximate and may be spoofed.</p>
+          </header>
+          <form class="grid gap-3" data-scan-filters>
+            <input type="hidden" name="page" value="1">
+            <div class="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+              <fieldset class="grid gap-1">
+                <legend class="text-xs font-bold">Calendar date</legend>
+                <div class="flex gap-1"><button
+                    class="h-11 w-11 shrink-0 rounded-xl border border-[#121017]/10 bg-white text-base font-black text-[#397565]"
+                    type="button" data-date-previous aria-label="Previous day">&larr;</button><input
+                    class="h-11 min-w-0 flex-1 rounded-xl border border-[#121017]/10 bg-white px-3 text-xs font-bold"
+                    type="date" name="schedule_date" required><button
+                    class="h-11 w-11 shrink-0 rounded-xl border border-[#121017]/10 bg-white text-base font-black text-[#397565]"
+                    type="button" data-date-next aria-label="Next day">&rarr;</button><button
+                    class="h-11 shrink-0 rounded-xl bg-[#397565] px-4 text-[10px] font-black text-white" type="button"
+                    data-date-today>Today</button></div>
+              </fieldset>
+              <label class="grid gap-1 text-xs font-bold">Event type<select
+                  class="h-11 rounded-xl border border-[#121017]/10 bg-white px-3" name="event_type_id">
+                  <option value="">All event types</option>
+                </select></label>
+              <label class="grid gap-1 text-xs font-bold">Specific event<select
+                  class="h-11 rounded-xl border border-[#121017]/10 bg-white px-3" name="event_id">
+                  <option value="">All events matching date and type</option>
+                </select></label>
+            </div>
+            <div class="attendance-secondary-filters grid gap-3 sm:grid-cols-2">
+              <label class="grid gap-1 text-xs font-bold">Session<select
+                  class="h-11 rounded-xl border border-[#121017]/10 bg-white px-3" name="session">
+                  <option value="">All recorded sessions</option>
+                  <option value="morning">Morning session</option>
+                  <option value="afternoon">Afternoon session</option>
+                  <option value="whole_day">Whole-day session</option>
+                </select></label>
+              <label class="grid gap-1 text-xs font-bold">Team / tribe<select
+                  class="h-11 rounded-xl border border-[#121017]/10 bg-white px-3" name="team_id">
+                  <option value="">All teams</option>
+                </select></label>
+              <label class="grid gap-1 text-xs font-bold">SBO officer<select
+                  class="h-11 rounded-xl border border-[#121017]/10 bg-white px-3" name="officer_id">
+                  <option value="">All officers</option>
+                </select></label>
+              <label class="grid gap-1 text-xs font-bold">Location status<select
+                  class="h-11 rounded-xl border border-[#121017]/10 bg-white px-3" name="location_status">
+                  <option value="">All statuses</option>
+                  <option value="inside">Inside</option>
+                  <option value="outside">Outside</option>
+                  <option value="unavailable">Unavailable</option>
+                </select></label>
+              <div class="grid gap-1 text-xs font-bold"><span>Distance group</span>
+                <details class="attendance-distance-filter relative" data-distance-filter>
+                  <summary
+                    class="flex h-11 cursor-pointer list-none items-center justify-between rounded-xl border border-[#121017]/10 bg-white px-3">
+                    <span data-distance-filter-label>All distance groups</span><span class="text-[#397565]"
+                      aria-hidden="true">⌄</span>
+                  </summary>
+                  <div
+                    class="attendance-distance-menu absolute right-0 top-[calc(100%+.4rem)] grid w-64 gap-1 rounded-xl border border-[#121017]/10 bg-white p-2 shadow-xl">
+                    <label
+                      class="flex min-h-10 cursor-pointer items-center gap-2 rounded-lg px-2 hover:bg-[#F3F0E9]"><input
+                        class="h-4 w-4 accent-[#397565]" type="checkbox" data-distance-all>All distance
+                      groups</label><label
+                      class="flex min-h-10 cursor-pointer items-center gap-2 rounded-lg px-2 hover:bg-[#F3F0E9]"><input
+                        class="h-4 w-4 accent-[#397565]" type="checkbox" name="distance_group[]" value="nearby">All
+                      nearby outside scans <small class="ml-auto text-[#121017]/40">≤250 m</small></label><label
+                      class="flex min-h-10 cursor-pointer items-center gap-2 rounded-lg px-2 hover:bg-[#F3F0E9]"><input
+                        class="h-4 w-4 accent-[#397565]" type="checkbox" name="distance_group[]" value="far">All
+                      far-from-venue scans <small class="ml-auto text-[#121017]/40">&gt;250 m</small></label><label
+                      class="flex min-h-10 cursor-pointer items-center gap-2 rounded-lg px-2 hover:bg-[#F3F0E9]"><input
+                        class="h-4 w-4 accent-[#397565]" type="checkbox" name="distance_group[]" value="inside">All
+                      in-venue scans</label>
+                  </div>
+                </details>
+              </div>
+            </div>
+          </form>
+          <section class="mt-5 overflow-hidden rounded-2xl border border-[#121017]/10 bg-white shadow-sm"
+            data-latest-scan-map aria-labelledby="latest-scan-map-heading">
+            <header
+              class="flex flex-col gap-2 border-b border-[#121017]/8 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p class="text-[9px] font-black uppercase tracking-[.16em] text-[#397565]">Live scan positions</p>
+                <h3 class="mt-1 text-base font-black" id="latest-scan-map-heading">Latest position per SBO officer</h3>
+              </div>
+              <div class="flex flex-wrap items-center gap-3 sm:justify-end">
+                <div class="grid gap-1 text-left sm:text-right"><span class="text-[10px] font-bold text-[#121017]/45"
+                    data-latest-map-updated>Waiting for scan data...</span><span
+                    class="text-[9px] font-black uppercase tracking-wider text-[#397565]"><i
+                      class="mr-1 inline-block h-2 w-4 border border-dashed border-[#397565] bg-[#C6F24E]/20"></i>Venue
+                    box boundary</span><span
+                    class="hidden flex-wrap items-center gap-x-3 gap-y-1 text-[9px] font-black text-[#121017]/55 sm:justify-end"
+                    data-team-map-legend></span></div><button
+                  class="hidden min-h-9 rounded-xl border border-[#397565]/25 bg-[#397565]/8 px-3 text-[10px] font-black text-[#397565] hover:bg-[#397565] hover:text-white"
+                  type="button" data-map-reset>Reset map</button>
+              </div>
+            </header>
+            <div class="relative min-h-80 bg-[#F3F0E9] sm:min-h-96">
+              <div class="absolute inset-0 z-0" data-latest-map-canvas
+                aria-label="Latest SBO attendance scan locations"></div>
+              <div class="absolute inset-0 grid place-items-center px-6 text-center" data-latest-map-empty>
+                <div><svg class="mx-auto h-9 w-9 fill-none stroke-[#397565] stroke-2" viewBox="0 0 24 24"
+                    aria-hidden="true">
+                    <path d="M20 10c0 5-8 11-8 11S4 15 4 10a8 8 0 1 1 16 0ZM12 10h.01"></path>
+                  </svg><strong class="mt-3 block text-sm">No scan location available</strong>
+                  <p class="mt-1 text-xs text-[#121017]/45" data-latest-map-empty-message>The newest matching scan will
+                    appear here when GPS coordinates are available.</p>
+                </div>
+              </div>
+            </div>
+            <div class="hidden gap-3 overflow-x-auto border-t border-[#121017]/8 px-5 py-4 text-xs"
+              data-latest-map-details></div>
+          </section>
+          <div class="attendance-scan-list mt-5 grid gap-2" data-scan-locations>
+            <p class="text-sm text-[#121017]/50">Loading scan locations…</p>
+          </div>
+          <nav class="mt-4 hidden items-center justify-between gap-3 border-t border-[#121017]/8 pt-4 text-xs"
+            data-scan-pagination aria-label="Attendance scan pages"></nav>
+        </section>
+      </details>
+    </main>
+  </div>
+  <div
+    class="pointer-events-none fixed right-4 top-4 z-[80] grid w-[min(380px,calc(100%_-_2rem))] gap-2.5 sm:right-6 sm:top-6"
+    data-notification-region data-flash-type="" data-flash-message="" aria-live="polite" aria-atomic="true"></div>
+  <div class="pointer-events-none fixed bottom-4 right-4 z-[75] w-[min(470px,calc(100%_-_2rem))] sm:bottom-6 sm:right-6"
+    data-snackbar-region aria-live="polite" aria-atomic="true"></div>
+
+  <dialog
+    class="m-auto max-h-[calc(100dvh-2rem)] w-[min(520px,calc(100%_-_2rem))] overflow-y-auto rounded-3xl border-0 bg-white p-0 text-[#121017] shadow-2xl backdrop:bg-[#121017]/60"
+    data-event-attendance-dialog aria-labelledby="event-attendance-title">
+    <div class="flex items-start justify-between gap-4 border-b border-[#121017]/10 px-5 py-4 sm:px-6">
+      <div>
+        <p class="text-[10px] font-black uppercase tracking-widest text-[#397565]">Event attendance</p>
+        <h2 class="mt-1 text-xl font-black" id="event-attendance-title" data-event-dialog-title></h2>
+        <p class="mt-1 text-xs text-[#121017]/50" data-event-dialog-schedule></p>
+      </div><button class="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-[#121017]/10 text-lg"
+        type="button" data-event-dialog-close aria-label="Close event details">×</button>
+    </div>
+    <div class="p-5 sm:p-6">
+      <div class="grid grid-cols-2 gap-3" data-event-dialog-counts></div>
+      <p class="mt-4 text-sm font-bold" data-event-dialog-recorded></p>
+      <p class="mt-1 text-xs text-[#121017]/55" data-event-dialog-status></p><a
+        class="mt-6 flex min-h-11 items-center justify-center rounded-xl bg-[#397565] px-5 text-sm font-black text-white"
+        data-event-dialog-roster href="#">Open roster →</a>
+    </div>
+  </dialog>
+
+  <dialog
+    class="m-auto w-[min(440px,calc(100%_-_2rem))] rounded-2xl border-0 bg-white p-0 text-slate-700 shadow-2xl backdrop:bg-[#121017]/60 backdrop:backdrop-blur-[2px]"
+    data-confirm-dialog aria-labelledby="confirm-title" aria-describedby="confirm-message">
     <div class="flex items-start gap-4 p-6 pb-5">
-        <span class="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-red-50 text-red-600" aria-hidden="true"><svg class="h-5 w-5 fill-none stroke-current" viewBox="0 0 24 24"><path d="M12 9v4m0 4h.01M10.3 3.6 2.4 17.2A2 2 0 0 0 4.1 20h15.8a2 2 0 0 0 1.7-2.8L13.7 3.6a2 2 0 0 0-3.4 0Z"/></svg></span>
-        <div><h2 class="text-lg font-extrabold tracking-tight text-[#121017]" id="confirm-title" data-confirm-title>Confirm action</h2><p class="mt-1.5 text-sm leading-6 text-slate-500" id="confirm-message" data-confirm-message>Are you sure you want to continue?</p></div>
+      <span class="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-red-50 text-red-600"
+        aria-hidden="true"><svg class="h-5 w-5 fill-none stroke-current" viewBox="0 0 24 24">
+          <path
+            d="M12 9v4m0 4h.01M10.3 3.6 2.4 17.2A2 2 0 0 0 4.1 20h15.8a2 2 0 0 0 1.7-2.8L13.7 3.6a2 2 0 0 0-3.4 0Z" />
+        </svg></span>
+      <div>
+        <h2 class="text-lg font-extrabold tracking-tight text-[#121017]" id="confirm-title" data-confirm-title>Confirm
+          action</h2>
+        <p class="mt-1.5 text-sm leading-6 text-slate-500" id="confirm-message" data-confirm-message>Are you sure you
+          want to continue?</p>
+      </div>
     </div>
     <div class="flex justify-end gap-2 border-t border-slate-100 px-6 py-4">
-        <button class="inline-flex min-h-10 items-center justify-center rounded-xl border border-slate-200 px-4 text-sm font-bold text-slate-600 hover:bg-slate-50" type="button" data-confirm-cancel>Cancel</button>
-        <button class="inline-flex min-h-10 items-center justify-center rounded-xl bg-red-600 px-4 text-sm font-bold text-white hover:bg-red-700" type="button" data-confirm-accept>Confirm</button>
+      <button
+        class="inline-flex min-h-10 items-center justify-center rounded-xl border border-slate-200 px-4 text-sm font-bold text-slate-600 hover:bg-slate-50"
+        type="button" data-confirm-cancel>Cancel</button>
+      <button
+        class="inline-flex min-h-10 items-center justify-center rounded-xl bg-red-600 px-4 text-sm font-bold text-white hover:bg-red-700"
+        type="button" data-confirm-accept>Confirm</button>
     </div>
-</dialog>
-    <script src="js/vendor/axios.min.js"></script>
-    <script src="js/shared/password-gate.js?v=20260917-1"></script>
-    <script src="js/shared/navigation.js?v=20260924-media-merge-1"></script>
-    <script src="js/adviser/attendance.js?v=20260918-event-status"></script>
+  </dialog>
+  <script src="js/vendor/axios.min.js"></script>
+  <script src="js/shared/password-gate.js?v=20260917-1"></script>
+  <script src="js/shared/navigation.js?v=20260924-media-merge-1"></script>
+  <script src="js/adviser/attendance.js?v=20260918-event-status"></script>
 </body>
+
 </html>

@@ -1,521 +1,363 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <base href="../../" />
-    <title>Event Management | CITE Events</title>
-    <link rel="icon" href="assets/images/cite_favicon.png" />
-    <link rel="stylesheet" href="css/tailwind.css" />
-    <link rel="stylesheet" href="css/adviser.css?v=20260923-schedule-row-1" />
-    <script src="js/shared/notifications.js?v=20260917-7" defer></script>
-    <script src="js/shared/interactions.js?v=20260917-flat-1" defer></script>
-  </head>
-  <body
-    class="app-shell min-h-screen bg-white font-sans text-[#121017] antialiased"
-    data-admin-shell data-navigation-role="adviser"
-    data-events-page
-  >
-    <span class="route-progress" data-route-progress data-active="false"></span>
 
-    <div data-page-loading-cloak aria-label="Loading Event Management"></div>
-    <div data-shared-navigation-host></div>
-    <div class="min-h-screen lg:ml-20">
-      <main
-        class="admin-main mx-auto w-full max-w-[1500px] px-4 py-7 sm:px-6 lg:px-10 lg:py-9 xl:px-16"
-      >
-        <header
-          class="mb-8 flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between"
-        >
-          <div>
-            <p
-              class="mb-2 text-xs font-extrabold uppercase tracking-[.14em] text-emerald-700"
-            >
-              Administration
-            </p>
-            <h1 class="text-3xl font-extrabold tracking-tight sm:text-4xl">
-              Event Management
-            </h1>
-            <p class="mt-2 text-sm text-slate-500">
-              Create, organize, and assign the people responsible for each
-              event.
-            </p>
-          </div>
-          <button
-            class="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 px-5 text-sm font-extrabold text-white shadow-lg shadow-emerald-600/15 sm:w-auto"
-            type="button"
-            data-create-event
-          >
-            <span class="text-xl font-normal">+</span> Create Event
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <base href="../../" />
+  <title>Event Management | CITE Events</title>
+  <link rel="icon" href="assets/images/cite_favicon.png" />
+  <link rel="stylesheet" href="css/tailwind.css" />
+  <link rel="stylesheet" href="css/adviser.css?v=20260923-schedule-row-1" />
+  <script src="js/shared/notifications.js?v=20260917-7" defer></script>
+  <script src="js/shared/interactions.js?v=20260917-flat-1" defer></script>
+</head>
+
+<body class="app-shell min-h-screen bg-white font-sans text-[#121017] antialiased" data-admin-shell
+  data-navigation-role="adviser" data-events-page>
+  <span class="route-progress" data-route-progress data-active="false"></span>
+
+  <div data-page-loading-cloak aria-label="Loading Event Management"></div>
+  <div data-shared-navigation-host></div>
+  <div class="min-h-screen lg:ml-20">
+    <main class="admin-main mx-auto w-full max-w-[1500px] px-4 py-7 sm:px-6 lg:px-10 lg:py-9 xl:px-16">
+      <header class="mb-8 flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+
+          <h1 class="text-3xl font-extrabold tracking-tight sm:text-4xl">
+            Event Management
+          </h1>
+        </div>
+        <button
+          class="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 px-5 text-sm font-extrabold text-white shadow-lg shadow-emerald-600/15 sm:w-auto"
+          type="button" data-create-event>
+          <span class="text-xl font-normal">+</span> Create Event
+        </button>
+      </header>
+      <section class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <form class="grid gap-2 border-b border-slate-100 p-4 sm:grid-cols-2" data-event-filters>
+          <label class="relative min-w-0 sm:col-span-2 lg:col-span-1"><svg
+              class="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 fill-none stroke-slate-400" viewBox="0 0 24 24">
+              <circle cx="11" cy="11" r="7" />
+              <path d="m20 20-4-4" />
+            </svg><span class="sr-only">Search events</span><input
+              class="h-11 w-full rounded-xl border border-slate-200 pl-10 pr-3 text-sm outline-none" name="search"
+              placeholder="Search events or locations…" /></label><label class="min-w-0"><span class="sr-only">Filter by
+              status</span><select
+              class="h-11 w-full min-w-0 rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-600"
+              name="status">
+              <option value="">All statuses</option>
+            </select></label><label class="min-w-0"><span class="sr-only">Filter by event type</span><select
+              class="h-11 w-full min-w-0 rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-600"
+              name="event_type">
+              <option value="">All event types</option>
+            </select></label><button
+            class="hidden min-h-11 rounded-xl px-3 text-xs font-bold text-emerald-700 sm:col-span-2 lg:col-span-1"
+            type="button" data-clear-filters>
+            Clear
           </button>
-        </header>
-        <section
-          class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"
-        >
-          <form
-            class="grid gap-2 border-b border-slate-100 p-4 sm:grid-cols-2"
-            data-event-filters
-          >
-            <label class="relative min-w-0 sm:col-span-2 lg:col-span-1"
-              ><svg
-                class="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 fill-none stroke-slate-400"
-                viewBox="0 0 24 24"
-              >
-                <circle cx="11" cy="11" r="7" />
-                <path d="m20 20-4-4" /></svg
-              ><span class="sr-only">Search events</span
-              ><input
-                class="h-11 w-full rounded-xl border border-slate-200 pl-10 pr-3 text-sm outline-none"
-                name="search"
-                placeholder="Search events or locations…" /></label
-            ><label class="min-w-0"
-              ><span class="sr-only">Filter by status</span
-              ><select
-                class="h-11 w-full min-w-0 rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-600"
-                name="status"
-              >
-                <option value="">All statuses</option>
-              </select></label
-            ><label class="min-w-0"
-              ><span class="sr-only">Filter by event type</span
-              ><select
-                class="h-11 w-full min-w-0 rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-600"
-                name="event_type"
-              >
-                <option value="">All event types</option>
-              </select></label
-            ><button
-              class="hidden min-h-11 rounded-xl px-3 text-xs font-bold text-emerald-700 sm:col-span-2 lg:col-span-1"
-              type="button"
-              data-clear-filters
-            >
-              Clear
-            </button>
-          </form>
-          <div class="event-table-wrap overflow-x-auto">
-            <table class="event-table w-full min-w-[850px] border-collapse">
-              <thead
-                class="bg-slate-50 text-left text-[10px] font-extrabold uppercase tracking-wider text-slate-400"
-              >
-                <tr>
-                  <th class="px-5 py-3.5">Event</th>
-                  <th class="px-4 py-3.5">Schedule</th>
-                  <th class="px-4 py-3.5">Location</th>
-                  <th class="px-4 py-3.5">Status</th>
-                  <th class="px-4 py-3.5">Event-in-Charge</th>
-                  <th class="px-5 py-3.5">
-                    <span class="sr-only">Actions</span>
-                  </th>
-                </tr>
-              </thead>
-              <tbody class="divide-y divide-slate-100" data-event-rows></tbody>
-            </table>
+        </form>
+        <div class="event-table-wrap overflow-x-auto">
+          <table class="event-table w-full min-w-[850px] border-collapse">
+            <thead class="bg-slate-50 text-left text-[10px] font-extrabold uppercase tracking-wider text-slate-400">
+              <tr>
+                <th class="px-5 py-3.5">Event</th>
+                <th class="px-4 py-3.5">Schedule</th>
+                <th class="px-4 py-3.5">Location</th>
+                <th class="px-4 py-3.5">Status</th>
+                <th class="px-4 py-3.5">Event-in-Charge</th>
+                <th class="px-5 py-3.5">
+                  <span class="sr-only">Actions</span>
+                </th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100" data-event-rows></tbody>
+          </table>
+        </div>
+        <nav class="hidden items-center justify-between gap-4 border-t border-slate-100 px-5 py-4 text-xs"
+          data-pagination></nav>
+      </section>
+    </main>
+  </div>
+  <dialog
+    class="m-auto max-h-[calc(100vh_-_2rem)] w-[min(820px,calc(100%_-_2rem))] overflow-y-auto rounded-2xl border-0 bg-white p-0 shadow-2xl backdrop:bg-[#121017]/60 backdrop:backdrop-blur-[2px]"
+    id="create-event-dialog" data-modal-size="workflow" data-modal-kind="workflow">
+    <form class="p-5 sm:p-7" enctype="multipart/form-data" data-event-form>
+      <header class="mb-6 flex items-start justify-between gap-5">
+        <h2 class="text-2xl font-extrabold tracking-tight">Create Event</h2>
+        <button class="grid h-9 w-9 place-items-center rounded-lg bg-slate-100 text-xl text-slate-500" type="button"
+          data-dialog-close>
+          ×
+        </button>
+      </header>
+      <div class="grid gap-6">
+        <section class="rounded-2xl border border-slate-200 bg-slate-50/70 p-4 sm:p-5">
+          <header class="mb-4">
+            <p class="text-[10px] font-extrabold uppercase tracking-[.14em] text-[#397565]">
+              01 · Event information
+            </p>
+          </header>
+          <div class="grid gap-5 sm:grid-cols-2">
+            <div class="grid gap-2">
+              <div class="flex items-center justify-between gap-2"><label class="text-xs font-bold text-slate-700"
+                  for="new-event-type">Event type <i class="font-normal text-rose-500">*</i></label><button
+                  class="text-xs font-extrabold text-[#397565] hover:underline" type="button"
+                  data-manage-event-types>Manage types</button></div>
+              <select class="h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm" id="new-event-type"
+                name="event_type_id" required>
+                <option value="">Select event type</option>
+              </select>
+              <p class="hidden text-xs font-semibold text-red-600" data-error-for="event_type_id"></p>
+            </div>
+            <label class="grid gap-2"><span class="text-xs font-bold text-slate-700">Academic period <i
+                  class="font-normal text-rose-500">*</i></span><select
+                class="h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm" name="academic_period_id"
+                required>
+                <option value="">Select school year and semester</option>
+              </select>
+              <p class="hidden text-xs font-semibold text-red-600" data-error-for="academic_period_id"></p>
+            </label>
+            <label class="grid gap-2"><span class="text-xs font-bold text-slate-700">Event name <i
+                  class="font-normal text-rose-500">*</i></span><input
+                class="h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm" name="title" maxlength="255"
+                placeholder="e.g. IT Days 2026" required />
+              <p class="hidden text-xs font-semibold text-red-600" data-error-for="title"></p>
+            </label>
           </div>
-          <nav
-            class="hidden items-center justify-between gap-4 border-t border-slate-100 px-5 py-4 text-xs"
-            data-pagination
-          ></nav>
         </section>
-      </main>
-    </div>
-    <dialog
-      class="m-auto max-h-[calc(100vh_-_2rem)] w-[min(820px,calc(100%_-_2rem))] overflow-y-auto rounded-2xl border-0 bg-white p-0 shadow-2xl backdrop:bg-[#121017]/60 backdrop:backdrop-blur-[2px]"
-      id="create-event-dialog"
-      data-modal-size="workflow"
-      data-modal-kind="workflow"
-    >
-      <form class="p-5 sm:p-7" enctype="multipart/form-data" data-event-form>
-        <header class="mb-6 flex items-start justify-between gap-5">
-          <h2 class="text-2xl font-extrabold tracking-tight">Create Event</h2>
-          <button
-            class="grid h-9 w-9 place-items-center rounded-lg bg-slate-100 text-xl text-slate-500"
-            type="button"
-            data-dialog-close
-          >
-            ×
-          </button>
-        </header>
-        <div class="grid gap-6">
-          <section
-            class="rounded-2xl border border-slate-200 bg-slate-50/70 p-4 sm:p-5"
-          >
-            <header class="mb-4">
-              <p
-                class="text-[10px] font-extrabold uppercase tracking-[.14em] text-[#397565]"
-              >
-                01 · Event information
+        <section class="rounded-2xl border border-slate-200 bg-slate-50/70 p-4 sm:p-5">
+          <header class="mb-4">
+            <p class="text-[10px] font-extrabold uppercase tracking-[.14em] text-[#397565]">
+              02 · Date and time
+            </p>
+          </header>
+          <div data-attendance-schedule>
+            <input type="hidden" name="start_date" /><input type="hidden" name="start_time" /><input type="hidden"
+              name="end_date" /><input type="hidden" name="end_time" />
+            <div class="mb-4 flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <p class="text-xs text-slate-500">
+                Add each event day and its Time In and Time Out windows.
               </p>
-            </header>
-            <div class="grid gap-5 sm:grid-cols-2">
-              <div class="grid gap-2">
-                <div class="flex items-center justify-between gap-2"><label class="text-xs font-bold text-slate-700" for="new-event-type">Event type <i class="font-normal text-rose-500">*</i></label><button class="text-xs font-extrabold text-[#397565] hover:underline" type="button" data-manage-event-types>Manage types</button></div>
-                <select
-                  class="h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm"
-                  id="new-event-type"
-                  name="event_type_id"
-                  required
-                >
-                  <option value="">Select event type</option>
-                </select>
-                <p
-                  class="hidden text-xs font-semibold text-red-600"
-                  data-error-for="event_type_id"
-                ></p>
+              <button
+                class="inline-flex min-h-10 w-full items-center justify-center rounded-xl border border-[#397565]/25 bg-white px-3 text-xs font-extrabold text-[#397565] sm:w-auto"
+                type="button" data-add-schedule>
+                + Add schedule
+              </button>
+            </div>
+            <div class="grid gap-3" data-schedules></div>
+            <p class="mt-3 hidden text-xs font-semibold text-red-600" data-error-for="attendance_days"></p>
+          </div>
+        </section>
+        <section class="rounded-2xl border border-slate-200 bg-slate-50/70 p-4 sm:p-5">
+          <header class="mb-4">
+            <p class="text-[10px] font-extrabold uppercase tracking-[.14em] text-[#397565]">
+              03 · Participants and in-charge
+            </p>
+          </header>
+          <section>
+            <h3 class="mb-3 text-sm font-extrabold">Participants</h3>
+            <div data-audience-selector>
+              <div class="flex flex-col gap-3 sm:flex-row">
+                <label class="grid flex-1 gap-2"><span class="text-xs font-bold text-slate-700">Who should attend? <i
+                      class="text-rose-500">*</i></span><select
+                    class="h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm" name="audience_type">
+                    <option value="all_students">All active students</option>
+                    <option value="selected_year_levels">
+                      By year level
+                    </option>
+                    <option value="selected_tribes">By tribe</option>
+                    <option value="specific_students">
+                      Specific students
+                    </option>
+                  </select></label>
+                <div class="rounded-xl bg-emerald-50 px-4 py-2.5 text-left sm:text-right">
+                  <strong class="block text-lg font-black text-emerald-800" data-expected-count>0</strong><span
+                    class="text-[10px] font-bold uppercase text-emerald-700">Expected</span>
+                </div>
               </div>
-              <label class="grid gap-2"
-                ><span class="text-xs font-bold text-slate-700"
-                  >Academic period <i class="font-normal text-rose-500">*</i></span
-                ><select class="h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm" name="academic_period_id" required>
-                  <option value="">Select school year and semester</option>
-                </select>
-                <p class="hidden text-xs font-semibold text-red-600" data-error-for="academic_period_id"></p
-              ></label>
-              <label class="grid gap-2"
-                ><span class="text-xs font-bold text-slate-700"
-                  >Event name <i class="font-normal text-rose-500">*</i></span
-                ><input
-                  class="h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm"
-                  name="title"
-                  maxlength="255"
-                  placeholder="e.g. IT Days 2026"
-                  required />
-                <p
-                  class="hidden text-xs font-semibold text-red-600"
-                  data-error-for="title"
-                ></p
-              ></label>
+              <div class="mt-3 rounded-xl bg-slate-50 px-4 py-3 text-xs text-slate-500"
+                data-audience-panel="all_students">
+                Every active student will be included automatically.
+              </div>
+              <div class="mt-3 hidden grid gap-2 sm:grid-cols-2" data-audience-panel="selected_year_levels"></div>
+              <div class="mt-3 hidden grid gap-2 sm:grid-cols-2" data-audience-panel="selected_tribes"></div>
+              <div class="mt-3 hidden rounded-xl border border-slate-200 bg-slate-50/70 p-3"
+                data-audience-panel="specific_students">
+                <div class="flex flex-col gap-2 sm:flex-row sm:items-center">
+                  <label class="relative min-w-0 flex-1">
+                    <span class="sr-only">Search students</span>
+                    <input class="h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm" type="search"
+                      placeholder="Search name or student ID…" autocomplete="off" data-student-search />
+                  </label>
+                  <button
+                    class="min-h-11 rounded-xl border border-slate-200 bg-white px-4 text-xs font-bold text-slate-600 disabled:opacity-40"
+                    type="button" data-clear-students>Clear selected</button>
+                </div>
+                <div class="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500">
+                  <span data-student-result-count>Choose Specific students to load the directory.</span>
+                  <strong class="text-[#397565]" data-selected-student-count>0 selected</strong>
+                </div>
+                <div class="mt-3 grid gap-2 sm:grid-cols-2" data-student-results></div>
+                <nav class="mt-3 hidden items-center justify-between gap-3 border-t border-slate-200 pt-3 text-xs"
+                  data-student-pagination aria-label="Student search pages"></nav>
+              </div>
+              <p class="mt-2 hidden text-xs font-semibold text-red-600" data-error-for="audience_type"></p>
             </div>
           </section>
-          <section
-            class="rounded-2xl border border-slate-200 bg-slate-50/70 p-4 sm:p-5"
-          >
-            <header class="mb-4">
-              <p
-                class="text-[10px] font-extrabold uppercase tracking-[.14em] text-[#397565]"
-              >
-                02 · Date and time
-              </p>
-            </header>
-            <div data-attendance-schedule>
-              <input type="hidden" name="start_date" /><input
-                type="hidden"
-                name="start_time"
-              /><input type="hidden" name="end_date" /><input
-                type="hidden"
-                name="end_time"
-              />
-              <div class="mb-4 flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <p class="text-xs text-slate-500">
-                  Add each event day and its Time In and Time Out windows.
-                </p>
-                <button
-                  class="inline-flex min-h-10 w-full items-center justify-center rounded-xl border border-[#397565]/25 bg-white px-3 text-xs font-extrabold text-[#397565] sm:w-auto"
-                  type="button"
-                  data-add-schedule
-                >
-                  + Add schedule
-                </button>
-              </div>
-              <div class="grid gap-3" data-schedules></div>
-              <p
-                class="mt-3 hidden text-xs font-semibold text-red-600"
-                data-error-for="attendance_days"
-              ></p>
-            </div>
+          <section class="mt-5 border-t border-slate-100 pt-5">
+            <h3 class="text-sm font-extrabold">Event-in-Charge</h3>
+            <p class="mt-1 text-xs text-slate-500">
+              Choose one or more active SBO Advisers and Faculty members.
+            </p>
+            <div class="mt-3 grid gap-2 sm:grid-cols-2" data-assignable-users></div>
+            <p class="mt-2 hidden text-xs font-semibold text-red-600" data-error-for="assigned_user_ids"></p>
           </section>
-          <section
-            class="rounded-2xl border border-slate-200 bg-slate-50/70 p-4 sm:p-5"
-          >
-            <header class="mb-4">
-              <p
-                class="text-[10px] font-extrabold uppercase tracking-[.14em] text-[#397565]"
-              >
-                03 · Participants and in-charge
-              </p>
-            </header>
-            <section>
-              <h3 class="mb-3 text-sm font-extrabold">Participants</h3>
-              <div data-audience-selector>
-                <div class="flex flex-col gap-3 sm:flex-row">
-                  <label class="grid flex-1 gap-2"
-                    ><span class="text-xs font-bold text-slate-700"
-                      >Who should attend? <i class="text-rose-500">*</i></span
-                    ><select
-                      class="h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm"
-                      name="audience_type"
-                    >
-                      <option value="all_students">All active students</option>
-                      <option value="selected_year_levels">
-                        By year level
-                      </option>
-                      <option value="selected_tribes">By tribe</option>
-                      <option value="specific_students">
-                        Specific students
-                      </option>
-                    </select></label
-                  >
-                  <div class="rounded-xl bg-emerald-50 px-4 py-2.5 text-left sm:text-right">
-                    <strong
-                      class="block text-lg font-black text-emerald-800"
-                      data-expected-count
-                      >0</strong
-                    ><span
-                      class="text-[10px] font-bold uppercase text-emerald-700"
-                      >Expected</span
-                    >
-                  </div>
+        </section>
+        <section class="rounded-2xl border border-slate-200 bg-slate-50/70 p-4 sm:p-5">
+          <header class="mb-4">
+            <p class="text-[10px] font-extrabold uppercase tracking-[.14em] text-slate-400">
+              04 · Additional details
+            </p>
+          </header>
+          <div class="mb-5 grid gap-4 sm:grid-cols-2">
+            <label class="grid gap-2"><span class="text-xs font-bold text-slate-700">Primary general location <i
+                  class="text-rose-500">*</i></span><select
+                class="h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm" name="general_location_id"
+                required>
+                <option value="">Select general location</option>
+              </select>
+              <p class="hidden text-xs font-semibold text-red-600" data-error-for="general_location_id"></p>
+            </label>
+            <label class="grid gap-2"><span class="text-xs font-bold text-slate-700">Primary specific venue <small
+                  class="font-normal text-slate-400">Optional</small></span><select
+                class="h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm disabled:bg-slate-100 disabled:text-slate-400"
+                name="specific_location_id" disabled>
+                <option value="">Use the general location</option>
+              </select>
+              <p class="hidden text-xs font-semibold text-red-600" data-error-for="specific_location_id"></p>
+            </label>
+            <section class="hidden sm:col-span-2" data-event-locations-section>
+              <div class="flex flex-wrap items-end justify-between gap-2">
+                <div><span class="text-xs font-bold text-slate-700">Additional event locations</span>
+                  <p class="mt-1 text-xs text-slate-500">Your primary venue is already included. Select any other saved
+                    locations needed for this event.</p>
                 </div>
-                <div
-                  class="mt-3 rounded-xl bg-slate-50 px-4 py-3 text-xs text-slate-500"
-                  data-audience-panel="all_students"
-                >
-                  Every active student will be included automatically.
-                </div>
-                <div
-                  class="mt-3 hidden grid gap-2 sm:grid-cols-2"
-                  data-audience-panel="selected_year_levels"
-                ></div>
-                <div
-                  class="mt-3 hidden grid gap-2 sm:grid-cols-2"
-                  data-audience-panel="selected_tribes"
-                ></div>
-                <div
-                  class="mt-3 hidden rounded-xl border border-slate-200 bg-slate-50/70 p-3"
-                  data-audience-panel="specific_students"
-                >
-                  <div class="flex flex-col gap-2 sm:flex-row sm:items-center">
-                    <label class="relative min-w-0 flex-1">
-                      <span class="sr-only">Search students</span>
-                      <input
-                        class="h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm"
-                        type="search"
-                        placeholder="Search name or student ID…"
-                        autocomplete="off"
-                        data-student-search
-                      />
-                    </label>
-                    <button
-                      class="min-h-11 rounded-xl border border-slate-200 bg-white px-4 text-xs font-bold text-slate-600 disabled:opacity-40"
-                      type="button"
-                      data-clear-students
-                    >Clear selected</button>
-                  </div>
-                  <div class="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500">
-                    <span data-student-result-count>Choose Specific students to load the directory.</span>
-                    <strong class="text-[#397565]" data-selected-student-count>0 selected</strong>
-                  </div>
-                  <div class="mt-3 grid gap-2 sm:grid-cols-2" data-student-results></div>
-                  <nav class="mt-3 hidden items-center justify-between gap-3 border-t border-slate-200 pt-3 text-xs" data-student-pagination aria-label="Student search pages"></nav>
-                </div>
-                <p
-                  class="mt-2 hidden text-xs font-semibold text-red-600"
-                  data-error-for="audience_type"
-                ></p>
+                <span
+                  class="rounded-full bg-emerald-50 px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-wider text-[#397565]"
+                  data-location-count>0 additional selected</span>
               </div>
-            </section>
-            <section class="mt-5 border-t border-slate-100 pt-5">
-              <h3 class="text-sm font-extrabold">Event-in-Charge</h3>
-              <p class="mt-1 text-xs text-slate-500">
-                Choose one or more active SBO Advisers and Faculty members.
-              </p>
               <div
-                class="mt-3 grid gap-2 sm:grid-cols-2"
-                data-assignable-users
-              ></div>
-              <p
-                class="mt-2 hidden text-xs font-semibold text-red-600"
-                data-error-for="assigned_user_ids"
-              ></p>
+                class="mt-3 grid max-h-56 gap-2 overflow-y-auto rounded-xl border border-slate-200 bg-white p-3 sm:grid-cols-2"
+                data-event-locations></div>
+              <p class="mt-2 hidden text-xs font-semibold text-red-600" data-error-for="location_ids"></p>
             </section>
-          </section>
-          <section
-            class="rounded-2xl border border-slate-200 bg-slate-50/70 p-4 sm:p-5"
-          >
-            <header class="mb-4">
-              <p
-                class="text-[10px] font-extrabold uppercase tracking-[.14em] text-slate-400"
-              >
-                04 · Additional details
-              </p>
-            </header>
-            <div class="mb-5 grid gap-4 sm:grid-cols-2">
-              <label class="grid gap-2"
-                ><span class="text-xs font-bold text-slate-700"
-                  >Primary general location <i class="text-rose-500">*</i></span
-                ><select
-                  class="h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm"
-                  name="general_location_id"
-                  required
-                >
-                  <option value="">Select general location</option>
-                </select>
-                <p class="hidden text-xs font-semibold text-red-600" data-error-for="general_location_id"></p>
-              </label>
-              <label class="grid gap-2"
-                ><span class="text-xs font-bold text-slate-700">Primary specific venue <small class="font-normal text-slate-400">Optional</small></span
-                ><select class="h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm disabled:bg-slate-100 disabled:text-slate-400" name="specific_location_id" disabled>
-                  <option value="">Use the general location</option>
-                </select>
-                <p class="hidden text-xs font-semibold text-red-600" data-error-for="specific_location_id"></p>
-              </label>
-              <section class="hidden sm:col-span-2" data-event-locations-section>
-                <div class="flex flex-wrap items-end justify-between gap-2">
-                  <div><span class="text-xs font-bold text-slate-700">Additional event locations</span><p class="mt-1 text-xs text-slate-500">Your primary venue is already included. Select any other saved locations needed for this event.</p></div>
-                  <span class="rounded-full bg-emerald-50 px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-wider text-[#397565]" data-location-count>0 additional selected</span>
-                </div>
-                <div class="mt-3 grid max-h-56 gap-2 overflow-y-auto rounded-xl border border-slate-200 bg-white p-3 sm:grid-cols-2" data-event-locations></div>
-                <p class="mt-2 hidden text-xs font-semibold text-red-600" data-error-for="location_ids"></p>
-              </section>
-              <label class="grid gap-2 sm:col-span-2">
-                <span class="text-xs font-bold text-slate-700">Attendance scan location policy</span>
-                <select class="h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm" name="attendance_location_policy">
-                  <option value="warning">Warning — require GPS, allow attendance outside the venue box</option>
-                  <option value="strict">Strict — require GPS inside the venue box</option>
-                </select>
-                <small class="text-xs text-slate-500">Both policies require GPS. Warning records scans outside the saved square boundary; Strict blocks them.</small>
-                <p class="hidden text-xs font-semibold text-red-600" data-error-for="attendance_location_policy"></p>
-              </label>
-            </div>
-            <div
-              class="hidden rounded-xl border border-amber-200 bg-amber-50 px-4 py-3"
-              data-conflict-warning
-            >
-              <strong class="text-xs text-amber-900"
-                >Possible scheduling conflict</strong
-              >
-              <div
-                class="mt-1 space-y-1 text-xs text-amber-800"
-                data-conflict-list
-              ></div>
-              <label
-                class="mt-2 inline-flex items-center gap-2 text-xs font-bold text-amber-900"
-                ><input
-                  type="checkbox"
-                  name="acknowledge_conflicts"
-                  value="1"
-                />I reviewed this and want to continue</label
-              >
-            </div>
-            <div class="mt-5 grid gap-2 sm:grid-cols-2">
-              <details
-                class="rounded-xl border border-slate-200 bg-slate-50/60"
-              >
-                <summary
-                  class="flex min-h-11 cursor-pointer items-center justify-between px-4 text-xs font-extrabold text-slate-600"
-                >
-                  + Add description <small>Optional</small>
-                </summary>
-                <div class="border-t p-4">
-                  <textarea
-                    class="min-h-24 w-full rounded-xl border border-slate-200 bg-white p-3 text-sm"
-                    name="description"
-                    maxlength="5000"
-                  ></textarea>
-                  <p
-                    class="hidden text-xs font-semibold text-red-600"
-                    data-error-for="description"
-                  ></p>
-                </div>
-              </details>
-              <details
-                class="rounded-xl border border-slate-200 bg-slate-50/60"
-              >
-                <summary
-                  class="flex min-h-11 cursor-pointer items-center justify-between px-4 text-xs font-extrabold text-slate-600"
-                >
-                  + Add poster <small>Optional</small>
-                </summary>
-                <div class="border-t p-4">
-                  <label
-                    class="flex cursor-pointer items-center gap-3 rounded-xl border border-dashed border-emerald-300 bg-emerald-50 p-4 text-emerald-800"
-                    ><input
-                      class="sr-only"
-                      name="poster"
-                      type="file"
-                      accept="image/jpeg,image/png,image/webp"
-                    /><span
-                      ><strong class="block text-xs" data-poster-name
-                        >Choose a poster</strong
-                      ><small class="text-[10px]"
-                        >JPG, PNG, or WebP · 5 MB max</small
-                      ></span
-                    ></label
-                  ><img
-                    class="mt-3 hidden max-h-40 w-full rounded-xl object-cover"
-                    data-poster-preview
-                  />
-                  <p
-                    class="mt-2 hidden text-xs font-semibold text-red-600"
-                    data-error-for="poster"
-                  ></p>
-                </div>
-              </details>
-            </div>
-          </section>
-        </div>
-        <p
-          class="mt-5 hidden rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-xs font-semibold text-red-700"
-          data-form-error
-        ></p>
-        <footer
-          class="mt-7 grid grid-cols-2 gap-2 border-t border-slate-100 pt-5 sm:flex sm:justify-end"
-        >
-          <button
-            class="min-h-10 rounded-xl border px-4 text-sm font-bold"
-            type="button"
-            data-dialog-close
-          >
-            Cancel</button
-          ><button
-            class="min-h-10 rounded-xl bg-emerald-600 px-5 text-sm font-bold text-white disabled:bg-slate-300"
-            type="submit"
-            data-save-event
-            disabled
-          >
-            Create Event
-          </button>
-        </footer>
-      </form>
-    </dialog>
-    <dialog class="m-auto w-[min(520px,calc(100%_-_2rem))] max-h-[calc(100vh_-_2rem)] overflow-y-auto rounded-lg border border-slate-200 bg-white p-0 shadow-2xl backdrop:bg-[#121017]/60" data-event-types-dialog aria-labelledby="event-types-title">
-      <div class="flex items-start justify-between gap-3 border-b border-slate-200 px-5 py-4 sm:px-6"><div><p class="text-[10px] font-extrabold uppercase tracking-wider text-[#397565]">Event lookup</p><h2 class="mt-1 text-xl font-extrabold" id="event-types-title">Event types</h2><p class="mt-1 text-xs text-slate-500">Types appear in the event form and filter.</p></div><button class="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-slate-200 text-xl text-slate-500" type="button" data-close-event-types aria-label="Close event types">×</button></div>
-      <div class="max-h-64 overflow-y-auto px-5 sm:px-6" data-event-types-list></div>
-      <form class="grid gap-3 border-t border-slate-200 bg-slate-50 p-5 sm:p-6" data-event-type-form>
-        <input type="hidden" name="type_id" value="" />
-        <label class="grid gap-1.5 text-xs font-bold"><span data-event-type-form-title>Add event type</span><input class="h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm font-medium outline-none focus:border-[#397565]" name="label" maxlength="255" placeholder="e.g. Programming Competition" required /></label>
-        <p class="hidden text-xs font-semibold text-red-600" data-event-type-error role="alert"></p>
-        <div class="flex justify-end gap-2"><button class="hidden min-h-10 rounded-lg border border-slate-300 bg-white px-4 text-xs font-bold text-slate-600" type="button" data-event-type-cancel>Cancel edit</button><button class="min-h-10 rounded-lg bg-[#397565] px-5 text-xs font-bold text-white disabled:opacity-50" type="submit" data-event-type-save>Add type</button></div>
-      </form>
-    </dialog>
-    <dialog
-      class="m-auto w-[min(460px,calc(100%_-_2rem))] rounded-2xl border-0 bg-white p-0 shadow-2xl backdrop:bg-black/60"
-      data-confirm-dialog
-      data-modal-size="small"
-      data-modal-kind="confirmation"
-    >
-      <div class="p-6">
-        <h2 class="text-xl font-black" data-confirm-title></h2>
-        <p class="mt-2 text-sm text-black/55" data-confirm-message></p>
-        <div class="mt-6 flex justify-end gap-2">
-          <button class="rounded-xl border px-4 py-2" data-confirm-cancel>
-            Cancel</button
-          ><button
-            class="rounded-xl bg-[#FF6B2C] px-5 py-2 text-white"
-            data-confirm-accept
-          >
-            Confirm
-          </button>
-        </div>
+            <label class="grid gap-2 sm:col-span-2">
+              <span class="text-xs font-bold text-slate-700">Attendance scan location policy</span>
+              <select class="h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm"
+                name="attendance_location_policy">
+                <option value="warning">Warning — require GPS, allow attendance outside the venue box</option>
+                <option value="strict">Strict — require GPS inside the venue box</option>
+              </select>
+              <small class="text-xs text-slate-500">Both policies require GPS. Warning records scans outside the saved
+                square boundary; Strict blocks them.</small>
+              <p class="hidden text-xs font-semibold text-red-600" data-error-for="attendance_location_policy"></p>
+            </label>
+          </div>
+          <div class="hidden rounded-xl border border-amber-200 bg-amber-50 px-4 py-3" data-conflict-warning>
+            <strong class="text-xs text-amber-900">Possible scheduling conflict</strong>
+            <div class="mt-1 space-y-1 text-xs text-amber-800" data-conflict-list></div>
+            <label class="mt-2 inline-flex items-center gap-2 text-xs font-bold text-amber-900"><input type="checkbox"
+                name="acknowledge_conflicts" value="1" />I reviewed this and want to continue</label>
+          </div>
+          <div class="mt-5 grid gap-2 sm:grid-cols-2">
+            <details class="rounded-xl border border-slate-200 bg-slate-50/60">
+              <summary
+                class="flex min-h-11 cursor-pointer items-center justify-between px-4 text-xs font-extrabold text-slate-600">
+                + Add description <small>Optional</small>
+              </summary>
+              <div class="border-t p-4">
+                <textarea class="min-h-24 w-full rounded-xl border border-slate-200 bg-white p-3 text-sm"
+                  name="description" maxlength="5000"></textarea>
+                <p class="hidden text-xs font-semibold text-red-600" data-error-for="description"></p>
+              </div>
+            </details>
+            <details class="rounded-xl border border-slate-200 bg-slate-50/60">
+              <summary
+                class="flex min-h-11 cursor-pointer items-center justify-between px-4 text-xs font-extrabold text-slate-600">
+                + Add poster <small>Optional</small>
+              </summary>
+              <div class="border-t p-4">
+                <label
+                  class="flex cursor-pointer items-center gap-3 rounded-xl border border-dashed border-emerald-300 bg-emerald-50 p-4 text-emerald-800"><input
+                    class="sr-only" name="poster" type="file" accept="image/jpeg,image/png,image/webp" /><span><strong
+                      class="block text-xs" data-poster-name>Choose a poster</strong><small class="text-[10px]">JPG,
+                      PNG, or WebP · 5 MB max</small></span></label><img
+                  class="mt-3 hidden max-h-40 w-full rounded-xl object-cover" data-poster-preview />
+                <p class="mt-2 hidden text-xs font-semibold text-red-600" data-error-for="poster"></p>
+              </div>
+            </details>
+          </div>
+        </section>
       </div>
-    </dialog>
-    <div
-      class="pointer-events-none fixed right-4 top-4 z-[100] grid w-[min(380px,calc(100%_-_2rem))] gap-3"
-      data-notification-region
-    ></div>
-    <script src="js/vendor/axios.min.js"></script>
-    <script src="js/shared/password-gate.js?v=20260917-1"></script>
-    <script src="js/shared/navigation.js?v=20260924-media-merge-1"></script>
-    <script src="js/adviser/event-form.js?v=20260924-merged-1"></script>
-    <script src="js/adviser/events.js?v=20260923-raw-scores-1"></script>
-  </body>
+      <p class="mt-5 hidden rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-xs font-semibold text-red-700"
+        data-form-error></p>
+      <footer class="mt-7 grid grid-cols-2 gap-2 border-t border-slate-100 pt-5 sm:flex sm:justify-end">
+        <button class="min-h-10 rounded-xl border px-4 text-sm font-bold" type="button" data-dialog-close>
+          Cancel</button><button
+          class="min-h-10 rounded-xl bg-emerald-600 px-5 text-sm font-bold text-white disabled:bg-slate-300"
+          type="submit" data-save-event disabled>
+          Create Event
+        </button>
+      </footer>
+    </form>
+  </dialog>
+  <dialog
+    class="m-auto w-[min(520px,calc(100%_-_2rem))] max-h-[calc(100vh_-_2rem)] overflow-y-auto rounded-lg border border-slate-200 bg-white p-0 shadow-2xl backdrop:bg-[#121017]/60"
+    data-event-types-dialog aria-labelledby="event-types-title">
+    <div class="flex items-start justify-between gap-3 border-b border-slate-200 px-5 py-4 sm:px-6">
+      <div>
+        <p class="text-[10px] font-extrabold uppercase tracking-wider text-[#397565]">Event lookup</p>
+        <h2 class="mt-1 text-xl font-extrabold" id="event-types-title">Event types</h2>
+        <p class="mt-1 text-xs text-slate-500">Types appear in the event form and filter.</p>
+      </div><button
+        class="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-slate-200 text-xl text-slate-500"
+        type="button" data-close-event-types aria-label="Close event types">×</button>
+    </div>
+    <div class="max-h-64 overflow-y-auto px-5 sm:px-6" data-event-types-list></div>
+    <form class="grid gap-3 border-t border-slate-200 bg-slate-50 p-5 sm:p-6" data-event-type-form>
+      <input type="hidden" name="type_id" value="" />
+      <label class="grid gap-1.5 text-xs font-bold"><span data-event-type-form-title>Add event type</span><input
+          class="h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm font-medium outline-none focus:border-[#397565]"
+          name="label" maxlength="255" placeholder="e.g. Programming Competition" required /></label>
+      <p class="hidden text-xs font-semibold text-red-600" data-event-type-error role="alert"></p>
+      <div class="flex justify-end gap-2"><button
+          class="hidden min-h-10 rounded-lg border border-slate-300 bg-white px-4 text-xs font-bold text-slate-600"
+          type="button" data-event-type-cancel>Cancel edit</button><button
+          class="min-h-10 rounded-lg bg-[#397565] px-5 text-xs font-bold text-white disabled:opacity-50" type="submit"
+          data-event-type-save>Add type</button></div>
+    </form>
+  </dialog>
+  <dialog
+    class="m-auto w-[min(460px,calc(100%_-_2rem))] rounded-2xl border-0 bg-white p-0 shadow-2xl backdrop:bg-black/60"
+    data-confirm-dialog data-modal-size="small" data-modal-kind="confirmation">
+    <div class="p-6">
+      <h2 class="text-xl font-black" data-confirm-title></h2>
+      <p class="mt-2 text-sm text-black/55" data-confirm-message></p>
+      <div class="mt-6 flex justify-end gap-2">
+        <button class="rounded-xl border px-4 py-2" data-confirm-cancel>
+          Cancel</button><button class="rounded-xl bg-[#FF6B2C] px-5 py-2 text-white" data-confirm-accept>
+          Confirm
+        </button>
+      </div>
+    </div>
+  </dialog>
+  <div class="pointer-events-none fixed right-4 top-4 z-[100] grid w-[min(380px,calc(100%_-_2rem))] gap-3"
+    data-notification-region></div>
+  <script src="js/vendor/axios.min.js"></script>
+  <script src="js/shared/password-gate.js?v=20260917-1"></script>
+  <script src="js/shared/navigation.js?v=20260924-media-merge-1"></script>
+  <script src="js/adviser/event-form.js?v=20260924-merged-1"></script>
+  <script src="js/adviser/events.js?v=20260923-raw-scores-1"></script>
+</body>
+
 </html>

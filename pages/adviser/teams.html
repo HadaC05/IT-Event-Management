@@ -1,542 +1,376 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <base href="../../" />
-    <title>Team Management | CITE Events</title>
-    <link rel="icon" href="assets/images/cite_favicon.png" />
-    <link rel="stylesheet" href="css/tailwind.css" />
-    <link rel="stylesheet" href="css/adviser.css?v=20260923-team-modal-overflow-1" />
-    <script src="js/shared/notifications.js?v=20260917-7" defer></script>
-    <script src="js/shared/interactions.js?v=20260917-flat-1" defer></script>
-  </head>
-  <body
-    class="app-shell min-h-screen bg-white font-sans text-[#121017] antialiased"
-    data-admin-shell data-navigation-role="adviser"
-  >
-    <span class="route-progress" data-route-progress data-active="false"></span>
 
-    <div data-shared-navigation-host></div>
-    <div class="min-h-screen lg:ml-20">
-      <main
-        class="admin-main mx-auto w-full max-w-[1500px] px-4 py-7 sm:px-6 lg:px-10 lg:py-9 xl:px-16"
-        data-page-content
-      >
-        <header
-          class="mb-8 flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between"
-        >
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <base href="../../" />
+  <title>Team Management | CITE Events</title>
+  <link rel="icon" href="assets/images/cite_favicon.png" />
+  <link rel="stylesheet" href="css/tailwind.css" />
+  <link rel="stylesheet" href="css/adviser.css?v=20260923-team-modal-overflow-1" />
+  <script src="js/shared/notifications.js?v=20260917-7" defer></script>
+  <script src="js/shared/interactions.js?v=20260917-flat-1" defer></script>
+</head>
+
+<body class="app-shell min-h-screen bg-white font-sans text-[#121017] antialiased" data-admin-shell
+  data-navigation-role="adviser">
+  <span class="route-progress" data-route-progress data-active="false"></span>
+
+  <div data-shared-navigation-host></div>
+  <div class="min-h-screen lg:ml-20">
+    <main class="admin-main mx-auto w-full max-w-[1500px] px-4 py-7 sm:px-6 lg:px-10 lg:py-9 xl:px-16"
+      data-page-content>
+      <header class="mb-8 flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h1 class="text-3xl font-extrabold tracking-tight sm:text-4xl">
+            Team Management
+          </h1>
+        </div>
+        <button
+          class="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-[#397565] px-5 text-sm font-extrabold text-white shadow-lg shadow-[#397565]/15 transition hover:bg-[#2e6355]"
+          data-dialog-open="team-dialog">
+          <span class="text-xl font-normal">+</span>Create Tribe
+        </button>
+      </header>
+      <section class="mb-7 border-y border-[#121017]/10 py-4" aria-label="Tribe overview">
+        <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <p
-              class="mb-2 text-xs font-extrabold uppercase tracking-[.14em] text-emerald-700"
-            >
-              Community
-            </p>
-            <h1 class="text-3xl font-extrabold tracking-tight sm:text-4xl">
-              Team Management
-            </h1>
-            <p class="mt-2 text-sm text-slate-500">
-              Organize students into tribes for events and competitions.
-            </p>
+            <p class="text-[10px] font-black uppercase tracking-[.16em] text-[#397565]" data-summary-year></p>
+            <p class="mt-1 text-sm font-bold text-[#121017]" data-team-context></p>
+            <button class="mt-2 hidden text-left text-xs font-extrabold text-[#c94b18] transition hover:text-[#a83d14]"
+              type="button" data-unassigned-summary></button>
           </div>
-          <button
-            class="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-[#397565] px-5 text-sm font-extrabold text-white shadow-lg shadow-[#397565]/15 transition hover:bg-[#2e6355]"
-            data-dialog-open="team-dialog"
-          >
-            <span class="text-xl font-normal">+</span>Create Tribe
-          </button>
-        </header>
-        <section
-          class="mb-7 border-y border-[#121017]/10 py-4"
-          aria-label="Tribe overview"
-        >
-          <div
-            class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between"
-          >
+          <form class="hidden flex-col gap-2 sm:flex-row sm:items-center" data-randomize-form data-axios-form>
+            <select class="h-10 rounded-xl border border-[#121017]/10 bg-white px-3 text-xs font-bold text-[#121017]/65"
+              name="school_year_id" data-randomize-year></select><button
+              class="inline-flex min-h-10 items-center justify-center rounded-xl border border-[#397565]/25 bg-white px-4 text-xs font-extrabold text-[#397565] transition hover:bg-[#397565]/5"
+              data-randomize-button>
+              Randomize students
+            </button>
+            <span class="hidden items-center gap-2 text-xs font-extrabold text-[#397565]" data-randomize-status><span
+                class="grid h-5 w-5 place-items-center rounded-full bg-[#C6F24E]/40">✓</span>Students randomized</span>
+          </form>
+        </div>
+      </section>
+      <section class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm" data-directory>
+        <header class="border-b border-slate-100 px-5 py-5 sm:px-6">
+          <div class="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
             <div>
-              <p
-                class="text-[10px] font-black uppercase tracking-[.16em] text-[#397565]"
-                data-summary-year
-              ></p>
-              <p class="mt-1 text-sm font-bold text-[#121017]" data-team-context></p>
-              <button
-                class="mt-2 hidden text-left text-xs font-extrabold text-[#c94b18] transition hover:text-[#a83d14]"
-                type="button"
-                data-unassigned-summary
-              ></button>
+              <h2 class="text-lg font-extrabold tracking-tight">Tribes</h2>
+              <p class="mt-1 text-xs text-slate-500" data-result-count></p>
             </div>
-            <form
-              class="hidden flex-col gap-2 sm:flex-row sm:items-center"
-              data-randomize-form
-              data-axios-form
-            >
-              <select
-                class="h-10 rounded-xl border border-[#121017]/10 bg-white px-3 text-xs font-bold text-[#121017]/65"
-                name="school_year_id"
-                data-randomize-year
-              ></select
-              ><button
-                class="inline-flex min-h-10 items-center justify-center rounded-xl border border-[#397565]/25 bg-white px-4 text-xs font-extrabold text-[#397565] transition hover:bg-[#397565]/5"
-                data-randomize-button
-              >
-                Randomize students
-              </button>
-              <span
-                class="hidden items-center gap-2 text-xs font-extrabold text-[#397565]"
-                data-randomize-status
-                ><span
-                  class="grid h-5 w-5 place-items-center rounded-full bg-[#C6F24E]/40"
-                  >✓</span
-                >Students randomized</span
-              >
-            </form>
+            <a class="mt-2 hidden text-xs font-extrabold text-emerald-700 sm:mt-0" href="pages/adviser/teams.html"
+              data-clear-filters>Clear all filters</a>
           </div>
-        </section>
-        <section
-          class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"
-          data-directory
-        >
-          <header class="border-b border-slate-100 px-5 py-5 sm:px-6">
-            <div
-              class="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between"
-            >
-              <div>
-                <h2 class="text-lg font-extrabold tracking-tight">Tribes</h2>
-                <p class="mt-1 text-xs text-slate-500" data-result-count></p>
-              </div>
-              <a
-                class="mt-2 hidden text-xs font-extrabold text-emerald-700 sm:mt-0"
-                href="pages/adviser/teams.html"
-                data-clear-filters
-                >Clear all filters</a
-              >
-            </div>
-            <form
-              class="mt-5 hidden grid gap-2 md:grid-cols-[minmax(260px,1fr)_180px_160px]"
-              data-tribe-filters
-              data-axios-form
-            >
-              <label class="relative"
-                ><svg
-                  class="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 fill-none stroke-slate-400"
-                  viewBox="0 0 24 24"
-                >
-                  <circle cx="11" cy="11" r="7" />
-                  <path d="m20 20-4-4" /></svg
-                ><span class="sr-only">Search tribes</span
-                ><input
-                  class="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 pl-10 pr-3 text-sm outline-none transition placeholder:text-slate-400 focus:border-emerald-500 focus:bg-white focus:ring-4 focus:ring-emerald-500/10"
-                  name="search"
-                  placeholder="Search tribe or student…" /></label
-              ><label
-                ><span class="sr-only">Filter by school year</span
-                ><select
-                  class="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm text-slate-600 outline-none"
-                  name="school_year"
-                >
-                  <option value="">All school years</option>
-                </select></label
-              ><label
-                ><span class="sr-only">Filter by status</span
-                ><select
-                  class="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm text-slate-600 outline-none"
-                  name="status"
-                >
-                  <option value="">Any status</option>
-                  <option value="active">Active</option>
-                  <option value="inactive">Inactive</option>
-                </select></label
-              >
-            </form>
-          </header>
-          <div
-            class="grid gap-4 p-4 sm:p-6 lg:grid-cols-2"
-            data-team-list
-          ></div>
-          <nav
-            class="hidden flex-col items-center justify-between gap-3 border-t border-slate-100 px-5 py-4 text-xs sm:flex-row"
-            data-pagination
-          ></nav>
-        </section>
-      </main>
-    </div>
-    <dialog
-      class="m-auto max-h-[calc(100vh_-_2rem)] w-[min(1120px,calc(100%_-_2rem))] overflow-y-auto rounded-3xl border-0 bg-white p-0 shadow-[0_30px_90px_rgba(18,16,23,.3)] backdrop:bg-[#121017]/60 backdrop:backdrop-blur-[3px]"
-      id="team-dialog"
-      data-modal-size="workflow"
-      data-modal-kind="workflow"
-    >
-      <form data-team-form data-axios-form>
-        <header
-          class="sticky top-0 z-20 flex items-start justify-between gap-5 border-b border-[#121017]/8 bg-white/95 px-5 py-5 backdrop-blur sm:px-7"
-        >
-          <div>
-            <p
-              class="text-[10px] font-black uppercase tracking-[.16em] text-[#397565]"
-              data-team-mode
-            >
-              New Team
-            </p>
-            <h2
-              class="mt-1 text-2xl font-black tracking-[-.035em] text-[#121017]"
-            >
-              Create a Tribe
-            </h2>
-            <p class="mt-1 text-xs text-slate-500">
-              Set the tribe identity now, then use Randomize Students to
-              distribute members without bias.
-            </p>
-          </div>
-          <button
-            class="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#F3F0E9] text-xl text-[#121017]/50 transition hover:text-[#121017]"
-            type="button"
-            data-dialog-close
-            aria-label="Close create team modal"
-          >
-            ×
-          </button>
+          <form class="mt-5 hidden grid gap-2 md:grid-cols-[minmax(260px,1fr)_180px_160px]" data-tribe-filters
+            data-axios-form>
+            <label class="relative"><svg
+                class="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 fill-none stroke-slate-400"
+                viewBox="0 0 24 24">
+                <circle cx="11" cy="11" r="7" />
+                <path d="m20 20-4-4" />
+              </svg><span class="sr-only">Search tribes</span><input
+                class="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 pl-10 pr-3 text-sm outline-none transition placeholder:text-slate-400 focus:border-emerald-500 focus:bg-white focus:ring-4 focus:ring-emerald-500/10"
+                name="search" placeholder="Search tribe or student…" /></label><label><span class="sr-only">Filter by
+                school year</span><select
+                class="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm text-slate-600 outline-none"
+                name="school_year">
+                <option value="">All school years</option>
+              </select></label><label><span class="sr-only">Filter by status</span><select
+                class="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm text-slate-600 outline-none"
+                name="status">
+                <option value="">Any status</option>
+                <option value="active">Active</option>
+                <option value="inactive">Inactive</option>
+              </select></label>
+          </form>
         </header>
-        <div class="space-y-6 p-4 sm:p-7" data-tribe-workflow>
-          <section
-            class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"
-          >
-            <header
-              class="flex items-start gap-3 border-b border-slate-100 px-5 py-5 sm:px-6"
-            >
-              <span
-                class="hidden h-8 w-8 shrink-0 place-items-center rounded-full bg-[#121017] text-xs font-black text-white"
-                data-details-step
-                >1</span
-              >
-              <div>
-                <h2
-                  class="text-lg font-extrabold tracking-tight text-[#121017]"
-                >
-                  Tribe Details
-                </h2>
-                <p class="mt-1 text-xs text-slate-500">
-                  Describe the tribe and choose how it will appear across the
-                  system.
-                </p>
+        <div class="grid gap-4 p-4 sm:p-6 lg:grid-cols-2" data-team-list></div>
+        <nav
+          class="hidden flex-col items-center justify-between gap-3 border-t border-slate-100 px-5 py-4 text-xs sm:flex-row"
+          data-pagination></nav>
+      </section>
+    </main>
+  </div>
+  <dialog
+    class="m-auto max-h-[calc(100vh_-_2rem)] w-[min(1120px,calc(100%_-_2rem))] overflow-y-auto rounded-3xl border-0 bg-white p-0 shadow-[0_30px_90px_rgba(18,16,23,.3)] backdrop:bg-[#121017]/60 backdrop:backdrop-blur-[3px]"
+    id="team-dialog" data-modal-size="workflow" data-modal-kind="workflow">
+    <form data-team-form data-axios-form>
+      <header
+        class="sticky top-0 z-20 flex items-start justify-between gap-5 border-b border-[#121017]/8 bg-white/95 px-5 py-5 backdrop-blur sm:px-7">
+        <div>
+          <p class="text-[10px] font-black uppercase tracking-[.16em] text-[#397565]" data-team-mode>
+            New Team
+          </p>
+          <h2 class="mt-1 text-2xl font-black tracking-[-.035em] text-[#121017]">
+            Create a Tribe
+          </h2>
+          <p class="mt-1 text-xs text-slate-500">
+            Set the tribe identity now, then use Randomize Students to
+            distribute members without bias.
+          </p>
+        </div>
+        <button
+          class="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#F3F0E9] text-xl text-[#121017]/50 transition hover:text-[#121017]"
+          type="button" data-dialog-close aria-label="Close create team modal">
+          ×
+        </button>
+      </header>
+      <div class="space-y-6 p-4 sm:p-7" data-tribe-workflow>
+        <section class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+          <header class="flex items-start gap-3 border-b border-slate-100 px-5 py-5 sm:px-6">
+            <span
+              class="hidden h-8 w-8 shrink-0 place-items-center rounded-full bg-[#121017] text-xs font-black text-white"
+              data-details-step>1</span>
+            <div>
+              <h2 class="text-lg font-extrabold tracking-tight text-[#121017]">
+                Tribe Details
+              </h2>
+              <p class="mt-1 text-xs text-slate-500">
+                Describe the tribe and choose how it will appear across the
+                system.
+              </p>
+            </div>
+          </header>
+          <div class="grid gap-8 p-5 sm:p-6 lg:grid-cols-[minmax(0,1fr)_360px] lg:items-start">
+            <div class="grid gap-6">
+              <label class="grid gap-2"><span class="text-sm font-bold text-slate-700">What is the tribe called?
+                  <i class="font-normal text-rose-500">*</i></span><input
+                  class="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm outline-none transition placeholder:text-slate-400 focus:border-emerald-500 focus:bg-white focus:ring-4 focus:ring-emerald-500/10"
+                  name="name" maxlength="100" placeholder="e.g. Green Falcons" required data-tribe-name
+                  aria-describedby="team-name-error" />
+                <p class="hidden text-xs font-semibold text-rose-600" id="team-name-error" data-error-for="name"
+                  role="alert"></p>
+                <small class="text-xs text-slate-400">This name appears on attendance, rankings, and event
+                  results.</small>
+              </label>
+              <label class="grid gap-2"><span class="text-sm font-bold text-slate-700">Which school year?
+                  <i class="font-normal text-rose-500">*</i></span><select
+                  class="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm outline-none transition focus:border-emerald-500 focus:bg-white focus:ring-4 focus:ring-emerald-500/10"
+                  name="school_year_id" required data-school-year aria-describedby="team-school-year-error"></select>
+                <p class="hidden text-xs font-semibold text-rose-600" id="team-school-year-error"
+                  data-error-for="school_year_id" role="alert"></p>
+                <small class="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-700"
+                  data-current-year-note><span
+                    class="h-1.5 w-1.5 rounded-full bg-[#C6F24E] ring-2 ring-[#397565]/15"></span>Current school year
+                  selected automatically</small>
+              </label>
+              <div class="grid gap-2">
+                <label class="text-sm font-bold text-slate-700" for="tribe-image">Tribe logo or image</label>
+                <input class="w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm" id="tribe-image"
+                  name="image" type="file" accept="image/jpeg,image/png,image/webp" aria-describedby="tribe-image-help">
+                <small class="text-xs text-slate-400" id="tribe-image-help">Choose a logo or picture (JPG, PNG, or WebP,
+                  up to 5 MB). A square image works best for the badge. It also appears on the student team
+                  page.</small>
+                <label class="hidden items-center gap-2 text-xs font-semibold text-slate-600"
+                  data-remove-image-label><input class="h-4 w-4 accent-[#397565]" type="checkbox" name="remove_image"
+                    value="1"> Remove current image</label>
+                <p class="hidden text-xs font-semibold text-rose-600" data-error-for="image" role="alert"></p>
               </div>
-            </header>
-            <div
-              class="grid gap-8 p-5 sm:p-6 lg:grid-cols-[minmax(0,1fr)_360px] lg:items-start"
-            >
-              <div class="grid gap-6">
-                <label class="grid gap-2"
-                  ><span class="text-sm font-bold text-slate-700"
-                    >What is the tribe called?
-                    <i class="font-normal text-rose-500">*</i></span
-                  ><input
-                    class="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm outline-none transition placeholder:text-slate-400 focus:border-emerald-500 focus:bg-white focus:ring-4 focus:ring-emerald-500/10"
-                    name="name"
-                    maxlength="100"
-                    placeholder="e.g. Green Falcons"
-                    required
-                    data-tribe-name
-                    aria-describedby="team-name-error"
-                  />
-                  <p
-                    class="hidden text-xs font-semibold text-rose-600"
-                    id="team-name-error"
-                    data-error-for="name"
-                    role="alert"
-                  ></p>
-                  <small class="text-xs text-slate-400"
-                    >This name appears on attendance, rankings, and event
-                    results.</small
-                  ></label
-                >
-                <label class="grid gap-2"
-                  ><span class="text-sm font-bold text-slate-700"
-                    >Which school year?
-                    <i class="font-normal text-rose-500">*</i></span
-                  ><select
-                    class="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm outline-none transition focus:border-emerald-500 focus:bg-white focus:ring-4 focus:ring-emerald-500/10"
-                    name="school_year_id"
-                    required
-                    data-school-year
-                    aria-describedby="team-school-year-error"
-                  ></select>
-                  <p
-                    class="hidden text-xs font-semibold text-rose-600"
-                    id="team-school-year-error"
-                    data-error-for="school_year_id"
-                    role="alert"
-                  ></p>
-                  <small
-                    class="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-700"
-                    data-current-year-note
-                    ><span
-                      class="h-1.5 w-1.5 rounded-full bg-[#C6F24E] ring-2 ring-[#397565]/15"
-                    ></span
-                    >Current school year selected automatically</small
-                  ></label
-                >
-                <div class="grid gap-2">
-                  <label class="text-sm font-bold text-slate-700" for="tribe-image">Tribe logo or image</label>
-                  <input class="w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm" id="tribe-image" name="image" type="file" accept="image/jpeg,image/png,image/webp" aria-describedby="tribe-image-help">
-                  <small class="text-xs text-slate-400" id="tribe-image-help">Choose a logo or picture (JPG, PNG, or WebP, up to 5 MB). A square image works best for the badge. It also appears on the student team page.</small>
-                  <label class="hidden items-center gap-2 text-xs font-semibold text-slate-600" data-remove-image-label><input class="h-4 w-4 accent-[#397565]" type="checkbox" name="remove_image" value="1"> Remove current image</label>
-                  <p class="hidden text-xs font-semibold text-rose-600" data-error-for="image" role="alert"></p>
-                </div>
-                <fieldset>
-                  <legend class="text-sm font-bold text-slate-700">
-                    Choose a tribe color
-                    <i class="font-normal text-rose-500">*</i>
-                  </legend>
-                  <p class="mt-1 text-xs text-slate-400">
-                    Used for the tribe badge, accents, and quick identification.
-                  </p>
-                  <input
-                    type="hidden"
-                    name="color"
-                    value="#397565"
-                    data-color-value
-                    required
-                  />
-                  <div
-                    class="mt-4 flex flex-wrap gap-3"
-                    aria-label="Tribe color choices"
-                    data-palette
-                  ></div>
-                  <p
-                    class="mt-2 hidden text-xs font-semibold text-rose-600"
-                    data-error-for="color"
-                    role="alert"
-                  ></p>
-                </fieldset>
-              </div>
-              <aside>
-                <p
-                  class="mb-3 text-[10px] font-extrabold uppercase tracking-[.14em] text-slate-400"
-                >
-                  Live Tribe Preview
+              <fieldset>
+                <legend class="text-sm font-bold text-slate-700">
+                  Choose a tribe color
+                  <i class="font-normal text-rose-500">*</i>
+                </legend>
+                <p class="mt-1 text-xs text-slate-400">
+                  Used for the tribe badge, accents, and quick identification.
                 </p>
-                <div
-                  class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-lg shadow-slate-200/50"
-                >
-                  <div class="h-2 transition-colors" data-preview-accent></div>
-                  <img class="hidden w-full object-cover" style="aspect-ratio:16/9" data-preview-image alt="Tribe image preview">
-                  <div class="p-5">
-                    <div class="flex items-center gap-3">
-                      <span
-                        class="grid h-12 w-12 shrink-0 place-items-center overflow-hidden rounded-xl text-sm font-black text-white shadow-sm transition-colors"
-                        data-preview-badge
-                        ><img class="hidden h-full w-full bg-white object-contain" data-preview-badge-image alt=""><span data-preview-badge-initials>TR</span></span
-                      >
-                      <div class="min-w-0">
-                        <strong
-                          class="block truncate text-base text-[#121017]"
-                          data-preview-name
-                          >Your tribe</strong
-                        ><span
-                          class="mt-0.5 block text-xs text-slate-400"
-                          data-preview-year
-                          >Choose a school year</span
-                        >
-                      </div>
-                    </div>
-                    <div
-                      class="mt-5 hidden items-center justify-between border-t border-slate-100 pt-4"
-                      data-preview-member-row
-                    >
-                      <span class="text-xs font-semibold text-slate-500"
-                        >Student members</span
-                      ><strong class="text-sm"
-                        ><span data-preview-members>0</span>
-                        <span data-preview-member-label>members</span></strong
-                      >
+                <input type="hidden" name="color" value="#397565" data-color-value required />
+                <div class="mt-4 flex flex-wrap gap-3" aria-label="Tribe color choices" data-palette></div>
+                <p class="mt-2 hidden text-xs font-semibold text-rose-600" data-error-for="color" role="alert"></p>
+              </fieldset>
+            </div>
+            <aside>
+              <p class="mb-3 text-[10px] font-extrabold uppercase tracking-[.14em] text-slate-400">
+                Live Tribe Preview
+              </p>
+              <div class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-lg shadow-slate-200/50">
+                <div class="h-2 transition-colors" data-preview-accent></div>
+                <img class="hidden w-full object-cover" style="aspect-ratio:16/9" data-preview-image
+                  alt="Tribe image preview">
+                <div class="p-5">
+                  <div class="flex items-center gap-3">
+                    <span
+                      class="grid h-12 w-12 shrink-0 place-items-center overflow-hidden rounded-xl text-sm font-black text-white shadow-sm transition-colors"
+                      data-preview-badge><img class="hidden h-full w-full bg-white object-contain"
+                        data-preview-badge-image alt=""><span data-preview-badge-initials>TR</span></span>
+                    <div class="min-w-0">
+                      <strong class="block truncate text-base text-[#121017]" data-preview-name>Your tribe</strong><span
+                        class="mt-0.5 block text-xs text-slate-400" data-preview-year>Choose a school year</span>
                     </div>
                   </div>
-                </div>
-                <p class="mt-3 text-xs leading-5 text-slate-400">
-                  This identity will help advisers and students recognize the
-                  tribe throughout the application.
-                </p>
-              </aside>
-            </div>
-          </section>
-          <section
-            class="hidden overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"
-            data-members-section
-          >
-            <header
-              class="flex items-start justify-between gap-4 border-b border-slate-100 px-5 py-5 sm:px-6"
-            >
-              <div class="flex items-start gap-3">
-                <span
-                  class="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-[#121017] text-xs font-black text-white"
-                  >2</span
-                >
-                <div>
-                  <h2 class="text-lg font-extrabold tracking-tight">
-                    Choose Members
-                  </h2>
-                  <p class="mt-1 text-xs text-slate-500">
-                    Select the active students who belong to this tribe.
-                  </p>
+                  <div class="mt-5 hidden items-center justify-between border-t border-slate-100 pt-4"
+                    data-preview-member-row>
+                    <span class="text-xs font-semibold text-slate-500">Student members</span><strong
+                      class="text-sm"><span data-preview-members>0</span>
+                      <span data-preview-member-label>members</span></strong>
+                  </div>
                 </div>
               </div>
+              <p class="mt-3 text-xs leading-5 text-slate-400">
+                This identity will help advisers and students recognize the
+                tribe throughout the application.
+              </p>
+            </aside>
+          </div>
+        </section>
+        <section class="hidden overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"
+          data-members-section>
+          <header class="flex items-start justify-between gap-4 border-b border-slate-100 px-5 py-5 sm:px-6">
+            <div class="flex items-start gap-3">
               <span
-                class="inline-flex h-8 shrink-0 items-center rounded-full bg-emerald-50 px-3 text-xs font-extrabold text-emerald-700"
-                ><span data-selected-count>0</span>&nbsp;selected</span
-              >
-            </header>
-            <p
-              class="mx-5 mt-5 hidden rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-xs font-semibold text-rose-700 sm:mx-6"
-              data-error-for="member_ids"
-              role="alert"
-            ></p>
-            <div class="p-5 sm:p-6">
-              <label class="relative block"
-                ><svg
-                  class="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 fill-none stroke-slate-400"
-                  viewBox="0 0 24 24"
-                >
-                  <circle cx="11" cy="11" r="7" />
-                  <path d="m20 20-4-4" /></svg
-                ><span class="sr-only">Search students</span
-                ><input
-                  class="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 pl-10 pr-3 text-sm outline-none transition placeholder:text-slate-400 focus:border-emerald-500 focus:bg-white focus:ring-4 focus:ring-emerald-500/10"
-                  type="search"
-                  placeholder="Search by name, student ID, or year level…"
-                  data-member-search
-              /></label>
-              <div class="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500">
-                <span data-member-result-count>Open a tribe to load eligible students.</span>
-                <span>Selections are preserved across search pages.</span>
-              </div>
-              <div
-                class="mt-3 grid gap-2 lg:grid-cols-2"
-                data-member-list
-              ></div>
-              <div
-                class="mt-4 hidden rounded-xl border border-dashed border-slate-200 px-5 py-10 text-center"
-                data-no-member-results
-              >
-                <strong class="text-sm text-slate-600"
-                  >No students match your search</strong
-                >
-                <p class="mt-1 text-xs text-slate-400">
-                  Try a different name, ID, or year level.
+                class="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-[#121017] text-xs font-black text-white">2</span>
+              <div>
+                <h2 class="text-lg font-extrabold tracking-tight">
+                  Choose Members
+                </h2>
+                <p class="mt-1 text-xs text-slate-500">
+                  Select the active students who belong to this tribe.
                 </p>
               </div>
-              <nav class="mt-4 hidden items-center justify-between gap-3 border-t border-slate-100 pt-4 text-xs text-slate-500" data-member-pagination aria-label="Eligible student pages"></nav>
             </div>
-          </section>
-          <p
-            class="hidden rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-xs font-semibold text-rose-700"
-            data-form-error
-            role="alert"
-          ></p>
-          <div
-            class="flex flex-col gap-4 border-t border-slate-200 pt-5 sm:flex-row sm:items-center sm:justify-between"
-          >
-            <p
-              class="flex max-w-xl items-start gap-2 text-xs leading-5 text-slate-500"
-            >
-              <span
-                class="mt-0.5 grid h-4 w-4 shrink-0 place-items-center rounded-full bg-slate-200 text-[10px] font-black text-slate-600"
-                >i</span
-              ><span data-team-help
-                >Student assignments are handled separately with Randomize
-                Students after the tribes are created.</span
-              >
-            </p>
-            <div class="flex shrink-0 flex-col-reverse gap-2 sm:flex-row">
-              <button
-                class="inline-flex min-h-11 items-center justify-center rounded-xl border border-slate-200 bg-white px-5 text-sm font-extrabold text-slate-600 transition hover:bg-slate-50"
-                type="button"
-                data-dialog-close
-              >
-                Cancel</button
-              ><button
-                class="inline-flex min-h-11 items-center justify-center rounded-xl bg-emerald-600 px-6 text-sm font-extrabold text-white shadow-lg shadow-emerald-600/15 transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:shadow-none"
-                type="submit"
-                data-save-team
-                disabled
-              >
-                Create Tribe
-              </button>
+            <span
+              class="inline-flex h-8 shrink-0 items-center rounded-full bg-emerald-50 px-3 text-xs font-extrabold text-emerald-700"><span
+                data-selected-count>0</span>&nbsp;selected</span>
+          </header>
+          <p class="mx-5 mt-5 hidden rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-xs font-semibold text-rose-700 sm:mx-6"
+            data-error-for="member_ids" role="alert"></p>
+          <div class="p-5 sm:p-6">
+            <label class="relative block"><svg
+                class="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 fill-none stroke-slate-400"
+                viewBox="0 0 24 24">
+                <circle cx="11" cy="11" r="7" />
+                <path d="m20 20-4-4" />
+              </svg><span class="sr-only">Search students</span><input
+                class="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 pl-10 pr-3 text-sm outline-none transition placeholder:text-slate-400 focus:border-emerald-500 focus:bg-white focus:ring-4 focus:ring-emerald-500/10"
+                type="search" placeholder="Search by name, student ID, or year level…" data-member-search /></label>
+            <div class="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500">
+              <span data-member-result-count>Open a tribe to load eligible students.</span>
+              <span>Selections are preserved across search pages.</span>
             </div>
-          </div>
-        </div>
-      </form>
-    </dialog>
-    <dialog
-      class="unassigned-review-dialog m-auto overflow-hidden rounded-3xl border-0 bg-white p-0"
-      id="unassigned-students-dialog"
-      data-modal-size="large"
-      data-modal-kind="workflow"
-    >
-      <div class="unassigned-review-shell flex flex-col">
-        <header class="flex shrink-0 items-start justify-between gap-5 border-b border-[#121017]/8 px-5 py-5 sm:px-7">
-          <div>
-            <p class="text-[10px] font-black uppercase tracking-[.16em] text-[#397565]">Assignment Review</p>
-            <h2 class="mt-1 text-2xl font-black tracking-[-.035em] text-[#121017]">Unassigned Students</h2>
-            <p class="mt-1 text-sm text-slate-500" data-unassigned-context></p>
-          </div>
-          <button class="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#F3F0E9] text-xl text-[#121017]/50 transition hover:text-[#121017]" type="button" data-unassigned-close aria-label="Close unassigned students review">×</button>
-        </header>
-        <div class="shrink-0 border-b border-slate-100 bg-[#F3F0E9]/55 px-5 py-4 sm:px-7">
-          <div class="unassigned-review-controls grid gap-3">
-            <label class="relative">
-              <span class="sr-only">Search unassigned students</span>
-              <svg class="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 fill-none stroke-slate-400" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>
-              <input class="h-11 w-full rounded-xl border border-slate-200 bg-white pl-10 pr-3 text-sm outline-none transition placeholder:text-slate-400 focus:border-[#397565] focus:ring-4 focus:ring-[#397565]/10" type="search" placeholder="Search name, student ID, program, year, or section…" data-unassigned-search />
-            </label>
-            <label>
-              <span class="sr-only">School year</span>
-              <select class="h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 outline-none" data-unassigned-year></select>
-            </label>
-            <button class="inline-flex min-h-11 items-center justify-center rounded-xl border border-[#397565]/25 bg-white px-4 text-sm font-extrabold text-[#397565] transition hover:bg-[#397565]/5" type="button" data-randomize-unassigned>Randomize unassigned</button>
-          </div>
-          <div class="mt-3 flex flex-col gap-3 rounded-xl border border-[#397565]/15 bg-white px-4 py-3 sm:flex-row sm:items-center sm:justify-between" data-unassigned-bulk-bar>
-            <label class="inline-flex items-center gap-2 text-xs font-extrabold text-slate-600"><input class="h-4 w-4 rounded border-slate-300 accent-[#397565]" type="checkbox" data-unassigned-select-all /><span data-unassigned-selected>0 selected</span></label>
-            <div class="flex flex-col gap-2 sm:flex-row">
-              <select class="h-10 min-w-52 rounded-xl border border-slate-200 bg-white px-3 text-xs font-bold text-slate-700 outline-none" data-unassigned-bulk-team><option value="">Choose a tribe…</option></select>
-              <button class="inline-flex min-h-10 items-center justify-center rounded-xl bg-[#397565] px-4 text-xs font-extrabold text-white transition hover:bg-[#2e6355] disabled:cursor-not-allowed disabled:bg-slate-300" type="button" data-assign-selected disabled>Assign selected</button>
+            <div class="mt-3 grid gap-2 lg:grid-cols-2" data-member-list></div>
+            <div class="mt-4 hidden rounded-xl border border-dashed border-slate-200 px-5 py-10 text-center"
+              data-no-member-results>
+              <strong class="text-sm text-slate-600">No students match your search</strong>
+              <p class="mt-1 text-xs text-slate-400">
+                Try a different name, ID, or year level.
+              </p>
             </div>
+            <nav
+              class="mt-4 hidden items-center justify-between gap-3 border-t border-slate-100 pt-4 text-xs text-slate-500"
+              data-member-pagination aria-label="Eligible student pages"></nav>
           </div>
-        </div>
-        <div class="min-h-0 flex-1 overflow-y-auto" data-unassigned-list></div>
-        <footer class="flex shrink-0 flex-wrap items-center justify-between gap-4 border-t border-slate-100 bg-white px-5 py-4 sm:px-7">
-          <p class="text-xs text-slate-500" data-unassigned-visible-count></p>
-          <nav class="hidden items-center gap-2 text-xs text-slate-500" data-unassigned-pagination aria-label="Unassigned student pages"></nav>
-          <button class="inline-flex min-h-10 items-center rounded-xl border border-slate-200 px-5 text-sm font-extrabold text-slate-600 hover:bg-slate-50" type="button" data-unassigned-close>Done</button>
-        </footer>
-      </div>
-    </dialog>
-    <dialog
-      class="m-auto w-[min(460px,calc(100%_-_2rem))] rounded-2xl border-0 bg-white p-0 shadow-2xl backdrop:bg-black/60"
-      data-confirm-dialog
-      data-modal-size="small"
-      data-modal-kind="confirmation"
-    >
-      <div class="p-6">
-        <h2 class="text-xl font-black" data-confirm-title></h2>
-        <p class="mt-2 text-sm text-black/55" data-confirm-message></p>
-        <div class="mt-6 flex justify-end gap-2">
-          <button class="rounded-xl border px-4 py-2" data-confirm-cancel>
-            Cancel</button
-          ><button
-            class="rounded-xl bg-[#FF6B2C] px-5 py-2 text-white"
-            data-confirm-accept
-          >
-            Confirm
-          </button>
+        </section>
+        <p class="hidden rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-xs font-semibold text-rose-700"
+          data-form-error role="alert"></p>
+        <div class="flex flex-col gap-4 border-t border-slate-200 pt-5 sm:flex-row sm:items-center sm:justify-between">
+          <p class="flex max-w-xl items-start gap-2 text-xs leading-5 text-slate-500">
+            <span
+              class="mt-0.5 grid h-4 w-4 shrink-0 place-items-center rounded-full bg-slate-200 text-[10px] font-black text-slate-600">i</span><span
+              data-team-help>Student assignments are handled separately with Randomize
+              Students after the tribes are created.</span>
+          </p>
+          <div class="flex shrink-0 flex-col-reverse gap-2 sm:flex-row">
+            <button
+              class="inline-flex min-h-11 items-center justify-center rounded-xl border border-slate-200 bg-white px-5 text-sm font-extrabold text-slate-600 transition hover:bg-slate-50"
+              type="button" data-dialog-close>
+              Cancel</button><button
+              class="inline-flex min-h-11 items-center justify-center rounded-xl bg-emerald-600 px-6 text-sm font-extrabold text-white shadow-lg shadow-emerald-600/15 transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:shadow-none"
+              type="submit" data-save-team disabled>
+              Create Tribe
+            </button>
+          </div>
         </div>
       </div>
-    </dialog>
-    <div
-      class="pointer-events-none fixed right-4 top-4 z-[100] grid w-[min(380px,calc(100%_-_2rem))] gap-3"
-      data-notification-region
-    ></div>
-    <script src="js/vendor/axios.min.js"></script>
-    <script src="js/shared/password-gate.js?v=20260917-1"></script>
-    <script src="js/shared/navigation.js?v=20260924-media-merge-1"></script>
-    <script src="js/adviser/teams.js?v=20260923-team-logo-1"></script>
-  </body>
+    </form>
+  </dialog>
+  <dialog class="unassigned-review-dialog m-auto overflow-hidden rounded-3xl border-0 bg-white p-0"
+    id="unassigned-students-dialog" data-modal-size="large" data-modal-kind="workflow">
+    <div class="unassigned-review-shell flex flex-col">
+      <header class="flex shrink-0 items-start justify-between gap-5 border-b border-[#121017]/8 px-5 py-5 sm:px-7">
+        <div>
+          <p class="text-[10px] font-black uppercase tracking-[.16em] text-[#397565]">Assignment Review</p>
+          <h2 class="mt-1 text-2xl font-black tracking-[-.035em] text-[#121017]">Unassigned Students</h2>
+          <p class="mt-1 text-sm text-slate-500" data-unassigned-context></p>
+        </div>
+        <button
+          class="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#F3F0E9] text-xl text-[#121017]/50 transition hover:text-[#121017]"
+          type="button" data-unassigned-close aria-label="Close unassigned students review">×</button>
+      </header>
+      <div class="shrink-0 border-b border-slate-100 bg-[#F3F0E9]/55 px-5 py-4 sm:px-7">
+        <div class="unassigned-review-controls grid gap-3">
+          <label class="relative">
+            <span class="sr-only">Search unassigned students</span>
+            <svg class="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 fill-none stroke-slate-400"
+              viewBox="0 0 24 24">
+              <circle cx="11" cy="11" r="7" />
+              <path d="m20 20-4-4" />
+            </svg>
+            <input
+              class="h-11 w-full rounded-xl border border-slate-200 bg-white pl-10 pr-3 text-sm outline-none transition placeholder:text-slate-400 focus:border-[#397565] focus:ring-4 focus:ring-[#397565]/10"
+              type="search" placeholder="Search name, student ID, program, year, or section…" data-unassigned-search />
+          </label>
+          <label>
+            <span class="sr-only">School year</span>
+            <select
+              class="h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 outline-none"
+              data-unassigned-year></select>
+          </label>
+          <button
+            class="inline-flex min-h-11 items-center justify-center rounded-xl border border-[#397565]/25 bg-white px-4 text-sm font-extrabold text-[#397565] transition hover:bg-[#397565]/5"
+            type="button" data-randomize-unassigned>Randomize unassigned</button>
+        </div>
+        <div
+          class="mt-3 flex flex-col gap-3 rounded-xl border border-[#397565]/15 bg-white px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
+          data-unassigned-bulk-bar>
+          <label class="inline-flex items-center gap-2 text-xs font-extrabold text-slate-600"><input
+              class="h-4 w-4 rounded border-slate-300 accent-[#397565]" type="checkbox"
+              data-unassigned-select-all /><span data-unassigned-selected>0 selected</span></label>
+          <div class="flex flex-col gap-2 sm:flex-row">
+            <select
+              class="h-10 min-w-52 rounded-xl border border-slate-200 bg-white px-3 text-xs font-bold text-slate-700 outline-none"
+              data-unassigned-bulk-team>
+              <option value="">Choose a tribe…</option>
+            </select>
+            <button
+              class="inline-flex min-h-10 items-center justify-center rounded-xl bg-[#397565] px-4 text-xs font-extrabold text-white transition hover:bg-[#2e6355] disabled:cursor-not-allowed disabled:bg-slate-300"
+              type="button" data-assign-selected disabled>Assign selected</button>
+          </div>
+        </div>
+      </div>
+      <div class="min-h-0 flex-1 overflow-y-auto" data-unassigned-list></div>
+      <footer
+        class="flex shrink-0 flex-wrap items-center justify-between gap-4 border-t border-slate-100 bg-white px-5 py-4 sm:px-7">
+        <p class="text-xs text-slate-500" data-unassigned-visible-count></p>
+        <nav class="hidden items-center gap-2 text-xs text-slate-500" data-unassigned-pagination
+          aria-label="Unassigned student pages"></nav>
+        <button
+          class="inline-flex min-h-10 items-center rounded-xl border border-slate-200 px-5 text-sm font-extrabold text-slate-600 hover:bg-slate-50"
+          type="button" data-unassigned-close>Done</button>
+      </footer>
+    </div>
+  </dialog>
+  <dialog
+    class="m-auto w-[min(460px,calc(100%_-_2rem))] rounded-2xl border-0 bg-white p-0 shadow-2xl backdrop:bg-black/60"
+    data-confirm-dialog data-modal-size="small" data-modal-kind="confirmation">
+    <div class="p-6">
+      <h2 class="text-xl font-black" data-confirm-title></h2>
+      <p class="mt-2 text-sm text-black/55" data-confirm-message></p>
+      <div class="mt-6 flex justify-end gap-2">
+        <button class="rounded-xl border px-4 py-2" data-confirm-cancel>
+          Cancel</button><button class="rounded-xl bg-[#FF6B2C] px-5 py-2 text-white" data-confirm-accept>
+          Confirm
+        </button>
+      </div>
+    </div>
+  </dialog>
+  <div class="pointer-events-none fixed right-4 top-4 z-[100] grid w-[min(380px,calc(100%_-_2rem))] gap-3"
+    data-notification-region></div>
+  <script src="js/vendor/axios.min.js"></script>
+  <script src="js/shared/password-gate.js?v=20260917-1"></script>
+  <script src="js/shared/navigation.js?v=20260924-media-merge-1"></script>
+  <script src="js/adviser/teams.js?v=20260923-team-logo-1"></script>
+</body>
+
 </html>
