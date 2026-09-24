@@ -10,21 +10,30 @@ final class SboScoresRepository
 {
     public function __construct(private readonly PDO $db, private readonly SboAuthorization $auth) {}
 
-    public function show(int $userId, int $assignmentId): array
+    public function show(int $userId, int $assignmentId, int $activityId = 0): array
     {
-        $allAssignments = $this->auth->assignments($userId, 'scoring');
+        $allAssignments = $this->auth->assignments($userId, 'scoring', false);
+        foreach ($allAssignments as &$assignment) {
+            if ($assignment['activity_schedule_id'] === null) $assignment['schedule_date'] = null;
+        }
+        unset($assignment);
         $selected = null;
         foreach ($allAssignments as $assignment) {
-            if ($assignment['id'] === $assignmentId) $selected = $assignment;
+            if ($assignment['id'] === $assignmentId && (!$activityId || $assignment['activity_id'] === $activityId)) {
+                $selected = $assignment;
+                break;
+            }
         }
         if (!$selected && $allAssignments) $selected = $allAssignments[0];
         $assignments = [];
         foreach ($allAssignments as $assignment) {
-            $key = $assignment['event_id'] . ':' . $assignment['activity_id'];
-            if (!isset($assignments[$key]) || ($selected && $assignment['id'] === $selected['id'])) $assignments[$key] = $assignment;
+            $key = $assignment['event_id'].':'.$assignment['activity_id'];
+            $assignment['selection_id'] = $assignment['id'].':'.$assignment['activity_id'];
+            if (!isset($assignments[$key]) || ($assignment['id'] === $selected['id'] && $assignment['activity_id'] === $selected['activity_id'])) $assignments[$key] = $assignment;
         }
         $assignments = array_values($assignments);
         if (!$selected) return ['assignments' => $assignments, 'selected' => null, 'teams' => [], 'raw_scores' => [], 'finalized' => false];
+        $selected['selection_id'] = $selected['id'].':'.$selected['activity_id'];
 
         $eventId = (int) $selected['event_id'];
         $activityId = (int) $selected['activity_id'];
@@ -58,9 +67,24 @@ final class SboScoresRepository
 
     public function save(int $userId, array $input): string
     {
-        $assignment = $this->auth->assignment($userId, (int) ($input['assignment_id'] ?? 0), 'scoring');
+        $assignmentId = (int) ($input['assignment_id'] ?? 0);
+        $activityId = (int) ($input['activity_id'] ?? 0);
+        if (!$activityId) {
+            $activityId = (int) $this->value('SELECT activity_id FROM tbl_sbo_event_assignments WHERE id=?', [$assignmentId]);
+        }
+        $assignment = null;
+        foreach ($this->auth->assignments($userId, 'scoring', false) as $candidate) {
+            if ($candidate['id'] === $assignmentId && $candidate['activity_id'] === $activityId) {
+                $assignment = $candidate;
+                break;
+            }
+        }
+        if (!$assignment) throw new DomainException('Unauthorized officer assignment.');
         if (($assignment['assignment_state'] ?? '') === 'upcoming') {
             throw new InvalidArgumentException('Scoring is not available until this upcoming event begins.');
+        }
+        if (($assignment['assignment_state'] ?? '') === 'ended') {
+            throw new InvalidArgumentException('Scoring is closed for this ended event.');
         }
 
         $eventId = (int) $assignment['event_id'];
@@ -115,7 +139,7 @@ $db = (new Database())->connection();
 $repository = new SboScoresRepository($db, new SboAuthorization($db));
 try {
     if ($_SERVER['REQUEST_METHOD'] === 'GET') {
-        JsonResponse::send(['success' => true, 'data' => $repository->show((int) $actor['id'], (int) ($_GET['assignment_id'] ?? 0))]);
+        JsonResponse::send(['success' => true, 'data' => $repository->show((int) $actor['id'], (int) ($_GET['assignment_id'] ?? 0), (int) ($_GET['activity_id'] ?? 0))]);
     }
     if ($_SERVER['REQUEST_METHOD'] !== 'POST') JsonResponse::send(['success' => false, 'message' => 'Method not allowed.'], 405);
     if (!SessionManager::validateCsrf($_SERVER['HTTP_X_CSRF_TOKEN'] ?? null)) JsonResponse::send(['success' => false, 'message' => 'Your session expired.'], 403);

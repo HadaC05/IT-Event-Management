@@ -26,15 +26,15 @@
     const search = assignmentSearch.value.trim().toLocaleLowerCase();
     const matches = state.assignments.filter(assignment => assignmentLabel(assignment).toLocaleLowerCase().includes(search) && (!assignmentSchedule.value || (assignment.schedule_date || 'unscheduled') === assignmentSchedule.value));
     assignmentResults.innerHTML = matches.length
-      ? matches.map(assignment => `<button class="min-h-11 rounded-xl border px-4 py-3 text-left text-xs font-black transition ${assignment.id === state.selected?.id ? 'border-[#397565] bg-[#397565] text-white' : 'border-[#121017]/10 bg-white text-[#121017] hover:border-[#397565]/35'}" type="button" data-assignment-id="${assignment.id}">${esc(assignment.activity_name)}</button>`).join('')
+      ? matches.map(assignment => `<button class="min-h-11 rounded-xl border px-4 py-3 text-left text-xs font-black transition ${assignment.selection_id === state.selected?.selection_id ? 'border-[#397565] bg-[#397565] text-white' : 'border-[#121017]/10 bg-white text-[#121017] hover:border-[#397565]/35'}" type="button" data-selection-id="${assignment.selection_id}">${esc(assignment.activity_name)}</button>`).join('')
       : '<p class="py-3 text-xs text-[#121017]/45">No assignments match these filters.</p>';
   }
 
   function render() {
     mobileAssignment.innerHTML = state.assignments.length
-      ? state.assignments.map(assignment => `<option value="${assignment.id}">${esc(assignment.activity_name)}</option>`).join('')
+      ? state.assignments.map(assignment => `<option value="${assignment.selection_id}">${esc(assignment.activity_name)} · ${esc(scheduleLabel(assignment.schedule_date))}</option>`).join('')
       : '<option value="">No scoring assignment</option>';
-    if (state.selected) mobileAssignment.value = state.selected.id;
+    if (state.selected) mobileAssignment.value = state.selected.selection_id;
     const selectedSchedule = assignmentSchedule.value;
     const schedules = [...new Set(state.assignments.map(assignment => assignment.schedule_date || 'unscheduled'))].sort((left, right) => left === 'unscheduled' ? 1 : right === 'unscheduled' ? -1 : left.localeCompare(right));
     assignmentSchedule.replaceChildren(new Option('All scheduled dates', ''), ...schedules.map(value => new Option(scheduleLabel(value), value)));
@@ -42,11 +42,12 @@
     renderAssignmentResults();
 
     const upcoming = state.selected?.assignment_state === 'upcoming';
-    const locked = Boolean(state.finalized) || upcoming;
+    const ended = state.selected?.assignment_state === 'ended';
+    const locked = Boolean(state.finalized) || upcoming || ended;
     const savedTeams = Object.keys(state.raw_scores || {}).length;
-    const stage = !state.selected ? 'Unassigned' : upcoming ? 'Upcoming' : state.finalized ? 'Finalized' : savedTeams === state.teams.length ? 'Saved' : 'Ready';
+    const stage = !state.selected ? 'Unassigned' : upcoming ? 'Upcoming' : state.finalized ? 'Finalized' : ended ? 'Ended' : savedTeams === state.teams.length ? 'Saved' : 'Ready';
     document.querySelector('[data-score-hero-state]').textContent = stage;
-    document.querySelector('[data-score-hero-detail]').textContent = state.selected ? `${state.selected.event_name} - ${state.selected.activity_name}` : 'Ask the adviser for a scoring assignment';
+    document.querySelector('[data-score-hero-detail]').textContent = state.selected ? `${state.selected.event_name} - ${state.selected.activity_name} · ${scheduleLabel(state.selected.schedule_date)}` : 'Ask the adviser for a scoring assignment';
     document.querySelector('[data-score-sheet-title]').textContent = state.selected ? `${state.selected.activity_name} raw scores` : 'Raw score entry';
     document.querySelector('[data-score-sheet-status]').textContent = state.selected ? `${state.teams.length} tribes - ${stage}` : 'No assignment';
     saveButton.closest('footer').classList.toggle('hidden', !state.selected || locked);
@@ -60,6 +61,8 @@
       ? 'Upcoming assignment - raw-score entry opens when the event begins.'
       : state.finalized
         ? 'Finalized - placement points have been locked by the adviser.'
+        : ended
+          ? 'This event has ended. Saved raw scores are available to view.'
         : 'Enter a whole-number raw score for every tribe. The adviser will rank all tribes and award placement points.';
     const rows = state.teams.map(team => `<tr class="border-b border-[#121017]/8 last:border-0"><th class="p-4 text-left" scope="row"><span class="mr-3 inline-block h-3 w-3 rounded-full" style="background:${esc(team.color || '#397565')}"></span>${esc(team.name)}</th><td class="p-3 text-right"><input class="h-11 w-32 rounded-xl border border-[#121017]/12 px-3 text-right font-black outline-none focus:border-[#397565]" type="text" inputmode="numeric" maxlength="3" autocomplete="off" data-raw-score data-team="${team.id}" value="${state.raw_scores[team.id] ?? ''}" placeholder="0" aria-label="Raw score for ${esc(team.name)}" ${locked ? 'disabled' : 'required'}></td></tr>`).join('');
     grid.innerHTML = `<div class="overflow-x-auto"><table class="w-full min-w-[460px] text-sm"><thead class="bg-[#F3F0E9]/55 text-left text-[10px] font-black uppercase tracking-wide text-[#121017]/45"><tr><th class="p-4">Tribe</th><th class="p-4 text-right">Raw score (0-200)</th></tr></thead><tbody>${rows}</tbody></table></div><p class="px-5 py-4 text-sm text-[#121017]/55">${note}</p>`;
@@ -72,18 +75,19 @@
     });
   }
 
-  async function load(assignmentId) {
-    state = (await axios.get(API, {params: assignmentId ? {assignment_id: assignmentId} : {}})).data.data;
+  async function load(selectionId) {
+    const [assignmentId, activityId] = String(selectionId || '').split(':').map(Number);
+    state = (await axios.get(API, {params: assignmentId && activityId ? {assignment_id: assignmentId, activity_id: activityId} : {}})).data.data;
     render();
   }
 
   assignmentSearch.addEventListener('input', renderAssignmentResults);
   assignmentSchedule.addEventListener('change', renderAssignmentResults);
   assignmentResults.addEventListener('click', event => {
-    const button = event.target.closest('[data-assignment-id]');
-    if (button) load(Number(button.dataset.assignmentId));
+    const button = event.target.closest('[data-selection-id]');
+    if (button) load(button.dataset.selectionId);
   });
-  mobileAssignment.addEventListener('change', () => load(Number(mobileAssignment.value)));
+  mobileAssignment.addEventListener('change', () => load(mobileAssignment.value));
   form.addEventListener('submit', async event => {
     event.preventDefault();
     if (saving || !state?.selected || !form.reportValidity()) return;
@@ -92,9 +96,9 @@
     saving = true;
     saveButton.disabled = true;
     try {
-      const response = await axios.post(API, {assignment_id: state.selected.id, scores}, {headers: {'X-CSRF-Token': csrf}});
+      const response = await axios.post(API, {assignment_id: state.selected.id, activity_id: state.selected.activity_id, scores}, {headers: {'X-CSRF-Token': csrf}});
       Notifications.success(response.data.message);
-      await load(state.selected.id);
+      await load(state.selected.selection_id);
     } catch (error) {
       Notifications.error(error.response?.data?.message || 'Unable to save the raw score.');
     } finally {
