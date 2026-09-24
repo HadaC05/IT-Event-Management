@@ -152,6 +152,9 @@ final class UserManagementRepository
         if (!preg_match('/^[A-Za-z0-9._-]+$/', (string) $data['username'])) {
             throw new InvalidArgumentException('Username may only contain letters, numbers, dots, underscores, and hyphens.');
         }
+        if ($id && (($data['password'] ?? '') !== '' || ($data['password_confirmation'] ?? '') !== '')) {
+            throw new InvalidArgumentException('Use the dedicated password reset action to change an existing account password.');
+        }
         if (!$id && strlen((string) ($data['password'] ?? '')) < 8) {
             throw new InvalidArgumentException('Password must contain at least 8 characters.');
         }
@@ -235,18 +238,9 @@ final class UserManagementRepository
             if ($id) {
                 $set = [];
                 foreach ($values as $key => $unused) $set[] = "$key = :$key";
-                if (!empty($data['password'])) {
-                    $values['password'] = password_hash((string) $data['password'], PASSWORD_BCRYPT);
-                    $set[] = 'password = :password';
-                    $set[] = 'must_change_password = 1';
-                }
                 $values['id'] = $id;
                 $statement = $this->db->prepare('UPDATE tbl_users SET '.implode(', ', $set).', updated_at = CURRENT_TIMESTAMP WHERE id = :id');
                 $statement->execute($values);
-                if ($role === 'Student') {
-                    $statement = $this->db->prepare('DELETE FROM tbl_event_user WHERE user_id = ?');
-                    $statement->execute([$id]);
-                }
             } else {
                 $values['password'] = password_hash((string) $data['password'], PASSWORD_BCRYPT);
                 $values['status'] = $this->value("SELECT id FROM tbl_user_statuses WHERE label = 'active'");
@@ -293,6 +287,37 @@ final class UserManagementRepository
             $statement->execute(['status' => $next, 'id' => $id]);
             $verb = $next === 'active' ? 'activated' : 'deactivated';
             $this->log($actorId, $id, 'user_status_changed', $user['full_name']." was $verb.");
+            $this->db->commit();
+        } catch (Throwable $error) {
+            if ($this->db->inTransaction()) $this->db->rollBack();
+            throw $error;
+        }
+    }
+
+    /** Reset credentials without changing the account profile or relationships. */
+    public function resetPassword(int $id, string $password, string $confirmation, int $actorId): void
+    {
+        if ($id < 1) throw new InvalidArgumentException('Select an account.');
+        if (strlen($password) < 8) throw new InvalidArgumentException('Password must contain at least 8 characters.');
+        if ($confirmation !== $password) throw new InvalidArgumentException('The password confirmation does not match.');
+
+        $this->db->beginTransaction();
+        try {
+            $statement = $this->db->prepare("SELECT u.id, r.name AS role,
+                    TRIM(CONCAT_WS(' ', u.first_name, NULLIF(u.middle_name, ''), u.last_name)) AS full_name
+                FROM tbl_users u
+                JOIN tbl_roles r ON r.id = u.role_id
+                WHERE u.id = ?
+                FOR UPDATE");
+            $statement->execute([$id]);
+            $user = $statement->fetch();
+            if (!$user || !in_array($user['role'], self::MANAGEABLE_ROLES, true)) {
+                throw new InvalidArgumentException('That account cannot be managed here.');
+            }
+
+            $update = $this->db->prepare('UPDATE tbl_users SET password=?, must_change_password=1, updated_at=CURRENT_TIMESTAMP WHERE id=?');
+            $update->execute([password_hash($password, PASSWORD_BCRYPT), $id]);
+            $this->log($actorId, $id, 'user_password_reset', $user['full_name']."'s password was reset by the SBO Adviser.");
             $this->db->commit();
         } catch (Throwable $error) {
             if ($this->db->inTransaction()) $this->db->rollBack();
@@ -407,6 +432,7 @@ try {
     if(!SessionManager::validateCsrf($_SERVER['HTTP_X_CSRF_TOKEN']??null)) JsonResponse::send(['success'=>false,'message'=>'Your session expired.'],403);
     $input=json_decode(file_get_contents('php://input'),true); if(!is_array($input))$input=$_POST; $action=$input['action']??'create';
     if($action==='toggle'){ $desired=array_key_exists('active',$input)?filter_var($input['active'],FILTER_VALIDATE_BOOL,FILTER_NULL_ON_FAILURE):null;if(array_key_exists('active',$input)&&$desired===null)throw new InvalidArgumentException('Choose a valid account status.');$repo->toggle((int)($input['id']??0),(int)$actor['id'],$desired);JsonResponse::send(['success'=>true,'message'=>'Account status updated.']); }
+    if($action==='reset_password'){ $repo->resetPassword((int)($input['id']??0),(string)($input['password']??''),(string)($input['password_confirmation']??''),(int)$actor['id']); JsonResponse::send(['success'=>true,'message'=>'Password reset. The user must create a new password after signing in.']); }
     if($action==='assign_event'){ $repo->assignEvent((int)($input['id']??0),(int)($input['event_id']??0),(int)$actor['id']); JsonResponse::send(['success'=>true,'message'=>'Event assigned successfully.']); }
     if($action==='unassign_event'){ $repo->unassignEvent((int)($input['id']??0),(int)($input['event_id']??0),(int)$actor['id']); JsonResponse::send(['success'=>true,'message'=>'Event assignment removed.']); }
     if(!in_array($action,['create','update'],true)) JsonResponse::send(['success'=>false,'message'=>'Unknown user-management action.'],422);

@@ -8,7 +8,7 @@
     <title>SBO Officer Management | CITE Events</title>
     <link rel="icon" type="image/png" sizes="512x512" href="assets/images/cite_favicon.png">
     <link rel="stylesheet" href="css/tailwind.css">
-    <link rel="stylesheet" href="css/adviser.css?v=20260924-action-row-1">
+    <link rel="stylesheet" href="css/adviser.css?v=20260925-mobile-management-1">
     <script src="js/shared/notifications.js?v=20260917-7" defer></script>
     <script src="js/shared/interactions.js?v=20260917-flat-1" defer></script>
 </head>
@@ -49,7 +49,7 @@
                             <h2 class="text-lg font-black">Officers</h2>
                             <p class="mt-1 text-xs text-[#121017]/45" data-officer-result-count></p>
                         </div><button
-                            class="inline-flex min-h-10 items-center justify-center rounded-xl bg-[#397565] px-4 text-xs font-black text-white shadow-lg"
+                            class="inline-flex min-h-10 w-full items-center justify-center rounded-xl bg-[#397565] px-4 text-xs font-black text-white shadow-lg sm:w-auto"
                             type="button" data-dialog-open="assign-officer-dialog">+ Create Officer Access</button>
                     </div>
                     <form class="mt-4 grid gap-2 sm:grid-cols-[minmax(0,1fr)_180px]" data-officer-filters
@@ -225,8 +225,8 @@
         id="assign-officer-dialog" data-modal-size="large" data-modal-kind="form">
         <form data-assign-officer-form data-axios-form>
             <header
-                class="sticky top-0 z-10 flex items-start justify-between border-b border-[#121017]/8 border-t-4 border-t-[#397565] bg-white px-6 py-5">
-                <div>
+                class="sticky top-0 z-10 flex items-start justify-between gap-3 border-b border-[#121017]/8 border-t-4 border-t-[#397565] bg-white px-4 py-4 sm:px-6 sm:py-5">
+                <div class="min-w-0">
                     <p class="text-xs font-black uppercase tracking-wider text-[#397565]">Separate officer sign-in</p>
                     <h2 class="mt-1 text-2xl font-black">Create Officer Access</h2>
                     <p class="mt-1 text-sm text-[#121017]/50">Choose one or more students to create separate Officer
@@ -452,7 +452,7 @@
     <script src="js/vendor/axios.min.js"></script>
     <script src="js/shared/password-gate.js?v=20260917-1"></script>
     <script src="js/shared/navigation.js?v=20260924-media-merge-1"></script>
-    <script src="js/adviser/officers.js?v=20260924-table-compact-1"></script>
+    <script src="js/adviser/officers.js?v=20260925-mobile-cards-1"></script>
     <script src="js/adviser/sbo-assignments.js?v=20260924-assignment-event-groups-2"></script>
     <script src="js/adviser/sbo-scoring-admin.js"></script>
 </body>

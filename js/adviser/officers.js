@@ -267,7 +267,7 @@ window.SharedNavigation.ready.then(() => {
         data.assignments.forEach(assignment => {
             const active = assignment.status === 'Active';
             const row = document.createElement('tr');
-            row.innerHTML = `<td class="px-5 py-4"><strong class="block whitespace-nowrap font-black"></strong><span class="mt-1 block whitespace-nowrap text-xs text-[#121017]/50"></span></td><td class="whitespace-nowrap px-4 py-4 text-[#121017]/65"></td><td class="whitespace-nowrap px-4 py-4 font-bold text-[#121017]/65"></td><td class="whitespace-nowrap px-4 py-4 text-[#121017]/65"></td><td class="px-4 py-4"></td><td class="px-5 py-4 text-right"></td>`;
+            row.innerHTML = `<td data-label="Student" class="px-5 py-4"><strong class="block whitespace-nowrap font-black"></strong><span class="mt-1 block whitespace-nowrap text-xs text-[#121017]/50"></span></td><td data-label="Student ID" class="whitespace-nowrap px-4 py-4 text-[#121017]/65"></td><td data-label="Officer username" class="whitespace-nowrap px-4 py-4 font-bold text-[#121017]/65"></td><td data-label="Access created" class="whitespace-nowrap px-4 py-4 text-[#121017]/65"></td><td data-label="Status" class="px-4 py-4"></td><td data-label="Action" class="px-5 py-4 text-right"></td>`;
             const cells = row.querySelectorAll('td');
             cells[0].querySelector('strong').textContent = assignment.full_name;
             cells[0].querySelector('span').textContent = visibleEmail(assignment) || `Student ID: ${assignment.student_id}`;
