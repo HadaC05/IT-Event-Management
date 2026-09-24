@@ -408,7 +408,7 @@ window.SharedNavigation.ready.then(() => {
     if(distanceOptions.includes(changed)&&changed.checked)distanceAll.checked=false;
     const selected=distanceOptions.filter(input=>input.checked);
     if(!selected.length)distanceAll.checked=true;
-    distanceLabel.textContent=distanceAll.checked?'5 recent scans per recorder':selected.length===1?selected[0].closest('label').querySelector('[data-distance-option-text]').textContent.trim():`${selected.length} distance groups`;
+    distanceLabel.textContent=distanceAll.checked?'3 recent scans per recorder':selected.length===1?selected[0].closest('label').querySelector('[data-distance-option-text]').textContent.trim():`${selected.length} distance groups`;
   };
   distanceFilter.addEventListener('change',event=>syncDistanceFilter(event.target));
   document.addEventListener('click',event=>{if(distanceFilter.open&&!distanceFilter.contains(event.target))distanceFilter.removeAttribute('open');});

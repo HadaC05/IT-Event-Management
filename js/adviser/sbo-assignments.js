@@ -30,20 +30,27 @@
     const assignmentDay = assignmentFilters.elements.event_day;
     const assignmentScannerMode = assignmentFilters.elements.scanner_mode;
     const assignmentCount = document.querySelector('[data-task-result-count]');
+    const assignmentPagination = document.querySelector('[data-assignment-pagination]');
+    const ASSIGNMENTS_PER_PAGE = 15;
+    let assignmentPage = 1;
     let assignmentSearchTimer;
 
     const updateScannerNote = () => {
         scannerNote.textContent = scannerMode.value === 'general'
             ? 'General access can scan any student eligible for the event.'
-            : "Specific access automatically uses the officer's own tribe.";
+            : scannerMode.value === 'specific'
+                ? "Specific access automatically uses the officer's own tribe."
+                : 'This event has mixed access. Choose General or Specific to apply it to the selected schedules.';
     };
+
+    const removeMixedScannerOption = () => scannerMode.querySelector('option[value=""]')?.remove();
 
     const renderAssignmentDayOptions = groups => {
         const selected = assignmentDay.value;
-        const days = [...new Map(groups.map(group => [String(group.event_schedule_id), {
-            id: group.event_schedule_id,
-            label: `${group.schedule_date} — ${group.event_name}`,
-        }])).values()].sort((left, right) => right.label.localeCompare(left.label));
+        const days = [...new Map(groups.flatMap(group => group.schedules.map(schedule => [String(schedule.event_schedule_id), {
+            id: schedule.event_schedule_id,
+            label: `${schedule.schedule_date} — ${group.event_name}`,
+        }]))).values()].sort((left, right) => right.label.localeCompare(left.label));
         assignmentDay.replaceChildren(new Option('All event days', ''));
         days.forEach(day => assignmentDay.add(new Option(day.label, day.id)));
         assignmentDay.value = [...assignmentDay.options].some(option => option.value === selected) ? selected : '';
@@ -60,6 +67,48 @@
         assignmentEvent.value = [...assignmentEvent.options].some(option => option.value === selected) ? selected : '';
     };
 
+    const renderAssignmentPagination = (total, lastPage) => {
+        assignmentPagination.classList.toggle('hidden', lastPage <= 1);
+        assignmentPagination.replaceChildren();
+        if (lastPage <= 1) return;
+
+        const nav = document.createElement('nav');
+        nav.className = 'flex flex-col items-center justify-between gap-3 text-xs sm:flex-row';
+        nav.setAttribute('aria-label', 'Assignment pages');
+
+        const first = (assignmentPage - 1) * ASSIGNMENTS_PER_PAGE + 1;
+        const last = Math.min(assignmentPage * ASSIGNMENTS_PER_PAGE, total);
+        const count = document.createElement('small');
+        count.className = 'text-[#121017]/40';
+        count.textContent = `Showing ${first}–${last} of ${total}`;
+
+        const controls = document.createElement('div');
+        controls.className = 'flex items-center gap-2';
+        const pageButton = (label, target, disabled) => {
+            const control = document.createElement('button');
+            control.type = 'button';
+            control.disabled = disabled;
+            control.className = 'min-h-9 rounded-lg border border-[#121017]/12 px-3 font-bold text-[#121017]/65 hover:bg-[#F3F0E9]/50 disabled:bg-[#F3F0E9]/50 disabled:text-[#121017]/25 disabled:hover:bg-[#F3F0E9]/50';
+            control.textContent = label;
+            control.addEventListener('click', () => {
+                assignmentPage = target;
+                renderFilteredAssignmentGroups();
+                document.querySelector('#officer-assignments-panel')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            });
+            return control;
+        };
+        const position = document.createElement('span');
+        position.className = 'px-2 text-[#121017]/40';
+        position.textContent = `${assignmentPage} / ${lastPage}`;
+        controls.append(
+            pageButton('Previous', assignmentPage - 1, assignmentPage === 1),
+            position,
+            pageButton('Next', assignmentPage + 1, assignmentPage === lastPage),
+        );
+        nav.append(count, controls);
+        assignmentPagination.append(nav);
+    };
+
     const renderFilteredAssignmentGroups = () => {
         const allGroups = data.assignment_groups || [];
         const query = assignmentSearch.value.trim().toLocaleLowerCase();
@@ -67,37 +116,47 @@
         const eventDay = assignmentDay.value;
         const scannerMode = assignmentScannerMode.value;
         const groups = allGroups.filter(group => {
-            const searchable = [group.officer_name, group.event_name, group.team_name, group.schedule_date]
+            const searchable = [group.officer_name, group.event_name, ...group.schedules.flatMap(schedule => [schedule.team_name, schedule.schedule_date])]
                 .join(' ').toLocaleLowerCase();
             return (!query || searchable.includes(query))
                 && (!eventId || String(group.event_id) === eventId)
-                && (!eventDay || String(group.event_schedule_id) === eventDay)
-                && (!scannerMode || group.scanner_mode === scannerMode);
+                && (!eventDay || group.schedules.some(schedule => String(schedule.event_schedule_id) === eventDay))
+                && (!scannerMode || group.scanner_mode === scannerMode || (group.scanner_mode === 'mixed' && group.schedules.some(schedule => schedule.scanner_mode === scannerMode)));
         });
-        assignmentCount.textContent = `${groups.length} ${groups.length === 1 ? 'event-day access' : 'event-day accesses'}${groups.length !== allGroups.length ? ` of ${allGroups.length}` : ''}`;
+        const lastPage = Math.max(1, Math.ceil(groups.length / ASSIGNMENTS_PER_PAGE));
+        assignmentPage = Math.min(assignmentPage, lastPage);
+        const start = (assignmentPage - 1) * ASSIGNMENTS_PER_PAGE;
+        const visibleGroups = groups.slice(start, start + ASSIGNMENTS_PER_PAGE);
+        assignmentCount.textContent = `${groups.length} ${groups.length === 1 ? 'event access' : 'event accesses'}${groups.length !== allGroups.length ? ` of ${allGroups.length}` : ''}`;
         const taskList = document.querySelector('[data-task-list]');
-        taskList.innerHTML = groups.length ? groups.map(group => {
-            const scannerLabel = group.scanner_mode === 'general'
-                ? 'General — all eligible tribes/teams'
-                : `Specific — ${esc(group.team_name || "officer's tribe")}`;
+        taskList.innerHTML = groups.length ? visibleGroups.map(group => {
+            const specificTeams = [...new Set(group.schedules.filter(schedule => schedule.scanner_mode === 'specific').map(schedule => schedule.team_name).filter(Boolean))];
+            const scannerLabel = group.scanner_mode === 'mixed'
+                ? `<strong class="block text-[#9a570d]">Mixed access</strong><span class="mt-1 block text-xs">${group.general_count} General · ${group.specific_count} Specific</span>`
+                : group.scanner_mode === 'general'
+                    ? '<strong class="text-[#397565]">General</strong><span class="mt-1 block text-xs">All eligible tribes/teams</span>'
+                    : `<strong class="text-[#397565]">Specific</strong><span class="mt-1 block text-xs">${esc(specificTeams.join(', ') || "Officer's tribe")}</span>`;
+            const schedules = group.schedules.map(schedule => `<span class="inline-flex min-h-8 items-center rounded-lg border border-[#121017]/10 bg-[#F3F0E9]/45 px-2.5 py-1 text-xs font-bold text-[#121017]/65">${esc(schedule.schedule_date)}<small class="ml-1.5 font-black ${schedule.scanner_mode === 'general' ? 'text-[#397565]' : 'text-[#121017]/40'}">${schedule.scanner_mode === 'general' ? 'General' : 'Specific'}</small></span>`).join('');
             return `<tr>
                 <td data-label="Officer" class="whitespace-nowrap px-5 py-4 font-black">${esc(group.officer_name)}</td>
                 <td data-label="Event" class="px-4 py-4 font-bold">${esc(group.event_name)}</td>
-                <td data-label="Individual event day" class="whitespace-nowrap px-4 py-4 text-[#121017]/65">${esc(group.schedule_date)}</td>
+                <td data-label="Event schedules" class="px-4 py-4 text-[#121017]/65"><div class="flex flex-wrap gap-1.5">${schedules}</div></td>
                 <td data-label="Attendance scanner access" class="px-4 py-4 text-[#121017]/65">${scannerLabel}</td>
-                <td data-label="Action" class="px-5 py-4 text-right"><div class="flex flex-nowrap justify-end gap-2 whitespace-nowrap"><button class="min-h-9 rounded-lg border border-[#397565]/25 px-3 text-xs font-black text-[#397565]" type="button" data-task-edit="${group.id}">Edit</button><button class="min-h-9 rounded-lg border border-[#FF6B2C]/25 px-3 text-xs font-black text-[#d9470a]" type="button" data-task-end="${group.id}">End</button></div></td>
+                <td data-label="Action" class="px-5 py-4 text-right"><div class="flex flex-nowrap justify-end gap-2 whitespace-nowrap"><button class="min-h-9 rounded-lg border border-[#397565]/25 px-3 text-xs font-black text-[#397565]" type="button" data-task-edit="${esc(group.key)}">Edit</button><button class="min-h-9 rounded-lg border border-[#FF6B2C]/25 px-3 text-xs font-black text-[#d9470a]" type="button" data-task-end-event data-officer-assignment-id="${group.officer_assignment_id}" data-event-id="${group.event_id}">End</button></div></td>
             </tr>`;
         }).join('') : `<tr><td class="px-5 py-8 text-center text-sm text-[#121017]/45" colspan="5">${allGroups.length ? 'No event access matches these filters.' : 'No event access assigned.'}</td></tr>`;
+        renderAssignmentPagination(groups.length, lastPage);
     };
 
     const selectedEventDays = () => [...eventDays.querySelectorAll('input[type="checkbox"]:checked')].map(input => Number(input.value));
 
     const syncSubmit = () => {
-        submit.disabled = !data.officers.length || !data.events.length || !selectedEventDays().length;
+        submit.disabled = !data.officers.length || !data.events.length || !selectedEventDays().length || !scannerMode.value;
     };
 
     const resetEdit = () => {
         editingId = null;
+        removeMixedScannerOption();
         form.reset();
         eventDays.querySelectorAll('input[type="checkbox"]').forEach(input => { input.checked = false; });
         officer.disabled = !data.officers.length;
@@ -130,20 +189,6 @@
         officer.disabled = !hasOfficers;
         syncSubmit();
         empty.classList.toggle('hidden', hasOfficers);
-
-        const groups = data.assignment_groups || [];
-        const taskList = document.querySelector('[data-task-list]');
-        taskList.innerHTML = groups.length ? groups.map(group => {
-            const scannerLabel = group.scanner_mode === 'general'
-                ? 'General — all eligible tribes/teams'
-                : `Specific — ${esc(group.team_name || "officer's tribe")}`;
-            return `<tr>
-                <td data-label="Officer" class="whitespace-nowrap px-5 py-4 font-black">${esc(group.officer_name)}</td>
-                <td data-label="Event day" class="px-4 py-4"><strong class="block font-bold">${esc(group.event_name)}</strong><span class="mt-1 block whitespace-nowrap text-xs text-[#121017]/50">${esc(group.schedule_date)}</span></td>
-                <td data-label="Attendance scanner access" class="px-4 py-4 text-[#121017]/65">${scannerLabel}</td>
-                <td data-label="Action" class="px-5 py-4 text-right"><div class="flex flex-wrap justify-end gap-2"><button class="min-h-9 rounded-lg border border-[#397565]/25 px-3 text-xs font-black text-[#397565]" type="button" data-task-edit="${group.id}">Edit</button><button class="min-h-9 rounded-lg border border-[#FF6B2C]/25 px-3 text-xs font-black text-[#d9470a]" type="button" data-task-end="${group.id}">End</button></div></td>
-            </tr>`;
-        }).join('') : '<tr><td class="px-5 py-8 text-center text-sm text-[#121017]/45" colspan="4">No event access assigned.</td></tr>';
         renderAssignmentEventOptions(data.assignment_groups || []);
         renderAssignmentDayOptions(data.assignment_groups || []);
         renderFilteredAssignmentGroups();
@@ -159,13 +204,20 @@
     assignmentFilters.addEventListener('submit', event => event.preventDefault());
     assignmentSearch.addEventListener('input', () => {
         clearTimeout(assignmentSearchTimer);
-        assignmentSearchTimer = setTimeout(renderFilteredAssignmentGroups, 180);
+        assignmentSearchTimer = setTimeout(() => {
+            assignmentPage = 1;
+            renderFilteredAssignmentGroups();
+        }, 180);
     });
-    assignmentDay.addEventListener('change', renderFilteredAssignmentGroups);
-    assignmentEvent.addEventListener('change', renderFilteredAssignmentGroups);
-    assignmentScannerMode.addEventListener('change', renderFilteredAssignmentGroups);
+    [assignmentDay, assignmentEvent, assignmentScannerMode].forEach(filter => filter.addEventListener('change', () => {
+        assignmentPage = 1;
+        renderFilteredAssignmentGroups();
+    }));
     eventDays.addEventListener('change', syncSubmit);
-    scannerMode.addEventListener('change', updateScannerNote);
+    scannerMode.addEventListener('change', () => {
+        updateScannerNote();
+        syncSubmit();
+    });
     document.querySelector('[data-officer-tab="assignments"]')?.addEventListener('click', () => load().catch(error => window.Notifications?.error(error.response?.data?.message || 'Unable to load event access.')));
     document.querySelector('[data-dialog-open="event-responsibilities-dialog"]')?.addEventListener('click', async () => {
         try {
@@ -217,16 +269,24 @@
         if (edit) {
             try {
                 await load();
-                const group = (data.assignment_groups || []).find(item => item.id === Number(edit.dataset.taskEdit));
+                const group = (data.assignment_groups || []).find(item => item.key === edit.dataset.taskEdit);
                 if (!group) throw new Error('That event access is no longer active.');
-                editingId = group.id;
-                title.textContent = 'Edit or add event days';
-                submit.textContent = 'Save selected days';
+                editingId = group.key;
+                title.textContent = `Edit ${group.event_name}`;
+                submit.textContent = 'Save selected schedules';
                 cancelEdit.classList.remove('hidden');
                 officer.value = String(group.officer_assignment_id);
                 officer.disabled = true;
-                eventDays.querySelectorAll('input[type="checkbox"]').forEach(input => { input.checked = Number(input.value) === group.event_schedule_id; });
-                scannerMode.value = group.scanner_mode || 'specific';
+                const scheduleIds = new Set(group.schedules.map(schedule => schedule.event_schedule_id));
+                eventDays.querySelectorAll('input[type="checkbox"]').forEach(input => { input.checked = scheduleIds.has(Number(input.value)); });
+                removeMixedScannerOption();
+                if (group.scanner_mode === 'mixed') {
+                    const mixedOption = new Option('Mixed — choose General or Specific', '', true, true);
+                    mixedOption.disabled = true;
+                    scannerMode.insertBefore(mixedOption, scannerMode.firstChild);
+                } else {
+                    scannerMode.value = group.scanner_mode || 'specific';
+                }
                 updateScannerNote();
                 syncSubmit();
                 if (!dialog.open) dialog.showModal();
@@ -237,16 +297,20 @@
             return;
         }
 
-        const button = event.target.closest('[data-task-end]');
+        const button = event.target.closest('[data-task-end-event]');
         if (!button) return;
         const yes = await (window.Notifications?.confirm?.({
             title: 'End event access?',
-            message: 'The officer will immediately lose attendance, scoring, and media access for this event day.',
+            message: 'The officer will immediately lose attendance, scoring, and media access for every schedule in this event.',
             action: 'End access',
         }) ?? Promise.resolve(false));
         if (!yes) return;
         try {
-            const response = await axios.post(API, { action: 'end', id: button.dataset.taskEnd }, { headers: { 'X-CSRF-Token': csrf } });
+            const response = await axios.post(API, {
+                action: 'end_event',
+                officer_assignment_id: button.dataset.officerAssignmentId,
+                event_id: button.dataset.eventId,
+            }, { headers: { 'X-CSRF-Token': csrf } });
             window.Notifications?.success(response.data.message);
             await load();
         } catch (error) {

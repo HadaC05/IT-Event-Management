@@ -83,13 +83,13 @@ final class AdviserAttendanceScanRepository {
         $lastPage=max(1,(int)ceil($total/$perPage));$page=min($page,$lastPage);$offset=($page-1)*$perPage;
         $q=$this->db->prepare('SELECT '.$fields.$from.$where.' ORDER BY ae.scanned_at DESC,ae.id DESC LIMIT '.$perPage.' OFFSET '.$offset);
         $q->execute($values);$rows=$q->fetchAll();
-        $latestMapQuery=$this->db->prepare('SELECT ranked.* FROM (SELECT '.$fields.',ROW_NUMBER() OVER (PARTITION BY COALESCE(ae.recorded_by,-ae.id) ORDER BY ae.scanned_at DESC,ae.id DESC) scan_rank'.$from.$latestWhere.') ranked WHERE ranked.scan_rank<=5 ORDER BY ranked.scanned_at DESC,ranked.id DESC');
+        $latestMapQuery=$this->db->prepare('SELECT ranked.* FROM (SELECT '.$fields.',ROW_NUMBER() OVER (PARTITION BY COALESCE(ae.recorded_by,-ae.id) ORDER BY ae.scanned_at DESC,ae.id DESC) scan_rank'.$from.$latestWhere.') ranked WHERE ranked.scan_rank<=3 ORDER BY ranked.scanned_at DESC,ranked.id DESC');
         $latestMapQuery->execute($latestValues);$latestMapRows=$latestMapQuery->fetchAll();
         if($distanceGroups){
             $mapQuery=$this->db->prepare('SELECT '.$fields.$from.$mapWhere.' ORDER BY ae.scanned_at DESC,ae.id DESC');
             $mapQuery->execute($mapValues);$mapRows=$mapQuery->fetchAll();
         }else $mapRows=$latestMapRows;
-        $latestQuery=$this->db->prepare('SELECT ranked.* FROM (SELECT '.$fields.',ROW_NUMBER() OVER (PARTITION BY COALESCE(ae.recorded_by,-ae.id) ORDER BY ae.scanned_at DESC,ae.id DESC) scan_rank'.$from.$summaryWhere.') ranked WHERE ranked.scan_rank<=5 ORDER BY ranked.scanned_at DESC,ranked.id DESC');
+        $latestQuery=$this->db->prepare('SELECT ranked.* FROM (SELECT '.$fields.',ROW_NUMBER() OVER (PARTITION BY COALESCE(ae.recorded_by,-ae.id) ORDER BY ae.scanned_at DESC,ae.id DESC) scan_rank'.$from.$summaryWhere.') ranked WHERE ranked.scan_rank<=3 ORDER BY ranked.scanned_at DESC,ranked.id DESC');
         $latestQuery->execute($summaryValues);$latestRows=$latestQuery->fetchAll();
         $this->hydrate($rows);$this->hydrate($mapRows);$this->hydrate($latestMapRows);$this->hydrate($latestRows);
         return ['not_modified'=>false,'data_version'=>$dataVersion,'scans'=>$rows,'map_scans'=>$mapRows,'latest_map_officer_scans'=>$latestMapRows,'latest_officer_scans'=>$latestRows,'distance_counts'=>$this->distanceCounts($from,$latestWhere,$latestValues),'pagination'=>['current_page'=>$page,'last_page'=>$lastPage,'per_page'=>$perPage,'total'=>$total,'from'=>$total?$offset+1:null,'to'=>$total?min($offset+$perPage,$total):null],'options'=>$includeOptions?$this->options():null];

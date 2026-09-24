@@ -60,26 +60,43 @@ final class SboAssignmentRepository
 
         $groups = [];
         foreach ($tasks as $task) {
-            $key = $task['officer_assignment_id'].':'.$task['event_schedule_id'];
+            $key = $task['officer_assignment_id'].':'.$task['event_id'];
             if (!isset($groups[$key])) {
                 $groups[$key] = [
                     'id' => $task['id'],
+                    'key' => $key,
                     'officer_assignment_id' => $task['officer_assignment_id'],
-                    'event_schedule_id' => $task['event_schedule_id'],
                     'event_id' => $task['event_id'],
                     'officer_name' => $task['officer_name'],
                     'event_name' => $task['event_name'],
+                    'schedules' => [],
+                ];
+            }
+            $scheduleKey = (string) $task['event_schedule_id'];
+            if (!isset($groups[$key]['schedules'][$scheduleKey])) {
+                $groups[$key]['schedules'][$scheduleKey] = [
+                    'id' => $task['id'],
+                    'event_schedule_id' => $task['event_schedule_id'],
                     'schedule_date' => $task['schedule_date'],
-                    'team_name' => $task['team_name'],
                     'scanner_mode' => 'specific',
+                    'team_name' => $task['team_name'],
                 ];
             }
             if ($task['responsibility'] === 'attendance') {
-                $groups[$key]['id'] = $task['id'];
-                $groups[$key]['scanner_mode'] = $task['scanner_mode'] ?: 'specific';
-                $groups[$key]['team_name'] = $task['scanner_team_name'] ?: $task['team_name'];
+                $groups[$key]['schedules'][$scheduleKey]['id'] = $task['id'];
+                $groups[$key]['schedules'][$scheduleKey]['scanner_mode'] = $task['scanner_mode'] ?: 'specific';
+                $groups[$key]['schedules'][$scheduleKey]['team_name'] = $task['scanner_team_name'] ?: $task['team_name'];
             }
         }
+
+        foreach ($groups as &$group) {
+            $group['schedules'] = array_values($group['schedules']);
+            $modes = array_values(array_unique(array_column($group['schedules'], 'scanner_mode')));
+            $group['scanner_mode'] = count($modes) === 1 ? $modes[0] : 'mixed';
+            $group['general_count'] = count(array_filter($group['schedules'], fn (array $schedule): bool => $schedule['scanner_mode'] === 'general'));
+            $group['specific_count'] = count($group['schedules']) - $group['general_count'];
+        }
+        unset($group);
 
         return ['officers' => $officers, 'events' => $events, 'tasks' => $tasks, 'assignment_groups' => array_values($groups)];
     }
@@ -146,6 +163,31 @@ final class SboAssignmentRepository
                 WHERE officer_assignment_id=? AND event_schedule_id=? AND status='active'");
             $statement->execute([$actorId, (int) $task['officer_assignment_id'], (int) $task['event_schedule_id']]);
             if ($statement->rowCount()) $this->log($actorId, (int) $task['event_id'], (int) $task['officer_assignment_id'], 'sbo_event_unassigned', 'Ended attendance, scoring, and media event access.');
+            $this->db->commit();
+        } catch (Throwable $exception) {
+            if ($this->db->inTransaction()) $this->db->rollBack();
+            throw $exception;
+        }
+    }
+
+    public function endEvent(int $officerId, int $eventId, int $actorId): void
+    {
+        if ($officerId < 1 || $eventId < 1) throw new InvalidArgumentException('That event access was not found.');
+        $this->db->beginTransaction();
+        try {
+            $tasks = $this->db->prepare("SELECT sea.id
+                FROM tbl_sbo_event_assignments sea
+                JOIN tbl_event_attendance_schedules s ON s.id=sea.event_schedule_id
+                WHERE sea.officer_assignment_id=? AND s.event_id=? AND sea.status='active'
+                FOR UPDATE");
+            $tasks->execute([$officerId, $eventId]);
+            if (!$tasks->fetchColumn()) throw new InvalidArgumentException('That active event access was not found.');
+            $this->db->prepare("UPDATE tbl_sbo_event_assignments sea
+                JOIN tbl_event_attendance_schedules s ON s.id=sea.event_schedule_id
+                SET sea.status='inactive',sea.ended_by=?,sea.ended_at=CURRENT_TIMESTAMP,sea.updated_at=CURRENT_TIMESTAMP
+                WHERE sea.officer_assignment_id=? AND s.event_id=? AND sea.status='active'")
+                ->execute([$actorId, $officerId, $eventId]);
+            $this->log($actorId, $eventId, $officerId, 'sbo_event_unassigned', 'Ended attendance, scoring, and media access for every event day.');
             $this->db->commit();
         } catch (Throwable $exception) {
             if ($this->db->inTransaction()) $this->db->rollBack();
@@ -346,6 +388,10 @@ try {
     if ($action === 'end') {
         $repository->end((int) ($input['id'] ?? 0), (int) $actor['id']);
         JsonResponse::send(['success' => true, 'message' => 'Event access ended.']);
+    }
+    if ($action === 'end_event') {
+        $repository->endEvent((int) ($input['officer_assignment_id'] ?? 0), (int) ($input['event_id'] ?? 0), (int) $actor['id']);
+        JsonResponse::send(['success' => true, 'message' => 'Event access ended for every schedule.']);
     }
     if ($action === 'criterion') {
         $repository->addCriterion($input);

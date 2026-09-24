@@ -29,6 +29,8 @@ window.SharedNavigation.ready.then((context) => {
     let csrfToken = context.csrfToken;
     let locations = [];
     let generalLocations = [];
+    let generalLocationsLoaded = false;
+    let generalLocationsRequest = null;
     let currentPage = Math.max(1, Number(new URLSearchParams(location.search).get('page')) || 1);
     let watchId = null;
     let currentPosition = null;
@@ -181,7 +183,6 @@ window.SharedNavigation.ready.then((context) => {
 
     const renderLocations = data => {
         locations = data.locations;
-        generalLocations = data.general_locations || [];
         currentPage = data.pagination.current_page;
         count.textContent = `${data.pagination.total} ${data.pagination.total === 1 ? 'location' : 'locations'} found`;
         clearFilters.classList.toggle('hidden', !filters.search.value && !filters.type.value && !filters.status.value);
@@ -196,17 +197,53 @@ window.SharedNavigation.ready.then((context) => {
         renderPagination(data.pagination);
     };
 
-    const syncParentLocation = (selected = '') => {
-        const specific = form.elements.type.value === 'specific';
+    const renderParentLocationOptions = (selected = '') => {
         const editingId = Number(form.elements.id.value) || 0;
-        parentLocationWrap.classList.toggle('hidden', !specific);
-        parentLocationSelect.disabled = !specific;
-        parentLocationSelect.required = specific;
         parentLocationSelect.innerHTML = '<option value="">Select the containing general location</option>' + generalLocations
             .filter(location => location.id !== editingId)
             .map(location => `<option value="${location.id}">${escapeHtml(location.name)}</option>`)
             .join('');
-        if (specific) parentLocationSelect.value = String(selected || '');
+        parentLocationSelect.value = String(selected || '');
+    };
+
+    const loadGeneralLocations = async () => {
+        if (generalLocationsLoaded) return generalLocations;
+        if (!generalLocationsRequest) {
+            generalLocationsRequest = axios.get(API, { params: { action: 'general_options' } })
+                .then(response => {
+                    generalLocations = response.data.data.general_locations || [];
+                    generalLocationsLoaded = true;
+                    return generalLocations;
+                })
+                .finally(() => { generalLocationsRequest = null; });
+        }
+        return generalLocationsRequest;
+    };
+
+    const syncParentLocation = async (selected = '') => {
+        const specific = form.elements.type.value === 'specific';
+        parentLocationWrap.classList.toggle('hidden', !specific);
+        parentLocationSelect.required = specific;
+        if (!specific) {
+            parentLocationSelect.disabled = true;
+            parentLocationSelect.innerHTML = '<option value="">Select the containing general location</option>';
+            return;
+        }
+
+        parentLocationSelect.disabled = true;
+        parentLocationSelect.setAttribute('aria-busy', 'true');
+        parentLocationSelect.innerHTML = '<option value="">Loading general locations...</option>';
+        try {
+            await loadGeneralLocations();
+            if (form.elements.type.value !== 'specific') return;
+            renderParentLocationOptions(selected);
+            parentLocationSelect.disabled = false;
+        } catch (error) {
+            parentLocationSelect.innerHTML = '<option value="">Unable to load general locations</option>';
+            notify('error', error.response?.data?.message || 'Unable to load general locations.');
+        } finally {
+            parentLocationSelect.removeAttribute('aria-busy');
+        }
     };
 
     const loadLocations = async () => {
@@ -331,12 +368,20 @@ window.SharedNavigation.ready.then((context) => {
 
     form.addEventListener('submit', async event => {
         event.preventDefault();
+        if (form.elements.type.value === 'specific' && parentLocationSelect.disabled) {
+            notify('warning', 'Wait for the general locations to finish loading.');
+            return;
+        }
         if (!form.reportValidity()) return;
         saveButton.disabled = true;
         const originalText = saveButton.textContent;
         saveButton.textContent = form.elements.action.value === 'update' ? 'Saving...' : 'Creating...';
         try {
             const response = await axios.post(API, Object.fromEntries(new FormData(form)), { headers: { 'X-CSRF-Token': csrfToken } });
+            if (form.elements.type.value === 'general') {
+                generalLocations = [];
+                generalLocationsLoaded = false;
+            }
             closeDialog();
             notify('success', response.data.message);
             await loadLocations().catch(() => notify('warning', 'Saved, but the location list could not refresh. Reload the page.'));

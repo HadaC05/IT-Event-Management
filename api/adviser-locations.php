@@ -65,7 +65,6 @@ final class AdviserLocationRepository
 
         return [
             'locations' => $rows,
-            'general_locations' => $this->generalLocations(),
             'pagination' => [
                 'current_page' => $page,
                 'last_page' => $lastPage,
@@ -192,7 +191,7 @@ final class AdviserLocationRepository
         ];
     }
 
-    private function generalLocations(): array
+    public function generalLocations(): array
     {
         $rows = $this->db->query("SELECT id,name FROM tbl_locations WHERE type='general' ORDER BY name")->fetchAll();
         foreach ($rows as &$row) $row['id'] = (int) $row['id'];
@@ -208,6 +207,9 @@ $repository = new AdviserLocationRepository((new Database())->connection());
 
 try {
     if ($_SERVER['REQUEST_METHOD'] === 'GET') {
+        if (($_GET['action'] ?? '') === 'general_options') {
+            JsonResponse::send(['success' => true, 'data' => ['general_locations' => $repository->generalLocations()]]);
+        }
         JsonResponse::send(['success' => true, 'data' => $repository->index($_GET)]);
     }
     if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
