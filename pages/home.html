@@ -12,7 +12,9 @@
     sizes="512x512"
     href="assets/images/cite_favicon.png"
 >
-<link rel="stylesheet" href="css/tailwind.css" />    <script src="js/shared/interactions.js" defer></script>
+    <link rel="stylesheet" href="css/tailwind.css">
+    <link rel="stylesheet" href="css/home-login.css?v=20260925-wait-ring-1">
+    <script src="js/shared/interactions.js?v=20260925-login-focus-1" defer></script>
     <style>
         :root { --bone:#F3F0E9; --ink:#121017; --teal:#397565; --cobalt:#2F3AE0; --lime:#C6F24E; --tangerine:#FF6B2C; }
         body { position:relative; isolation:isolate; overflow-x:hidden; background:#fff; color:var(--ink); }
@@ -49,23 +51,6 @@
         .page-capsule { bottom:8%; left:8%; width:150px; height:46px; border-radius:999px; border:1px solid rgba(47,58,224,.07); background:rgba(47,58,224,.04); transform:rotate(-12deg); }
         .event-row[hidden], .agenda-item[hidden] { display:none; }
         .event-filter[aria-pressed="true"] { background:var(--teal); border-color:var(--teal); color:white; box-shadow:0 5px 14px rgba(57,117,101,.2); }
-        .login-dialog { animation:modal-in .2s ease-out; width:min(440px,calc(100% - 1rem)); max-height:calc(100dvh - 1rem); overflow-y:auto; }
-        .login-dialog::backdrop { background:rgba(18,16,23,.66); backdrop-filter:blur(5px); }
-        .login-alert-progress { animation:alert-countdown 6.5s linear forwards; transform-origin:left; }
-        .auth-result { animation:auth-result-in .24s ease-out; }
-        .auth-result::backdrop { background:rgba(18,16,23,.7); backdrop-filter:blur(6px); }
-        .auth-result[data-type="success"] .auth-result-icon { background:#C6F24E; color:#121017; }
-        .auth-result[data-type="error"] .auth-result-icon { background:rgba(255,107,44,.14); color:#D64A12; }
-        .auth-result[data-type="error"] .auth-result-button { background:#FF6B2C; color:white; }
-        .auth-result[data-type="success"] [data-auth-result-confirm] { display:none; }
-        .auth-result[data-type="error"] [data-auth-redirecting] { display:none; }
-        .auth-result-progress { animation:auth-redirect-progress 1.2s cubic-bezier(.2,.75,.25,1) forwards; transform-origin:left; }
-        .auth-result-check { stroke-dasharray:28; stroke-dashoffset:28; animation:auth-check .42s .12s ease-out forwards; }
-        @keyframes modal-in { from { opacity:0; transform:translateY(12px) scale(.98); } }
-        @keyframes auth-result-in { from { opacity:0; transform:translateY(10px) scale(.96); } }
-        @keyframes alert-countdown { to { transform:scaleX(0); } }
-        @keyframes auth-redirect-progress { from { transform:scaleX(0); } to { transform:scaleX(1); } }
-        @keyframes auth-check { to { stroke-dashoffset:0; } }
         @media (prefers-reduced-motion:no-preference) {
             body::before { animation:page-drift 32s ease-in-out infinite alternate; }
             .page-ring { animation:page-ring-float 14s ease-in-out infinite; }
@@ -200,73 +185,57 @@
         </div>
     </footer>
 
-            <dialog id="login-modal" class="login-dialog m-auto rounded-2xl border border-[#121017]/8 bg-white p-0 text-[#121017] shadow-[0_24px_70px_rgba(18,16,23,.22)]" aria-labelledby="login-title">
-            <div class="relative p-6 sm:p-8">
-                <button class="absolute right-3 top-3 grid h-9 w-9 place-items-center rounded-full text-xl text-[#121017]/40 transition hover:bg-[#121017]/5 hover:text-[#121017]" type="button" data-login-close aria-label="Close sign-in dialog">×</button>
+        <dialog id="login-modal" class="login-dialog m-auto border-0 bg-white p-0 text-[#121017]" aria-labelledby="login-title" data-focus-self tabindex="-1">
+            <div class="login-dialog-content">
+                <button class="login-close" type="button" data-login-close aria-label="Close sign-in dialog">×</button>
 
-                <div class="pr-10">
-                    <p class="text-xs font-black uppercase tracking-[.14em] text-[#397565]">CITE Events</p>
-                    <h2 class="mt-2 text-2xl font-black tracking-[-.04em]" id="login-title">Welcome back</h2>
-                    <p class="mt-1 text-sm text-[#121017]/50">Sign in to continue to your account.</p>
+                <header class="login-heading">
+                    <p class="login-brand">CITE Events</p>
+                    <h2 id="login-title">Sign in</h2>
+                </header>
+
+                <p class="login-success hidden" data-password-change-success role="status" aria-live="polite">Password changed. Enter your same ID or username and your new password below.</p>
+
+                <div class="login-guide" data-first-login-guide>
+                    <strong>First time signing in?</strong>
+                    <p id="login-guide-description">Password is your ID + LAST NAME in capitals, no spaces or punctuation.</p>
+                    <div class="login-example" aria-label="Example first sign-in credentials">
+                        <span>ID</span><code>02-0000-000000</code>
+                        <span>Password</span><code>02-0000-000000LAGO</code>
+                    </div>
                 </div>
 
-                <p class="mt-6 hidden rounded-xl border border-[#397565]/25 bg-[#397565]/5 px-4 py-3 text-sm font-bold leading-6 text-[#397565]" data-password-change-success role="status" aria-live="polite">Password changed. Enter your same ID or username and your new password below.</p>
+                <form class="login-form" method="POST" action="api/auth.php?action=login" data-login-form>
+                    <p class="login-error hidden" data-login-error role="alert"></p>
+                    <label class="login-field">
+                        <span class="sr-only">ID or username</span>
+                        <input id="modal-login" name="login" type="text" placeholder="ID or username" autocomplete="username" autocapitalize="none" spellcheck="false" required>
+                    </label>
 
-                <form class="mt-6 grid gap-4" method="POST" action="api/auth.php?action=login" data-login-form>
-                    <p class="hidden rounded-xl border border-[#FF6B2C]/25 bg-[#FF6B2C]/10 px-4 py-3 text-sm font-semibold leading-5 text-[#9A340B]" data-login-error role="alert"></p>
-                    <label class="grid gap-2">
-                        <span class="text-xs font-bold text-[#121017]/65">Username or ID</span>
-                        <span class="relative">
-                            <input class="h-12 w-full rounded-xl border border-[#121017]/12 bg-[#FAFAF8] px-4 text-sm outline-none transition placeholder:text-[#121017]/35 focus:border-[#397565] focus:bg-white focus:ring-4 focus:ring-[#397565]/10" id="modal-login" name="login" value="" placeholder="Enter your ID or username" autocomplete="username" required>
-                        </span>
-                                            </label>
+                    <label class="login-field login-password-field">
+                        <span class="sr-only">Password</span>
+                        <input id="modal-password" name="password" type="password" placeholder="Password" autocomplete="current-password" required>
+                        <button class="login-password-toggle" type="button" data-password-toggle aria-label="Show password" aria-pressed="false">
+                            <svg class="h-5 w-5 fill-none stroke-current stroke-2" viewBox="0 0 24 24" aria-hidden="true" data-eye-visible><path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z"/><circle cx="12" cy="12" r="2.75"/></svg>
+                            <svg class="hidden h-5 w-5 fill-none stroke-current stroke-2" viewBox="0 0 24 24" aria-hidden="true" data-eye-hidden><path d="m3 3 18 18M10.6 6.15A10.8 10.8 0 0 1 12 6c6 0 9.5 6 9.5 6a15.7 15.7 0 0 1-2.1 2.75M6.1 6.1C3.8 7.75 2.5 12 2.5 12s3.5 6 9.5 6a9.8 9.8 0 0 0 3.05-.48M10.05 10.05A2.75 2.75 0 0 0 13.95 13.95"/></svg>
+                        </button>
+                    </label>
 
-                    <label class="grid gap-2">
-                        <span class="text-xs font-bold text-[#121017]/65">Password</span>
-                        <span class="relative">
-                            <input class="h-12 w-full rounded-xl border border-[#121017]/12 bg-[#FAFAF8] px-4 pr-14 text-sm outline-none transition placeholder:text-[#121017]/35 focus:border-[#397565] focus:bg-white focus:ring-4 focus:ring-[#397565]/10" id="modal-password" name="password" type="password" placeholder="Enter your password" autocomplete="current-password" required>
-                            <button class="absolute right-2.5 top-1/2 grid h-10 w-10 -translate-y-1/2 place-items-center rounded-xl text-[#397565] transition hover:bg-[#397565]/9 focus-visible:ring-4 focus-visible:ring-[#397565]/12" type="button" data-password-toggle aria-label="Show password" aria-pressed="false">
-                                <svg class="h-5 w-5 fill-none stroke-current stroke-2" viewBox="0 0 24 24" aria-hidden="true" data-eye-visible><path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z"/><circle cx="12" cy="12" r="2.75"/></svg>
-                                <svg class="hidden h-5 w-5 fill-none stroke-current stroke-2" viewBox="0 0 24 24" aria-hidden="true" data-eye-hidden><path d="m3 3 18 18M10.6 6.15A10.8 10.8 0 0 1 12 6c6 0 9.5 6 9.5 6a15.7 15.7 0 0 1-2.1 2.75M6.1 6.1C3.8 7.75 2.5 12 2.5 12s3.5 6 9.5 6a9.8 9.8 0 0 0 3.05-.48M10.05 10.05A2.75 2.75 0 0 0 13.95 13.95"/></svg>
-                            </button>
-                        </span>
-                                            </label>
-
-                    <label class="inline-flex w-fit cursor-pointer items-center gap-2 text-sm text-[#121017]/60"><input class="h-4 w-4 accent-[#397565]" name="remember" type="checkbox" value="1"><span>Keep me signed in</span></label>
-                    <button class="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-[#397565] px-5 text-sm font-bold text-white transition hover:bg-[#2e6355] disabled:cursor-wait disabled:opacity-70" type="submit" data-login-submit>Sign in <span aria-hidden="true">→</span></button>
-                    <p class="hidden text-center text-sm font-semibold text-[#397565]" data-login-status role="status" aria-live="polite"></p>
+                    <button class="login-submit" type="submit" data-login-submit>Sign in</button>
                 </form>
-                <p class="mt-4 text-center text-xs leading-5 text-[#121017]/50">Forgot your password? Ask your SBO Adviser to reset it.</p>
-                <details class="mt-5 border-t border-[#121017]/8 pt-4" data-first-login-guide open>
-                    <summary class="cursor-pointer text-xs font-bold text-[#397565]">First time signing in?</summary>
-                    <div class="pt-3 text-xs leading-5 text-[#121017]/65">
-                        <p>Use your full ID as your username. Your first password is your ID followed by your LAST NAME in capitals, with no spaces or punctuation.</p>
-                        <p class="mt-2 rounded-lg bg-[#F3F5F1] px-3 py-2 text-[#121017]">Example: <strong>02-0000-000000</strong> + <strong>LAGO</strong> = <strong>02-0000-000000LAGO</strong></p>
-                        <p class="mt-2">You’ll set a new password after signing in.</p>
-                    </div>
-                </details>
+                <p class="login-help">Forgot password? Ask your SBO Adviser.</p>
             </div>
         </dialog>
 
-        <dialog id="auth-result" class="auth-result m-auto w-[calc(100%-2rem)] max-w-sm overflow-hidden rounded-2xl border-0 bg-white p-0 text-center text-[#121017] shadow-[0_30px_90px_rgba(18,16,23,.4)]" data-type="success" aria-labelledby="auth-result-title" aria-describedby="auth-result-message" tabindex="-1">
-            <div class="p-7 sm:p-8">
-                <span class="auth-result-icon mx-auto grid h-14 w-14 place-items-center rounded-full" aria-hidden="true" data-auth-result-icon>
-                    <svg class="h-7 w-7 fill-none stroke-current stroke-[2.5]" viewBox="0 0 24 24" data-success-icon><path class="auth-result-check" d="m5 12 4 4L19 6"/></svg>
-                    <svg class="hidden h-7 w-7 fill-none stroke-current stroke-[2.5]" viewBox="0 0 24 24" data-error-icon><path d="M18 6 6 18M6 6l12 12"/></svg>
-                </span>
-                <p class="mt-5 text-[10px] font-black uppercase tracking-[.16em] text-[#397565]" data-auth-result-eyebrow>Signed in</p>
-                <h2 class="mt-2 text-2xl font-black tracking-[-.04em]" id="auth-result-title">Sign-in successful</h2>
-                <p class="mt-2 text-sm leading-6 text-[#121017]/58" id="auth-result-message">You are signed in. Opening your portal now.</p>
-                <div class="mt-6" data-auth-redirecting aria-live="polite">
-                    <div class="mb-2.5 flex items-center justify-center gap-2 text-xs font-extrabold text-[#397565]"><span class="h-3.5 w-3.5 animate-spin rounded-full border-2 border-[#397565]/25 border-r-[#397565]" aria-hidden="true"></span><span data-auth-destination>Opening your portal…</span></div>
-                    <span class="block h-1.5 overflow-hidden rounded-full bg-[#397565]/10"><span class="auth-result-progress block h-full w-full rounded-full bg-gradient-to-r from-[#397565] via-[#C6F24E] to-[#2F3AE0]"></span></span>
-                </div>
-                <a class="mt-4 hidden min-h-11 items-center justify-center rounded-xl border border-[#397565]/25 px-5 text-sm font-extrabold text-[#397565] hover:bg-[#397565]/5" data-auth-open-now>Open now <span aria-hidden="true">→</span></a>
-                <button class="auth-result-button mt-6 hidden min-h-11 w-full items-center justify-center rounded-xl px-5 text-sm font-extrabold shadow-lg transition hover:-translate-y-0.5" type="button" data-auth-result-confirm>Try again</button>
+        <dialog id="sign-in-wait" class="sign-in-wait" data-focus-self tabindex="-1" aria-labelledby="sign-in-wait-title" aria-describedby="sign-in-wait-message">
+            <div class="sign-in-wait-content" role="status" aria-live="polite">
+                <span class="sign-in-wait-logo"><img src="assets/images/cite-logo.png" alt="CITE logo" width="112" height="112"></span>
+                <h2 id="sign-in-wait-title">Signing you in</h2>
+                <p id="sign-in-wait-message">Please wait a moment...</p>
             </div>
         </dialog>
     <script src="js/vendor/axios.min.js"></script>
-    <script src="js/shared/password-gate.js?v=20260923-first-login-1"></script>
-    <script src="js/home/home.js?v=20260923-compact-menu-1"></script>
+    <script src="js/shared/password-gate.js?v=20260925-minimal-1"></script>
+    <script src="js/home/home.js?v=20260925-wait-1"></script>
 </body>
 </html>

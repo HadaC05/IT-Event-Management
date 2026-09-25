@@ -56,7 +56,7 @@
             this.dispatchEvent(new CustomEvent('cite:dialog-opened', { bubbles: true }));
             requestAnimationFrame(() => {
                 if (topModal() !== this) return;
-                const target = this.matches('[data-confirm-dialog]') ? this.querySelector('[data-confirm-cancel]') : this.querySelector('[autofocus], input:not([type="hidden"]):not(:disabled), select:not(:disabled), textarea:not(:disabled), button:not(:disabled), [href], [tabindex]:not([tabindex="-1"])');
+                const target = this.hasAttribute('data-focus-self') ? this : this.matches('[data-confirm-dialog]') ? this.querySelector('[data-confirm-cancel]') : this.querySelector('[autofocus], input:not([type="hidden"]):not(:disabled), select:not(:disabled), textarea:not(:disabled), button:not(:disabled), [href], [tabindex]:not([tabindex="-1"])');
                 target?.focus({ preventScroll: true });
             });
         };

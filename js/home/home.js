@@ -14,15 +14,6 @@
         'Faculty': 'pages/faculty/students.html',
         'Student': 'pages/student/home.html'
     })[user?.role] || './';
-    const arrival = {
-        'Admin': { destination: 'media feed', next: 'Review posts and share updates with the CITE community.' },
-        'SBO': { destination: 'media feed', next: 'Review posts and share updates with the CITE community.' },
-        'SBO Adviser': { destination: 'adviser dashboard', next: 'Check today’s tasks or create an event.' },
-        'SBO Officer': { destination: 'attendance workspace', next: 'Check your assignment, then turn on GPS to scan students.' },
-        'Faculty': { destination: 'faculty roster', next: 'Find your team’s students and open a record to see attendance.' },
-        'Student': { destination: 'student home', next: 'Explore upcoming events or check your attendance.' }
-    };
-
     const parseDate = value => new Date(String(value).replace(' ', 'T'));
     const month = value => new Intl.DateTimeFormat('en-US', { month: 'short' }).format(parseDate(value));
     const day = value => String(parseDate(value).getDate()).padStart(2, '0');
@@ -186,23 +177,8 @@
     const loginModal = document.querySelector('#login-modal');
     const passwordChangeSuccess = loginModal?.querySelector('[data-password-change-success]');
     const firstLoginGuide = loginModal?.querySelector('[data-first-login-guide]');
-    const authResult = document.querySelector('#auth-result');
-    const showAuthResult = (type, message) => {
-        loginModal?.close();
-        authResult.dataset.type = type;
-        authResult.querySelector('#auth-result-title').textContent = type === 'success' ? 'Sign-in successful' : 'Unable to sign in';
-        authResult.querySelector('#auth-result-message').textContent = message;
-        authResult.querySelector('[data-auth-result-eyebrow]').textContent = type === 'success' ? 'Signed in' : 'Please try again';
-        authResult.querySelector('[data-success-icon]')?.classList.toggle('hidden', type !== 'success');
-        authResult.querySelector('[data-error-icon]')?.classList.toggle('hidden', type === 'success');
-        authResult.querySelector('[data-auth-redirecting]')?.classList.toggle('hidden', type !== 'success');
-        authResult.querySelector('[data-auth-open-now]')?.classList.toggle('hidden', type !== 'success');
-        authResult.querySelector('[data-auth-open-now]')?.classList.toggle('inline-flex', type === 'success');
-        const confirm = authResult.querySelector('[data-auth-result-confirm]');
-        confirm.classList.toggle('hidden', type === 'success');
-        confirm.classList.toggle('inline-flex', type !== 'success');
-        authResult.showModal();
-    };
+    const signInWait = document.querySelector('#sign-in-wait');
+    signInWait?.addEventListener('cancel', event => event.preventDefault());
     document.querySelectorAll('[data-login-open]').forEach(button => button.addEventListener('click', () => {
         if (state.user) {
             if (state.user.must_change_password) {
@@ -224,26 +200,24 @@
         event.currentTarget.querySelector('[data-eye-visible]')?.classList.toggle('hidden', !showing);
         event.currentTarget.querySelector('[data-eye-hidden]')?.classList.toggle('hidden', showing);
     });
-    authResult?.querySelector('[data-auth-result-confirm]')?.addEventListener('click', () => {
-        authResult.close();
-        loginModal?.showModal();
-    });
     document.querySelector('[data-login-form]')?.addEventListener('submit', async event => {
         event.preventDefault();
         const form = event.currentTarget;
         if (!form.reportValidity()) return;
         passwordChangeSuccess?.classList.add('hidden');
         const submit = form.querySelector('[data-login-submit]');
-        const status = form.querySelector('[data-login-status]');
         const errorMessage = form.querySelector('[data-login-error]');
-        const original = submit.innerHTML;
         errorMessage.classList.add('hidden');
         submit.disabled = true;
-        submit.innerHTML = '<span class="h-4 w-4 animate-spin rounded-full border-2 border-white border-r-transparent"></span><span>Signing in…</span>';
-        status.textContent = 'Checking your account. Please wait…';
-        status.classList.remove('hidden');
+        const fields = new FormData(form);
+        const startedAt = performance.now();
+        const finishWait = async () => {
+            const remaining = Math.max(0, 550 - (performance.now() - startedAt));
+            if (remaining) await new Promise(resolve => window.setTimeout(resolve, remaining));
+        };
+        loginModal?.close();
+        signInWait?.showModal();
         try {
-            const fields = new FormData(form);
             const response = await axios.post('api/auth.php?action=login', {
                 login: fields.get('login'),
                 password: fields.get('password'),
@@ -251,26 +225,22 @@
             }, { headers: { 'X-CSRF-Token': state.csrfToken } });
             state.user = response.data.user;
             state.csrfToken = response.data.csrf_token;
+            await finishWait();
             if (state.user.must_change_password) {
-                loginModal?.close();
+                signInWait?.close();
                 window.RequiredPasswordGate.open(state.user, state.csrfToken);
                 return;
             }
-            const guide = arrival[state.user.role] || { destination: 'portal', next: 'Choose a page from the menu to get started.' };
-            showAuthResult('success', `Welcome, ${state.user.first_name || 'there'}! ${guide.next}`);
-            authResult.querySelector('[data-auth-destination]').textContent = `Opening your ${guide.destination}…`;
-            const openNow = authResult.querySelector('[data-auth-open-now]');
-            openNow.href = response.data.redirect_url;
-            openNow.firstChild.textContent = `Open ${guide.destination} now `;
-            window.setTimeout(() => window.location.assign(response.data.redirect_url), 1100);
+            window.location.assign(response.data.redirect_url || dashboardUrl(state.user));
         } catch (error) {
+            await finishWait();
+            signInWait?.close();
+            loginModal?.showModal();
             errorMessage.textContent = error.response?.data?.message || 'Please check your ID or username and password, then try again.';
             errorMessage.classList.remove('hidden');
-            form.elements.password.focus();
+            requestAnimationFrame(() => form.elements.password.focus({ preventScroll: true }));
         } finally {
             submit.disabled = false;
-            submit.innerHTML = original;
-            status.classList.add('hidden');
         }
     });
 
@@ -284,7 +254,6 @@
                 firstLoginGuide?.classList.add('hidden');
             }
             loginModal?.showModal();
-            loginModal?.querySelector('[name="login"]')?.focus();
             const cleanUrl = new URL(window.location.href);
             cleanUrl.searchParams.delete('login');
             window.history.replaceState({}, '', cleanUrl.pathname + cleanUrl.search + cleanUrl.hash);

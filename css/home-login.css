@@ -1,0 +1,320 @@
+dialog.app-dialog.login-dialog {
+    width: min(450px, calc(100vw - 32px)) !important;
+    max-height: calc(100dvh - 32px) !important;
+    border-radius: 20px !important;
+    box-shadow: 0 20px 50px rgb(18 16 23 / 24%) !important;
+}
+
+dialog.app-dialog.login-dialog[open] {
+    animation: login-dialog-in 180ms ease-out;
+}
+
+dialog.app-dialog.login-dialog:focus {
+    outline: none;
+}
+
+dialog.app-dialog.login-dialog::backdrop {
+    background: rgb(18 24 27 / 49%) !important;
+    backdrop-filter: none;
+}
+
+.login-dialog button,
+.login-dialog input {
+    touch-action: manipulation;
+}
+
+.login-dialog-content {
+    position: relative;
+    padding: 24px 25px 26px;
+}
+
+dialog.app-dialog.login-dialog .login-close {
+    position: absolute;
+    top: 18px;
+    right: 18px;
+    display: grid;
+    width: 36px;
+    height: 36px;
+    min-height: 36px;
+    place-items: center;
+    border-radius: 50%;
+    background: transparent;
+    color: #66727e;
+    font-size: 27px;
+    font-weight: 300;
+    line-height: 1;
+}
+
+dialog.app-dialog.login-dialog > .login-dialog-content > .login-heading {
+    box-shadow: none !important;
+}
+
+.login-close:hover,
+.login-password-toggle:hover {
+    background: rgb(57 117 101 / 8%);
+}
+
+.login-close:focus-visible,
+.login-password-toggle:focus-visible,
+.login-submit:focus-visible {
+    outline: 3px solid rgb(57 117 101 / 38%);
+    outline-offset: 2px;
+}
+
+.login-heading {
+    padding-right: 42px;
+}
+
+.login-brand {
+    color: #397565;
+    font-size: 15px;
+    font-weight: 600;
+    line-height: 23px;
+}
+
+.login-heading h2 {
+    margin-top: 1px;
+    color: #182334;
+    font-size: 24px;
+    font-weight: 700;
+    letter-spacing: -.035em;
+    line-height: 31px;
+}
+
+.login-guide,
+.login-success {
+    margin-top: 17px;
+    border: 1px solid #d2e3df;
+    border-radius: 15px;
+    background: #f3faf8;
+    padding: 15px 18px;
+    color: #386e67;
+    font-size: 15px;
+    line-height: 21px;
+}
+
+.login-guide strong {
+    display: block;
+    margin-bottom: 5px;
+    color: #174a42;
+    font-weight: 700;
+}
+
+.login-example {
+    display: grid;
+    grid-template-columns: 70px minmax(0, 1fr);
+    gap: 3px 9px;
+    margin-top: 12px;
+    border-radius: 12px;
+    background: #fff;
+    padding: 11px 15px;
+    color: #536171;
+    font-size: 14px;
+    line-height: 22px;
+}
+
+.login-example code {
+    overflow-wrap: anywhere;
+    color: #133949;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 14px;
+    font-style: normal;
+    font-weight: 600;
+}
+
+.login-form {
+    display: grid;
+    gap: 12px;
+    margin-top: 32px;
+}
+
+.login-field {
+    position: relative;
+    display: block;
+}
+
+.login-field input {
+    display: block;
+    width: 100%;
+    height: 56px;
+    border: 1px solid #dce2e9;
+    border-radius: 15px;
+    background: #fff;
+    padding: 0 18px;
+    color: #182334;
+    font-size: 16px;
+    outline: none;
+    transition: border-color 150ms ease, box-shadow 150ms ease;
+}
+
+.login-field input::placeholder {
+    color: #8491a3;
+    opacity: 1;
+}
+
+.login-field input:focus {
+    border-color: #397565;
+    box-shadow: 0 0 0 3px rgb(57 117 101 / 12%);
+}
+
+.login-password-field input {
+    padding-right: 58px;
+}
+
+.login-password-toggle {
+    position: absolute;
+    top: 50%;
+    right: 9px;
+    display: grid;
+    width: 38px;
+    height: 38px;
+    transform: translateY(-50%);
+    place-items: center;
+    border-radius: 10px;
+    color: #687583;
+}
+
+.login-submit {
+    display: flex;
+    min-height: 55px;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    margin-top: 5px;
+    border-radius: 15px;
+    background: #397565;
+    color: #fff;
+    font-size: 18px;
+    font-weight: 700;
+    transition: background-color 150ms ease;
+}
+
+.login-submit:hover {
+    background: #2e6355;
+}
+
+.login-submit:disabled {
+    cursor: wait;
+    opacity: .7;
+}
+
+.login-help {
+    margin-top: 15px;
+    color: #8491a3;
+    font-size: 14px;
+    line-height: 22px;
+    text-align: center;
+}
+
+.login-error {
+    border: 1px solid rgb(255 107 44 / 25%);
+    border-radius: 12px;
+    background: rgb(255 107 44 / 10%);
+    padding: 11px 14px;
+    color: #9a340b;
+    font-size: 14px;
+    line-height: 20px;
+}
+
+dialog.sign-in-wait,
+dialog.app-dialog.sign-in-wait {
+    position: fixed !important;
+    inset: 0 !important;
+    width: 100vw !important;
+    height: 100dvh !important;
+    max-width: none !important;
+    max-height: 100dvh !important;
+    margin: 0 !important;
+    overflow: hidden !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: #fff !important;
+    padding: 0 !important;
+    box-shadow: none !important;
+}
+
+dialog.sign-in-wait[open],
+dialog.app-dialog.sign-in-wait[open] {
+    display: grid !important;
+    place-items: center;
+    animation: none !important;
+}
+
+dialog.sign-in-wait:focus {
+    outline: none;
+}
+
+dialog.sign-in-wait::backdrop,
+dialog.app-dialog.sign-in-wait::backdrop {
+    background: #fff !important;
+    backdrop-filter: none;
+}
+
+.sign-in-wait-content {
+    padding: 24px;
+    text-align: center;
+}
+
+.sign-in-wait-logo {
+    position: relative;
+    display: grid;
+    width: 132px;
+    height: 132px;
+    place-items: center;
+    margin: 0 auto 32px;
+    border: 2px solid #e7f0ec;
+    border-radius: 50%;
+}
+
+.sign-in-wait-logo::before {
+    position: absolute;
+    inset: -3px;
+    border: 3px solid transparent;
+    border-top-color: #397565;
+    border-left-color: #6ca18e;
+    border-radius: 50%;
+    content: "";
+    pointer-events: none;
+    animation: sign-in-ring-spin 1.15s linear infinite;
+}
+
+.sign-in-wait-logo img {
+    display: block;
+    width: 112px;
+    height: 112px;
+    object-fit: contain;
+}
+
+.sign-in-wait-content h2 {
+    color: #182334;
+    font-size: 20px;
+    font-weight: 700;
+    line-height: 27px;
+}
+
+.sign-in-wait-content p {
+    margin-top: 6px;
+    color: #6f7a8c;
+    font-size: 16px;
+    line-height: 24px;
+}
+
+@keyframes login-dialog-in {
+    from { opacity: 0; transform: translateY(8px); }
+}
+
+@keyframes sign-in-ring-spin {
+    to { transform: rotate(360deg); }
+}
+
+@media (max-width: 359px) {
+    .login-dialog-content { padding-right: 18px; padding-left: 18px; }
+    .login-guide { padding-right: 13px; padding-left: 13px; }
+    .login-example { grid-template-columns: 62px minmax(0, 1fr); gap: 3px 5px; padding-right: 10px; padding-left: 10px; }
+    .login-example code { font-size: 12px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    dialog.app-dialog.login-dialog[open] { animation: none; }
+    .sign-in-wait-logo::before { animation: none; }
+}
