@@ -98,19 +98,44 @@
         agendaEmpty.classList.add('hidden');
     };
 
+    let featuredTimer;
     const renderFeatured = () => {
+        if (featuredTimer) window.clearInterval(featuredTimer);
         if (!state.featured.length) return;
-        const event = state.featured[0];
+        const slides = state.featured.flatMap(event => {
+            const images = event.feature_images?.length ? event.feature_images.map(image => image.image_path) : [event.poster_path];
+            return images.map(image => ({ event, image }));
+        });
+        if (!slides.length) return;
+        let current = 0;
+        let event = slides[current].event;
         const carousel = document.querySelector('[data-feature-carousel]');
         carousel.replaceChildren();
         const article = document.createElement('article');
-        article.className = 'poster-glow poster-grid relative min-h-[320px] overflow-hidden rounded-[14px] p-7 text-white shadow-[0_22px_45px_rgba(18,16,23,.16)] sm:min-h-[360px] sm:p-10';
+        article.className = 'homepage-feature-article poster-glow poster-grid relative overflow-hidden text-white duration-500';
         article.innerHTML = '<div class="ring-shape absolute -right-10 -top-16 h-52 w-52 rounded-full border-[34px] border-[#C6F24E]/20"></div>';
+        if (slides[current].image) {
+            article.style.backgroundImage = `linear-gradient(0deg,rgba(16,45,38,.94),rgba(31,85,72,.35)),url("${slides[current].image}")`;
+            article.style.backgroundPosition = 'center';
+            article.style.backgroundSize = 'cover';
+        }
         const content = document.createElement('div');
-        content.className = 'relative flex min-h-[266px] flex-col justify-between sm:min-h-[286px]';
-        content.innerHTML = '<div class="flex items-start justify-between gap-4"><p class="text-xs font-black uppercase tracking-[.2em] text-[#C6F24E]">Featured event</p><span class="rounded-full bg-[#121017]/35 px-3 py-1 text-xs font-extrabold backdrop-blur">1 / '+state.featured.length+'</span></div>';
+        content.className = 'homepage-feature-content relative flex flex-col';
+        content.innerHTML = '<div class="absolute right-0 top-0 flex items-start gap-4"><p class="hidden text-xs font-black uppercase tracking-[.2em] text-[#C6F24E] sm:block">Featured event</p><span class="rounded-full bg-[#121017]/35 px-3 py-1 text-xs font-extrabold backdrop-blur">1 / '+slides.length+'</span></div>';
+        const welcome = document.createElement('div');
+        welcome.className = 'max-w-3xl pr-8 sm:pr-20';
+        const welcomeLabel = document.createElement('p');
+        welcomeLabel.className = 'mb-5 flex items-center gap-2 text-xs font-black uppercase tracking-[.18em] text-[#C6F24E]';
+        welcomeLabel.innerHTML = '<span class="h-2 w-2 rounded-full bg-[#FF6B2C]"></span>CITE Fest 2026';
+        const welcomeTitle = document.createElement('h1');
+        welcomeTitle.className = 'text-[clamp(2.8rem,6vw,5.8rem)] font-black leading-[.96] tracking-[-.065em]';
+        welcomeTitle.textContent = 'Where IT events come alive.';
+        const welcomeDescription = document.createElement('p');
+        welcomeDescription.className = 'mt-6 max-w-2xl text-base leading-7 text-white/80 sm:text-lg';
+        welcomeDescription.textContent = 'Discover competitions, activities, and memorable moments created for the CITE community.';
+        welcome.append(welcomeLabel, welcomeTitle, welcomeDescription);
         const body = document.createElement('div');
-        body.className = 'max-w-2xl';
+        body.className = 'homepage-feature-event-info max-w-2xl';
         const type = document.createElement('span');
         type.className = 'inline-flex rounded-full bg-[#C6F24E] px-3 py-1 text-[10px] font-black uppercase tracking-wider text-[#121017]';
         type.textContent = event.type;
@@ -124,9 +149,47 @@
         meta.className = 'mt-3 text-sm font-bold text-white/80';
         meta.textContent = `${dateTime(event.start_at)} · ${event.location}`;
         body.append(type, title, description, meta);
-        content.append(body);
+        const actions = document.createElement('div');
+        actions.className = 'homepage-feature-actions absolute flex flex-wrap justify-end gap-3';
+        const signIn = document.createElement('button');
+        signIn.className = 'inline-flex min-h-12 items-center rounded-lg bg-[#397565] px-5 text-sm font-extrabold text-white shadow-[0_8px_20px_rgba(57,117,101,.22)] transition hover:-translate-y-0.5 hover:bg-[#2e6355]';
+        signIn.type = 'button';
+        signIn.textContent = 'Sign in to your portal';
+        signIn.addEventListener('click', () => {
+            if (state.user) {
+                if (state.user.must_change_password) window.RequiredPasswordGate.open(state.user, state.csrfToken);
+                else window.location.assign(dashboardUrl(state.user));
+                return;
+            }
+            loginModal?.showModal();
+        });
+        const explore = document.createElement('a');
+        explore.className = 'inline-flex min-h-12 items-center rounded-lg border border-white/55 bg-white/15 px-5 text-sm font-extrabold text-white transition hover:-translate-y-0.5 hover:bg-white hover:text-[#2F3AE0]';
+        explore.href = '#upcoming';
+        explore.textContent = 'Explore Events';
+        actions.append(signIn, explore);
+        content.append(welcome, body, actions);
         article.append(content);
         carousel.append(article);
+        const counter = content.querySelector('span');
+        const showSlide = index => {
+            current = (index + slides.length) % slides.length;
+            const slide = slides[current];
+            event = slide.event;
+            article.style.backgroundImage = slide.image
+                ? `linear-gradient(0deg,rgba(16,45,38,.94),rgba(31,85,72,.35)),url("${slide.image}")`
+                : '';
+            article.style.backgroundPosition = 'center';
+            article.style.backgroundSize = slide.image ? 'cover' : '';
+            type.textContent = event.type;
+            title.textContent = event.title;
+            description.textContent = event.description || '';
+            meta.textContent = `${dateTime(event.start_at)} Â· ${event.location}`;
+            counter.textContent = `${current + 1} / ${slides.length}`;
+        };
+        if (slides.length > 1 && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+            featuredTimer = window.setInterval(() => showSlide(current + 1), 6000);
+        }
     };
 
     document.querySelectorAll('[data-filter]').forEach(button => button.addEventListener('click', () => {
@@ -202,7 +265,8 @@
         cancelPendingLogin();
     });
     signInCancel?.addEventListener('click', cancelPendingLogin);
-    document.querySelectorAll('[data-login-open]').forEach(button => button.addEventListener('click', () => {
+    document.querySelectorAll('[data-login-open]').forEach(button => button.addEventListener('click', event => {
+        event.preventDefault();
         if (state.user) {
             if (state.user.must_change_password) {
                 window.RequiredPasswordGate.open(state.user, state.csrfToken);

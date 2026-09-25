@@ -64,6 +64,41 @@ window.SharedNavigation.ready.then((context) => {
   function row(label, content) {
     return `<div class="grid grid-cols-[90px_1fr] gap-3 border-b border-slate-100 py-5"><dt class="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">${label}</dt><dd class="text-xs font-bold text-slate-700">${content}</dd></div>`;
   }
+  function renderFeatureImages(images, canFeature) {
+    const controls = $("[data-carousel-images-controls]");
+    const list = $("[data-carousel-image-list]");
+    if (!controls || !list) return;
+    controls.classList.toggle("hidden", !canFeature);
+    list.replaceChildren();
+    if (!images.length) {
+      const empty = document.createElement("p");
+      empty.className = "col-span-full rounded-lg border border-dashed border-white/15 bg-white/[.04] px-3 py-4 text-center text-xs text-white/45";
+      empty.textContent = "No carousel images yet. The event poster will be shown instead.";
+      list.append(empty);
+      return;
+    }
+    images.forEach((image, index) => {
+      const card = document.createElement("article");
+      card.className = "overflow-hidden rounded-lg border border-white/15 bg-white/[.06]";
+      const preview = document.createElement("img");
+      preview.className = "h-24 w-full object-cover";
+      preview.src = image.image_path;
+      preview.alt = `Carousel image ${index + 1}`;
+      const footer = document.createElement("div");
+      footer.className = "flex items-center justify-between gap-2 px-2.5 py-2";
+      const label = document.createElement("span");
+      label.className = "text-[10px] font-black uppercase tracking-wider text-white/55";
+      label.textContent = `Slide ${index + 1}`;
+      const remove = document.createElement("button");
+      remove.type = "button";
+      remove.className = "text-[10px] font-black text-[#FF9A70] transition hover:text-white";
+      remove.dataset.carouselImageRemove = String(image.id);
+      remove.textContent = "Remove";
+      footer.append(label, remove);
+      card.append(preview, footer);
+      list.append(card);
+    });
+  }
   function render() {
     const event = data.event,
       metadata = data.metadata;
@@ -198,6 +233,7 @@ window.SharedNavigation.ready.then((context) => {
     feature.elements.featured_until.max = event.end_at
       .slice(0, 16)
       .replace(" ", "T");
+    renderFeatureImages(event.feature_images || [], canFeature);
   }
   function renderAttendance() {
     const overview = data.event.attendance_overview || { expected: 0, recorded: 0, present: 0, absent: 0, unrecorded: 0, days: [] };
@@ -506,6 +542,46 @@ window.SharedNavigation.ready.then((context) => {
       );
     }
   };
+  $("[data-carousel-images-form]").onsubmit = async (eventObject) => {
+    eventObject.preventDefault();
+    const form = eventObject.currentTarget;
+    const submit = $("[data-carousel-images-submit]");
+    const message = $("[data-carousel-images-error]");
+    const body = new FormData(form);
+    body.append("action", "feature_images_add");
+    body.append("id", String(id));
+    message.classList.add("hidden");
+    submit.disabled = true;
+    try {
+      await axios.post("api/adviser-events.php", body, {
+        headers: { "X-CSRF-Token": csrf },
+      });
+      form.reset();
+      toast("success", "Carousel images added.");
+      await load();
+    } catch (error) {
+      message.textContent = error.response?.data?.errors?.images?.[0] || error.response?.data?.message || "Unable to add carousel images.";
+      message.classList.remove("hidden");
+    } finally {
+      submit.disabled = false;
+    }
+  };
+  $("[data-carousel-image-list]").addEventListener("click", async (eventObject) => {
+    const button = eventObject.target.closest("[data-carousel-image-remove]");
+    if (!button) return;
+    const message = $("[data-carousel-images-error]");
+    message.classList.add("hidden");
+    button.disabled = true;
+    try {
+      await post({ action: "feature_image_delete", id, image_id: Number(button.dataset.carouselImageRemove) });
+      toast("success", "Carousel image removed.");
+      await load();
+    } catch (error) {
+      message.textContent = error.response?.data?.errors?.image?.[0] || error.response?.data?.message || "Unable to remove carousel image.";
+      message.classList.remove("hidden");
+      button.disabled = false;
+    }
+  });
   $("[data-assign-form]").onsubmit = async (eventObject) => {
     eventObject.preventDefault();
     const error = $("[data-assignment-error]");

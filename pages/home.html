@@ -1,79 +1,342 @@
 <!DOCTYPE html>
 <html lang="en" class="scroll-smooth">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="Discover competitions, activities, and memorable moments created for the CITE community.">
+    <meta name="description"
+        content="Discover competitions, activities, and memorable moments created for the CITE community.">
     <meta name="csrf-token" content="">
     <title>CITE | Campus Events</title>
-    <link
-    rel="icon"
-    type="image/png"
-    sizes="512x512"
-    href="assets/images/cite_favicon.png"
->
+    <link rel="icon" type="image/png" sizes="512x512" href="assets/images/cite_favicon.png">
     <link rel="stylesheet" href="css/tailwind.css">
     <link rel="stylesheet" href="css/home-login.css?v=20260925-login-recovery-1">
     <script src="js/shared/interactions.js?v=20260925-login-focus-1" defer></script>
     <style>
-        :root { --bone:#F3F0E9; --ink:#121017; --teal:#397565; --cobalt:#2F3AE0; --lime:#C6F24E; --tangerine:#FF6B2C; }
-        body { position:relative; isolation:isolate; overflow-x:hidden; background:#fff; color:var(--ink); }
+        :root {
+            --bone: #F3F0E9;
+            --ink: #121017;
+            --teal: #397565;
+            --cobalt: #2F3AE0;
+            --lime: #C6F24E;
+            --tangerine: #FF6B2C;
+        }
+
+        body {
+            position: relative;
+            isolation: isolate;
+            overflow-x: hidden;
+            background: #fff;
+            color: var(--ink);
+        }
+
         body::before {
-            content:"";
-            position:fixed;
-            inset:-90px;
-            z-index:-1;
-            pointer-events:none;
+            content: "";
+            position: fixed;
+            inset: -90px;
+            z-index: -1;
+            pointer-events: none;
             background-image:
-                radial-gradient(circle at 12% 18%,rgba(57,117,101,.045),transparent 25%),
-                radial-gradient(circle at 88% 68%,rgba(47,58,224,.025),transparent 22%),
-                linear-gradient(rgba(57,117,101,.03) 1px,transparent 1px),
-                linear-gradient(90deg,rgba(57,117,101,.03) 1px,transparent 1px);
-            background-size:auto,auto,88px 88px,88px 88px;
-            opacity:.75;
+                radial-gradient(circle at 12% 18%, rgba(57, 117, 101, .045), transparent 25%),
+                radial-gradient(circle at 88% 68%, rgba(47, 58, 224, .025), transparent 22%),
+                linear-gradient(rgba(57, 117, 101, .03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(57, 117, 101, .03) 1px, transparent 1px);
+            background-size: auto, auto, 88px 88px, 88px 88px;
+            opacity: .75;
         }
-        .hero-grain { background:transparent; }
+
+        .hero-grain {
+            background: transparent;
+        }
+
         .poster-glow {
-            background-color:#1f5548;
+            background-color: #1f5548;
             background-image:
-                linear-gradient(rgba(255,255,255,.07) 1px,transparent 1px),
-                linear-gradient(90deg,rgba(255,255,255,.07) 1px,transparent 1px),
-                radial-gradient(circle at 82% 18%,rgba(198,242,78,.38),transparent 28%),
-                radial-gradient(circle at 8% 88%,rgba(47,58,224,.28),transparent 32%),
-                linear-gradient(135deg,#43816e 0%,#1f5548 100%);
-            background-size:42px 42px,42px 42px,auto,auto,auto;
+                linear-gradient(rgba(255, 255, 255, .07) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255, 255, 255, .07) 1px, transparent 1px),
+                radial-gradient(circle at 82% 18%, rgba(198, 242, 78, .38), transparent 28%),
+                radial-gradient(circle at 8% 88%, rgba(47, 58, 224, .28), transparent 32%),
+                linear-gradient(135deg, #43816e 0%, #1f5548 100%);
+            background-size: 42px 42px, 42px 42px, auto, auto, auto;
         }
-        .page-atmosphere { position:fixed; inset:0; z-index:-1; overflow:hidden; pointer-events:none; }
-        .page-object { position:absolute; display:block; will-change:transform; }
-        .page-ring { top:10%; left:-105px; width:290px; height:290px; border:46px solid rgba(198,242,78,.16); border-radius:999px; }
-        .page-tile { top:48%; right:-72px; width:210px; height:210px; border:1px solid rgba(57,117,101,.08); border-radius:48px; background:rgba(57,117,101,.075); transform:rotate(17deg); }
-        .page-orb { top:32%; right:13%; width:18px; height:18px; border-radius:999px; background:rgba(255,107,44,.2); }
-        .page-capsule { bottom:8%; left:8%; width:150px; height:46px; border-radius:999px; border:1px solid rgba(47,58,224,.07); background:rgba(47,58,224,.04); transform:rotate(-12deg); }
-        .event-row[hidden], .agenda-item[hidden] { display:none; }
-        .event-filter[aria-pressed="true"] { background:var(--teal); border-color:var(--teal); color:white; box-shadow:0 5px 14px rgba(57,117,101,.2); }
+
+        .page-atmosphere {
+            position: fixed;
+            inset: 0;
+            z-index: -1;
+            overflow: hidden;
+            pointer-events: none;
+        }
+
+        .page-object {
+            position: absolute;
+            display: block;
+            will-change: transform;
+        }
+
+        .page-ring {
+            top: 10%;
+            left: -105px;
+            width: 290px;
+            height: 290px;
+            border: 46px solid rgba(198, 242, 78, .16);
+            border-radius: 999px;
+        }
+
+        .page-tile {
+            top: 48%;
+            right: -72px;
+            width: 210px;
+            height: 210px;
+            border: 1px solid rgba(57, 117, 101, .08);
+            border-radius: 48px;
+            background: rgba(57, 117, 101, .075);
+            transform: rotate(17deg);
+        }
+
+        .page-orb {
+            top: 32%;
+            right: 13%;
+            width: 18px;
+            height: 18px;
+            border-radius: 999px;
+            background: rgba(255, 107, 44, .2);
+        }
+
+        .page-capsule {
+            bottom: 8%;
+            left: 8%;
+            width: 150px;
+            height: 46px;
+            border-radius: 999px;
+            border: 1px solid rgba(47, 58, 224, .07);
+            background: rgba(47, 58, 224, .04);
+            transform: rotate(-12deg);
+        }
+
+        .event-row[hidden],
+        .agenda-item[hidden] {
+            display: none;
+        }
+
+        .event-filter[aria-pressed="true"] {
+            background: var(--teal);
+            border-color: var(--teal);
+            color: white;
+            box-shadow: 0 5px 14px rgba(57, 117, 101, .2);
+        }
+
+        .homepage-feature-carousel {
+            min-height: 420px;
+            border-radius: 18px;
+        }
+
+        .homepage-feature-static-content,
+        .homepage-feature-article {
+            padding: 1.75rem;
+        }
+
+        .homepage-feature-content {
+            min-height: 364px;
+        }
+
+        .homepage-feature-event-info {
+            margin-top: auto;
+            margin-bottom: 4rem;
+        }
+
+        .homepage-feature-actions {
+            bottom: 1.75rem;
+            left: 1.75rem;
+            right: 1.75rem;
+            max-width: calc(100% - 3.5rem);
+        }
+
+        .homepage-calendar-card {
+            display: grid;
+            gap: 1.5rem;
+            margin-top: 2.5rem;
+            padding: 1.25rem;
+            border: 1px solid rgba(18, 16, 23, .1);
+            border-radius: 1rem;
+            background: rgba(255, 255, 255, .85);
+            box-shadow: 0 14px 35px rgba(18, 16, 23, .07);
+            backdrop-filter: blur(12px);
+        }
+
+        .homepage-calendar-empty {
+            grid-column: 1 / -1;
+        }
+
+        .landing-desktop-nav { display:none; align-items:center; gap:1.75rem; }
+        .landing-desktop-nav a { color:rgba(18,16,23,.62); font-size:.875rem; font-weight:800; text-decoration:none; transition:color .2s ease; }
+        .landing-desktop-nav a:hover { color:#397565; }
+        .landing-desktop-nav .landing-desktop-sign-in { color:#2F3AE0; font-weight:950; }
+        .landing-desktop-nav .landing-desktop-sign-in:hover { color:#397565; }
+
+        @media (min-width:768px) {
+            .landing-desktop-nav { display:flex; }
+            .landing-mobile-menu { display: none; }
+        }
+
+        @media (min-width:640px) {
+            .homepage-feature-carousel {
+                min-height: 500px;
+            }
+
+            .homepage-feature-static-content,
+            .homepage-feature-article {
+                padding: 2.5rem;
+            }
+
+            .homepage-feature-content {
+                min-height: 420px;
+            }
+
+            .homepage-feature-event-info {
+                margin-bottom: 3.5rem;
+            }
+
+            .homepage-feature-actions {
+                left: auto;
+                right: 2.5rem;
+                bottom: 2.5rem;
+            }
+
+            .homepage-calendar-card {
+                padding: 1.75rem;
+            }
+        }
+
+        @media (min-width:1024px) {
+
+            .homepage-feature-static-content,
+            .homepage-feature-article {
+                padding: 3.5rem;
+            }
+
+            .homepage-feature-actions {
+                right: 3.5rem;
+                bottom: 3.5rem;
+            }
+
+            .homepage-calendar-card {
+                grid-template-columns: minmax(260px, .55fr) minmax(0, 1.45fr);
+                align-items: start;
+            }
+        }
+
         @media (prefers-reduced-motion:no-preference) {
-            body::before { animation:page-drift 32s ease-in-out infinite alternate; }
-            .page-ring { animation:page-ring-float 14s ease-in-out infinite; }
-            .page-tile { animation:page-tile-float 17s ease-in-out infinite; }
-            .page-orb { animation:page-orb-float 9s ease-in-out infinite; }
-            .page-capsule { animation:page-capsule-float 19s ease-in-out infinite; }
-            .float-shape { animation:float 7s ease-in-out infinite; }
-            .ring-shape { animation:ring-drift 9s ease-in-out infinite; }
-            .accent-dot { animation:dot-pulse 3.5s ease-in-out infinite; }
-            .feature-count { animation:badge-breathe 5s ease-in-out infinite; }
-            @keyframes float { 50% { transform:translateY(-9px) rotate(9deg); } }
-            @keyframes ring-drift { 50% { transform:translate(-8px,7px) scale(1.025); opacity:.82; } }
-            @keyframes dot-pulse { 50% { transform:scale(.72); box-shadow:0 0 0 10px rgba(255,107,44,0); } }
-            @keyframes badge-breathe { 50% { background-color:rgba(255,255,255,.22); } }
-            @keyframes page-drift { to { transform:translate3d(22px,14px,0); } }
-            @keyframes page-ring-float { 50% { transform:translate3d(18px,26px,0) scale(1.04); } }
-            @keyframes page-tile-float { 50% { transform:translate3d(-20px,-24px,0) rotate(11deg); } }
-            @keyframes page-orb-float { 50% { transform:translate3d(-15px,28px,0) scale(.72); } }
-            @keyframes page-capsule-float { 50% { transform:translate3d(28px,-18px,0) rotate(-7deg); } }
+            body::before {
+                animation: page-drift 32s ease-in-out infinite alternate;
+            }
+
+            .page-ring {
+                animation: page-ring-float 14s ease-in-out infinite;
+            }
+
+            .page-tile {
+                animation: page-tile-float 17s ease-in-out infinite;
+            }
+
+            .page-orb {
+                animation: page-orb-float 9s ease-in-out infinite;
+            }
+
+            .page-capsule {
+                animation: page-capsule-float 19s ease-in-out infinite;
+            }
+
+            .float-shape {
+                animation: float 7s ease-in-out infinite;
+            }
+
+            .ring-shape {
+                animation: ring-drift 9s ease-in-out infinite;
+            }
+
+            .accent-dot {
+                animation: dot-pulse 3.5s ease-in-out infinite;
+            }
+
+            .feature-count {
+                animation: badge-breathe 5s ease-in-out infinite;
+            }
+
+            @keyframes float {
+                50% {
+                    transform: translateY(-9px) rotate(9deg);
+                }
+            }
+
+            @keyframes ring-drift {
+                50% {
+                    transform: translate(-8px, 7px) scale(1.025);
+                    opacity: .82;
+                }
+            }
+
+            @keyframes dot-pulse {
+                50% {
+                    transform: scale(.72);
+                    box-shadow: 0 0 0 10px rgba(255, 107, 44, 0);
+                }
+            }
+
+            @keyframes badge-breathe {
+                50% {
+                    background-color: rgba(255, 255, 255, .22);
+                }
+            }
+
+            @keyframes page-drift {
+                to {
+                    transform: translate3d(22px, 14px, 0);
+                }
+            }
+
+            @keyframes page-ring-float {
+                50% {
+                    transform: translate3d(18px, 26px, 0) scale(1.04);
+                }
+            }
+
+            @keyframes page-tile-float {
+                50% {
+                    transform: translate3d(-20px, -24px, 0) rotate(11deg);
+                }
+            }
+
+            @keyframes page-orb-float {
+                50% {
+                    transform: translate3d(-15px, 28px, 0) scale(.72);
+                }
+            }
+
+            @keyframes page-capsule-float {
+                50% {
+                    transform: translate3d(28px, -18px, 0) rotate(-7deg);
+                }
+            }
         }
-        @media (max-width:640px) { .page-ring { left:-180px; opacity:.72; } .page-tile { right:-135px; } .page-capsule { display:none; } }
+
+        @media (max-width:640px) {
+            .page-ring {
+                left: -180px;
+                opacity: .72;
+            }
+
+            .page-tile {
+                right: -135px;
+            }
+
+            .page-capsule {
+                display: none;
+            }
+        }
     </style>
 </head>
+
 <body class="min-h-screen font-sans antialiased selection:bg-[#C6F24E] selection:text-[#121017]">
     <span class="route-progress" data-route-progress data-active="false" aria-hidden="true"></span>
     <div class="page-atmosphere" aria-hidden="true">
@@ -83,27 +346,52 @@
         <span class="page-object page-capsule"></span>
     </div>
     <header class="relative z-30 border-b border-[#121017]/10 bg-white/95 backdrop-blur">
-        <nav class="mx-auto flex h-[72px] max-w-[1440px] items-center gap-5 px-5 sm:px-8 lg:px-12" aria-label="Main navigation">
+        <nav class="mx-auto flex h-[72px] max-w-[1440px] items-center gap-5 px-5 sm:px-8 lg:px-12"
+            aria-label="Main navigation">
             <a class="flex shrink-0 items-center gap-2.5" href="./" aria-label="CITE home">
                 <img class="h-11 w-11 rounded-full object-contain" src="assets/images/cite-logo.png" alt="CITE logo">
                 <span class="text-xl font-black tracking-[-.04em]">CITE<span class="text-[#397565]">.</span></span>
             </a>
 
-            <div class="relative ml-auto">
-                <button class="grid h-11 w-11 place-items-center rounded-lg border border-[#121017]/12 bg-white/80 text-[#121017] shadow-sm transition hover:border-[#397565]/45 hover:bg-[#397565]/5 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#397565]/20" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="nav-menu" title="Menu" data-nav-toggle>
-                    <svg class="h-5 w-5 fill-none stroke-current stroke-2" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+            <div class="landing-desktop-nav ml-auto" aria-label="Explore CITE">
+                <a href="#discover">Discover</a>
+                <a href="#upcoming">Events</a>
+                <a class="landing-desktop-sign-in" href="#sign-in" data-login-open>Sign in</a>
+            </div>
+            <div class="landing-mobile-menu relative ml-auto">
+                <button
+                    class="grid h-11 w-11 place-items-center rounded-lg border border-[#121017]/12 bg-white/80 text-[#121017] shadow-sm transition hover:border-[#397565]/45 hover:bg-[#397565]/5 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#397565]/20"
+                    type="button" aria-label="Open menu" aria-expanded="false" aria-controls="nav-menu" title="Menu"
+                    data-nav-toggle>
+                    <svg class="h-5 w-5 fill-none stroke-current stroke-2" viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M4 7h16M4 12h16M4 17h16" />
+                    </svg>
                 </button>
-                <div id="nav-menu" class="absolute right-0 top-[calc(100%+.75rem)] z-50 w-[min(19rem,calc(100vw-2.5rem))] rounded-xl border border-[#121017]/10 bg-white/95 p-3 shadow-[0_20px_50px_rgba(18,16,23,.16)] backdrop-blur-xl" hidden>
-                    <p class="px-3 pb-2 text-[10px] font-black uppercase tracking-[.16em] text-[#397565]">Explore CITE</p>
+                <div id="nav-menu"
+                    class="absolute right-0 top-[calc(100%+.75rem)] z-50 w-[min(19rem,calc(100vw-2.5rem))] rounded-xl border border-[#121017]/10 bg-white/95 p-3 shadow-[0_20px_50px_rgba(18,16,23,.16)] backdrop-blur-xl"
+                    hidden>
+                    <p class="px-3 pb-2 text-[10px] font-black uppercase tracking-[.16em] text-[#397565]">Explore CITE
+                    </p>
                     <label class="relative mb-2 block">
                         <span class="sr-only">Search events</span>
-                        <svg class="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 fill-none stroke-[#121017]/40 stroke-2" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>
-                        <input class="h-11 w-full rounded-lg border border-[#121017]/10 bg-white/60 pl-10 pr-3 text-sm outline-none focus:border-[#397565]" type="search" placeholder="Search events..." data-event-search>
+                        <svg class="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 fill-none stroke-[#121017]/40 stroke-2"
+                            viewBox="0 0 24 24" aria-hidden="true">
+                            <circle cx="11" cy="11" r="7" />
+                            <path d="m20 20-4-4" />
+                        </svg>
+                        <input
+                            class="h-11 w-full rounded-lg border border-[#121017]/10 bg-white/60 pl-10 pr-3 text-sm outline-none focus:border-[#397565]"
+                            type="search" placeholder="Search events..." data-event-search>
                     </label>
-                    <a class="flex min-h-11 items-center justify-between rounded-lg px-3 text-sm font-extrabold transition hover:bg-[#397565]/10 hover:text-[#397565]" href="#discover" data-nav-close>Discover <span aria-hidden="true">→</span></a>
-                    <a class="flex min-h-11 items-center justify-between rounded-lg px-3 text-sm font-extrabold transition hover:bg-[#397565]/10 hover:text-[#397565]" href="#upcoming" data-nav-close>Events <span aria-hidden="true">→</span></a>
+                    <a class="flex min-h-11 items-center justify-between rounded-lg px-3 text-sm font-extrabold transition hover:bg-[#397565]/10 hover:text-[#397565]"
+                        href="#discover" data-nav-close>Discover <span aria-hidden="true">→</span></a>
+                    <a class="flex min-h-11 items-center justify-between rounded-lg px-3 text-sm font-extrabold transition hover:bg-[#397565]/10 hover:text-[#397565]"
+                        href="#upcoming" data-nav-close>Events <span aria-hidden="true">→</span></a>
                     <div class="mt-2 border-t border-[#121017]/8 pt-3">
-                        <button class="flex min-h-11 w-full items-center justify-between rounded-lg bg-[#397565] px-4 text-sm font-extrabold text-white transition hover:bg-[#2e6355]" type="button" data-login-open data-nav-close>Sign in <span aria-hidden="true">→</span></button>
+                        <button
+                            class="flex min-h-11 w-full items-center justify-between rounded-lg bg-[#397565] px-4 text-sm font-extrabold text-white transition hover:bg-[#2e6355]"
+                            type="button" data-login-open data-nav-close>Sign in <span
+                                aria-hidden="true">→</span></button>
                     </div>
                 </div>
             </div>
@@ -112,132 +400,187 @@
 
     <main data-page-content>
         <section id="discover" class="hero-grain border-b border-[#121017]/8">
-            <div class="mx-auto grid max-w-[1440px] gap-10 px-5 py-12 sm:px-8 lg:grid-cols-[minmax(0,1.35fr)_minmax(350px,.65fr)] lg:px-12 lg:py-16 xl:gap-16">
-                <div class="min-w-0">
-                    <p class="mb-5 flex items-center gap-2 text-xs font-black uppercase tracking-[.18em] text-[#397565]"><span class="h-2 w-2 rounded-full bg-[#FF6B2C]"></span>CITE Fest 2026</p>
-                    <h1 class="max-w-3xl text-[clamp(2.8rem,6vw,5.8rem)] font-black leading-[.96] tracking-[-.065em]">Where IT events<br class="hidden sm:block"> come alive.</h1>
-                    <p class="mt-6 max-w-2xl text-base leading-7 text-[#121017]/58 sm:text-lg">Discover competitions, activities, and memorable moments created for the CITE community.</p>
+            <div class="mx-auto max-w-[1440px] px-5 py-8 sm:px-8 lg:px-12 lg:py-10">
+                <div class="homepage-feature-carousel relative overflow-hidden shadow-[0_22px_45px_rgba(18,16,23,.16)]"
+                    data-feature-carousel aria-label="Featured CITE events">
+                    <div class="homepage-feature-static-content relative z-10 max-w-3xl text-white">
+                        <p
+                            class="mb-5 flex items-center gap-2 text-xs font-black uppercase tracking-[.18em] text-[#C6F24E]">
+                            <span class="h-2 w-2 rounded-full bg-[#FF6B2C]"></span>CITE Fest
+                        </p>
+                        <h1 class="text-[clamp(2.8rem,6vw,5.8rem)] font-black leading-[.96] tracking-[-.065em]">Where IT
+                            events<br class="hidden sm:block"> come alive.</h1>
+                        <p class="mt-6 max-w-2xl text-base leading-7 text-white/80 sm:text-lg">Discover competitions,
+                            activities, and memorable moments created for the CITE community.</p>
 
-                    <div class="mt-8 flex flex-wrap gap-3">
-                        <button class="inline-flex min-h-12 items-center rounded-lg bg-[#397565] px-5 text-sm font-extrabold text-white shadow-[0_8px_20px_rgba(57,117,101,.22)] transition hover:-translate-y-0.5 hover:bg-[#2e6355]" type="button" data-login-open>Sign in to your portal</button>
-                        <a class="inline-flex min-h-12 items-center rounded-lg border border-[#2F3AE0] bg-white/45 px-5 text-sm font-extrabold text-[#2F3AE0] transition hover:-translate-y-0.5 hover:bg-[#2F3AE0] hover:text-white" href="#upcoming">Explore Events</a>
+                        <p class="mt-4 hidden max-w-2xl text-sm leading-6 text-white/65">New here? Explore events
+                            without signing in. Students and staff can sign in to see their own events, attendance, and
+                            tasks.</p>
                     </div>
-                    <p class="mt-4 max-w-2xl text-sm leading-6 text-[#121017]/65">New here? Explore events without signing in. Students and staff can sign in to see their own events, attendance, and tasks.</p>
+                    <div class="homepage-feature-actions absolute z-20 flex flex-wrap justify-end gap-3">
+                        <button
+                            class="inline-flex min-h-12 items-center rounded-lg bg-[#397565] px-5 text-sm font-extrabold text-white shadow-[0_8px_20px_rgba(57,117,101,.22)] transition hover:-translate-y-0.5 hover:bg-[#2e6355]"
+                            type="button" data-login-open>Sign in to your portal</button>
+                        <a class="inline-flex min-h-12 items-center rounded-lg border border-white/55 bg-white/15 px-5 text-sm font-extrabold text-white transition hover:-translate-y-0.5 hover:bg-white hover:text-[#2F3AE0]"
+                            href="#upcoming">Explore Events</a>
+                    </div>
 
-                    <div class="relative mt-10" data-feature-carousel aria-label="Featured CITE events">
-                                                    <div class="poster-glow poster-grid relative grid min-h-[320px] place-items-center overflow-hidden rounded-[14px] p-8 text-center text-white shadow-[0_22px_45px_rgba(18,16,23,.16)]">
-                                <div>
-                                    <span class="mx-auto grid h-12 w-12 place-items-center rounded-full bg-[#C6F24E] text-xl text-[#121017]">✦</span>
-                                    <h2 class="mt-5 text-3xl font-black tracking-[-.04em]">No featured events yet</h2>
-                                    <p class="mt-2 text-sm text-white/65">Upcoming featured events will appear here.</p>
-                                </div>
-                            </div>
-                        
-                                            </div>
-                </div>
-
-                <aside class="self-start px-1 py-5 lg:sticky lg:top-24 lg:px-0 lg:py-0" aria-labelledby="calendar-heading">
-                    <div>
-                        <p class="text-xs font-black uppercase tracking-[.16em] text-[#397565]">Mark your calendar</p>
-                        <h2 id="calendar-heading" class="mt-4 text-3xl font-black tracking-[-.045em]">Upcoming in CITE</h2>
-                        <p class="mt-2 text-sm leading-6 text-[#121017]/55">Don’t miss the next activities and competitions.</p>
-
-                        <div class="mt-5 flex flex-wrap gap-2" aria-label="Filter upcoming events">
-                            <button class="event-filter rounded-full border border-[#121017]/8 bg-[#F3F0E9] px-4 py-2 text-xs font-extrabold text-[#121017]/55 transition" type="button" data-filter="all" aria-pressed="true">All</button>
-                            <button class="event-filter rounded-full border border-[#121017]/8 bg-[#F3F0E9] px-4 py-2 text-xs font-extrabold text-[#121017]/55 transition hover:border-[#397565]/40" type="button" data-filter="current" aria-pressed="false">Current</button>
-                            <button class="event-filter rounded-full border border-[#121017]/8 bg-[#F3F0E9] px-4 py-2 text-xs font-extrabold text-[#121017]/55 transition hover:border-[#397565]/40" type="button" data-filter="upcoming" aria-pressed="false">Upcoming</button>
+                    <div
+                        class="poster-glow poster-grid absolute inset-0 grid place-items-center p-8 text-center text-white">
+                        <div>
+                            <span
+                                class="mx-auto grid h-12 w-12 place-items-center rounded-full bg-[#C6F24E] text-xl text-[#121017]">✦</span>
+                            <h2 class="mt-5 text-3xl font-black tracking-[-.04em]">No featured events yet</h2>
+                            <p class="mt-2 text-sm text-white/65">Upcoming featured events will appear here.</p>
                         </div>
                     </div>
 
-                    <div class="mt-7 divide-y divide-[#121017]/8" id="agenda-list">
-                                                    <div class="rounded-xl border border-dashed border-[#397565]/25 bg-[#397565]/5 px-5 py-10 text-center">
-                                <strong class="text-sm">No upcoming events</strong>
-                                <p class="mt-1 text-xs text-[#121017]/50">Published event schedules will appear here.</p>
-                            </div>
                                             </div>
-                    <p id="agenda-empty" class="mt-6 hidden rounded-lg bg-[#FF6B2C]/8 p-4 text-sm font-bold text-[#121017]/65">No events match that filter.</p>
-                </aside>
+
+                <aside class="homepage-calendar-card" aria-labelledby="calendar-heading">
+                <div class="max-w-md">
+                    <p class="text-xs font-black uppercase tracking-[.16em] text-[#397565]">Mark your calendar</p>
+                    <h2 id="calendar-heading" class="mt-4 text-3xl font-black tracking-[-.045em]">Upcoming in CITE</h2>
+                    <p class="mt-2 text-sm leading-6 text-[#121017]/55">Don’t miss the next activities and competitions.
+                    </p>
+
+                    <div class="mt-5 flex flex-wrap gap-2" aria-label="Filter upcoming events">
+                        <button
+                            class="event-filter rounded-full border border-[#121017]/8 bg-[#F3F0E9] px-4 py-2 text-xs font-extrabold text-[#121017]/55 transition"
+                            type="button" data-filter="all" aria-pressed="true">All</button>
+                        <button
+                            class="event-filter rounded-full border border-[#121017]/8 bg-[#F3F0E9] px-4 py-2 text-xs font-extrabold text-[#121017]/55 transition hover:border-[#397565]/40"
+                            type="button" data-filter="current" aria-pressed="false">Current</button>
+                        <button
+                            class="event-filter rounded-full border border-[#121017]/8 bg-[#F3F0E9] px-4 py-2 text-xs font-extrabold text-[#121017]/55 transition hover:border-[#397565]/40"
+                            type="button" data-filter="upcoming" aria-pressed="false">Upcoming</button>
+                    </div>
+                </div>
+
+                <div class="divide-y divide-[#121017]/8" id="agenda-list">
+                    <div
+                        class="rounded-xl border border-dashed border-[#397565]/25 bg-[#397565]/5 px-5 py-10 text-center">
+                        <strong class="text-sm">No upcoming events</strong>
+                        <p class="mt-1 text-xs text-[#121017]/50">Published event schedules will appear here.</p>
+                    </div>
+                </div>
+                <p id="agenda-empty"
+                    class="homepage-calendar-empty hidden rounded-lg bg-[#FF6B2C]/8 p-4 text-sm font-bold text-[#121017]/65">
+                    No events match that filter.</p>
+            </aside>
             </div>
         </section>
 
-        <section id="upcoming" class="mx-auto grid max-w-[1440px] gap-12 px-5 py-16 sm:px-8 lg:grid-cols-[minmax(280px,.68fr)_minmax(0,1.32fr)] lg:px-12 lg:py-24 xl:gap-24">
+        <section id="upcoming"
+            class="mx-auto grid max-w-[1440px] gap-12 px-5 py-16 sm:px-8 lg:grid-cols-[minmax(280px,.68fr)_minmax(0,1.32fr)] lg:px-12 lg:py-24 xl:gap-24">
             <header>
                 <p class="text-xs font-black uppercase tracking-[.18em] text-[#397565]">Coming up</p>
-                <h2 class="mt-4 text-4xl font-black leading-tight tracking-[-.05em] sm:text-5xl">Never miss the moment.</h2>
-                <p class="mt-5 max-w-md text-lg leading-8 text-[#121017]/56">See what’s next, save your spot, and arrive with your tribe.</p>
-                <a class="mt-8 inline-flex min-h-12 items-center gap-5 rounded-lg border border-[#397565]/45 bg-white/35 px-5 text-sm font-extrabold shadow-sm transition hover:border-[#2F3AE0] hover:text-[#2F3AE0]" href="#event-list">View all events <span class="text-xl" aria-hidden="true">→</span></a>
+                <h2 class="mt-4 text-4xl font-black leading-tight tracking-[-.05em] sm:text-5xl">Never miss the moment.
+                </h2>
+                <p class="mt-5 max-w-md text-lg leading-8 text-[#121017]/56">See what’s next, save your spot, and arrive
+                    with your tribe.</p>
+                <a class="mt-8 inline-flex min-h-12 items-center gap-5 rounded-lg border border-[#397565]/45 bg-white/35 px-5 text-sm font-extrabold shadow-sm transition hover:border-[#2F3AE0] hover:text-[#2F3AE0]"
+                    href="#event-list">View all events <span class="text-xl" aria-hidden="true">→</span></a>
             </header>
 
             <div id="event-list" class="border-t border-[#121017]/12">
-                                    <div class="grid min-h-[260px] place-items-center border-b border-[#121017]/12 text-center">
-                        <div><span class="mx-auto grid h-14 w-14 place-items-center rounded-full bg-[#C6F24E] text-xl">✦</span><h3 class="mt-5 text-xl font-black">The calendar is clearing its throat.</h3><p class="mt-2 text-sm text-[#121017]/50">Upcoming events will appear here once they’re published.</p></div>
+                <div class="grid min-h-[260px] place-items-center border-b border-[#121017]/12 text-center">
+                    <div><span
+                            class="mx-auto grid h-14 w-14 place-items-center rounded-full bg-[#C6F24E] text-xl">✦</span>
+                        <h3 class="mt-5 text-xl font-black">The calendar is clearing its throat.</h3>
+                        <p class="mt-2 text-sm text-[#121017]/50">Upcoming events will appear here once they’re
+                            published.</p>
                     </div>
-                                <p id="search-empty" class="hidden border-b border-[#121017]/12 py-12 text-center text-sm font-bold text-[#121017]/55">No upcoming events match your search.</p>
+                </div>
+                <p id="search-empty"
+                    class="hidden border-b border-[#121017]/12 py-12 text-center text-sm font-bold text-[#121017]/55">No
+                    upcoming events match your search.</p>
             </div>
         </section>
     </main>
 
     <footer class="bg-[#1f3430] text-white">
-        <div class="mx-auto flex max-w-[1440px] flex-col gap-5 px-5 py-9 sm:px-8 md:flex-row md:items-center md:justify-between lg:px-12">
-            <a class="flex items-center gap-3 text-2xl font-black tracking-[-.05em]" href="./"><img class="h-11 w-11 rounded-full object-contain" src="assets/images/cite-logo.png" alt=""><span>CITE<span class="text-[#C6F24E]">.</span></span></a>
+        <div
+            class="mx-auto flex max-w-[1440px] flex-col gap-5 px-5 py-9 sm:px-8 md:flex-row md:items-center md:justify-between lg:px-12">
+            <a class="flex items-center gap-3 text-2xl font-black tracking-[-.05em]" href="./"><img
+                    class="h-11 w-11 rounded-full object-contain" src="assets/images/cite-logo.png"
+                    alt=""><span>CITE<span class="text-[#C6F24E]">.</span></span></a>
             <p class="text-sm text-[#C6F24E]/85">Plan. Connect. Celebrate.</p>
             <p class="text-sm text-white/55">Campus Event Management System</p>
         </div>
     </footer>
 
-        <dialog id="login-modal" class="login-dialog m-auto border-0 bg-white p-0 text-[#121017]" aria-labelledby="login-title" data-focus-self tabindex="-1">
-            <div class="login-dialog-content">
-                <button class="login-close" type="button" data-login-close aria-label="Close sign-in dialog">×</button>
+    <dialog id="login-modal" class="login-dialog m-auto border-0 bg-white p-0 text-[#121017]"
+        aria-labelledby="login-title" data-focus-self tabindex="-1">
+        <div class="login-dialog-content">
+            <button class="login-close" type="button" data-login-close aria-label="Close sign-in dialog">×</button>
 
-                <header class="login-heading">
-                    <p class="login-brand">CITE Events</p>
-                    <h2 id="login-title">Sign in</h2>
-                </header>
+            <header class="login-heading">
+                <p class="login-brand">CITE Events</p>
+                <h2 id="login-title">Sign in</h2>
+            </header>
 
-                <p class="login-success hidden" data-password-change-success role="status" aria-live="polite">Password changed. Enter your same ID or username and your new password below.</p>
+            <p class="login-success hidden" data-password-change-success role="status" aria-live="polite">Password
+                changed. Enter your same ID or username and your new password below.</p>
 
-                <div class="login-guide" data-first-login-guide>
-                    <strong>First time signing in?</strong>
-                    <p id="login-guide-description">Password is your ID + LAST NAME in capitals, no spaces or punctuation.</p>
-                    <div class="login-example" aria-label="Example first sign-in credentials">
-                        <span>ID</span><code>02-0000-000000</code>
-                        <span>Password</span><code>02-0000-000000LAGO</code>
-                    </div>
+            <div class="login-guide" data-first-login-guide>
+                <strong>First time signing in?</strong>
+                <p id="login-guide-description">Password is your ID + LAST NAME in capitals, no spaces or punctuation.
+                </p>
+                <div class="login-example" aria-label="Example first sign-in credentials">
+                    <span>ID</span><code>02-0000-000000</code>
+                    <span>Password</span><code>02-0000-000000LAGO</code>
                 </div>
-
-                <form class="login-form" method="POST" action="api/auth.php?action=login" data-login-form>
-                    <p class="login-error hidden" data-login-error role="alert"></p>
-                    <label class="login-field">
-                        <span class="sr-only">ID or username</span>
-                        <input id="modal-login" name="login" type="text" placeholder="ID or username" autocomplete="username" autocapitalize="none" spellcheck="false" required>
-                    </label>
-
-                    <label class="login-field login-password-field">
-                        <span class="sr-only">Password</span>
-                        <input id="modal-password" name="password" type="password" placeholder="Password" autocomplete="current-password" required>
-                        <button class="login-password-toggle" type="button" data-password-toggle aria-label="Show password" aria-pressed="false">
-                            <svg class="h-5 w-5 fill-none stroke-current stroke-2" viewBox="0 0 24 24" aria-hidden="true" data-eye-visible><path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z"/><circle cx="12" cy="12" r="2.75"/></svg>
-                            <svg class="hidden h-5 w-5 fill-none stroke-current stroke-2" viewBox="0 0 24 24" aria-hidden="true" data-eye-hidden><path d="m3 3 18 18M10.6 6.15A10.8 10.8 0 0 1 12 6c6 0 9.5 6 9.5 6a15.7 15.7 0 0 1-2.1 2.75M6.1 6.1C3.8 7.75 2.5 12 2.5 12s3.5 6 9.5 6a9.8 9.8 0 0 0 3.05-.48M10.05 10.05A2.75 2.75 0 0 0 13.95 13.95"/></svg>
-                        </button>
-                    </label>
-
-                    <label class="login-remember"><input name="remember" type="checkbox" value="1"><span>Keep me signed in</span></label>
-                    <button class="login-submit" type="submit" data-login-submit>Sign in</button>
-                </form>
-                <p class="login-help">Forgot password? Ask your SBO Adviser.</p>
             </div>
-        </dialog>
 
-        <dialog id="sign-in-wait" class="sign-in-wait" data-focus-self tabindex="-1" aria-labelledby="sign-in-wait-title" aria-describedby="sign-in-wait-message">
-            <div class="sign-in-wait-content" role="status" aria-live="polite">
-                <span class="sign-in-wait-logo"><img src="assets/images/cite-logo.png" alt="CITE logo" width="112" height="112"></span>
-                <h2 id="sign-in-wait-title">Signing you in</h2>
-                <p id="sign-in-wait-message">Please wait a moment...</p>
-                <button class="sign-in-wait-cancel" type="button" data-sign-in-cancel>Cancel sign-in</button>
-            </div>
-        </dialog>
+            <form class="login-form" method="POST" action="api/auth.php?action=login" data-login-form>
+                <p class="login-error hidden" data-login-error role="alert"></p>
+                <label class="login-field">
+                    <span class="sr-only">ID or username</span>
+                    <input id="modal-login" name="login" type="text" placeholder="ID or username"
+                        autocomplete="username" autocapitalize="none" spellcheck="false" required>
+                </label>
+
+                <label class="login-field login-password-field">
+                    <span class="sr-only">Password</span>
+                    <input id="modal-password" name="password" type="password" placeholder="Password"
+                        autocomplete="current-password" required>
+                    <button class="login-password-toggle" type="button" data-password-toggle aria-label="Show password"
+                        aria-pressed="false">
+                        <svg class="h-5 w-5 fill-none stroke-current stroke-2" viewBox="0 0 24 24" aria-hidden="true"
+                            data-eye-visible>
+                            <path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z" />
+                            <circle cx="12" cy="12" r="2.75" />
+                        </svg>
+                        <svg class="hidden h-5 w-5 fill-none stroke-current stroke-2" viewBox="0 0 24 24"
+                            aria-hidden="true" data-eye-hidden>
+                            <path
+                                d="m3 3 18 18M10.6 6.15A10.8 10.8 0 0 1 12 6c6 0 9.5 6 9.5 6a15.7 15.7 0 0 1-2.1 2.75M6.1 6.1C3.8 7.75 2.5 12 2.5 12s3.5 6 9.5 6a9.8 9.8 0 0 0 3.05-.48M10.05 10.05A2.75 2.75 0 0 0 13.95 13.95" />
+                        </svg>
+                    </button>
+                </label>
+
+                <label class="login-remember"><input name="remember" type="checkbox" value="1"><span>Keep me signed
+                        in</span></label>
+                <button class="login-submit" type="submit" data-login-submit>Sign in</button>
+            </form>
+            <p class="login-help">Forgot password? Ask your SBO Adviser.</p>
+        </div>
+    </dialog>
+
+    <dialog id="sign-in-wait" class="sign-in-wait" data-focus-self tabindex="-1" aria-labelledby="sign-in-wait-title"
+        aria-describedby="sign-in-wait-message">
+        <div class="sign-in-wait-content" role="status" aria-live="polite">
+            <span class="sign-in-wait-logo"><img src="assets/images/cite-logo.png" alt="CITE logo" width="112"
+                    height="112"></span>
+            <h2 id="sign-in-wait-title">Signing you in</h2>
+            <p id="sign-in-wait-message">Please wait a moment...</p>
+            <button class="sign-in-wait-cancel" type="button" data-sign-in-cancel>Cancel sign-in</button>
+        </div>
+    </dialog>
     <script src="js/vendor/axios.min.js"></script>
     <script src="js/shared/password-gate.js?v=20260925-minimal-1"></script>
     <script src="js/home/home.js?v=20260925-login-recovery-1"></script>
 </body>
+
 </html>

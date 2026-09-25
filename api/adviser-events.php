@@ -161,6 +161,7 @@ final class EventManagementRepository
         $event['attendance_assignments'] = $this->attendanceAssignments($id);
         $event['attendance_overview'] = $this->attendanceOverview($id, $event['expected_participants']);
         $event['score_overview'] = $this->scoreOverview($id);
+        $event['feature_images'] = $this->featureImages($id);
         $metadata = $this->metadata();
         $assigned = array_column($event['assigned_users'], 'id');
         $metadata['available_users'] = array_values(array_filter(
@@ -617,12 +618,14 @@ final class EventManagementRepository
     public function forceDelete(int $id): void
     {
         $posterPath = null;
+        $featureImagePaths = [];
         $this->db->beginTransaction();
         try {
             $eventLock=$this->db->prepare('SELECT poster_path,deleted_at FROM tbl_events WHERE id=? FOR UPDATE');$eventLock->execute([$id]);$event=$eventLock->fetch();
             if(!$event)throw new EventValidationException(['event'=>['Event not found.']]);
             if($event['deleted_at']===null)throw new EventValidationException(['event'=>['Archive the event before permanently deleting it.']]);
             $posterPath=$event['poster_path'];
+            $featureImagePaths = array_column($this->featureImages($id), 'image_path');
             foreach (['tbl_event_user', 'tbl_event_team', 'tbl_event_year_level', 'tbl_event_participants', 'tbl_event_attendance_schedules'] as $table) {
                 $this->db->prepare("DELETE FROM $table WHERE event_id=?")->execute([$id]);
             }
@@ -636,6 +639,7 @@ final class EventManagementRepository
         if ($posterPath) {
             $this->deletePoster($posterPath);
         }
+        foreach ($featureImagePaths as $path) $this->deleteFeatureImage($path);
     }
 
     public function feature(int $id, array $input, int $actorId): void
@@ -672,6 +676,61 @@ final class EventManagementRepository
             $this->log($actorId, $id, $featured ? 'event_featured' : 'event_unfeatured', $event['title'].($featured ? ' was added to the featured carousel.' : ' was removed from the featured carousel.'));
             $this->db->commit();
         } catch (Throwable $exception) { if ($this->db->inTransaction()) $this->db->rollBack(); throw $exception; }
+    }
+
+    public function addFeatureImages(int $id, array $files, int $actorId): void
+    {
+        $event = $this->eventRow($id);
+        if ($event['deleted_at'] !== null) {
+            throw new EventValidationException(['images' => ['Images cannot be added to an archived event.']]);
+        }
+        $uploads = $this->uploadedFiles($files['images'] ?? null);
+        if (!$uploads) throw new EventValidationException(['images' => ['Select at least one image to upload.']]);
+        if (count($uploads) > 6) throw new EventValidationException(['images' => ['Upload up to 6 carousel images at a time.']]);
+        if ((int) $this->scalar('SELECT COUNT(*) FROM tbl_event_feature_images WHERE event_id=?', [$id]) + count($uploads) > 12) {
+            throw new EventValidationException(['images' => ['An event can have up to 12 carousel images.']]);
+        }
+
+        $paths = [];
+        try {
+            foreach ($uploads as $upload) $paths[] = $this->storeFeatureImage($upload);
+            $this->db->beginTransaction();
+            $lock = $this->db->prepare('SELECT id FROM tbl_events WHERE id=? AND deleted_at IS NULL FOR UPDATE');
+            $lock->execute([$id]);
+            if (!$lock->fetchColumn()) throw new EventValidationException(['event' => ['Event not found.']]);
+            $storedCount = (int) $this->scalar('SELECT COUNT(*) FROM tbl_event_feature_images WHERE event_id=?', [$id]);
+            if ($storedCount + count($paths) > 12) throw new EventValidationException(['images' => ['An event can have up to 12 carousel images.']]);
+            $order = (int) $this->scalar('SELECT COALESCE(MAX(sort_order),-1)+1 FROM tbl_event_feature_images WHERE event_id=?', [$id]);
+            $insert = $this->db->prepare('INSERT INTO tbl_event_feature_images(event_id,image_path,sort_order,created_at,updated_at) VALUES(?,?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)');
+            foreach ($paths as $path) $insert->execute([$id, $path, $order++]);
+            $this->log($actorId, $id, 'event_feature_images_added', count($paths).' carousel image(s) were added to '.$event['title'].'.');
+            $this->db->commit();
+        } catch (Throwable $exception) {
+            if ($this->db->inTransaction()) $this->db->rollBack();
+            foreach ($paths as $path) $this->deleteFeatureImage($path);
+            throw $exception;
+        }
+    }
+
+    public function removeFeatureImage(int $eventId, int $imageId, int $actorId): void
+    {
+        $path = null;
+        $this->db->beginTransaction();
+        try {
+            $event = $this->eventRow($eventId);
+            if ($event['deleted_at'] !== null) throw new EventValidationException(['event' => ['Event not found.']]);
+            $image = $this->db->prepare('SELECT image_path FROM tbl_event_feature_images WHERE id=? AND event_id=? FOR UPDATE');
+            $image->execute([$imageId, $eventId]);
+            $path = $image->fetchColumn();
+            if (!$path) throw new EventValidationException(['image' => ['Carousel image not found.']]);
+            $this->db->prepare('DELETE FROM tbl_event_feature_images WHERE id=? AND event_id=?')->execute([$imageId, $eventId]);
+            $this->log($actorId, $eventId, 'event_feature_image_removed', 'A carousel image was removed from '.$event['title'].'.');
+            $this->db->commit();
+        } catch (Throwable $exception) {
+            if ($this->db->inTransaction()) $this->db->rollBack();
+            throw $exception;
+        }
+        $this->deleteFeatureImage((string) $path);
     }
 
     public function assign(int $eventId, int $userId, int $actorId): void
@@ -1166,6 +1225,19 @@ final class EventManagementRepository
         return $event;
     }
 
+    private function featureImages(int $eventId): array
+    {
+        $statement = $this->db->prepare('SELECT id,image_path,sort_order FROM tbl_event_feature_images WHERE event_id=? ORDER BY sort_order,id');
+        $statement->execute([$eventId]);
+        $images = $statement->fetchAll();
+        foreach ($images as &$image) {
+            $image['id'] = (int) $image['id'];
+            $image['sort_order'] = (int) $image['sort_order'];
+        }
+        unset($image);
+        return $images;
+    }
+
     private function audienceSelectionChanged(int $eventId,array $data):bool
     {
         $expected=match($data['audience_type']){
@@ -1277,9 +1349,47 @@ final class EventManagementRepository
         return 'assets/uploads/event-posters/'.$name;
     }
 
+    private function uploadedFiles(mixed $upload): array
+    {
+        if (!is_array($upload) || !is_array($upload['name'] ?? null)) return [];
+        $files = [];
+        foreach (array_keys($upload['name']) as $index) {
+            $file = [
+                'name' => $upload['name'][$index] ?? '',
+                'type' => $upload['type'][$index] ?? '',
+                'tmp_name' => $upload['tmp_name'][$index] ?? '',
+                'error' => $upload['error'][$index] ?? UPLOAD_ERR_NO_FILE,
+                'size' => $upload['size'][$index] ?? 0,
+            ];
+            if ((int) $file['error'] !== UPLOAD_ERR_NO_FILE) $files[] = $file;
+        }
+        return $files;
+    }
+
+    private function storeFeatureImage(array $file): string
+    {
+        if (($file['error'] ?? UPLOAD_ERR_OK) !== UPLOAD_ERR_OK) throw new EventValidationException(['images' => ['One of the images could not be uploaded.']]);
+        if (($file['size'] ?? 0) > 5 * 1024 * 1024) throw new EventValidationException(['images' => ['Each carousel image may not exceed 5 MB.']]);
+        $mime = (new finfo(FILEINFO_MIME_TYPE))->file((string) $file['tmp_name']);
+        $extensions = ['image/jpeg' => 'jpg', 'image/png' => 'png', 'image/webp' => 'webp'];
+        if (!isset($extensions[$mime])) throw new EventValidationException(['images' => ['Use JPG, PNG, or WebP carousel images.']]);
+        $directory = dirname(__DIR__).DIRECTORY_SEPARATOR.'assets'.DIRECTORY_SEPARATOR.'uploads'.DIRECTORY_SEPARATOR.'feature-images';
+        if (!is_dir($directory) && !mkdir($directory, 0775, true) && !is_dir($directory)) throw new RuntimeException('Carousel image directory could not be created.');
+        $name = bin2hex(random_bytes(16)).'.'.$extensions[$mime];
+        if (!move_uploaded_file((string) $file['tmp_name'], $directory.DIRECTORY_SEPARATOR.$name)) throw new RuntimeException('Carousel image could not be stored.');
+        return 'assets/uploads/feature-images/'.$name;
+    }
+
     private function deletePoster(string $path): void
     {
         if (!str_starts_with($path, 'assets/uploads/event-posters/')) return;
+        $file = dirname(__DIR__).DIRECTORY_SEPARATOR.str_replace('/', DIRECTORY_SEPARATOR, $path);
+        if (is_file($file)) unlink($file);
+    }
+
+    private function deleteFeatureImage(string $path): void
+    {
+        if (!str_starts_with($path, 'assets/uploads/feature-images/')) return;
         $file = dirname(__DIR__).DIRECTORY_SEPARATOR.str_replace('/', DIRECTORY_SEPARATOR, $path);
         if (is_file($file)) unlink($file);
     }
@@ -1343,6 +1453,12 @@ try {
         case 'feature':
             $repository->feature((int) ($input['id'] ?? 0), $input, $actorId);
             JsonResponse::send(['success' => true, 'message' => $input['is_featured'] ? 'Event added to the featured carousel.' : 'Event removed from the featured carousel.']);
+        case 'feature_images_add':
+            $repository->addFeatureImages((int) ($input['id'] ?? 0), $_FILES, $actorId);
+            JsonResponse::send(['success' => true, 'message' => 'Carousel images added successfully.']);
+        case 'feature_image_delete':
+            $repository->removeFeatureImage((int) ($input['id'] ?? 0), (int) ($input['image_id'] ?? 0), $actorId);
+            JsonResponse::send(['success' => true, 'message' => 'Carousel image removed.']);
         case 'assign':
             $repository->assign((int) ($input['id'] ?? 0), (int) ($input['user_id'] ?? 0), $actorId);
             JsonResponse::send(['success' => true, 'message' => 'Person assigned successfully.']);

@@ -40,6 +40,10 @@ final class EventRepository
         $statement->execute();
 
         $events = array_map([$this, 'normalizeEvent'], $statement->fetchAll());
+        foreach ($events as &$event) {
+            $event['feature_images'] = $this->featureImages((int) $event['id']);
+        }
+        unset($event);
         $featured = array_values(array_filter(
             $events,
             static fn (array $event): bool => $event['is_featured']
@@ -73,6 +77,20 @@ final class EventRepository
         $event['timing'] = $start > $now ? 'upcoming' : ($end < $now ? 'completed' : 'current');
 
         return $event;
+    }
+
+    private function featureImages(int $eventId): array
+    {
+        $statement = $this->database->prepare(
+            'SELECT id,image_path,sort_order FROM tbl_event_feature_images WHERE event_id=? ORDER BY sort_order,id'
+        );
+        $statement->execute([$eventId]);
+
+        return array_map(static fn (array $image): array => [
+            'id' => (int) $image['id'],
+            'image_path' => $image['image_path'],
+            'sort_order' => (int) $image['sort_order'],
+        ], $statement->fetchAll());
     }
 }
 

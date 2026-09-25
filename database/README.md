@@ -38,6 +38,10 @@ An SBO Adviser can reveal or hide it from the Adviser Leaderboard page. Hiding
 also removes standings and finalized scores from the Student Team page; it does
 not affect the Adviser's own preview or score entry.
 
+Homepage feature-banner image slides are added by
+`database/deploy_migrations/20260925_0012_event_feature_images.sql`. Apply it
+before using the Carousel images section in an event's Adviser details page.
+
 For an existing installation, import `database/optimize_team_management.sql`
 to add the indexes used by the paged Team Management views. The migration is
 safe to run more than once and does not modify team or student records.
