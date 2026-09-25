@@ -178,7 +178,30 @@
     const passwordChangeSuccess = loginModal?.querySelector('[data-password-change-success]');
     const firstLoginGuide = loginModal?.querySelector('[data-first-login-guide]');
     const signInWait = document.querySelector('#sign-in-wait');
-    signInWait?.addEventListener('cancel', event => event.preventDefault());
+    const signInCancel = signInWait?.querySelector('[data-sign-in-cancel]');
+    let activeLogin = null;
+    const cancelPendingLogin = () => {
+        const attempt = activeLogin;
+        if (!attempt || attempt.completed) return;
+        activeLogin = null;
+        attempt.controller.abort();
+        signInWait?.close();
+        if (!loginModal?.open) loginModal?.showModal();
+        const form = loginModal?.querySelector('[data-login-form]');
+        const errorMessage = form?.querySelector('[data-login-error]');
+        if (errorMessage) {
+            errorMessage.textContent = 'Sign-in cancelled. You can try again.';
+            errorMessage.classList.remove('hidden');
+        }
+        const submit = form?.querySelector('[data-login-submit]');
+        if (submit) submit.disabled = false;
+        requestAnimationFrame(() => form?.elements.password.focus({ preventScroll: true }));
+    };
+    signInWait?.addEventListener('cancel', event => {
+        event.preventDefault();
+        cancelPendingLogin();
+    });
+    signInCancel?.addEventListener('click', cancelPendingLogin);
     document.querySelectorAll('[data-login-open]').forEach(button => button.addEventListener('click', () => {
         if (state.user) {
             if (state.user.must_change_password) {
@@ -202,8 +225,11 @@
     });
     document.querySelector('[data-login-form]')?.addEventListener('submit', async event => {
         event.preventDefault();
+        if (activeLogin) return;
         const form = event.currentTarget;
         if (!form.reportValidity()) return;
+        const attempt = { controller: new AbortController(), completed: false };
+        activeLogin = attempt;
         passwordChangeSuccess?.classList.add('hidden');
         const submit = form.querySelector('[data-login-submit]');
         const errorMessage = form.querySelector('[data-login-error]');
@@ -217,15 +243,24 @@
         };
         loginModal?.close();
         signInWait?.showModal();
+        if (signInCancel) signInCancel.disabled = false;
         try {
             const response = await axios.post('api/auth.php?action=login', {
                 login: fields.get('login'),
                 password: fields.get('password'),
                 remember: fields.get('remember') === '1'
-            }, { headers: { 'X-CSRF-Token': state.csrfToken } });
+            }, {
+                headers: { 'X-CSRF-Token': state.csrfToken },
+                signal: attempt.controller.signal,
+                timeout: 20000
+            });
+            if (activeLogin !== attempt) return;
+            attempt.completed = true;
+            if (signInCancel) signInCancel.disabled = true;
             state.user = response.data.user;
             state.csrfToken = response.data.csrf_token;
             await finishWait();
+            if (activeLogin !== attempt) return;
             if (state.user.must_change_password) {
                 signInWait?.close();
                 window.RequiredPasswordGate.open(state.user, state.csrfToken);
@@ -233,14 +268,21 @@
             }
             window.location.assign(response.data.redirect_url || dashboardUrl(state.user));
         } catch (error) {
+            if (activeLogin !== attempt) return;
             await finishWait();
+            if (activeLogin !== attempt) return;
             signInWait?.close();
             loginModal?.showModal();
-            errorMessage.textContent = error.response?.data?.message || 'Please check your ID or username and password, then try again.';
+            errorMessage.textContent = ['ECONNABORTED', 'ETIMEDOUT'].includes(error.code)
+                ? 'Sign-in is taking too long. Check your connection and try again.'
+                : error.response?.data?.message || 'Please check your ID or username and password, then try again.';
             errorMessage.classList.remove('hidden');
             requestAnimationFrame(() => form.elements.password.focus({ preventScroll: true }));
         } finally {
-            submit.disabled = false;
+            if (activeLogin === attempt) {
+                activeLogin = null;
+                submit.disabled = false;
+            }
         }
     });
 

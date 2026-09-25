@@ -49,7 +49,7 @@ const assert = (condition, message) => {
       await confirmation.waitFor({state: 'visible'});
       assert(passwordChanged, `${viewport.width}px password-change request succeeded`);
       assert(await page.locator('#login-modal').evaluate(dialog => dialog.open), `${viewport.width}px sign-in dialog opens after password change`);
-      assert((await confirmation.textContent()).includes('Sign in with your new password'), `${viewport.width}px confirmation explains the next step`);
+      assert((await confirmation.textContent()).includes('your new password below'), `${viewport.width}px confirmation explains the next step`);
       assert(!new URL(page.url()).searchParams.has('login'), `${viewport.width}px one-time login flag is removed`);
 
       await page.reload();

@@ -13,7 +13,7 @@
     href="assets/images/cite_favicon.png"
 >
     <link rel="stylesheet" href="css/tailwind.css">
-    <link rel="stylesheet" href="css/home-login.css?v=20260925-wait-ring-1">
+    <link rel="stylesheet" href="css/home-login.css?v=20260925-login-recovery-1">
     <script src="js/shared/interactions.js?v=20260925-login-focus-1" defer></script>
     <style>
         :root { --bone:#F3F0E9; --ink:#121017; --teal:#397565; --cobalt:#2F3AE0; --lime:#C6F24E; --tangerine:#FF6B2C; }
@@ -221,6 +221,7 @@
                         </button>
                     </label>
 
+                    <label class="login-remember"><input name="remember" type="checkbox" value="1"><span>Keep me signed in</span></label>
                     <button class="login-submit" type="submit" data-login-submit>Sign in</button>
                 </form>
                 <p class="login-help">Forgot password? Ask your SBO Adviser.</p>
@@ -232,10 +233,11 @@
                 <span class="sign-in-wait-logo"><img src="assets/images/cite-logo.png" alt="CITE logo" width="112" height="112"></span>
                 <h2 id="sign-in-wait-title">Signing you in</h2>
                 <p id="sign-in-wait-message">Please wait a moment...</p>
+                <button class="sign-in-wait-cancel" type="button" data-sign-in-cancel>Cancel sign-in</button>
             </div>
         </dialog>
     <script src="js/vendor/axios.min.js"></script>
     <script src="js/shared/password-gate.js?v=20260925-minimal-1"></script>
-    <script src="js/home/home.js?v=20260925-wait-1"></script>
+    <script src="js/home/home.js?v=20260925-login-recovery-1"></script>
 </body>
 </html>
