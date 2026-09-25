@@ -18,7 +18,7 @@ $reject = static function (callable $operation, string $message) use ($assert): 
 
 $live->exec("CREATE DATABASE `$scratch` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
 try {
-    foreach (['tbl_roles','tbl_user_statuses','tbl_users','tbl_events','tbl_posts','tbl_post_audits','tbl_post_comments','tbl_post_reactions','tbl_notifications'] as $table) $live->exec("CREATE TABLE `$scratch`.`$table` LIKE `$source`.`$table`");
+    foreach (['tbl_roles','tbl_user_statuses','tbl_users','tbl_year_levels','tbl_teams','tbl_team_user','tbl_events','tbl_posts','tbl_post_audits','tbl_post_comments','tbl_post_reactions','tbl_notifications'] as $table) $live->exec("CREATE TABLE `$scratch`.`$table` LIKE `$source`.`$table`");
     $live->exec("INSERT INTO `$scratch`.`tbl_roles` SELECT * FROM `$source`.`tbl_roles`");
     $live->exec("INSERT INTO `$scratch`.`tbl_user_statuses` SELECT * FROM `$source`.`tbl_user_statuses`");
     $db = (new Database(null, $scratch))->connection();
@@ -59,6 +59,9 @@ try {
     $profile = $repo->publicAuthorProfile($viewer,$ids['micah']);
     $assert($profile['profile']['post_count'] === 2 && count($profile['posts']) === 2, 'Public author profile shows approved posts');
     $assert(count($repo->searchAuthors('Mic')) === 1, 'Author search finds the account with public posts');
+    $emptyProfile = $repo->publicAuthorProfile($viewer,$ids['brian']);
+    $assert($emptyProfile['profile']['post_count'] === 0 && $emptyProfile['posts'] === [], 'Active account with no posts has a public profile');
+    $assert(count($repo->searchAuthors('Bri')) === 1, 'Author search finds an active account with no posts');
     $repo->saveComment($ids['domingo'],$postId,'Yow',null);
     $rootId = (int)$db->query("SELECT id FROM tbl_post_comments WHERE body='Yow' ORDER BY id DESC LIMIT 1")->fetchColumn();
     $repo->saveComment($ids['brian'],$postId,'tabang lord',null,$rootId);
