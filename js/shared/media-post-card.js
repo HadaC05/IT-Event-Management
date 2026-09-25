@@ -57,12 +57,14 @@
   function menuMarkup(post, viewer, permissions) {
     const canEdit = CiteMediaPermissions.canEdit(post, viewer);
     const canDelete = CiteMediaPermissions.canDelete(post, viewer);
-    if (!canEdit && !canDelete && !permissions.hide) return "";
+    const canPin = viewer.role === 'SBO Adviser' && post.status === 'approved';
+    if (!canEdit && !canDelete && !canPin && !permissions.hide) return "";
     return `<details class="cite-post-menu relative shrink-0" data-post-menu>
       <summary class="grid h-11 w-11 cursor-pointer place-items-center rounded-lg text-lg font-black tracking-[.12em] text-[#121017] hover:bg-[#397565]/8" aria-label="Post options" title="Post options">•••</summary>
       <div class="absolute right-0 top-12 z-30 min-w-40 overflow-hidden rounded-xl border border-[#121017]/10 bg-white p-1.5 shadow-2xl">
         ${canEdit ? '<button class="flex min-h-10 w-full items-center rounded-lg px-3 text-left text-xs font-black text-[#397565] hover:bg-[#397565]/8" type="button" data-own-edit>Edit post</button>' : ""}
         ${canDelete ? '<button class="flex min-h-10 w-full items-center rounded-lg px-3 text-left text-xs font-black text-[#c84510] hover:bg-[#FF6B2C]/8" type="button" data-own-delete>Delete post</button>' : ""}
+        ${canPin ? `<button class="flex min-h-10 w-full items-center rounded-lg px-3 text-left text-xs font-black text-[#397565] hover:bg-[#397565]/8" type="button" data-pin-post data-pin="${post.is_pinned ? '0' : '1'}">${post.is_pinned ? 'Unpin post' : 'Pin post to top'}</button>` : ""}
         ${permissions.hide ? '<button class="flex min-h-10 w-full items-center rounded-lg px-3 text-left text-xs font-black text-[#c84510] hover:bg-[#FF6B2C]/8" type="button" data-hide>Hide post</button>' : ""}
       </div>
     </details>`;
@@ -71,7 +73,8 @@
   const reactionDetails = {
     like: { label: "Like", icon: '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M7.5 10.5v10H4a1.5 1.5 0 0 1-1.5-1.5v-7A1.5 1.5 0 0 1 4 10.5h3.5Zm0 0 4.2-7.2a2.2 2.2 0 0 1 2.1 2.1v3.1h4.3a2.4 2.4 0 0 1 2.3 2.9l-1.4 7a2.6 2.6 0 0 1-2.5 2.1H7.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>' },
     love: { label: "Love", icon: '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M20.8 8.8c0 5.2-8.8 11-8.8 11s-8.8-5.8-8.8-11A4.8 4.8 0 0 1 12 6.1a4.8 4.8 0 0 1 8.8 2.7Z" fill="currentColor" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M7.8 9.1c.5-1.1 1.4-1.7 2.5-1.8" stroke="white" stroke-width="1.4" stroke-linecap="round"/></svg>' },
-    laugh: { label: "Laugh", icon: '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="9.2" stroke="currentColor" stroke-width="1.8"/><path d="M8.5 10h.1m6.8 0h.1M7.8 14.1c.8 2.1 2.2 3.2 4.2 3.2s3.4-1.1 4.2-3.2H7.8Z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>' }
+    laugh: { label: "Laugh", icon: '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="10" fill="#FFD052" stroke="#DE8B19" stroke-width="1"/><path d="M6.7 10c.5-1.1 1.3-1.7 2.3-1.7s1.8.6 2.2 1.7m1.6 0c.5-1.1 1.3-1.7 2.3-1.7s1.8.6 2.2 1.7" stroke="#583414" stroke-width="1.5" stroke-linecap="round"/><path d="M6.9 13h10.2c-.6 3.3-2.4 5.2-5.1 5.2s-4.5-1.9-5.1-5.2Z" fill="#63301E"/><path d="M7.6 13.4h8.8" stroke="#FFF" stroke-width="1.2" stroke-linecap="round"/><path d="M5.1 11.1c-1.1 1.2-1.6 2.2-1.6 3.1 0 1 .6 1.7 1.5 1.7 1 0 1.7-.8 1.7-1.7 0-.9-.5-1.9-1.6-3.1Zm13.8 0c1.1 1.2 1.6 2.2 1.6 3.1 0 1-.6 1.7-1.5 1.7-1 0-1.7-.8-1.7-1.7 0-.9.5-1.9 1.6-3.1Z" fill="#2EA9EB" stroke="#1376BC" stroke-width=".6"/></svg>' },
+    wow: { label: "Wow", icon: '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="10" fill="#FFA341" stroke="#E67C1B" stroke-width="1"/><path d="M7 7.8c.8-.7 1.8-.9 2.7-.5m4.6 0c.9-.4 1.9-.2 2.7.5" stroke="#793614" stroke-width="1.3" stroke-linecap="round"/><circle cx="8.6" cy="10.1" r="1.15" fill="#4C2B1B"/><circle cx="15.4" cy="10.1" r="1.15" fill="#4C2B1B"/><ellipse cx="12" cy="15.6" rx="2.25" ry="3.1" fill="#773A25"/><ellipse cx="12" cy="15.1" rx=".95" ry="1.35" fill="#3C241C"/><path d="M6.4 5.3c1.5-1.1 3.3-1.5 5.1-1.4" stroke="#FFE2A3" stroke-width="1.1" stroke-linecap="round"/></svg>' }
   };
   let reactionDialog = null;
   let reactionDialogState = null;
@@ -145,8 +148,8 @@
     const selected = reactionDetails[current] || reactionDetails.like;
     const active = Boolean(current);
     return `<div class="cite-reaction-picker ${buttonClass}" data-reaction-picker data-reaction-scope="${scope}">
-      <button class="cite-reaction-current ${active ? "is-reacted" : ""}" type="button" data-reaction-current data-reaction-type="${current || 'like'}" aria-label="Choose a reaction${active ? `, currently ${selected.label}` : ''}" aria-pressed="${active}" aria-expanded="false"><span class="cite-reaction-icon" aria-hidden="true">${active ? selected.icon : reactionDetails.like.icon}</span>${scope === "post" ? `<span>${active ? selected.label : "React"}</span>` : ""}</button>
-      <div class="cite-reaction-menu" role="group" aria-label="Choose a reaction">${Object.entries(reactionDetails).map(([type, detail]) => `<button type="button" data-reaction-choice="${type}" aria-label="${detail.label}" title="${detail.label}" class="${current === type ? "is-selected" : ""}"><span aria-hidden="true">${detail.icon}</span><span>${detail.label}</span></button>`).join("")}</div>
+      <button class="cite-reaction-current ${active ? "is-reacted" : ""}" type="button" data-reaction-current data-reaction-type="${current || 'like'}" aria-label="Choose a reaction${active ? `, currently ${selected.label}` : ''}" title="Hover to choose a reaction" aria-pressed="${active}" aria-expanded="false"><span class="cite-reaction-icon" aria-hidden="true">${active ? selected.icon : reactionDetails.like.icon}</span>${scope === "post" ? `<span>${active ? selected.label : "React"}</span>` : ""}</button>
+      <div class="cite-reaction-menu" data-reaction-menu role="group" aria-label="Choose a reaction">${Object.entries(reactionDetails).map(([type, detail]) => `<button type="button" data-reaction-choice="${type}" aria-label="${detail.label}" title="${detail.label}" class="${current === type ? "is-selected" : ""}"><span aria-hidden="true">${detail.icon}</span><span>${detail.label}</span></button>`).join("")}</div>
     </div>`;
   }
   function reactionSummary(counts = {}, total = 0, scope = 'post', entityId = '') {
@@ -164,10 +167,15 @@
     const tone = CiteMediaPermissions.roleTone(post.author_role);
     const devBadge = CiteMediaPermissions.specialTagMarkup(post.special_tag);
     const roleBadge = post.author_role === 'Student' ? '' : `<span class="rounded px-2 py-0.5 text-[10px] font-black ${tone}">${esc(role)}</span>`;
+    const postBadge = post.category === 'announcement'
+      ? '<span class="rounded bg-[#C6F24E]/40 px-2 py-0.5 text-[10px] font-black text-[#397565]">Announcement</span>'
+      : post.author_role === 'SBO Adviser'
+        ? '<span class="rounded bg-[#C6F24E]/40 px-2 py-0.5 text-[10px] font-black text-[#397565]">Official</span>'
+        : '';
     const authorAvatar = post.profile_photo_path
       ? `<img class="h-12 w-12 shrink-0 rounded-full object-cover ring-2 ring-[#397565]/15" src="${esc(post.profile_photo_path)}" alt="${esc(post.author_name)} profile picture">`
       : `<span class="grid h-12 w-12 shrink-0 place-items-center rounded-full bg-[#397565] text-xs font-black text-white ring-2 ring-[#397565]/10">${esc(post.author_initials)}</span>`;
-    article.innerHTML = `<header class="flex items-center gap-3 p-4 sm:p-5"><a class="flex min-w-0 flex-1 items-center gap-3 rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-[#397565]" href="pages/shared/public-profile.html?user_id=${encodeURIComponent(post.user_id)}&v=20260924-profile-search-3" aria-label="View ${esc(post.author_name)} profile">${authorAvatar}<span class="min-w-0 flex-1"><span class="flex flex-wrap items-center gap-2"><strong class="truncate text-base">${esc(post.author_name)}</strong>${roleBadge}${devBadge}${post.is_official ? '<span class="rounded bg-[#C6F24E]/40 px-2 py-0.5 text-[10px] font-black text-[#397565]">Official</span>' : ""}</span><span class="mt-0.5 flex flex-wrap gap-2 text-[11px] text-[#121017]/50"><time>${esc(time(post.created_at))}</time>${post.event_title ? `<span>•</span><span class="font-bold text-[#397565]">${esc(post.event_title)}</span>` : ""}</span></span></a>${menuMarkup(post, viewer, permissions)}</header>`;
+    article.innerHTML = `<header class="flex items-center gap-3 p-4 sm:p-5"><a class="flex min-w-0 flex-1 items-center gap-3 rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-[#397565]" href="pages/shared/public-profile.html?user_id=${encodeURIComponent(post.user_id)}&v=20260924-profile-search-3" aria-label="View ${esc(post.author_name)} profile">${authorAvatar}<span class="min-w-0 flex-1"><span class="flex flex-wrap items-center gap-2"><strong class="truncate text-base">${esc(post.author_name)}</strong>${roleBadge}${devBadge}${postBadge}${post.is_pinned ? '<span class="rounded bg-[#397565]/10 px-2 py-0.5 text-[10px] font-black text-[#397565]">📌 Pinned</span>' : ''}</span><span class="mt-0.5 flex flex-wrap gap-2 text-[11px] text-[#121017]/50"><time>${esc(time(post.created_at))}</time>${post.event_title ? `<span>•</span><span class="font-bold text-[#397565]">${esc(post.event_title)}</span>` : ""}</span></span></a>${menuMarkup(post, viewer, permissions)}</header>`;
 
     article.insertAdjacentHTML("beforeend", `<div class="px-4 pb-4 sm:px-5 sm:pb-5"><p class="whitespace-pre-line text-sm leading-6">${esc(post.content)}</p></div>`);
 
@@ -175,7 +183,7 @@
     if (images.length) {
       const visible = images.slice(0, 4);
       const remaining = images.length - visible.length;
-      const layout = visible.length === 1 ? 'is-single' : visible.length === 3 ? 'is-three' : visible.length === 4 ? 'is-four' : '';
+      const layout = visible.length === 1 ? 'is-single' : visible.length === 2 ? 'is-two' : visible.length === 3 ? 'is-three' : visible.length === 4 ? 'is-four' : '';
       const tiles = visible.map((path, index) => {
         const more = remaining > 0 && index === 3;
         const openAt = more ? 4 : index;
@@ -202,9 +210,12 @@
       : `<span class="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-[#397565]/10 text-[10px] font-black text-[#397565]">${esc(comment.author_initials)}</span>`;
     const bindReactionPicker = (picker, comment = null) => {
       const scope = comment ? 'comment' : 'post';
-      picker.querySelector('[data-reaction-current]').onclick = () => {
-        const open = !picker.classList.contains('is-open');
-        if (open) {
+      const currentButton = picker.querySelector('[data-reaction-current]');
+      let closeTimer;
+      let activationPointer = null;
+      const setOpen = open => {
+        clearTimeout(closeTimer);
+        if (open && !picker.classList.contains('is-open')) {
           const bounds = picker.getBoundingClientRect();
           const mobileNav = document.querySelector('[data-shared-mobile-navigation]');
           const navTop = mobileNav && getComputedStyle(mobileNav).display !== 'none' ? mobileNav.getBoundingClientRect().top : window.innerHeight;
@@ -213,11 +224,25 @@
           picker.classList.toggle('is-above', navTop - bounds.bottom < 64 && bounds.top - headerBottom > navTop - bounds.bottom);
         }
         picker.classList.toggle('is-open', open);
-        picker.querySelector('[data-reaction-current]').setAttribute('aria-expanded', String(open));
+        currentButton.setAttribute('aria-expanded', String(open));
+      };
+      picker.onpointerenter = event => { if (event.pointerType !== 'touch') setOpen(true); };
+      picker.onpointerleave = event => { if (event.pointerType !== 'touch') closeTimer = setTimeout(() => setOpen(false), 300); };
+      picker.querySelector('[data-reaction-menu]').onpointerenter = () => clearTimeout(closeTimer);
+      picker.onfocusin = event => { if (event.target.matches(':focus-visible')) setOpen(true); };
+      picker.onfocusout = event => { if (!picker.contains(event.relatedTarget)) setOpen(false); };
+      currentButton.onpointerdown = event => { activationPointer = event.pointerType; };
+      currentButton.onclick = () => {
+        const isMouseClick = activationPointer === 'mouse' || activationPointer === 'pen';
+        activationPointer = null;
+        if (isMouseClick) {
+          const selected = comment ? comment.viewer_reaction : post.viewer_reaction;
+          setOpen(false);
+          submitReaction(picker, comment, 'like', selected !== 'like');
+        } else setOpen(!picker.classList.contains('is-open'));
       };
       picker.querySelectorAll('[data-reaction-choice]').forEach(choice => choice.onclick = () => {
-        picker.classList.remove('is-open');
-        picker.querySelector('[data-reaction-current]').setAttribute('aria-expanded', 'false');
+        setOpen(false);
         const selected = comment ? comment.viewer_reaction : post.viewer_reaction;
         submitReaction(picker, comment, choice.dataset.reactionChoice, selected !== choice.dataset.reactionChoice);
       });
@@ -362,6 +387,7 @@
     article.querySelector("[data-own-edit]")?.addEventListener("click", () => { article.querySelector('[data-post-menu]')?.removeAttribute('open'); edit(post, article); });
     article.querySelectorAll('[data-open-post-image]').forEach(button => button.addEventListener('click', () => openImage(images, `${post.author_name} post photo`, Number(button.dataset.openPostImage))));
     article.querySelector("[data-own-delete]")?.addEventListener("click", () => action({ action: "delete", id: post.id }, { confirm: "Delete this post?" }));
+    article.querySelector("[data-pin-post]")?.addEventListener("click", () => action({action: 'post_pin', post_id: post.id, pin: !post.is_pinned}));
     article.querySelector("[data-hide]")?.addEventListener("click", async () => { const reason = await window.Notifications.prompt({ title: "Hide this post?", message: "Explain why this post is being hidden. This is retained for moderation records.", label: "Reason", placeholder: "Enter the moderation reason…", action: "Hide post", required: true, maxLength: 1000 }); if (reason) action({ action: "hide", post_id: post.id, reason }); });
     article.querySelectorAll("[data-post-menu] button").forEach((button) => button.addEventListener("click", () => button.closest("details").removeAttribute("open")));
     return article;

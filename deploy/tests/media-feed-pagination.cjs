@@ -2,6 +2,15 @@
 const {chromium} = require('playwright');
 const assert = require('node:assert/strict');
 
+const chooseReaction = async (page, choice) => {
+  const box = await choice.boundingBox();
+  assert.ok(box, 'Reaction choice is visible');
+  const x = box.x + box.width / 2, y = box.y + box.height / 2;
+  assert.equal(await choice.evaluate((button, point) => button.contains(document.elementFromPoint(point.x, point.y)), {x, y}), true, 'Reaction choice is not covered');
+  await page.mouse.move(x, y);
+  await page.mouse.click(x, y);
+};
+
 const base = process.env.CITE_BASE_URL || 'http://localhost/ITEventManagement';
 const portraitImage = `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="300" height="1500"><rect width="300" height="1500" fill="#397565"/></svg>')}`;
 const posts = Array.from({length: 25}, (_, index) => ({
@@ -107,7 +116,7 @@ const profile = {id: 1, full_name: 'Test Middle Student', initials: 'TS', id_num
       await previewImage.waitFor({state: 'visible'});
       assert.ok((await previewImage.boundingBox()).height <= 321, 'Tall upload preview remains compact on mobile');
       assert.equal(await page.locator('[data-media-preview] video').isVisible(), false, 'Video stays hidden for image previews');
-      await page.locator('[data-preview-open-image]').click();
+      await page.locator('.cite-media-preview-zoom').click();
       assert.equal(await page.locator('.cite-image-dialog').evaluate(dialog => dialog.open), true, 'Upload preview opens in the full-size viewer');
       await page.keyboard.press('Escape');
       await page.locator('[data-remove-media]').click();
@@ -121,7 +130,7 @@ const profile = {id: 1, full_name: 'Test Middle Student', initials: 'TS', id_num
         return host.querySelector('[data-shared-post-form] span[aria-hidden="true"]').textContent;
       });
       assert.equal(fallbackInitials, 'BR', 'Composer fallback uses first and last names');
-      assert.equal(await page.locator('[data-shared-post-form] textarea[name="content"]').evaluate(input => input.validity.valueMissing), true, 'Empty post remains subject to native validation');
+      assert.equal(await page.locator('[data-shared-post-form] textarea[name="content"]').evaluate(input => input.required), false, 'Photo-only posts are allowed');
       const composerHost = page.locator(profilePage ? '[data-profile-post-form]' : '[data-shared-post-form-host]');
       await page.locator(`${root} [data-post-id="25"] [data-post-menu] summary`).click();
       await page.locator(`${root} [data-post-id="25"] [data-own-edit]`).click();
@@ -131,14 +140,15 @@ const profile = {id: 1, full_name: 'Test Middle Student', initials: 'TS', id_num
       assert.match(await page.locator('[data-edit-review-note]').textContent(), role === 'Student' ? /Pending Review/ : /published immediately/);
       assert.equal(await page.locator('[data-media-preview] img').getAttribute('src'), portraitImage, 'Editing shows the existing photo');
       assert.equal(await page.locator('[data-media-preview]').isVisible(), true);
-      assert.equal(await page.locator('[data-file-name]').textContent(), '1 current photo · Choose Photos to replace');
+      assert.equal(await page.locator('[data-file-name]').textContent(), '1 photo · Add more or remove individually');
       assert.equal(await page.locator('[data-shared-post-form] input[name="remove_media"]').inputValue(), '0', 'Text-only edits keep the attached photo');
-      await page.locator('[data-preview-open-image]').click();
+      await page.locator('.cite-media-preview-zoom').click();
       assert.equal(await page.locator('.cite-image-dialog img').getAttribute('src'), portraitImage, 'Existing photo opens in the viewer');
       await page.keyboard.press('Escape');
       await page.locator('[data-shared-post-form] input[name="images[]"]').setInputFiles({name: 'replacement.png', mimeType: 'image/png', buffer: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+iZQAAAABJRU5ErkJggg==', 'base64')});
-      assert.match(await page.locator('[data-media-preview] img').getAttribute('src'), /^blob:/, 'Choosing a new photo replaces the preview');
-      assert.equal(await page.locator('[data-file-name]').textContent(), '1 photo selected');
+      assert.equal(await page.locator('[data-media-preview] img').count(), 2, 'Choosing a new photo keeps the existing photo');
+      assert.match(await page.locator('[data-media-preview] img').last().getAttribute('src'), /^blob:/, 'New photo has its own preview');
+      assert.equal(await page.locator('[data-file-name]').textContent(), '2 photos · Add more or remove individually');
       assert.equal(await page.locator('[data-shared-post-form] input[name="remove_media"]').inputValue(), '0');
       await page.locator('[data-remove-media]').click();
       assert.equal(await page.locator('[data-media-preview]').isVisible(), false, 'Remove media clears the edit preview');
@@ -154,7 +164,7 @@ const profile = {id: 1, full_name: 'Test Middle Student', initials: 'TS', id_num
       assert.equal(await composerHost.evaluate(host => host.previousElementSibling?.tagName), 'ARTICLE', 'Editing an in-review post also keeps the composer beside it');
       assert.equal(await page.locator('[data-shared-post-form] textarea[name="content"]').inputValue(), 'Pending edit');
       assert.equal(await page.locator('[data-media-preview] video').isVisible(), true, 'Editing an in-review post shows its existing video');
-      assert.equal(await page.locator('[data-file-name]').textContent(), 'Current video · Choose Video to replace');
+      assert.equal(await page.locator('[data-file-name]').textContent(), 'Current video');
       await page.locator('[data-cancel-edit]').click();
       assert.equal(await page.locator(`${root} [data-post-id]`).count(), 20);
       assert.equal(commentRequests, 0, 'Opening the feed must not request comments');
@@ -182,19 +192,18 @@ const profile = {id: 1, full_name: 'Test Middle Student', initials: 'TS', id_num
        await page.waitForFunction(() => document.querySelector('[data-post-id="25"] [data-reaction-picker][data-reaction-scope="post"] [data-reaction-current]')?.getAttribute('aria-pressed') === 'true');
        assert.equal(reactionRequests, 1, 'Rapid clicks make only one reaction request');
        await first.locator('[data-reaction-picker][data-reaction-scope="post"] [data-reaction-current]').click();
-       await first.locator('[data-reaction-picker][data-reaction-scope="post"] [data-reaction-choice="like"]').click();
        await page.waitForFunction(() => document.querySelector('[data-post-id="25"] [data-reaction-picker][data-reaction-scope="post"] [data-reaction-current]')?.getAttribute('aria-pressed') === 'false');
        assert.equal(reactionRequests, 2, 'The button works again after the first update');
        await first.locator('[data-reaction-picker][data-reaction-scope="post"]').evaluate(element => element.scrollIntoView({block: 'center'}));
-       await first.locator('[data-reaction-picker][data-reaction-scope="post"] [data-reaction-current]').click();
-       await first.locator('[data-reaction-picker][data-reaction-scope="post"] [data-reaction-choice="love"]').click();
+       await first.locator('[data-reaction-picker][data-reaction-scope="post"] [data-reaction-current]').hover();
+       await chooseReaction(page, first.locator('[data-reaction-picker][data-reaction-scope="post"] [data-reaction-choice="love"]'));
        await page.waitForFunction(() => document.querySelector('[data-post-id="25"] [data-reaction-picker][data-reaction-scope="post"] [data-reaction-current]')?.dataset.reactionType === 'love');
        await first.locator('[data-open-reactions][data-reaction-kind="post"]').click();
        assert.match(await page.locator('.cite-reactions-list').textContent(), /Test Student/, 'Post reactors can be viewed');
        await page.keyboard.press('Escape');
        await first.locator('[data-comment-id="1"] [data-reaction-picker]').evaluate(element => element.scrollIntoView({block: 'center'}));
-       await first.locator('[data-comment-id="1"] [data-reaction-current]').click();
-       await first.locator('[data-comment-id="1"] [data-reaction-choice="laugh"]').click();
+       await first.locator('[data-comment-id="1"] [data-reaction-current]').hover();
+       await chooseReaction(page, first.locator('[data-comment-id="1"] [data-reaction-choice="laugh"]'));
        await page.waitForFunction(() => document.querySelector('[data-post-id="25"] [data-comment-id="1"] [data-reaction-current]')?.dataset.reactionType === 'laugh');
        assert.equal(await first.locator('[data-comment-id="1"] [data-open-reactions]').count(), 1, 'Comment emoji and count appear after reacting');
        await first.locator('[data-comment-id="1"] [data-open-reactions]').click();

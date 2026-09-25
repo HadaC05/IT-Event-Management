@@ -59,13 +59,13 @@
     if (!date || Number.isNaN(date.getTime())) return '';
     const elapsed = Math.max(0, Date.now() - date.getTime());
     const minutes = Math.floor(elapsed / 60000);
-    if (minutes < 1) return 'Just now';
-    if (minutes < 60) return `${minutes} min${minutes === 1 ? '' : 's'} ago`;
+    if (minutes < 1) return 'Now';
+    if (minutes < 60) return `${minutes}m`;
     const hours = Math.floor(minutes / 60);
-    if (hours < 24) return `${hours}h${minutes % 60 ? ` ${minutes % 60}m` : ''} ago`;
+    if (hours < 24) return `${hours}h`;
     const days = Math.floor(hours / 24);
-    if (days < 7) return `${days}d${hours % 24 ? ` ${hours % 24}h` : ''} ago`;
-    if (days < 30) return `${Math.floor(days / 7)}w ago`;
+    if (days < 7) return `${days}d`;
+    if (days < 30) return `${Math.floor(days / 7)}w`;
     return new Intl.DateTimeFormat('en-PH', {month:'short',day:'numeric',year:date.getFullYear() === new Date().getFullYear() ? undefined : 'numeric'}).format(date);
   };
   const notificationDateTitle = value => {
@@ -83,7 +83,7 @@
   };
   const ensureStyles = () => {
     if (document.querySelector('link[href^="css/navigation.css"]')) return;
-    const link = document.createElement('link'); link.rel = 'stylesheet'; link.href = 'css/navigation.css?v=20260924-media-merge-1'; document.head.append(link);
+    const link = document.createElement('link'); link.rel = 'stylesheet'; link.href = 'css/navigation.css?v=20260925-pin-notifications-1'; document.head.append(link);
   };
   const clone = (documentFragment, selector) => documentFragment.querySelector(selector).content.firstElementChild.cloneNode(true);
   const linkMarkup = (item, active, mobile = false) => {
@@ -103,26 +103,50 @@
 
   const appNotifications = async (header, csrf) => {
     const slot = header.querySelector('[data-shared-notification-slot]');
-    slot.innerHTML = `<details class="group relative" data-notification-menu><summary class="relative grid h-11 w-11 cursor-pointer list-none place-items-center rounded-full bg-[#121017]/8 text-[#121017]" aria-label="Notifications"><svg class="h-5 w-5 fill-current" viewBox="0 0 24 24"><path d="M12 22a2.5 2.5 0 0 0 2.35-1.65h-4.7A2.5 2.5 0 0 0 12 22Zm7-6.5-1.5-2V9a5.5 5.5 0 0 0-4.25-5.35V3a1.25 1.25 0 0 0-2.5 0v.65A5.5 5.5 0 0 0 6.5 9v4.5l-1.5 2V18h14v-2.5Z"></path></svg><span class="absolute -right-1 -top-1 hidden min-h-5 min-w-5 place-items-center rounded-full border-2 border-white bg-[#FF4D4F] px-1 text-[9px] font-black text-white" data-notification-count>0</span></summary><div class="absolute right-0 top-[calc(100%+.65rem)] w-[min(22rem,calc(100vw-1rem))] overflow-hidden rounded-2xl border border-[#121017]/10 bg-white shadow-2xl"><div class="flex items-center justify-between border-b px-4 py-3"><div><strong class="block text-sm font-black">Notifications</strong><span class="text-[10px] text-[#121017]/45" data-notification-summary>No unread notifications</span></div><button class="hidden text-[10px] font-black text-[#397565]" type="button" data-mark-all-notifications>Mark all read</button></div><div class="max-h-80 overflow-y-auto" data-notification-list></div></div></details>`;
-    const refreshTimes = () => slot.querySelectorAll('[data-notification-time]').forEach(node => { node.textContent = notificationTime(node.dataset.notificationTime); });
-    const load = async () => {
-      const response = await axios.get('api/media.php', {params: {action: 'notifications'}}), data = response.data.data, count = Number(data.unread_notifications || 0);
-      const badge = slot.querySelector('[data-notification-count]'); badge.textContent = count > 9 ? '9+' : count; badge.classList.toggle('hidden', !count); badge.classList.toggle('grid', !!count);
-      slot.querySelector('[data-notification-summary]').textContent = count ? `${count} unread notification${count === 1 ? '' : 's'}` : 'No unread notifications';
-      slot.querySelector('[data-mark-all-notifications]').classList.toggle('hidden', !count);
-      slot.querySelector('[data-notification-list]').innerHTML = data.notifications?.length ? data.notifications.map(item => `<article class="grid grid-cols-[minmax(0,1fr)_auto] gap-x-3 gap-y-1 border-b px-4 py-3 ${item.is_read ? '' : 'bg-[#C6F24E]/10'}"><p class="min-w-0 text-xs font-bold leading-5">${esc(item.message)}</p>${item.is_read ? '' : `<button class="row-span-2 shrink-0 self-center text-[10px] font-black text-[#397565]" data-mark-notification="${esc(item.id)}">Mark read</button>`}<time class="text-[10px] font-semibold text-[#121017]/40" datetime="${esc(item.created_at)}" title="${esc(notificationDateTitle(item.created_at))}" data-notification-time="${esc(item.created_at)}">${esc(notificationTime(item.created_at))}</time></article>`).join('') : '<p class="px-6 py-10 text-center text-xs text-[#121017]/45">No notifications yet.</p>';
-      refreshTimes();
-    };
-    const mark = async id => { await axios.post('api/media.php',{action:'mark_notifications_read',...(id ? {notification_id:id} : {})},{headers:{'X-CSRF-Token':csrf}}); await load(); };
-    slot.querySelector('[data-mark-all-notifications]').onclick = () => mark();
-    slot.querySelector('[data-notification-list]').onclick = event => { const button = event.target.closest('[data-mark-notification]'); if (button) mark(button.dataset.markNotification); };
+    slot.innerHTML = `<details class="cite-notification-menu" data-notification-menu><summary class="cite-notification-trigger" aria-label="Notifications"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 22a2.5 2.5 0 0 0 2.35-1.65h-4.7A2.5 2.5 0 0 0 12 22Zm7-6.5-1.5-2V9a5.5 5.5 0 0 0-4.25-5.35V3a1.25 1.25 0 0 0-2.5 0v.65A5.5 5.5 0 0 0 6.5 9v4.5l-1.5 2V18h14v-2.5Z"></path></svg><span class="cite-notification-count" data-notification-count hidden>0</span></summary><section class="cite-notification-panel" aria-label="Notifications"><header class="cite-notification-panel-header"><h2>Notifications</h2><span data-notification-summary></span></header><div class="cite-notification-list" data-notification-list></div></section></details>`;
     const menu = slot.querySelector('[data-notification-menu]');
-    menu.addEventListener('toggle', () => { if (menu.open) load().catch(error => console.warn('Notifications could not be refreshed.', error)); });
+    const badge = slot.querySelector('[data-notification-count]');
+    let request = 0;
+    let marking = null;
+    const refreshTimes = () => slot.querySelectorAll('[data-notification-time]').forEach(node => { node.textContent = notificationTime(node.dataset.notificationTime); });
+    const setBadge = count => {
+      badge.textContent = count > 9 ? '9+' : String(count);
+      badge.hidden = count === 0;
+      menu.querySelector('summary').setAttribute('aria-label', count ? `Notifications, ${count} new` : 'Notifications');
+    };
+    const load = async () => {
+      const current = ++request;
+      const response = await axios.get('api/media.php', {params: {action: 'notifications'}}), data = response.data.data, count = Number(data.unread_notifications || 0);
+      if (current !== request) return null;
+      setBadge(count);
+      slot.querySelector('[data-notification-summary]').textContent = count ? `${count} new` : '';
+      slot.querySelector('[data-notification-list]').innerHTML = data.notifications?.length ? data.notifications.map(item => `<article class="cite-notification-item ${item.is_read ? 'is-read' : 'is-new'}"><span class="cite-notification-item-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></svg></span><div class="cite-notification-item-copy"><strong>${esc(item.title || item.message)}</strong>${item.detail ? `<p>${esc(item.detail)}</p>` : ''}</div><time datetime="${esc(item.created_at)}" title="${esc(notificationDateTitle(item.created_at))}" data-notification-time="${esc(item.created_at)}">${esc(notificationTime(item.created_at))}</time><span class="cite-notification-item-dot" aria-label="${item.is_read ? '' : 'New notification'}"></span></article>`).join('') : '<p class="cite-notification-empty">No notifications yet.</p>';
+      refreshTimes();
+      return data;
+    };
+    menu.addEventListener('toggle', async () => {
+      if (!menu.open) {
+        try { if (marking) await marking; }
+        catch (error) { console.warn('Notifications could not be marked as viewed.', error); }
+        await load().catch(error => console.warn('Notifications could not be refreshed.', error));
+        return;
+      }
+      try {
+        const data = await load();
+        if (!menu.open || !data || !Number(data.unread_notifications)) return;
+        setBadge(0);
+        marking = axios.post('api/media.php', {action:'mark_notifications_read'}, {headers:{'X-CSRF-Token':csrf}});
+        await marking;
+      } catch (error) {
+        console.warn('Notifications could not be marked as viewed.', error);
+        if (menu.open) await load().catch(() => {});
+      } finally { marking = null; }
+    });
     document.addEventListener('click', event => { if (menu.open && !menu.contains(event.target)) menu.removeAttribute('open'); });
     await load();
     window.setInterval(refreshTimes, 60000);
-    window.setInterval(() => { if (!document.hidden) load().catch(error => console.warn('Notifications could not be refreshed.', error)); }, 180000);
-    document.addEventListener('visibilitychange', () => { if (!document.hidden) load().catch(error => console.warn('Notifications could not be refreshed.', error)); });
+    window.setInterval(() => { if (!document.hidden && !menu.open) load().catch(error => console.warn('Notifications could not be refreshed.', error)); }, 180000);
+    document.addEventListener('visibilitychange', () => { if (!document.hidden && !menu.open) load().catch(error => console.warn('Notifications could not be refreshed.', error)); });
   };
 
   const authorSearch = () => {

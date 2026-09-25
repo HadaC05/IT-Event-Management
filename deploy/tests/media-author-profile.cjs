@@ -39,11 +39,12 @@ const post = {
       await page.goto(`${base}/pages/student/home.html`, {waitUntil: 'domcontentloaded'});
       const photoBytes = fs.readFileSync(photo);
       await page.locator('[data-shared-post-form] input[name="images[]"]').setInputFiles(Array.from({length: 30}, (_, index) => ({name: `photo-${index + 1}.png`, mimeType: 'image/png', buffer: photoBytes})));
-      assert.equal(await page.locator('[data-image-preview-list] img').count(), 6, 'Composer previews only six of 30 selected photos');
-      assert.match(await page.locator('[data-file-name]').textContent(), /30 photos selected/);
+      assert.equal(await page.locator('[data-image-preview-list] img').count(), 30, 'Composer shows individual controls for all 30 selected photos');
+      assert.match(await page.locator('[data-file-name]').textContent(), /30 photos/);
+      assert.ok((await page.locator('[data-image-preview-list]').boundingBox()).height <= 440, 'Photo controls remain in a compact scroll area');
       await page.locator('[data-shared-post-form] input[name="images[]"]').setInputFiles(Array.from({length: 31}, (_, index) => ({name: `extra-${index + 1}.png`, mimeType: 'image/png', buffer: photoBytes})));
       assert.equal(await page.locator('[data-shared-post-form] input[name="images[]"]').evaluate(input => input.files.length), 0, 'Composer rejects 31 photos');
-      assert.equal(await page.locator('[data-image-preview-list] img').count(), 0, 'Rejected selection clears stale previews');
+      assert.equal(await page.locator('[data-image-preview-list] img').count(), 30, 'Rejected extra photos do not clear the existing selection');
       const search = page.locator('[data-author-search]');
       await search.waitFor();
       await search.fill('Mic');
@@ -59,7 +60,6 @@ const post = {
       await page.locator('[data-post-id="15"]').evaluate(card => { window.reactionTestCard = card; });
       await page.locator('[data-post-id="15"] [data-reaction-picker]').evaluate(element => element.scrollIntoView({block: 'center'}));
       await page.locator('[data-post-id="15"] [data-reaction-current]').click();
-      await page.locator('[data-post-id="15"] [data-reaction-choice="like"]').click();
       await page.waitForFunction(() => document.querySelector('[data-post-id="15"] [data-reaction-current]')?.getAttribute('aria-pressed') === 'true');
       assert.equal(await page.locator('[data-post-id="15"]').evaluate(card => card === window.reactionTestCard), true, 'Reacting on the author page keeps the post in place');
       await page.locator('[data-post-id="15"] [data-open-post-image="1"]').click();

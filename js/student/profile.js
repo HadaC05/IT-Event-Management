@@ -20,7 +20,12 @@ window.SharedNavigation.ready.then(async session => {
 
   const reviewPostMarkup = post => {
     const actions = post.status === 'hidden' ? '' : `<div class="flex gap-2"><button class="text-[10px] font-black text-[#397565]" type="button" data-profile-edit="${post.id}">Edit</button><button class="text-[10px] font-black text-[#D64A12]" type="button" data-profile-delete="${post.id}">Delete</button></div>`;
-    return `<article class="rounded-xl border border-[#121017]/8 bg-[#F7F4ED]/55 p-4"><div class="flex items-start justify-between gap-3"><span class="rounded-full px-2.5 py-1 text-[9px] font-black uppercase ${statusTone(post.status)}">${esc(post.status)}</span>${actions}</div><p class="mt-3 whitespace-pre-line text-sm leading-6">${esc(post.content)}</p>${post.rejection_reason ? `<p class="mt-3 rounded-lg bg-[#FF6B2C]/8 p-3 text-xs leading-5 text-[#a33b0e]"><strong>Review note:</strong> ${esc(post.rejection_reason)}</p>` : ''}</article>`;
+    const images=post.images?.length?post.images:post.image_path?[post.image_path]:[];
+    const visible=images.slice(0,4), remaining=images.length-visible.length;
+    const layout=visible.length===1?'is-single':visible.length===2?'is-two':visible.length===3?'is-three':'is-four';
+    const photos=images.length?`<div class="cite-post-gallery cite-own-post-gallery ${layout}" aria-label="Photos attached to this ${esc(post.status)} post">${visible.map((path,index)=>{const more=remaining>0&&index===3;return `<button class="cite-post-gallery-item" type="button" data-profile-image-post="${post.id}" data-profile-image-index="${more?4:index}" aria-label="${more?`View ${remaining} more photos`:`View photo ${index+1} of ${images.length}`}"><img src="${esc(path)}" alt="Photo ${index+1} in your ${esc(post.status)} post" loading="lazy">${more?`<span class="cite-post-gallery-more" aria-hidden="true">+${remaining}</span>`:''}</button>`;}).join('')}</div>`:'';
+    const media=photos||(post.video_path?`<video class="cite-own-post-video" src="${esc(post.video_path)}" controls preload="metadata" playsinline aria-label="Video in your ${esc(post.status)} post"></video>`:'');
+    return `<article class="rounded-xl border border-[#121017]/8 bg-[#F7F4ED]/55 p-4"><div class="flex items-start justify-between gap-3"><span class="rounded-full px-2.5 py-1 text-[9px] font-black uppercase ${statusTone(post.status)}">${esc(post.status)}</span>${actions}</div>${post.content?`<p class="mt-3 whitespace-pre-line text-sm leading-6">${esc(post.content)}</p>`:''}${media}${post.rejection_reason ? `<p class="mt-3 rounded-lg bg-[#FF6B2C]/8 p-3 text-xs leading-5 text-[#a33b0e]"><strong>Review note:</strong> ${esc(post.rejection_reason)}</p>` : ''}</article>`;
   };
 
   const pendingMarkup = posts => posts.length ? `
@@ -116,6 +121,7 @@ window.SharedNavigation.ready.then(async session => {
     detailsDialog.onclick = event => { if (event.target === detailsDialog) detailsDialog.close(); };
     root.querySelectorAll('[data-profile-edit]').forEach(button => button.onclick = () => { const post=data.own_posts.find(item=>item.id===Number(button.dataset.profileEdit)); if(post)postForm.edit(post,button.closest('article')); });
     root.querySelectorAll('[data-profile-delete]').forEach(button => button.onclick = () => execute({action:'delete',id:button.dataset.profileDelete},{confirm:'Delete this post?'}));
+    root.querySelectorAll('[data-profile-image-post]').forEach(button => button.onclick = () => { const post=data.own_posts.find(item=>item.id===Number(button.dataset.profileImagePost)); if(!post)return; const images=post.images?.length?post.images:post.image_path?[post.image_path]:[]; CiteMediaPostCard.openImage(images,`Your ${post.status} post photo`,Number(button.dataset.profileImageIndex)); });
   }
 
   function makeProfileCard(post) {
