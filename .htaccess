@@ -41,4 +41,7 @@ RewriteRule ^api/session\.php$ api/auth.php?action=session [L,QSA]
 
 <IfModule php_module>
     php_flag expose_php Off
+    # Accept one extra file so the API can reject requests above its 30-photo limit.
+    php_value max_file_uploads 31
+    php_value post_max_size 160M
 </IfModule>

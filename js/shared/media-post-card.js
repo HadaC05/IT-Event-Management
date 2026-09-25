@@ -16,22 +16,41 @@
     return new Intl.DateTimeFormat('en-PH', {month:'short',day:'numeric'}).format(date);
   };
   let imageDialog;
+  let imageDialogImages = [];
+  let imageDialogIndex = 0;
+  let imageDialogAlt = '';
 
-  function openImage(src, alt) {
-    if (!src) return;
+  function showImageAt(index) {
+    imageDialogIndex = (index + imageDialogImages.length) % imageDialogImages.length;
+    const image = imageDialog.querySelector('img');
+    image.src = imageDialogImages[imageDialogIndex];
+    image.alt = `${imageDialogAlt} ${imageDialogIndex + 1} of ${imageDialogImages.length}`;
+    imageDialog.querySelector('[data-image-count]').textContent = `${imageDialogIndex + 1} / ${imageDialogImages.length}`;
+  }
+
+  function openImage(source, alt, index = 0) {
+    const images = Array.isArray(source) ? source : [source];
+    if (!images.length || !images[0]) return;
     if (!imageDialog) {
       imageDialog = document.createElement('dialog');
       imageDialog.className = 'cite-image-dialog';
       imageDialog.setAttribute('aria-label', 'Full-size photo');
-      imageDialog.innerHTML = '<button type="button" aria-label="Close full-size photo">Close photo ×</button><img alt="">';
-      imageDialog.querySelector('button').onclick = () => imageDialog.close();
+      imageDialog.innerHTML = '<div class="cite-image-dialog-head"><span data-image-count aria-live="polite"></span><button type="button" data-image-close aria-label="Close full-size photo">Close photo ×</button></div><div class="cite-image-dialog-stage"><button type="button" data-image-prev aria-label="Previous photo">‹</button><img alt=""><button type="button" data-image-next aria-label="Next photo">›</button></div>';
+      imageDialog.querySelector('[data-image-close]').onclick = () => imageDialog.close();
+      imageDialog.querySelector('[data-image-prev]').onclick = () => showImageAt(imageDialogIndex - 1);
+      imageDialog.querySelector('[data-image-next]').onclick = () => showImageAt(imageDialogIndex + 1);
+      imageDialog.addEventListener('keydown', event => {
+        if (event.key === 'ArrowLeft') { event.preventDefault(); showImageAt(imageDialogIndex - 1); }
+        if (event.key === 'ArrowRight') { event.preventDefault(); showImageAt(imageDialogIndex + 1); }
+      });
       imageDialog.onclick = event => { if (event.target === imageDialog) imageDialog.close(); };
-      imageDialog.addEventListener('close', () => imageDialog.querySelector('img').removeAttribute('src'));
+      imageDialog.addEventListener('close', () => { imageDialog.querySelector('img').removeAttribute('src'); imageDialogImages = []; });
       document.body.append(imageDialog);
     }
-    const image = imageDialog.querySelector('img');
-    image.src = src;
-    image.alt = alt;
+    imageDialogImages = images;
+    imageDialogAlt = alt;
+    imageDialog.querySelectorAll('[data-image-prev],[data-image-next]').forEach(button => { button.hidden = images.length < 2; });
+    showImageAt(Math.max(0, Math.min(index, images.length - 1)));
     if (!imageDialog.open) imageDialog.showModal();
   }
 
@@ -152,7 +171,18 @@
     article.insertAdjacentHTML("beforeend", `<div class="px-4 pb-4 sm:px-5 sm:pb-5"><p class="whitespace-pre-line text-sm leading-6">${esc(post.content)}</p></div>`);
 
     const images = post.images?.length ? post.images : post.image_path ? [post.image_path] : [];
-    if (images.length) article.insertAdjacentHTML("beforeend", `<div class="cite-post-gallery ${images.length === 1 ? 'is-single' : ''}" data-post-gallery>${images.map((path,index) => `<button class="cite-post-gallery-item" type="button" data-open-post-image="${index}" aria-label="View photo ${index + 1} of ${images.length} from ${esc(post.author_name)}"><img src="${esc(path)}" alt="${esc(post.author_name)} post photo ${index + 1}" loading="lazy"></button>`).join('')}</div>`);
+    if (images.length) {
+      const visible = images.slice(0, 4);
+      const remaining = images.length - visible.length;
+      const layout = visible.length === 1 ? 'is-single' : visible.length === 3 ? 'is-three' : visible.length === 4 ? 'is-four' : '';
+      const tiles = visible.map((path, index) => {
+        const more = remaining > 0 && index === 3;
+        const openAt = more ? 4 : index;
+        const label = more ? `View ${remaining} more photos from ${post.author_name}` : `View photo ${index + 1} of ${images.length} from ${post.author_name}`;
+        return `<button class="cite-post-gallery-item" type="button" data-open-post-image="${openAt}" aria-label="${esc(label)}"><img src="${esc(path)}" alt="${esc(post.author_name)} post photo ${index + 1}" loading="lazy">${more ? `<span class="cite-post-gallery-more" aria-hidden="true">+${remaining}</span>` : ''}</button>`;
+      }).join('');
+      article.insertAdjacentHTML("beforeend", `<div class="cite-post-gallery ${layout}" data-post-gallery>${tiles}</div>`);
+    }
     else if (post.video_path) article.insertAdjacentHTML("beforeend", `<div class="cite-post-media"><video class="cite-post-media-video" src="${esc(post.video_path)}" controls preload="metadata" playsinline></video></div>`);
 
     const engagement = document.createElement("div");
@@ -286,7 +316,7 @@
     article.append(engagement);
 
     article.querySelector("[data-own-edit]")?.addEventListener("click", () => { article.querySelector('[data-post-menu]')?.removeAttribute('open'); edit(post, article); });
-    article.querySelectorAll('[data-open-post-image]').forEach(button => button.addEventListener('click', () => openImage(images[Number(button.dataset.openPostImage)], `${post.author_name} post photo`)));
+    article.querySelectorAll('[data-open-post-image]').forEach(button => button.addEventListener('click', () => openImage(images, `${post.author_name} post photo`, Number(button.dataset.openPostImage))));
     article.querySelector("[data-own-delete]")?.addEventListener("click", () => action({ action: "delete", id: post.id }, { confirm: "Delete this post?" }));
     article.querySelector("[data-hide]")?.addEventListener("click", async () => { const reason = await window.Notifications.prompt({ title: "Hide this post?", message: "Explain why this post is being hidden. This is retained for moderation records.", label: "Reason", placeholder: "Enter the moderation reason…", action: "Hide post", required: true, maxLength: 1000 }); if (reason) action({ action: "hide", post_id: post.id, reason }); });
     article.querySelectorAll("[data-post-menu] button").forEach((button) => button.addEventListener("click", () => button.closest("details").removeAttribute("open")));

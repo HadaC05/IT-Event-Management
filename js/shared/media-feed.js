@@ -96,8 +96,11 @@
       ? `<img class="cite-review-avatar object-cover" src="${esc(post.profile_photo_path)}" alt="${esc(post.author_name)} profile picture" loading="lazy">`
       : `<span class="cite-review-avatar" aria-hidden="true">${esc(post.author_initials)}</span>`;
     const images=post.images?.length?post.images:post.image_path?[post.image_path]:[];
+    const visible=images.slice(0,4);
+    const remaining=images.length-visible.length;
+    const layout=visible.length===1?'is-single':visible.length===3?'is-three':visible.length===4?'is-four':'';
     const media=images.length
-      ? `<div class="cite-review-gallery">${images.map((path,index)=>`<img class="cite-review-media" src="${esc(path)}" alt="Photo ${index+1} submitted by ${esc(post.author_name)}" loading="lazy">`).join('')}</div>`
+      ? `<div class="cite-review-gallery cite-post-gallery ${layout}">${visible.map((path,index)=>`<button class="cite-post-gallery-item" type="button" data-review-image-post="${post.id}" data-review-image-index="${remaining&&index===3?4:index}" aria-label="${remaining&&index===3?`View ${remaining} more photos`:`View photo ${index+1} of ${images.length}`}"><img src="${esc(path)}" alt="Photo ${index+1} submitted by ${esc(post.author_name)}" loading="lazy">${remaining&&index===3?`<span class="cite-post-gallery-more" aria-hidden="true">+${remaining}</span>`:''}</button>`).join('')}</div>`
       : post.video_path
         ? `<video class="cite-review-media" src="${esc(post.video_path)}" controls preload="none" playsinline aria-label="Video submitted by ${esc(post.author_name)}"></video>`
         : '';
@@ -115,6 +118,7 @@
     pagination.innerHTML=queue.total?`<p>Showing ${(queue.page-1)*queue.per_page+1}–${Math.min(queue.page*queue.per_page,queue.total)} of ${queue.total} pending</p><div><button type="button" data-review-page="${queue.page-1}" ${queue.page===1?'disabled':''}>Previous</button><span>Page ${queue.page} of ${queue.page_count}</span><button type="button" data-review-page="${queue.page+1}" ${queue.page===queue.page_count?'disabled':''}>Next</button></div>`:'';
     workspace.querySelector('[data-review-refresh]').onclick=()=>loadModeration(state.queuePage);
     workspace.querySelectorAll('[data-review-page]').forEach(button=>button.onclick=()=>loadModeration(Number(button.dataset.reviewPage)));
+    workspace.querySelectorAll('[data-review-image-post]').forEach(button=>button.onclick=()=>{const post=queue.posts.find(item=>Number(item.id)===Number(button.dataset.reviewImagePost));if(post)CiteMediaPostCard.openImage(post.images?.length?post.images:[post.image_path],`${post.author_name} post photo`,Number(button.dataset.reviewImageIndex));});
     workspace.querySelectorAll('[data-approve]').forEach(button=>button.onclick=()=>execute({action:'approve',post_id:button.dataset.approve}));
     workspace.querySelectorAll('[data-reject]').forEach(button=>button.onclick=async()=>{const reason=await window.Notifications.prompt({title:'Reject post?',message:'Explain why this post was not approved. The author will see this message.',label:'Rejection reason',placeholder:'Enter a clear reason…',action:'Reject post',required:true,maxLength:1000});if(reason)execute({action:'reject',post_id:button.dataset.reject,reason});});
   }

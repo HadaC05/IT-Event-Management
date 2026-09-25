@@ -879,8 +879,7 @@ final class MediaRepository
         if (!$this->hasUpload($upload)) return [];
         if (!is_array($upload['name'] ?? null)) return [$this->storeImage($upload, self::IMAGE_DIRECTORY, 5 * 1024 * 1024)];
         $count = count($upload['name']);
-        if ($count > 10) throw new InvalidArgumentException('Choose up to 10 photos per post.');
-        if (array_sum(array_map('intval', $upload['size'] ?? [])) > 25 * 1024 * 1024) throw new InvalidArgumentException('The combined photo upload may not exceed 25 MB.');
+        if ($count > 30) throw new InvalidArgumentException('Choose up to 30 photos per post.');
         $paths = [];
         try {
             for ($index = 0; $index < $count; $index++) {
