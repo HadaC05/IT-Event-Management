@@ -62,6 +62,7 @@ try {
     $emptyProfile = $repo->publicAuthorProfile($viewer,$ids['brian']);
     $assert($emptyProfile['profile']['post_count'] === 0 && $emptyProfile['posts'] === [], 'Active account with no posts has a public profile');
     $assert(count($repo->searchAuthors('Bri')) === 1, 'Author search finds an active account with no posts');
+    $assert($repo->searchAuthors('02-2324-01129')[0]['id'] === $ids['brian'], 'People search finds a no-post account by ID');
     $repo->saveComment($ids['domingo'],$postId,'Yow',null);
     $rootId = (int)$db->query("SELECT id FROM tbl_post_comments WHERE body='Yow' ORDER BY id DESC LIMIT 1")->fetchColumn();
     $repo->saveComment($ids['brian'],$postId,'tabang lord',null,$rootId);

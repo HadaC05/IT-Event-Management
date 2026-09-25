@@ -556,3 +556,6 @@ dialog.app-dialog.cite-image-dialog { width: min(1100px, calc(100vw - 1.5rem)) !
 @media (prefers-reduced-motion: reduce) {
   .cite-reaction-menu { transition: none; }
 }
+.cite-public-profile-cover { position: relative; height: 7rem; background-color: var(--team-cover, #397565); background-image: radial-gradient(circle at 20% 20%, rgba(255,255,255,.25) 0 9%, transparent 9.5%), radial-gradient(circle at 85% 30%, rgba(18,16,23,.16) 0 12%, transparent 12.5%), linear-gradient(135deg, rgba(18,16,23,.25), transparent 65%); }
+.cite-public-profile-team { position: absolute; right: 1rem; bottom: .75rem; border-radius: 999px; background: rgba(18,16,23,.72); padding: .35rem .7rem; color: #fff; font-size: .65rem; font-weight: 800; }
+@media (min-width: 640px) { .cite-public-profile-cover { height: 10rem; } }

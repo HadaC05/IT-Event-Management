@@ -19,6 +19,8 @@ final class UserManagementRepository
         $search = trim((string) ($filters['search'] ?? ''));
         $role = trim((string) ($filters['role'] ?? ''));
         $status = trim((string) ($filters['status'] ?? ''));
+        $yearLevel = trim((string) ($filters['year_level'] ?? ''));
+        $teamId = trim((string) ($filters['team_id'] ?? ''));
         $page = max(1, (int) ($filters['page'] ?? 1));
         $perPage = PageSize::from($filters, 10);
 
@@ -43,6 +45,23 @@ final class UserManagementRepository
             }
             $where[] = 's.label = :status';
             $params['status'] = $status;
+        }
+        if ($yearLevel !== '') {
+            if (!ctype_digit($yearLevel) || !$this->value('SELECT id FROM tbl_year_levels WHERE id = ?', [(int) $yearLevel])) {
+                throw new InvalidArgumentException('The selected grade level is invalid.');
+            }
+            $where[] = 'u.year_level = :year_level';
+            $params['year_level'] = (int) $yearLevel;
+        }
+        if ($teamId !== '') {
+            if (!ctype_digit($teamId) || !$this->value('SELECT id FROM tbl_teams WHERE id = ? AND is_active = 1', [(int) $teamId])) {
+                throw new InvalidArgumentException('The selected tribe is invalid.');
+            }
+            $where[] = '(SELECT tu.team_id FROM tbl_team_user tu
+                JOIN tbl_teams team ON team.id = tu.team_id
+                WHERE tu.user_id = u.id AND team.is_active = 1
+                ORDER BY tu.id DESC LIMIT 1) = :team_id';
+            $params['team_id'] = (int) $teamId;
         }
 
         $from = ' FROM tbl_users u

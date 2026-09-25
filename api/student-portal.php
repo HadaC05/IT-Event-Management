@@ -91,6 +91,8 @@ final class StudentPortalRepository
                 $record['status'] = in_array($record['effective_status'], ['present', 'late'], true) ? 'present' : 'absent';
             } elseif ($record['has_time_in'] && $record['has_time_out']) {
                 $record['status'] = in_array($record['effective_status'], ['present', 'late'], true) ? 'present' : 'absent';
+            } elseif ($record['has_time_in'] || $record['has_time_out']) {
+                $record['status'] = $closed ? 'absent' : 'pending';
             } else {
                 $record['status'] = $closed ? 'absent' : 'pending';
             }

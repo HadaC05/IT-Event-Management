@@ -12,7 +12,7 @@
     <script src="js/shared/password-gate.js?v=20260917-1"></script>
     <script src="js/shared/navigation.js?v=20260925-pin-notifications-1" defer></script>
     <script src="js/student/portal.js?v=20260915-2" defer></script>
-    <script src="js/student/attendance.js?v=20260924-attendance-media-merge-1" defer></script>
+    <script src="js/student/attendance.js?v=20260925-scan-status-1" defer></script>
 </head>
 <body class="min-h-screen bg-[#F7F4ED] font-sans text-[#121017] antialiased" data-navigation-role="student" data-student-page="attendance">
     <div data-student-sidebar-host></div>
@@ -38,21 +38,28 @@
                 </footer>
             </section>
 
-            <section class="mt-6 border-y border-[#121017]/10 py-4" aria-labelledby="student-attendance-summary-heading">
-                <div class="flex flex-wrap items-center justify-between gap-2">
-                    <h2 class="text-[10px] font-black uppercase tracking-[.15em] text-[#121017]/45" id="student-attendance-summary-heading">Your summary</h2>
-                    <span class="hidden text-[10px] font-black text-[#397565]" data-attendance-rate></span>
+            <aside class="mt-6 rounded-2xl border border-[#E6A15F]/40 bg-[#FFF4E8] p-4 sm:p-5" aria-labelledby="student-attendance-rule-heading">
+                <div class="flex items-start gap-3">
+                    <span class="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[#C85E0A]/10 text-lg font-black text-[#A94F08]" aria-hidden="true">!</span>
+                    <div>
+                        <h2 class="font-black text-[#7D3B0B]" id="student-attendance-rule-heading">Both scans are required</h2>
+                        <p class="mt-1 text-sm leading-6 text-[#613F2B]">Complete both scans during the open attendance window.</p>
+                        <ul class="mt-2 space-y-1 text-xs leading-5 text-[#613F2B]">
+                            <li>One scan while the window is open: <strong>Pending</strong></li>
+                            <li>One scan after it closes: <strong>Absent</strong></li>
+                            <li>Both scans: status follows the recorded attendance result</li>
+                        </ul>
+                        <p class="mt-2 text-xs leading-5 text-[#613F2B]/80">If the second scan window is still open, complete that scan. Adviser corrections appear in your history.</p>
+                    </div>
                 </div>
-                <div class="mt-3 grid grid-cols-2 gap-y-4" data-attendance-summary></div>
-            </section>
+            </aside>
 
             <section class="mt-8 overflow-hidden rounded-3xl border border-[#121017]/8 bg-white" aria-labelledby="student-attendance-history-heading">
-                <header class="flex items-center justify-between gap-4 border-b border-[#121017]/8 p-5 sm:px-7 sm:py-5">
+                <header class="border-b border-[#121017]/8 p-5 sm:px-7 sm:py-5">
                     <div>
                         <h2 class="text-lg font-black" id="student-attendance-history-heading">Attendance history</h2>
-                        <p class="mt-1 text-xs text-[#121017]/45">Each eligible event day shows its Time In, Time Out, and final status.</p>
+                        <p class="mt-1 text-xs text-[#121017]/45">Each eligible event day shows its Time In, Time Out, and current status.</p>
                     </div>
-                    <span class="rounded-full bg-[#F7F4ED] px-3 py-1.5 text-[10px] font-black" data-record-count>0 event days</span>
                 </header>
                 <div class="divide-y divide-[#121017]/7" data-attendance-records></div>
             </section>

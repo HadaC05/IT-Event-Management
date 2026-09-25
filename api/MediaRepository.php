@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 require_once __DIR__.'/UserBadge.php';
+require_once __DIR__.'/MediaVideoDuration.php';
 
 final class MediaForbiddenException extends DomainException {}
 
@@ -124,8 +125,8 @@ final class MediaRepository
     {
         $query = trim($query);
         if (mb_strlen($query) < 2 || mb_strlen($query) > 80) throw new InvalidArgumentException('Search with 2 to 80 characters.');
-        $statement = $this->db->prepare("SELECT u.id,u.first_name,u.middle_name,u.last_name,u.profile_photo_path,r.name role_name,(SELECT COUNT(*) FROM tbl_posts p WHERE p.user_id=u.id AND p.status='approved' AND p.deleted_at IS NULL) post_count,(SELECT t.color FROM tbl_team_user tu JOIN tbl_teams t ON t.id=tu.team_id AND t.is_active=1 WHERE tu.user_id=u.id ORDER BY t.school_year_id DESC,tu.id DESC LIMIT 1) team_color,(SELECT t.name FROM tbl_team_user tu JOIN tbl_teams t ON t.id=tu.team_id AND t.is_active=1 WHERE tu.user_id=u.id ORDER BY t.school_year_id DESC,tu.id DESC LIMIT 1) team_name FROM tbl_users u JOIN tbl_roles r ON r.id=u.role_id JOIN tbl_user_statuses s ON s.id=u.status AND s.label='active' WHERE CONCAT_WS(' ',u.first_name,u.middle_name,u.last_name) LIKE ? ORDER BY u.last_name,u.first_name,u.id LIMIT 10");
-        $statement->execute(['%'.$query.'%']);
+        $statement = $this->db->prepare("SELECT u.id,u.first_name,u.middle_name,u.last_name,u.profile_photo_path,r.name role_name,(SELECT COUNT(*) FROM tbl_posts p WHERE p.user_id=u.id AND p.status='approved' AND p.deleted_at IS NULL) post_count,(SELECT t.color FROM tbl_team_user tu JOIN tbl_teams t ON t.id=tu.team_id AND t.is_active=1 WHERE tu.user_id=u.id ORDER BY t.school_year_id DESC,tu.id DESC LIMIT 1) team_color,(SELECT t.name FROM tbl_team_user tu JOIN tbl_teams t ON t.id=tu.team_id AND t.is_active=1 WHERE tu.user_id=u.id ORDER BY t.school_year_id DESC,tu.id DESC LIMIT 1) team_name FROM tbl_users u JOIN tbl_roles r ON r.id=u.role_id JOIN tbl_user_statuses s ON s.id=u.status AND s.label='active' WHERE (CONCAT_WS(' ',u.first_name,u.middle_name,u.last_name) LIKE ? OR u.username LIKE ? OR u.id_number LIKE ?) ORDER BY CASE WHEN CONCAT_WS(' ',u.first_name,u.middle_name,u.last_name)=? THEN 0 WHEN CONCAT_WS(' ',u.first_name,u.middle_name,u.last_name) LIKE ? THEN 1 ELSE 2 END,u.last_name,u.first_name,u.id LIMIT 20");
+        $statement->execute(['%'.$query.'%','%'.$query.'%','%'.$query.'%',$query,$query.'%']);
         $users = $statement->fetchAll();
         foreach ($users as &$user) {
             $user['id'] = (int) $user['id'];
@@ -1024,6 +1025,9 @@ final class MediaRepository
         $mime = (new finfo(FILEINFO_MIME_TYPE))->file((string) $file['tmp_name']);
         $extension = ['video/mp4'=>'mp4','video/webm'=>'webm','video/quicktime'=>'mov'][$mime] ?? null;
         if (!$extension) throw new InvalidArgumentException('Use an MP4, WebM, or MOV video.');
+        $duration = MediaVideoDuration::seconds((string) $file['tmp_name'], $mime);
+        if ($duration === null) throw new InvalidArgumentException('The video duration could not be verified. Choose a valid video up to 5 minutes.');
+        if ($duration > MediaVideoDuration::MAX_SECONDS) throw new InvalidArgumentException('Videos must be 5 minutes or shorter.');
         return $this->moveUpload($file, self::VIDEO_DIRECTORY, $extension);
     }
 

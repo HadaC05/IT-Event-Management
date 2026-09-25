@@ -23,11 +23,10 @@ const base = process.env.CITE_BASE_URL || 'http://localhost/ITEventManagement';
       await page.locator('[data-qr-phase="out"] svg').waitFor();
       assert.match(await page.locator('[data-attendance-action]').textContent(), /Time Out is open/);
       assert.match(await page.locator('[data-attendance-action]').textContent(), /Time In will remain unrecorded/);
-      assert.equal(await page.locator('[data-attendance-summary]').getByText('Event days').count(), 1);
-      assert.equal(await page.locator('[data-record-count]').textContent(), '1 event day');
-      assert.match(await page.locator('[data-attendance-rate]').textContent(), /finalized event days/);
+      assert.match(await page.locator('#student-attendance-rule-heading').textContent(), /Both scans are required/);
+      assert.match(await page.locator('[data-attendance-records]').textContent(), /CITE Day/);
       assert.deepEqual(errors, []);
-      console.log(`PASS: attendance QR and final-status summary at ${width}px`);
+      console.log(`PASS: attendance QR and scan guidance at ${width}px`);
       await page.close();
     }
   } finally { await browser.close(); }

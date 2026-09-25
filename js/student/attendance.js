@@ -4,12 +4,6 @@
     const {initialize, formatDate, timeOnly, escapeHtml} = window.StudentPortal;
     const state = {event: null, cards: null, qrError: ''};
 
-    const summaryItem = (label, value, tone, icon) => `
-        <div class="flex items-center gap-3 px-2 first:pl-0 sm:border-l sm:border-[#121017]/10 sm:px-5 sm:first:border-l-0 sm:first:pl-0">
-            <span class="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-[#121017]/5 text-sm ${tone}" aria-hidden="true">${icon}</span>
-            <span><strong class="block text-xl leading-none ${tone}">${value}</strong><small class="mt-1 block text-[9px] font-black uppercase tracking-wider text-[#121017]/40">${label}</small></span>
-        </div>`;
-
     const statusTone = status => ({
         present: 'bg-[#397565]/10 text-[#397565]',
         absent: 'bg-[#FF6B2C]/12 text-[#c84510]',
@@ -20,6 +14,9 @@
 
     const record = item => {
         const status = attendanceStatus(item.status);
+        const missingScan = !item.manual_status && item.has_time_in !== item.has_time_out
+            ? item.has_time_in ? 'Time Out' : 'Time In'
+            : null;
         return `
         <article class="p-5 sm:px-7 sm:py-6">
             <div class="flex flex-wrap items-start justify-between gap-3">
@@ -39,6 +36,7 @@
                         <dd class="mt-1 text-xs font-black">${timeOnly(value)}</dd>
                     </div>`).join('')}
             </dl>
+            ${missingScan ? `<p class="mt-3 text-xs font-semibold text-[#A94F08]">Missing ${missingScan} scan. Both scans are needed for Present.</p>` : ''}
             ${item.notes ? `<p class="mt-3 text-xs text-[#121017]/50"><strong>Note:</strong> ${escapeHtml(item.notes)}</p>` : ''}
         </article>`;
     };
@@ -117,27 +115,9 @@
 
     const refreshHistory = async () => {
         const response = await axios.get('api/student-portal.php', {params: {page: 'attendance'}});
-        const {summary, current_event: event, records} = response.data.data;
-
-        const present = Number(summary.present || 0);
-        const absent = Number(summary.absent || 0);
-        const pending = Number(summary.pending || 0);
-        document.querySelector('[data-attendance-summary]').innerHTML = [
-            summaryItem('Event days', Number(summary.total || 0), 'text-[#121017]', '#'),
-            summaryItem('Present', present, 'text-[#397565]', '✓'),
-            summaryItem('Absent', absent, 'text-[#c84510]', '×'),
-            summaryItem('Pending', pending, 'text-[#397565]', '…'),
-        ].join('');
-        const rate = document.querySelector('[data-attendance-rate]');
-        if (present + absent > 0) {
-            rate.classList.remove('hidden');
-            rate.textContent = `${summary.rate}% of finalized event days attended`;
-        } else {
-            rate.classList.add('hidden');
-        }
+        const {current_event: event, records} = response.data.data;
         state.event = event;
         renderAction();
-        document.querySelector('[data-record-count]').textContent = `${records.length} ${records.length === 1 ? 'event day' : 'event days'}`;
         document.querySelector('[data-attendance-records]').innerHTML = records.length
             ? records.map(record).join('')
             : '<div class="px-6 py-10 text-center"><span class="mx-auto grid h-10 w-10 place-items-center rounded-full bg-[#397565]/8 text-[#397565]">✓</span><h3 class="mt-3 font-black">No attendance event days yet</h3><p class="mt-1 text-sm text-[#121017]/45">Eligible event days will appear here when their schedule begins.</p></div>';

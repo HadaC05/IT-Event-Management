@@ -44,12 +44,14 @@
       ['announcements','Announcements','pages/adviser/announcements.html','M4 13V9l11-5v14L4 13Zm0 0v5h4v-3'],
       ['reports','Reports','pages/adviser/reports.html','M5 3h10l4 4v14H5V3Zm10 0v5h4M8 12h8M8 16h8'],
       ['posts','Media Feed','pages/adviser/posts.html','M4 5h16v12H8l-4 4V5Zm4 4h8m-8 4h5'],
+      ['profile','My Profile','pages/adviser/profile.html','M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8ZM4 21a8 8 0 0 1 16 0'],
     ],
   };
   const ADVISER_NAVIGATION_SECTIONS = [
     {items: ['dashboard']},
     {title: 'User Management', items: ['users', 'officers']},
     {title: 'Event Management', items: ['teams', 'events', 'activities', 'locations', 'attendance', 'scores', 'leaderboard', 'announcements', 'reports', 'posts']},
+    {title: 'Account', items: ['profile']},
   ];
 
   const esc = value => String(value ?? '').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;').replaceAll("'",'&#039;');
@@ -157,7 +159,7 @@
     const control = document.createElement('div');
     control.className = 'relative w-full max-w-[23rem]';
     control.dataset.authorSearchBox = '';
-    control.innerHTML = `<label class="relative block"><span class="sr-only">Search name</span><svg class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 fill-none stroke-[#121017]/40 stroke-2" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-4-4"></path></svg><input class="h-10 w-full rounded-xl border border-[#121017]/10 bg-[#F3F0E9] pl-10 pr-3 text-sm text-[#121017] outline-none transition placeholder:text-[#121017]/45 focus:border-[#397565] focus:bg-white focus:ring-4 focus:ring-[#397565]/10 sm:h-11" type="search" autocomplete="off" maxlength="80" placeholder="Search name" data-author-search></label><div class="absolute left-0 right-0 top-[calc(100%+.45rem)] z-50 hidden max-h-80 overflow-y-auto rounded-xl border border-[#121017]/10 bg-white p-2 text-left shadow-xl" data-author-results aria-live="polite"></div>`;
+    control.innerHTML = `<label class="relative block"><span class="sr-only">Search people by name or ID</span><svg class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 fill-none stroke-[#121017]/40 stroke-2" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-4-4"></path></svg><input class="h-10 w-full rounded-xl border border-[#121017]/10 bg-[#F3F0E9] pl-10 pr-3 text-sm text-[#121017] outline-none transition placeholder:text-[#121017]/45 focus:border-[#397565] focus:bg-white focus:ring-4 focus:ring-[#397565]/10 sm:h-11" type="search" autocomplete="off" maxlength="80" placeholder="Search people by name or ID" data-author-search></label><div class="absolute left-0 right-0 top-[calc(100%+.45rem)] z-50 hidden max-h-80 overflow-y-auto rounded-xl border border-[#121017]/10 bg-white p-2 text-left shadow-xl" data-author-results aria-live="polite"></div>`;
     const box = control, input = control.querySelector('[data-author-search]'), results = control.querySelector('[data-author-results]');
     let timer = 0, request = 0;
     const close = () => { results.classList.add('hidden'); results.replaceChildren(); };
@@ -170,7 +172,10 @@
         try {
           const users = (await axios.get('api/media.php', {params:{action:'authors',q:query}})).data.data.users || [];
           if (current !== request) return;
-          results.innerHTML = users.length ? users.map(user => `<a class="flex min-h-14 items-center gap-3 rounded-lg px-2 py-2 text-left transition hover:bg-[#397565]/5" href="pages/shared/public-profile.html?user_id=${encodeURIComponent(user.id)}&v=20260924-public-profiles-1">${user.profile_photo_path ? `<img class="h-10 w-10 shrink-0 rounded-full object-cover" src="${esc(user.profile_photo_path)}" alt="">` : `<span class="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#C6F24E]/35 text-xs font-black text-[#397565]">${esc(user.initials)}</span>`}<span class="min-w-0 flex-1"><strong class="block truncate text-sm font-black text-[#121017]">${esc(user.full_name)}</strong><span class="mt-0.5 block truncate text-[10px] text-[#121017]/45">${esc(user.role_name)}${user.team_name ? ` · ${esc(user.team_name)}` : ''} · View profile</span></span></a>`).join('') : '<p class="px-3 py-3 text-xs text-[#121017]/45">No matching profiles found.</p>';
+          results.innerHTML = users.length ? users.map(user => {
+            const teamColor = /^#[\da-f]{6}$/i.test(user.team_color || '') ? user.team_color : '#397565';
+            return `<a class="flex min-h-14 items-center gap-3 rounded-lg px-2 py-2 text-left transition hover:bg-[#397565]/5" href="pages/shared/public-profile.html?user_id=${encodeURIComponent(user.id)}&v=20260925-people-search-1">${user.profile_photo_path ? `<img class="h-10 w-10 shrink-0 rounded-full object-cover" style="box-shadow:0 0 0 2px ${teamColor}" src="${esc(user.profile_photo_path)}" alt="">` : `<span class="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#C6F24E]/35 text-xs font-black text-[#397565]" style="box-shadow:0 0 0 2px ${teamColor}">${esc(user.initials)}</span>`}<span class="min-w-0 flex-1"><strong class="block truncate text-sm font-black text-[#121017]">${esc(user.full_name)}</strong><span class="mt-0.5 block truncate text-[10px] text-[#121017]/45">${esc(user.role_name)}${user.team_name ? ` · ${esc(user.team_name)}` : ''}</span></span><span class="shrink-0 text-[9px] font-bold text-[#121017]/45">${Number(user.post_count) ? `${Number(user.post_count)} post${Number(user.post_count) === 1 ? '' : 's'}` : 'No public posts'}</span></a>`;
+          }).join('') : '<p class="px-3 py-3 text-xs text-[#121017]/45">No matching people found. Try a name or ID.</p>';
         } catch (error) {
           if (current === request) results.innerHTML = `<p class="px-3 py-3 text-xs text-[#c84510]">${esc(error.response?.data?.message || 'Search could not be loaded.')}</p>`;
         }
@@ -259,7 +264,8 @@
     const visibleEmail = /@pending\.invalid$/i.test(String(user.email || '')) ? '' : String(user.email || '');
     header.querySelector('[data-shared-account-detail]').textContent = visibleEmail || (user.username ? `Login: ${user.username}` : '');
     const profileLink = header.querySelector('[data-shared-profile-link]');
-    if (role === 'student') {
+    if (role === 'student' || role === 'adviser') {
+      if (role === 'adviser') profileLink.href = 'pages/adviser/profile.html';
       profileLink.classList.remove('hidden');
       profileLink.classList.add('flex');
     }
