@@ -26,7 +26,16 @@
 .cite-media-preview-zoom.hidden,
 .cite-media-preview video.hidden { display: none; }
 
-.cite-media-preview [data-image-preview-list]:has(> :only-child) { grid-template-columns: minmax(0, 1fr); }
+.cite-compose-photo-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2px; max-height: min(32rem, 55dvh); overflow-y: auto; border-radius: .75rem; background: #333; }
+.cite-compose-photo-grid.hidden { display: none; }
+.cite-compose-photo-grid:has(> :only-child) { grid-template-columns: minmax(0, 1fr); }
+.cite-compose-photo { position: relative; min-width: 0; overflow: hidden; background: #f3f0e9; }
+.cite-compose-photo .cite-media-preview-zoom { height: 100%; background: #f3f0e9; }
+.cite-compose-photo .cite-media-preview-zoom img { height: 100%; min-height: 9rem; max-height: none; aspect-ratio: 1 / 1; object-fit: cover; }
+.cite-compose-photo-grid:has(> :only-child) .cite-media-preview-zoom img { max-height: min(25rem, 45dvh); aspect-ratio: auto; object-fit: contain; }
+.cite-compose-photo-remove { position: absolute; top: .55rem; right: .55rem; display: grid; width: 2rem; height: 2rem; place-items: center; border-radius: 50%; background: rgba(18, 16, 23, .82); color: white; font-size: 1.5rem; line-height: 1; }
+.cite-compose-photo-remove:hover { background: #b93627; }
+.cite-compose-photo-remove:focus-visible { outline: 3px solid #c6f24e; outline-offset: 2px; }
 
 .cite-media-preview-zoom img,
 .cite-media-preview video {
@@ -41,9 +50,13 @@
 .cite-post-gallery.is-single { grid-template-columns: minmax(0, 1fr); }
 .cite-post-gallery-item { position: relative; display: block; min-width: 0; overflow: hidden; padding: 0; background: #f3f0e9; cursor: zoom-in; }
 .cite-post-gallery-item img { display: block; width: 100%; aspect-ratio: 4 / 3; object-fit: cover; }
+.cite-post-gallery.is-two .cite-post-gallery-item img { aspect-ratio: 1 / 1; }
 .cite-post-gallery.is-single .cite-post-gallery-item img { max-height: min(27rem, 55dvh); aspect-ratio: auto; object-fit: contain; }
 .cite-post-gallery.is-three .cite-post-gallery-item:first-child { grid-row: span 2; }
 .cite-post-gallery.is-three .cite-post-gallery-item:first-child img { height: 100%; aspect-ratio: auto; }
+.cite-own-post-gallery { margin-top: .75rem; border-radius: .65rem; }
+.cite-own-post-gallery .cite-post-gallery-item img { max-height: 12rem; }
+.cite-own-post-video { display: block; width: 100%; max-height: 14rem; margin-top: .75rem; border-radius: .65rem; background: #121017; }
 .cite-post-gallery-more { position: absolute; inset: 0; display: grid; place-items: center; background: rgba(18, 16, 23, .65); color: #fff; font-size: clamp(2rem, 8vw, 3.75rem); font-weight: 700; }
 .cite-post-media-image,
 .cite-post-media-video {
@@ -436,14 +449,21 @@ dialog.app-dialog.cite-image-dialog { width: min(1100px, calc(100vw - 1.5rem)) !
 .cite-reactions-tabs button[data-reaction-filter="like"],
 .cite-reaction-person-type[data-reaction-icon="like"],
 .cite-reaction-summary [data-reaction-icon="like"] { color: #2563eb; }
+.cite-reaction-current[data-reaction-type="love"],
 .cite-reaction-menu button[data-reaction-choice="love"],
 .cite-reactions-tabs button[data-reaction-filter="love"],
 .cite-reaction-person-type[data-reaction-icon="love"],
 .cite-reaction-summary [data-reaction-icon="love"] { color: #e11d48; }
+.cite-reaction-current[data-reaction-type="laugh"],
 .cite-reaction-menu button[data-reaction-choice="laugh"],
 .cite-reactions-tabs button[data-reaction-filter="laugh"],
 .cite-reaction-person-type[data-reaction-icon="laugh"],
-.cite-reaction-summary [data-reaction-icon="laugh"] { color: #d97706; }
+.cite-reaction-summary [data-reaction-icon="laugh"] { color: #b96b08; }
+.cite-reaction-current[data-reaction-type="wow"],
+.cite-reaction-menu button[data-reaction-choice="wow"],
+.cite-reactions-tabs button[data-reaction-filter="wow"],
+.cite-reaction-person-type[data-reaction-icon="wow"],
+.cite-reaction-summary [data-reaction-icon="wow"] { color: #c85e0a; }
 .cite-reaction-icon { display: inline-grid; width: 1.15rem; height: 1.15rem; flex: 0 0 auto; place-items: center; line-height: 1; }
 .cite-reaction-icon svg { width: 100%; height: 100%; }
 .cite-reaction-menu {

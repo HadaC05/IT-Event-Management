@@ -63,6 +63,12 @@ try {
         'create' => (function () use ($repository,$actor,$input) { $repository->create($actor,$input,$_FILES); return (new MediaPermissions((string)$actor['role']))->isStudent() ? 'Post submitted for adviser approval.' : 'Post published.'; })(),
         'update' => (function () use ($repository,$actor,$input) { $repository->update($actor,$input,$_FILES); return (new MediaPermissions((string)$actor['role']))->isStudent() ? 'Post updated and sent for review.' : 'Post updated.'; })(),
         'delete' => (function () use ($repository,$actor,$postId) { $repository->delete($actor,$postId); return 'Post deleted.'; })(),
+        'post_pin' => (function () use ($repository,$actor,$postId,$input) {
+            $pin = filter_var($input['pin'] ?? null, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
+            if (!array_key_exists('pin', $input) || $pin === null) throw new InvalidArgumentException('Choose whether to pin the post.');
+            $repository->pinPost($actor,$postId,$pin);
+            return $pin ? 'Post pinned to the top of the feed.' : 'Post unpinned.';
+        })(),
         'approve','reject' => (function () use ($repository,$actor,$postId,$action,$input) { $repository->review($actor,$postId,$action === 'approve' ? 'approved' : 'rejected',(string)($input['reason'] ?? '')); return $action === 'approve' ? 'Post approved.' : 'Post rejected.'; })(),
         'hide' => (function () use ($repository,$actor,$postId,$input) { $repository->hide($actor,$postId,(string)($input['reason'] ?? '')); return 'Post hidden from the public feed.'; })(),
         'reaction_toggle' => (function () use ($repository,$userId,$postId,$input) {
