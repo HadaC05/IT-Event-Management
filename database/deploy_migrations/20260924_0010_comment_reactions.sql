@@ -1,3 +1,4 @@
+
 CREATE TABLE IF NOT EXISTS `tbl_comment_reactions` (
   `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT,
   `comment_id` bigint(20) UNSIGNED NOT NULL,

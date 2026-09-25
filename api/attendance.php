@@ -77,9 +77,11 @@ final class AttendanceManagementRepository
 
     public function roster(int $eventId,array $filters): array
     {
-        $event=$this->event($eventId);$search=trim((string)($filters['search']??''));$status=trim((string)($filters['status']??''));$requestedDate=trim((string)($filters['date']??''));$page=max(1,(int)($filters['page']??1));$perPage=PageSize::from($filters,self::ROSTER_PAGE_SIZE);
+        $event=$this->event($eventId);$search=trim((string)($filters['search']??''));$status=trim((string)($filters['status']??''));$yearLevel=trim((string)($filters['year_level']??''));$teamId=trim((string)($filters['team_id']??''));$requestedDate=trim((string)($filters['date']??''));$page=max(1,(int)($filters['page']??1));$perPage=PageSize::from($filters,self::ROSTER_PAGE_SIZE);
         if(mb_strlen($search)>100)throw new InvalidArgumentException('Search may not exceed 100 characters.');
         if($status!==''&&!in_array($status,array_merge(self::STATUSES,['unrecorded']),true))throw new InvalidArgumentException('Invalid attendance status filter.');
+        if($yearLevel!==''&&(!ctype_digit($yearLevel)||!$this->value('SELECT id FROM tbl_year_levels WHERE id=?',[(int)$yearLevel])))throw new InvalidArgumentException('The selected grade level is invalid.');
+        if($teamId!==''&&(!ctype_digit($teamId)||!$this->value('SELECT id FROM tbl_teams WHERE id=? AND is_active=1',[(int)$teamId])))throw new InvalidArgumentException('The selected tribe is invalid.');
         if($requestedDate!==''&&!preg_match('/^\d{4}-\d{2}-\d{2}$/',$requestedDate))throw new InvalidArgumentException('Choose a valid attendance date.');
         $dates=$this->scheduleDates($event);$date=in_array($requestedDate,$dates,true)?$requestedDate:$dates[0];
         $attendanceClosed=$this->attendanceClosed($eventId,$date);
@@ -92,6 +94,8 @@ final class AttendanceManagementRepository
         $expectedStatement=$this->db->prepare('SELECT COUNT(*) FROM tbl_event_membership_snapshots WHERE event_id=?');$expectedStatement->execute([$eventId]);$expected=(int)$expectedStatement->fetchColumn();
         $unexpectedStatement=$this->db->prepare('SELECT COUNT(*) FROM tbl_attendances a LEFT JOIN tbl_event_membership_snapshots snapshot ON snapshot.event_id=a.event_id AND snapshot.user_id=a.user_id WHERE a.event_id=? AND a.attendance_date=? AND snapshot.user_id IS NULL');$unexpectedStatement->execute([$eventId,$date]);$participantTotal=$expected+(int)$unexpectedStatement->fetchColumn();
         if($search!==''){$where[]="(u.first_name LIKE ? ESCAPE '\\\\' OR u.middle_name LIKE ? ESCAPE '\\\\' OR u.last_name LIKE ? ESCAPE '\\\\' OR u.id_number LIKE ? ESCAPE '\\\\')";$term='%'.addcslashes($search,'%_\\').'%';array_push($filterParams,$term,$term,$term,$term);}
+        if($yearLevel!==''){$where[]='u.year_level=?';$filterParams[]=(int)$yearLevel;}
+        if($teamId!==''){$where[]='EXISTS(SELECT 1 FROM tbl_team_user filter_team JOIN tbl_teams filter_tribe ON filter_tribe.id=filter_team.team_id WHERE filter_team.user_id=u.id AND filter_team.team_id=? AND filter_tribe.is_active=1)';$filterParams[]=(int)$teamId;}
         $finalizedAttendance="(ax.manual_status IS NOT NULL OR (EXISTS(SELECT 1 FROM tbl_attendance_entries final_in WHERE final_in.attendance_id=ax.id AND final_in.phase='in') AND EXISTS(SELECT 1 FROM tbl_attendance_entries final_out WHERE final_out.attendance_id=ax.id AND final_out.phase='out')))";
         if($status==='unrecorded'){
             if($attendanceClosed)$where[]='1=0';
@@ -132,7 +136,7 @@ final class AttendanceManagementRepository
         $daySummary=$this->daySummary($eventId,$date,$expected,$participantTotal);$counts=['present'=>$daySummary['present'],'absent'=>$daySummary['absent']];
         $recordedCount=array_sum($counts);$attended=$counts['present'];
         $options=$this->db->query('SELECT id,title,start_at FROM tbl_events WHERE deleted_at IS NULL ORDER BY start_at DESC')->fetchAll();foreach($options as &$option)$option['id']=(int)$option['id'];unset($option);
-        return ['event'=>$event,'event_options'=>$options,'attendance_dates'=>$dates,'attendance_date'=>$date,'participants'=>$participants,'participant_total'=>$participantTotal,'counts'=>$counts,'summary'=>['expected'=>$expected,'recorded'=>$recordedCount,'unrecorded'=>max(0,$expected-$recordedCount),'completion'=>$expected?min(100,round($recordedCount/$expected*100,1)):null,'attended'=>$attended,'rate'=>$recordedCount?round($attended/$recordedCount*100,1):null],'pagination'=>['current_page'=>$page,'last_page'=>$lastPage,'per_page'=>$perPage,'total'=>$total,'from'=>$total?($page-1)*$perPage+1:null,'to'=>$total?min($page*$perPage,$total):null]];
+        return ['event'=>$event,'event_options'=>$options,'attendance_dates'=>$dates,'attendance_date'=>$date,'year_levels'=>$this->db->query('SELECT id,label FROM tbl_year_levels ORDER BY id')->fetchAll(),'teams'=>$this->db->query('SELECT id,name FROM tbl_teams WHERE is_active=1 ORDER BY name')->fetchAll(),'participants'=>$participants,'participant_total'=>$participantTotal,'counts'=>$counts,'summary'=>['expected'=>$expected,'recorded'=>$recordedCount,'unrecorded'=>max(0,$expected-$recordedCount),'completion'=>$expected?min(100,round($recordedCount/$expected*100,1)):null,'attended'=>$attended,'rate'=>$recordedCount?round($attended/$recordedCount*100,1):null],'pagination'=>['current_page'=>$page,'last_page'=>$lastPage,'per_page'=>$perPage,'total'=>$total,'from'=>$total?($page-1)*$perPage+1:null,'to'=>$total?min($page*$perPage,$total):null]];
     }
 
     public function update(int $eventId,array $input,int $actorId): int
@@ -200,6 +204,7 @@ final class AttendanceManagementRepository
         return array_map('intval',$this->column('SELECT user_id FROM tbl_event_membership_snapshots WHERE event_id=?',[(int)$event['id']]));
     }
     private function scheduleState(array $event,string $now):string{return $event['start_at']>$now?'upcoming':($event['end_at']<$now?'completed':'ongoing');}
+    private function value(string $sql,array $params=[]):mixed{$statement=$this->db->prepare($sql);$statement->execute($params);return $statement->fetchColumn();}
     private function column(string $sql,array $params=[]):array{$statement=$this->db->prepare($sql);$statement->execute($params);return $statement->fetchAll(PDO::FETCH_COLUMN);}
     private function fullName(array $person):string{return trim(implode(' ',array_filter([$person['first_name'],$person['middle_name'],$person['last_name']])));}
 }

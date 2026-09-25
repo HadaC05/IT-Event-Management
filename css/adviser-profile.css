@@ -1,0 +1,63 @@
+.adviser-profile-page {
+  width: 100%;
+  max-width: 64rem;
+  margin-inline: auto;
+}
+
+.adviser-profile-card {
+  overflow: hidden;
+  border: 1px solid rgba(57, 117, 101, .15);
+  border-radius: 1rem;
+  background: #fff;
+}
+
+.adviser-profile-hero {
+  height: 10rem;
+  background-color: #397565;
+  background-image: radial-gradient(circle at 16% 30%, rgba(198, 242, 78, .28), transparent 10rem), linear-gradient(125deg, rgba(18, 16, 23, .32), transparent);
+}
+
+.adviser-profile-summary {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: .75rem;
+  padding: 0 1.25rem 1.5rem;
+}
+
+.adviser-profile-avatar {
+  display: grid;
+  width: 6rem;
+  height: 6rem;
+  flex: 0 0 auto;
+  place-items: center;
+  margin-top: -3rem;
+  overflow: hidden;
+  border: 4px solid #fff;
+  border-radius: 9999px;
+  background: #c6f24e;
+  color: #121017;
+  font-size: 1.5rem;
+  font-weight: 900;
+  line-height: 1;
+  box-shadow: 0 10px 24px rgba(18, 16, 23, .18);
+}
+
+.adviser-profile-avatar > img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+}
+
+@media (min-width: 40rem) {
+  .adviser-profile-hero { height: 12rem; }
+  .adviser-profile-summary {
+    flex-direction: row;
+    align-items: flex-end;
+    gap: 1.25rem;
+    padding-inline: 1.75rem;
+  }
+  .adviser-profile-avatar { margin-top: -4rem; }
+}

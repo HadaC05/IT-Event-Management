@@ -173,7 +173,7 @@ body[data-faculty-page="team"] [data-faculty-content] > section:first-child h2 {
 
 .faculty-profile-layout { display: grid; min-width: 0; gap: 1.25rem; }
 .faculty-profile-card { padding: 1.5rem; }
-.faculty-profile-avatar { display: grid; width: 5.5rem; height: 5.5rem; place-items: center; overflow: hidden; border-radius: 1.3rem; background: #c6f24e; color: #173f36; font-size: 1.4rem; font-weight: 900; }
+.faculty-profile-avatar { display: grid; width: 5.5rem; height: 5.5rem; place-items: center; overflow: hidden; border-radius: 50%; background: #c6f24e; color: #173f36; font-size: 1.4rem; font-weight: 900; }
 .faculty-profile-avatar img { width: 100%; height: 100%; object-fit: cover; }
 .faculty-profile-card h2 { margin-top: 1rem; font-size: 1.45rem; font-weight: 900; line-height: 1.1; letter-spacing: -.035em; overflow-wrap: anywhere; }
 .faculty-profile-card p { margin-top: .35rem; color: #66726d; font-size: .83rem; overflow-wrap: anywhere; }

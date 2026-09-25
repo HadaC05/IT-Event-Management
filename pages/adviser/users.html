@@ -53,7 +53,7 @@
                         </div>
                     </div>
 
-                    <form class="mt-5 grid gap-2 sm:grid-cols-2 lg:grid-cols-[minmax(260px,1fr)_170px_170px_auto]" method="GET"
+                    <form class="mt-5 grid gap-2 sm:grid-cols-2 xl:grid-cols-[minmax(220px,1fr)_150px_150px_160px_160px]" method="GET"
                         action="pages/adviser/users.html">
                         <label class="relative sm:col-span-2 lg:col-span-1"><svg
                                 class="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 fill-none stroke-slate-400"
@@ -72,6 +72,16 @@
                                 class="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm text-slate-600 outline-none transition focus:border-emerald-500 focus:bg-white focus:ring-4 focus:ring-emerald-500/10"
                                 name="status">
                                 <option value="">Any status</option>
+                            </select></label>
+                        <label><span class="sr-only">Filter by grade level</span><select
+                                class="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm text-slate-600 outline-none transition focus:border-emerald-500 focus:bg-white focus:ring-4 focus:ring-emerald-500/10"
+                                name="year_level">
+                                <option value="">All grade levels</option>
+                            </select></label>
+                        <label><span class="sr-only">Filter by tribe</span><select
+                                class="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm text-slate-600 outline-none transition focus:border-emerald-500 focus:bg-white focus:ring-4 focus:ring-emerald-500/10"
+                                name="team_id">
+                                <option value="">All tribes</option>
                             </select></label>
                         <button class="sr-only" type="submit">Update directory</button>
                     </form>
@@ -2606,8 +2616,8 @@
     </dialog>
     <script src="js/vendor/axios.min.js"></script>
     <script src="js/shared/password-gate.js?v=20260917-1"></script>
-    <script src="js/shared/navigation.js?v=20260925-pin-notifications-1"></script>
-    <script src="js/adviser/users.js?v=20260925-isolated-password-reset-2"></script>
+    <script src="js/shared/navigation.js?v=20260925-adviser-profile-1"></script>
+    <script src="js/adviser/users.js?v=20260925-grade-tribe-filters-1"></script>
 </body>
 
 </html>

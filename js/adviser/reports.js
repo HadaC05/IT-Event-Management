@@ -8,10 +8,11 @@ window.SharedNavigation.ready.then(() => {
   const initial = Object.fromEntries(new URLSearchParams(location.search));
   const validTypes = ["attendance", "participation", "scores", "rankings"];
   const filterNames = ["event_id", "academic_period_id", "category_id", "status", "date_from", "date_to", "search"];
+  const stateNames = [...filterNames, "time_sort"];
   const state = {
     type: validTypes.includes(initial.type) ? initial.type : "attendance",
     page: Math.max(1, Number(initial.page) || 1),
-    values: Object.fromEntries(filterNames.map((name) => [name, initial[name] || ""])),
+    values: Object.fromEntries(stateNames.map((name) => [name, name === "time_sort" ? (initial[name] === "earliest" ? "earliest" : "latest") : (initial[name] || "")])),
     requestId: 0,
     debounce: null,
   };
@@ -189,7 +190,7 @@ window.SharedNavigation.ready.then(() => {
     filters.category_id.innerHTML = '<option value="">All criteria</option>' + data.categories.map((category) => option(category.id, category.name, state.values.category_id)).join("");
     if (!data.categories.some((category) => String(category.id) === String(state.values.category_id))) state.values.category_id = "";
     filters.category_id.disabled = !state.values.event_id;
-    for (const name of ["status", "date_from", "date_to", "search"]) filters[name].value = state.values[name];
+    for (const name of ["status", "date_from", "date_to", "search", "time_sort"]) filters[name].value = state.values[name];
   }
 
   function renderType() {
@@ -206,6 +207,7 @@ window.SharedNavigation.ready.then(() => {
       tab.setAttribute("aria-pressed", String(active));
     });
     $("[data-status-field]").hidden = state.type !== "attendance";
+    $("[data-time-sort-field]").hidden = state.type !== "attendance";
     $("[data-date-field]").hidden = state.type === "rankings";
     $("[data-category-field]").hidden = !["scores", "rankings"].includes(state.type);
     const moreFilters = $("[data-more-filters]");
@@ -303,6 +305,7 @@ window.SharedNavigation.ready.then(() => {
 
   function clearFilters() {
     filterNames.forEach((name) => state.values[name] = "");
+    state.values.time_sort = "latest";
     state.page = 1;
     filters.reset();
     closeDatePopover();
@@ -325,7 +328,7 @@ window.SharedNavigation.ready.then(() => {
     load();
   }));
 
-  ["event_id", "academic_period_id", "status", "category_id"].forEach((name) => filters[name].addEventListener("change", () => {
+  ["event_id", "academic_period_id", "status", "category_id", "time_sort"].forEach((name) => filters[name].addEventListener("change", () => {
     updateValue(name, filters[name].value);
     if (name === "event_id") {
       state.values.category_id = "";

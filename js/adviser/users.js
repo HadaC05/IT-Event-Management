@@ -14,8 +14,10 @@ window.SharedNavigation.ready.then(() => {
         search: initialQuery.get('search') || '',
         role: initialQuery.get('role') || '',
         status: initialQuery.get('status') || '',
+        year_level: initialQuery.get('year_level') || '',
+        team_id: initialQuery.get('team_id') || '',
     };
-    let filtersApplied = ['search', 'role', 'status'].some(key => initialQuery.has(key));
+    let filtersApplied = ['search', 'role', 'status', 'year_level', 'team_id'].some(key => initialQuery.has(key));
 
     const tableBody = document.querySelector('table tbody');
     const mobileList = document.querySelector('.divide-y.divide-slate-100.lg\\:hidden');
@@ -615,7 +617,7 @@ window.SharedNavigation.ready.then(() => {
         clear.addEventListener('click', async clickEvent => {
             clickEvent.preventDefault();
             filterForm.reset();
-            currentFilters = { search: '', role: '', status: '' };
+            currentFilters = { search: '', role: '', status: '', year_level: '', team_id: '' };
             filtersApplied = false;
             currentPage = 1;
             await loadUsers();
@@ -680,6 +682,28 @@ window.SharedNavigation.ready.then(() => {
                 status.label,
                 false,
                 status.label === selectedStatus,
+            )));
+        }
+        const yearLevelFilter = filterForm?.querySelector('select[name="year_level"]');
+        if (yearLevelFilter) {
+            const selectedYearLevel = currentFilters.year_level;
+            yearLevelFilter.replaceChildren(new Option('All grade levels', ''));
+            data.year_levels.forEach(level => yearLevelFilter.add(new Option(
+                level.label,
+                level.id,
+                false,
+                String(level.id) === String(selectedYearLevel),
+            )));
+        }
+        const teamFilter = filterForm?.querySelector('select[name="team_id"]');
+        if (teamFilter) {
+            const selectedTeam = currentFilters.team_id;
+            teamFilter.replaceChildren(new Option('All tribes', ''));
+            data.teams.forEach(team => teamFilter.add(new Option(
+                team.name,
+                team.id,
+                false,
+                String(team.id) === String(selectedTeam),
             )));
         }
         const summary = document.querySelector('[data-user-summary]');

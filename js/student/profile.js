@@ -98,7 +98,11 @@ window.SharedNavigation.ready.then(async session => {
         photoInput.value = '';
         return;
       }
-      const body = new FormData(); body.append('photo', photo);
+      let cropped;
+      try { cropped = await window.ProfilePhotoCrop.open(photo); }
+      catch (error) { notify('error', error.message || 'The photo could not be prepared.'); photoInput.value = ''; return; }
+      if (!cropped) { photoInput.value = ''; return; }
+      const body = new FormData(); body.append('photo', cropped);
       photoButtons.forEach(button => { button.disabled = true; });
       root.querySelectorAll('[data-change-photo-label]').forEach(label => { label.textContent = 'Uploading…'; });
       try {

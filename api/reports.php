@@ -91,6 +91,7 @@ final class ReportRepository
         $where = [];
         $params = [];
         $scanComplete = "(EXISTS(SELECT 1 FROM tbl_attendance_entries final_in WHERE final_in.attendance_id=a.id AND final_in.phase='in') AND EXISTS(SELECT 1 FROM tbl_attendance_entries final_out WHERE final_out.attendance_id=a.id AND final_out.phase='out'))";
+        $recordedTime = "COALESCE((SELECT MAX(scan_out_sort.scanned_at) FROM tbl_attendance_entries scan_out_sort WHERE scan_out_sort.attendance_id=a.id AND scan_out_sort.phase='out'),(SELECT MIN(scan_in_sort.scanned_at) FROM tbl_attendance_entries scan_in_sort WHERE scan_in_sort.attendance_id=a.id AND scan_in_sort.phase='in'),a.checked_in_at,a.afternoon_out_at,a.morning_out_at,TIMESTAMP(a.attendance_date,'00:00:00'))";
         $finalized = "(a.manual_status IS NOT NULL OR $scanComplete OR a.cutoff_passed=1)";
         $resultStatus = "CASE WHEN a.manual_status IS NOT NULL OR $scanComplete THEN CASE WHEN a.effective_status IN ('present','late') THEN 'present' ELSE 'absent' END WHEN a.cutoff_passed=1 THEN 'absent' ELSE 'incomplete' END";
         $closeTime = "CASE mode.code WHEN 'whole_day' THEN schedule.whole_day_out_time WHEN 'two_sessions' THEN COALESCE(schedule.afternoon_out_time,schedule.morning_out_time) ELSE NULL END";
@@ -111,13 +112,14 @@ final class ReportRepository
         $from = "FROM $attendanceSource LEFT JOIN tbl_events e ON e.id=a.event_id LEFT JOIN tbl_academic_periods ap ON ap.id=e.academic_period_id LEFT JOIN tbl_school_years sy ON sy.id=ap.school_year_id LEFT JOIN tbl_users u ON u.id=a.user_id LEFT JOIN tbl_year_levels yl ON yl.id=u.year_level $whereSql";
         $summary = $this->row("SELECT COUNT(*) records,SUM(CASE WHEN $finalized AND $resultStatus='present' THEN 1 ELSE 0 END) attended,SUM(CASE WHEN $finalized AND $resultStatus='absent' THEN 1 ELSE 0 END) absent $from", $params);
         $total = (int) $summary['records'];
+        $timeDirection = $filters['time_sort'] === 'earliest' ? 'ASC' : 'DESC';
         $sql = "SELECT a.id,a.attendance_date,$resultStatus status,
             COALESCE((SELECT MIN(scan_in.scanned_at) FROM tbl_attendance_entries scan_in WHERE scan_in.attendance_id=a.id AND scan_in.phase='in'),a.checked_in_at) time_in_at,
             COALESCE((SELECT MAX(scan_out.scanned_at) FROM tbl_attendance_entries scan_out WHERE scan_out.attendance_id=a.id AND scan_out.phase='out'),a.afternoon_out_at,a.morning_out_at) time_out_at,
             e.title event_title,CONCAT('SY ',sy.label,' · ',ap.term_name) academic_period_label,u.id_number,
             u.first_name,u.middle_name,u.last_name,TRIM(CONCAT_WS(' ',u.first_name,NULLIF(u.middle_name,''),u.last_name)) student_name,
             yl.label year_level,(SELECT ms.team_name FROM tbl_event_membership_snapshots ms WHERE ms.event_id=a.event_id AND ms.user_id=a.user_id LIMIT 1) team_name
-            $from ORDER BY COALESCE(yl.id,0) DESC,u.last_name ASC,u.first_name ASC,u.middle_name ASC,a.attendance_date DESC,a.id DESC";
+            $from ORDER BY $recordedTime $timeDirection,a.id $timeDirection";
         $rows = $this->pagedRows($sql, $params, $total, $filters['page'], $all);
         $finalizedTotal=(int)($summary['attended']??0)+(int)($summary['absent']??0);
         return ['rows' => $rows['rows'], 'pagination' => $rows['pagination'], 'summary' => [
@@ -220,6 +222,8 @@ final class ReportRepository
         if ($categoryId && (!$eventId || !(bool) $this->scalar('SELECT id FROM tbl_score_categories WHERE id=? AND event_id=?', [$categoryId, $eventId]))) $errors['category_id'][] = 'Choose a scoring criterion from the selected event.';
         $status = trim((string) ($input['status'] ?? ''));
         if ($status !== '' && !in_array($status, self::ATTENDANCE_STATUSES, true)) $errors['status'][] = 'Choose a valid attendance status.';
+        $timeSort = trim((string) ($input['time_sort'] ?? 'latest'));
+        if (!in_array($timeSort, ['latest', 'earliest'], true)) $errors['time_sort'][] = 'Choose a valid time order.';
         $from = trim((string) ($input['date_from'] ?? ''));
         $to = trim((string) ($input['date_to'] ?? ''));
         if ($from !== '' && !$this->validDate($from)) $errors['date_from'][] = 'Enter a valid from date.';
@@ -228,7 +232,7 @@ final class ReportRepository
         $search = trim((string) ($input['search'] ?? ''));
         if (mb_strlen($search) > 100) $errors['search'][] = 'Search may not exceed 100 characters.';
         if ($errors) throw new ReportValidationException($errors);
-        return ['type' => $type, 'event_id' => $eventId, 'school_year_id' => $schoolYearId, 'academic_period_id' => $academicPeriodId, 'category_id' => $categoryId, 'status' => $status ?: null, 'date_from' => $from ?: null, 'date_to' => $to ?: null, 'search' => $search, 'page' => max(1, (int) ($input['page'] ?? 1))];
+        return ['type' => $type, 'event_id' => $eventId, 'school_year_id' => $schoolYearId, 'academic_period_id' => $academicPeriodId, 'category_id' => $categoryId, 'status' => $status ?: null, 'time_sort' => $timeSort, 'date_from' => $from ?: null, 'date_to' => $to ?: null, 'search' => $search, 'page' => max(1, (int) ($input['page'] ?? 1))];
     }
 
     private function optionalExistingId(mixed $value, string $table, string $field, array &$errors, string $message): ?int

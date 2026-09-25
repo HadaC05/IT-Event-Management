@@ -156,8 +156,28 @@
     const fullName=[data.first_name,data.middle_name,data.last_name].filter(Boolean).join(' ');
     const avatar=data.profile_photo_path?`<img src="${esc(data.profile_photo_path)}" alt="${esc(fullName)} profile picture">`:esc(nameInitials(fullName));
     const fields=[['first_name','First name'],['middle_name','Middle name'],['last_name','Last name'],['email','Email address']];
-    host.innerHTML=`<div class="faculty-profile-layout"><aside class="faculty-panel faculty-profile-card"><p class="faculty-section-kicker">Your identity</p><div class="faculty-profile-avatar" data-profile-avatar>${avatar}</div><h2>${esc(fullName)}</h2><p>@${esc(data.username)}</p><p class="faculty-profile-note">Your name and photo appear across the faculty workspace. Your role and assigned team are managed by the SBO Adviser.</p></aside><section class="faculty-panel"><div class="faculty-panel__head"><p class="faculty-section-kicker">The essentials</p><h2>Profile details</h2><p>Keep your contact details and introduction up to date.</p></div><form class="faculty-profile-form" data-profile>${fields.map(([key,label])=>`<label class="faculty-field">${label}<input name="${key}" value="${esc(data[key]||'')}" ${key==='email'?'type="email" autocomplete="email"':''} ${key==='first_name'||key==='last_name'||key==='email'?'required':''}></label>`).join('')}<label class="faculty-field faculty-field--wide">About you<textarea name="bio" maxlength="280" placeholder="A short introduction for your CITE community">${esc(data.bio||'')}</textarea></label><label class="faculty-field faculty-field--wide">Profile picture<input type="file" name="photo" accept="image/jpeg,image/png,image/webp"><span class="text-xs font-normal text-[#121017]/50">JPG, PNG, or WebP · up to 5 MB.</span></label><div class="faculty-profile-actions"><button type="submit">Save profile</button></div></form></section></div>`;
-    host.querySelector('form').onsubmit=async e=>{e.preventDefault();const button=e.submitter;window.Notifications?.setLoading(button,true,'Saving…');try{await axios.post('api/faculty.php?page=profile',new FormData(e.target),{headers:{'X-CSRF-Token':csrf}});window.Notifications?.flashNext('Profile updated.');location.reload();}catch(error){window.Notifications?.error(error.response?.data?.message||'Profile could not be saved.');window.Notifications?.setLoading(button,false);}};
+    host.innerHTML=`<div class="faculty-profile-layout"><aside class="faculty-panel faculty-profile-card"><p class="faculty-section-kicker">Your identity</p><div class="faculty-profile-avatar" data-profile-avatar>${avatar}</div><h2>${esc(fullName)}</h2><p>@${esc(data.username)}</p><p class="faculty-profile-note">Your name and photo appear across the faculty workspace. Your role and assigned team are managed by the SBO Adviser.</p></aside><section class="faculty-panel"><div class="faculty-panel__head"><p class="faculty-section-kicker">The essentials</p><h2>Profile details</h2><p>Keep your contact details and introduction up to date.</p></div><form class="faculty-profile-form" data-profile>${fields.map(([key,label])=>`<label class="faculty-field">${label}<input name="${key}" value="${esc(data[key]||'')}" ${key==='email'?'type="email" autocomplete="email"':''} ${key==='first_name'||key==='last_name'||key==='email'?'required':''}></label>`).join('')}<label class="faculty-field faculty-field--wide">About you<textarea name="bio" maxlength="280" placeholder="A short introduction for your CITE community">${esc(data.bio||'')}</textarea></label><label class="faculty-field faculty-field--wide">Profile picture<input type="file" name="photo" accept="image/jpeg,image/png,image/webp"><span class="text-xs font-normal text-[#121017]/50" data-profile-photo-hint>JPG, PNG, or WebP · up to 5 MB. You can crop before saving.</span></label><div class="faculty-profile-actions"><button type="submit">Save profile</button></div></form></section></div>`;
+    const form=host.querySelector('[data-profile]');
+    const photoInput=form.querySelector('input[name="photo"]');
+    const saveButton=form.querySelector('[type="submit"]');
+    let croppedPhoto=null,previewUrl=null,preparingPhoto=false;
+    photoInput.onchange=async()=>{
+      const file=photoInput.files?.[0];
+      if(!file)return;
+      preparingPhoto=true;saveButton.disabled=true;
+      try{
+        const cropped=await window.ProfilePhotoCrop.open(file);
+        if(cropped){
+          croppedPhoto=cropped;
+          if(previewUrl)URL.revokeObjectURL(previewUrl);
+          previewUrl=URL.createObjectURL(cropped);
+          host.querySelector('[data-profile-avatar]').innerHTML=`<img src="${previewUrl}" alt="${esc(fullName)} profile picture preview">`;
+          host.querySelector('[data-profile-photo-hint]').textContent='Photo cropped and ready. Save your profile to apply it.';
+        }
+      }catch(error){window.Notifications?.error(error.message||'The photo could not be prepared.');}
+      finally{photoInput.value='';preparingPhoto=false;saveButton.disabled=false;}
+    };
+    form.onsubmit=async e=>{e.preventDefault();if(preparingPhoto)return;const button=e.submitter||saveButton;window.Notifications?.setLoading(button,true,'Saving…');try{const body=new FormData(form);body.delete('photo');if(croppedPhoto)body.append('photo',croppedPhoto);await axios.post('api/faculty.php?page=profile',body,{headers:{'X-CSRF-Token':csrf}});if(previewUrl)URL.revokeObjectURL(previewUrl);window.Notifications?.flashNext('Profile updated.');location.reload();}catch(error){window.Notifications?.error(error.response?.data?.message||'Profile could not be saved.');window.Notifications?.setLoading(button,false);}};
   }
 
   window.SharedNavigation.ready.then(async session=>{csrf=session.csrfToken;await ({students,leaderboard,team,attendance,profile})[page]();}).catch(error=>{console.error(error);host.textContent=error.response?.data?.message||'This page could not be loaded.';});

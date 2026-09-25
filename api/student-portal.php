@@ -90,7 +90,9 @@ final class StudentPortalRepository
             if ($record['manual_status'] !== null) {
                 $record['status'] = in_array($record['effective_status'], ['present', 'late'], true) ? 'present' : 'absent';
             } elseif ($record['has_time_in'] && $record['has_time_out']) {
-                $record['status'] = in_array($record['effective_status'], ['present', 'late'], true) ? 'present' : 'absent';
+                $record['status'] = 'present';
+            } elseif ($record['has_time_in'] || $record['has_time_out']) {
+                $record['status'] = 'absent';
             } else {
                 $record['status'] = $closed ? 'absent' : 'pending';
             }

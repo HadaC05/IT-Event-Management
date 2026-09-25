@@ -32,7 +32,7 @@ window.SharedNavigation.ready.then(() => {
       ),
       current = params();
     url.searchParams.set("event_id", eventId);
-    ["date", "search", "status"].forEach((k) => {
+    ["date", "search", "status", "year_level", "team_id"].forEach((k) => {
       const v = Object.hasOwn(changes, k) ? changes[k] : current[k];
       if (v) url.searchParams.set(k, v);
     });
@@ -181,7 +181,7 @@ window.SharedNavigation.ready.then(() => {
       nav.append(label);
       data.attendance_dates.forEach((date, index) => {
         const a = document.createElement("a");
-        a.href = pageUrl({ date, page: 1, search: "", status: "" });
+        a.href = pageUrl({ date, page: 1, search: "", status: "", year_level: "", team_id: "" });
         a.textContent = `Day ${index + 1} · ${shortDate(`${date}T00:00:00`)}`;
         a.className = `rounded-xl px-4 py-2.5 text-xs font-black ${date === data.attendance_date ? "bg-[#397565] text-white" : "bg-[#F3F0E9]/60 text-[#121017]/55 hover:text-[#397565]"}`;
         a.onclick = async (e) => {
@@ -245,7 +245,7 @@ window.SharedNavigation.ready.then(() => {
       empty.innerHTML =
         '<strong class="block text-sm font-black text-[#121017]">No students are expected yet</strong><p class="mt-1 text-xs text-[#121017]/42">Update this event’s participant settings or add active student accounts.</p>';
     else if (!data.participants.length)
-      empty.innerHTML = `<strong class="block text-sm font-black text-[#121017]">No students match these filters</strong><p class="mt-1 text-xs text-[#121017]/42">Try another name, student ID, or attendance status.</p><a class="mt-5 inline-flex min-h-10 items-center rounded-xl border border-[#FF6B2C]/25 px-4 text-xs font-black text-[#FF6B2C]" href="${pageUrl({ search: "", status: "", page: 1 })}">Reset Filters</a>`;
+      empty.innerHTML = `<strong class="block text-sm font-black text-[#121017]">No students match these filters</strong><p class="mt-1 text-xs text-[#121017]/42">Try another name, student ID, grade level, tribe, or attendance status.</p><a class="mt-5 inline-flex min-h-10 items-center rounded-xl border border-[#FF6B2C]/25 px-4 text-xs font-black text-[#FF6B2C]" href="${pageUrl({ search: "", status: "", year_level: "", team_id: "", page: 1 })}">Reset Filters</a>`;
     data.participants.forEach((person) => {
       const status = person.attendance_status || "",
         tr = document.createElement("tr");
@@ -331,7 +331,17 @@ window.SharedNavigation.ready.then(() => {
       data = response.data.data;
       filters.search.value = params().search || "";
       filters.status.value = params().status || "";
-      $("[data-roster-filter-details]").open = Boolean(params().search || params().status);
+      const setFilterOptions = (name, emptyLabel, items, labelKey) => {
+        const select = filters.elements[name];
+        if (!select) return;
+        const selected = params()[name] || "";
+        select.replaceChildren(new Option(emptyLabel, ""));
+        items.forEach((item) => select.add(new Option(item[labelKey], item.id)));
+        select.value = selected;
+      };
+      setFilterOptions("year_level", "All grade levels", data.year_levels || [], "label");
+      setFilterOptions("team_id", "All tribes", data.teams || [], "name");
+      $("[data-roster-filter-details]").open = Boolean(params().search || params().status || params().year_level || params().team_id);
       $("[data-attendance-date]").value = data.attendance_date;
       renderHeader();
       renderSummary();
@@ -358,6 +368,8 @@ window.SharedNavigation.ready.then(() => {
         pageUrl({
           search: filters.search.value.trim(),
           status: filters.status.value,
+          year_level: filters.year_level.value,
+          team_id: filters.team_id.value,
           page: 1,
         }),
       );
