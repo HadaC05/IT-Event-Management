@@ -42,8 +42,15 @@ try {
             JsonResponse::send(['success'=>true,'data'=>$repository->publicAuthorProfile($actor, $authorId, isset($_GET['cursor']) ? (string) $_GET['cursor'] : null)]);
         }
         $eventId = filter_var($_GET['event_id'] ?? null, FILTER_VALIDATE_INT) ?: null;
+        if ($getAction === 'pinned_posts') {
+            JsonResponse::send(['success'=>true,'data'=>$repository->pinnedPostsPage($actor, $eventId, isset($_GET['cursor']) ? (string)$_GET['cursor'] : null)]);
+        }
+        if ($getAction === 'event_program') {
+            JsonResponse::send(['success'=>true,'data'=>$repository->eventProgram(false, $eventId)]);
+        }
         if ($getAction === 'posts') {
-            JsonResponse::send(['success'=>true,'data'=>$repository->postsPage($actor, $eventId, isset($_GET['cursor']) ? (string)$_GET['cursor'] : null, ($_GET['scope'] ?? '') === 'mine')]);
+            $mine = ($_GET['scope'] ?? '') === 'mine';
+            JsonResponse::send(['success'=>true,'data'=>$repository->postsPage($actor, $eventId, isset($_GET['cursor']) ? (string)$_GET['cursor'] : null, $mine, null, $mine ? null : false, $mine ? 20 : 15)]);
         }
         if ($getAction !== '') throw new InvalidArgumentException('Unknown media action.');
         JsonResponse::send(['success'=>true,'data'=>$repository->pageData($actor, $eventId)]);
@@ -67,7 +74,7 @@ try {
             $pin = filter_var($input['pin'] ?? null, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
             if (!array_key_exists('pin', $input) || $pin === null) throw new InvalidArgumentException('Choose whether to pin the post.');
             $repository->pinPost($actor,$postId,$pin);
-            return $pin ? 'Post pinned to the top of the feed.' : 'Post unpinned.';
+            return $pin ? 'Post added to pinned updates.' : 'Post unpinned.';
         })(),
         'approve','reject' => (function () use ($repository,$actor,$postId,$action,$input) { $repository->review($actor,$postId,$action === 'approve' ? 'approved' : 'rejected',(string)($input['reason'] ?? '')); return $action === 'approve' ? 'Post approved.' : 'Post rejected.'; })(),
         'hide' => (function () use ($repository,$actor,$postId,$input) { $repository->hide($actor,$postId,(string)($input['reason'] ?? '')); return 'Post hidden from the public feed.'; })(),
