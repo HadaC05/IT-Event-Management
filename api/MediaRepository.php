@@ -47,7 +47,8 @@ final class MediaRepository
         $userId = (int) $actor['id'];
         $permissions = new MediaPermissions((string) $actor['role']);
         $activeEvents = $this->activeEvents(4);
-        $feed = $this->postsPage($actor, $eventId);
+        $feed = $this->postsPage($actor, $eventId, null, false, null, false, 15);
+        $pins = $this->pinnedPostsPage($actor, $eventId, null, 1);
         return [
             'viewer' => [
                 'id' => $userId,
@@ -62,8 +63,10 @@ final class MediaRepository
             'post_events' => $permissions->isOfficer() ? $this->officerEvents($userId) : $this->activeEvents(null),
             'posts' => $feed['posts'],
             'next_cursor' => $feed['next_cursor'],
+            'pinned_preview' => $pins['posts'],
+            'pinned_count' => $pins['total'],
             'own_posts' => $this->ownPosts($userId),
-            'event_program' => $this->eventProgram(),
+            'event_program' => $this->eventProgram(true, $eventId),
             'carousel_events' => $permissions->canManageCarousel()
                 ? ($permissions->isOfficer() ? $this->officerEvents($userId) : $this->activeEvents(null))
                 : [],
@@ -354,11 +357,16 @@ final class MediaRepository
         if ((string) $actor['role'] !== 'SBO Adviser') throw new MediaForbiddenException('Only an SBO Adviser can pin posts.');
         $this->db->beginTransaction();
         try {
-            $statement = $this->db->prepare('SELECT status,deleted_at,is_pinned FROM tbl_posts WHERE id=? FOR UPDATE');
+            $statement = $this->db->prepare('SELECT status,deleted_at,is_pinned,event_id FROM tbl_posts WHERE id=? FOR UPDATE');
             $statement->execute([$postId]);
             $post = $statement->fetch();
             if (!$post || $post['status'] !== 'approved' || $post['deleted_at'] !== null) throw new InvalidArgumentException('Only published posts can be pinned.');
             if ((bool) $post['is_pinned'] === $pin) { $this->db->commit(); return; }
+            if ($pin) {
+                $count = $this->db->prepare("SELECT COUNT(*) FROM tbl_posts WHERE event_id <=> ? AND status='approved' AND deleted_at IS NULL AND is_pinned=1");
+                $count->execute([$post['event_id']]);
+                if ((int) $count->fetchColumn() >= 3) throw new InvalidArgumentException('This event already has three pinned posts. Unpin one before adding another.');
+            }
             $sql = $pin
                 ? 'UPDATE tbl_posts SET is_pinned=1,pinned_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP WHERE id=?'
                 : 'UPDATE tbl_posts SET is_pinned=0,pinned_at=NULL,updated_at=CURRENT_TIMESTAMP WHERE id=?';
@@ -604,14 +612,17 @@ final class MediaRepository
         if ($newPath && $oldPath && $newPath !== $oldPath) $this->removeUpload($oldPath);
     }
 
-    public function postsPage(array $actor, ?int $eventId = null, ?string $cursor = null, bool $mine = false, ?int $authorId = null): array
+    public function postsPage(array $actor, ?int $eventId = null, ?string $cursor = null, bool $mine = false, ?int $authorId = null, ?bool $pinned = null, int $pageSize = 20): array
     {
         if ($mine && (string) $actor['role'] !== 'Student') throw new MediaForbiddenException('Only students can open their profile posts.');
+        if ($pageSize < 1 || $pageSize > 20) throw new InvalidArgumentException('Choose a valid feed page size.');
         $where = "p.status='approved' AND p.deleted_at IS NULL";
         $params = [(int) $actor['id']];
         if ($eventId !== null && $eventId > 0) { $where .= ' AND p.event_id=?'; $params[] = $eventId; }
         if ($mine) { $where .= ' AND p.user_id=?'; $params[] = (int) $actor['id']; }
         if ($authorId !== null) { $where .= ' AND p.user_id=?'; $params[] = $authorId; }
+        if ($pinned !== null) $where .= $pinned ? ' AND p.is_pinned=1' : ' AND p.is_pinned=0';
+        elseif (!$mine && $authorId === null) $where .= ' AND p.is_pinned=0';
         $sortTime = 'CASE WHEN p.is_pinned=1 THEN COALESCE(p.pinned_at,p.reviewed_at,p.created_at) ELSE COALESCE(p.reviewed_at,p.created_at) END';
         if ($cursor !== null && $cursor !== '') {
             $position = $this->decodeCursor($cursor, ['pin','at','id']);
@@ -621,14 +632,26 @@ final class MediaRepository
             $where .= " AND (p.is_pinned < ? OR (p.is_pinned=? AND ($sortTime < ? OR ($sortTime = ? AND p.id < ?))))";
             array_push($params, $position['pin'], $position['pin'], $position['at'], $position['at'], (int) $position['id']);
         }
-        $statement = $this->db->prepare("SELECT p.id,p.user_id,p.event_id,p.category,p.content,p.image_path,p.video_path,'approved' status,p.created_at,p.updated_at,p.reviewed_at,p.is_official,p.is_pinned,p.pinned_at,$sortTime sort_at,e.title event_title,e.end_at,u.id_number,u.first_name,u.middle_name,u.last_name,u.profile_photo_path,r.name author_role,(SELECT pr.type FROM tbl_post_reactions pr WHERE pr.post_id=p.id AND pr.user_id=? LIMIT 1) viewer_reaction,(SELECT COUNT(*) FROM tbl_post_reactions pr WHERE pr.post_id=p.id) reactions_count,(SELECT COUNT(*) FROM tbl_post_comments pc WHERE pc.post_id=p.id) comments_count FROM tbl_posts p JOIN tbl_users u ON u.id=p.user_id JOIN tbl_roles r ON r.id=u.role_id LEFT JOIN tbl_events e ON e.id=p.event_id WHERE $where ORDER BY p.is_pinned DESC,sort_at DESC,p.id DESC LIMIT 21");
+        $statement = $this->db->prepare("SELECT p.id,p.user_id,p.event_id,p.category,p.content,p.image_path,p.video_path,'approved' status,p.created_at,p.updated_at,p.reviewed_at,p.is_official,p.is_pinned,p.pinned_at,$sortTime sort_at,e.title event_title,e.end_at,u.id_number,u.first_name,u.middle_name,u.last_name,u.profile_photo_path,r.name author_role,(SELECT pr.type FROM tbl_post_reactions pr WHERE pr.post_id=p.id AND pr.user_id=? LIMIT 1) viewer_reaction,(SELECT COUNT(*) FROM tbl_post_reactions pr WHERE pr.post_id=p.id) reactions_count,(SELECT COUNT(*) FROM tbl_post_comments pc WHERE pc.post_id=p.id) comments_count FROM tbl_posts p JOIN tbl_users u ON u.id=p.user_id JOIN tbl_roles r ON r.id=u.role_id LEFT JOIN tbl_events e ON e.id=p.event_id WHERE $where ORDER BY p.is_pinned DESC,sort_at DESC,p.id DESC LIMIT ".($pageSize + 1));
         $statement->execute($params);
         $rows = $statement->fetchAll();
-        $hasMore = count($rows) > 20;
+        $hasMore = count($rows) > $pageSize;
         if ($hasMore) array_pop($rows);
         $last = $rows ? $rows[count($rows)-1] : null;
         $nextCursor = $hasMore && $last ? $this->encodeCursor(['pin'=>(int)$last['is_pinned'],'at'=>$last['sort_at'],'id'=>(int)$last['id']]) : null;
         return ['posts'=>$this->hydratePosts($rows),'next_cursor'=>$nextCursor];
+    }
+
+    public function pinnedPostsPage(array $actor, ?int $eventId = null, ?string $cursor = null, int $pageSize = 10): array
+    {
+        $page = $this->postsPage($actor, $eventId, $cursor, false, null, true, $pageSize);
+        $where = "status='approved' AND deleted_at IS NULL AND is_pinned=1";
+        $params = [];
+        if ($eventId !== null && $eventId > 0) { $where .= ' AND event_id=?'; $params[] = $eventId; }
+        $count = $this->db->prepare("SELECT COUNT(*) FROM tbl_posts WHERE $where");
+        $count->execute($params);
+        $page['total'] = (int) $count->fetchColumn();
+        return $page;
     }
 
     public function approvedPost(array $actor, int $postId): array
@@ -849,14 +872,22 @@ final class MediaRepository
         return $this->normalizeEvents($this->db->query("SELECT id,title,start_at,end_at,location,description,poster_path,is_featured FROM tbl_events WHERE deleted_at IS NULL ORDER BY (end_at>=CURRENT_TIMESTAMP) DESC,CASE WHEN start_at<=CURRENT_TIMESTAMP AND end_at>=CURRENT_TIMESTAMP THEN 0 ELSE 1 END,start_at DESC,id DESC LIMIT 6")->fetchAll());
     }
 
-    private function eventProgram(): array
+    public function eventProgram(bool $summary = false, ?int $eventId = null): array
     {
-        $events = $this->db->query("SELECT id,title,start_at,end_at,location FROM tbl_events WHERE deleted_at IS NULL AND end_at>=CURRENT_TIMESTAMP ORDER BY CASE WHEN start_at<=CURRENT_TIMESTAMP THEN 0 ELSE 1 END,start_at,id LIMIT 6")->fetchAll();
-        if (!$events) $events = $this->db->query("SELECT id,title,start_at,end_at,location FROM tbl_events WHERE deleted_at IS NULL ORDER BY end_at DESC,id DESC LIMIT 4")->fetchAll();
+        $eventLimit = $summary ? 1 : 6;
+        if ($eventId !== null && $eventId > 0) {
+            $selected = $this->db->prepare('SELECT id,title,start_at,end_at,location FROM tbl_events WHERE id=? AND deleted_at IS NULL LIMIT 1');
+            $selected->execute([$eventId]);
+            $events = $selected->fetchAll();
+        } else {
+            $events = $this->db->query("SELECT id,title,start_at,end_at,location FROM tbl_events WHERE deleted_at IS NULL AND end_at>=CURRENT_TIMESTAMP ORDER BY CASE WHEN start_at<=CURRENT_TIMESTAMP THEN 0 ELSE 1 END,start_at,id LIMIT $eventLimit")->fetchAll();
+            if (!$events) $events = $this->db->query("SELECT id,title,start_at,end_at,location FROM tbl_events WHERE deleted_at IS NULL ORDER BY end_at DESC,id DESC LIMIT $eventLimit")->fetchAll();
+        }
         if (!$events) return [];
         $eventIds = array_map('intval', array_column($events, 'id'));
         $marks = implode(',', array_fill(0, count($eventIds), '?'));
-        $statement = $this->db->prepare("SELECT ea.id,ea.event_id,ea.name,a.description FROM tbl_event_activities ea INNER JOIN tbl_activities a ON a.id=ea.activity_id WHERE ea.status<>'inactive' AND ea.event_id IN ($marks) ORDER BY ea.event_id,ea.id");
+        $limit = $summary ? ' LIMIT 5' : '';
+        $statement = $this->db->prepare("SELECT ea.id,ea.event_id,ea.name,ea.status,s.schedule_date,a.description FROM tbl_event_activities ea INNER JOIN tbl_activities a ON a.id=ea.activity_id LEFT JOIN tbl_event_attendance_schedules s ON s.id=ea.event_schedule_id WHERE ea.status<>'inactive' AND ea.event_id IN ($marks) ORDER BY CASE ea.status WHEN 'ongoing' THEN 0 WHEN 'upcoming' THEN 1 WHEN 'active' THEN 2 ELSE 3 END,s.schedule_date IS NULL,s.schedule_date,ea.id$limit");
         $statement->execute($eventIds);
         $activities = [];
         foreach ($statement->fetchAll() as $activity) {
@@ -869,6 +900,11 @@ final class MediaRepository
             $event['activities'] = $activities[$event['id']] ?? [];
         }
         unset($event);
+        if ($summary) {
+            $count = $this->db->prepare("SELECT COUNT(*) FROM tbl_event_activities WHERE event_id=? AND status<>'inactive'");
+            $count->execute([$events[0]['id']]);
+            $events[0]['activity_count'] = (int) $count->fetchColumn();
+        }
         return $events;
     }
 

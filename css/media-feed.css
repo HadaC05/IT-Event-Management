@@ -1,6 +1,38 @@
 .cite-media-shell {
   max-width: 1180px;
 }
+.cite-pinned-summary {
+  padding: 1rem 1.15rem;
+  border: 1px solid rgb(57 117 101 / 24%);
+  border-radius: 1rem;
+  background: linear-gradient(135deg, #f1f8ec, #fff 70%);
+  box-shadow: 0 8px 28px rgb(18 16 23 / 5%);
+}
+.cite-pinned-summary__top,.cite-pinned-summary__bottom { display: flex; align-items: center; justify-content: space-between; gap: .75rem; }
+.cite-pinned-summary__label { color: #397565; font-size: .72rem; font-weight: 900; text-transform: uppercase; letter-spacing: .08em; }
+.cite-pinned-summary__count { display: grid; min-width: 1.5rem; height: 1.5rem; place-items: center; border-radius: 999px; background: #397565; color: white; font-size: .7rem; font-weight: 800; }
+.cite-pinned-summary__text { display: -webkit-box; overflow: hidden; margin: .65rem 0; color: #121017; font-size: .96rem; font-weight: 700; line-height: 1.4; overflow-wrap: anywhere; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.cite-pinned-summary__bottom { color: rgb(18 16 23 / 52%); font-size: .72rem; }
+.cite-pinned-summary__bottom > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cite-pinned-summary__bottom button,.cite-program-all { flex-shrink: 0; color: #397565; font-size: .75rem; font-weight: 800; }
+.cite-pinned-summary__bottom button:hover,.cite-program-all:hover { text-decoration: underline; }
+.cite-pinned-dialog { width: min(42rem, calc(100% - 1rem)); max-height: calc(100dvh - 1rem); margin: auto; padding: 0; border: 0; border-radius: 1rem; background: #f7f4ed; color: #121017; }
+.cite-pinned-dialog::backdrop { background: rgb(18 16 23 / 62%); backdrop-filter: blur(3px); }
+.cite-pinned-dialog__shell { display: flex; max-height: calc(100dvh - 1rem); flex-direction: column; }
+.cite-pinned-dialog__shell header { display: flex; align-items: center; justify-content: space-between; padding: 1rem 1.25rem; border-bottom: 1px solid rgb(18 16 23 / 10%); background: white; }
+.cite-pinned-dialog__shell header p { color: #397565; font-size: .62rem; font-weight: 900; letter-spacing: .1em; text-transform: uppercase; }
+.cite-pinned-dialog__shell header h2 { font-size: 1.2rem; font-weight: 900; }
+.cite-pinned-dialog__shell header button { width: 2.5rem; height: 2.5rem; border-radius: 999px; font-size: 1.5rem; }
+.cite-pinned-dialog__shell header button:hover { background: #f3f0e9; }
+.cite-pinned-dialog__body { min-height: 0; overflow-y: auto; padding: 1rem; }
+.cite-pinned-dialog__more { display: block; min-height: 2.75rem; margin: 1rem auto 0; padding: 0 1rem; border: 1px solid rgb(57 117 101 / 25%); border-radius: .75rem; background: white; color: #397565; font-size: .75rem; font-weight: 800; }
+.cite-pinned-dialog__more[hidden] { display: none; }
+.cite-program-group + .cite-program-group { margin-top: .9rem; }
+.cite-program-group h3 { margin-bottom: .25rem; color: #397565; font-size: .62rem; font-weight: 900; letter-spacing: .08em; text-transform: uppercase; }
+.cite-program-item { display: flex; justify-content: space-between; gap: .5rem; padding: .42rem 0; border-bottom: 1px solid rgb(18 16 23 / 7%); }
+.cite-program-item strong { font-size: .75rem; line-height: 1.25rem; }
+.cite-program-item span { flex-shrink: 0; color: rgb(18 16 23 / 45%); font-size: .65rem; }
+.cite-program-all { width: 100%; margin-top: 1rem; padding-top: .85rem; border-top: 1px solid rgb(18 16 23 / 10%); text-align: left; }
 .cite-activities-dialog {
   width: min(34rem, calc(100% - 1rem));
   max-height: calc(100dvh - 1rem);

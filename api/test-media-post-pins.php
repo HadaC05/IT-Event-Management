@@ -24,41 +24,41 @@ try {
     $author = ['id' => (int) $user['id'], 'role' => 'Faculty'];
     $adviser = ['id' => (int) $user['id'], 'role' => 'SBO Adviser'];
     $ids = [];
-    for ($i = 1; $i <= 22; $i++) $ids[] = $repository->create($author, ['content' => "Post $i"], []);
-    $repository->pinPost($adviser, $ids[0], true);
+    for ($i = 1; $i <= 25; $i++) $ids[] = $repository->create($author, ['content' => "Post $i"], []);
+    foreach (array_slice($ids, 0, 3) as $id) $repository->pinPost($adviser, $id, true);
 
     $first = $repository->postsPage($author);
-    if (count($first['posts']) !== 20 || $first['posts'][0]['id'] !== $ids[0] || !$first['posts'][0]['is_pinned'] || !$first['next_cursor']) {
-        throw new RuntimeException('Pinned post did not appear first on page one.');
+    if (count($first['posts']) !== 20 || $first['posts'][0]['id'] !== $ids[24] || $first['posts'][0]['is_pinned'] || !$first['next_cursor']) {
+        throw new RuntimeException('The public feed is not chronological without pinned posts.');
     }
     $second = $repository->postsPage($author, null, $first['next_cursor']);
     $allIds = array_merge(array_column($first['posts'], 'id'), array_column($second['posts'], 'id'));
     if (count($allIds) !== 22 || count(array_unique($allIds)) !== 22 || $second['next_cursor'] !== null) {
-        throw new RuntimeException('Pinned feed pagination skipped or repeated posts.');
+        throw new RuntimeException('Chronological feed pagination skipped or repeated posts.');
+    }
+    $pins = $repository->pinnedPostsPage($author, null, null, 2);
+    $morePins = $repository->pinnedPostsPage($author, null, $pins['next_cursor'], 2);
+    if ($pins['total'] !== 3 || count($pins['posts']) !== 2 || count($morePins['posts']) !== 1 ||
+        $pins['posts'][0]['id'] !== $ids[2] || $morePins['posts'][0]['id'] !== $ids[0]) {
+        throw new RuntimeException('Pinned updates did not page separately from the feed.');
     }
 
-    for ($i = 1; $i <= 20; $i++) $repository->pinPost($adviser, $ids[$i], true);
-    $first = $repository->postsPage($author);
-    $second = $repository->postsPage($author, null, $first['next_cursor']);
-    $allIds = array_merge(array_column($first['posts'], 'id'), array_column($second['posts'], 'id'));
-    if (count($allIds) !== 22 || count(array_unique($allIds)) !== 22 ||
-        count(array_filter($first['posts'], static fn ($post) => !$post['is_pinned'])) !== 0 ||
-        count(array_filter($second['posts'], static fn ($post) => $post['is_pinned'])) !== 1) {
-        throw new RuntimeException('Pagination across pinned and regular posts failed.');
-    }
+    try {
+        $repository->pinPost($adviser, $ids[3], true);
+        throw new RuntimeException('A fourth active pin was allowed.');
+    } catch (InvalidArgumentException $expected) {}
 
     try {
         $repository->pinPost(['id' => (int) $user['id'], 'role' => 'Student'], $ids[1], true);
         throw new RuntimeException('A non-adviser could pin a post.');
     } catch (MediaForbiddenException $expected) {}
 
-    for ($i = 1; $i <= 20; $i++) $repository->pinPost($adviser, $ids[$i], false);
-    $repository->pinPost($adviser, $ids[0], false);
+    foreach (array_slice($ids, 0, 3) as $id) $repository->pinPost($adviser, $id, false);
     $unpinned = $repository->postsPage($author);
     if ($unpinned['posts'][0]['id'] !== $ids[21] || $unpinned['posts'][0]['is_pinned']) {
         throw new RuntimeException('Unpinned post stayed at the top.');
     }
-    echo "PASS: adviser-only pins, pinned-first ordering, pagination, and unpinning\n";
+    echo "PASS: adviser-only pins, three-pin limit, separate pinned pages, chronological feed, and unpinning\n";
 } finally {
     $live->exec("DROP DATABASE `$scratch`");
 }

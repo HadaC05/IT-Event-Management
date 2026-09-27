@@ -3,7 +3,7 @@
   const esc = value => String(value ?? '').replace(/[&<>'"]/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[char]));
   const statusTone = status => ({pending:'bg-[#C6F24E]/35 text-[#397565]',approved:'bg-[#397565]/10 text-[#397565]',rejected:'bg-[#FF6B2C]/12 text-[#c84510]',hidden:'bg-[#121017]/10 text-[#121017]/60'}[status]||'bg-[#F3F0E9]');
   const formatDate = value => value ? new Intl.DateTimeFormat('en-PH',{dateStyle:'medium',timeStyle:'short'}).format(new Date(value.replace(' ','T'))) : '';
-  const state = {data:null,eventId:null,form:null,root:null,carouselTimer:null,pending:new Set(),queuePage:1,queueRequest:0,feedRequest:0,nextCursor:null,reactionToast:null};
+  const state = {data:null,eventId:null,form:null,root:null,carouselTimer:null,pending:new Set(),queuePage:1,queueRequest:0,feedRequest:0,nextCursor:null,pinRequest:0,pinCursor:null,pinnedPosts:[],reactionToast:null};
 
   const notify = (type,message) => {
     if(window.Notifications?.[type]) return window.Notifications[type](message);
@@ -35,11 +35,14 @@
       }else if(['reaction_toggle','comment_reaction_toggle'].includes(value.action)) {
         // The card updates its own reaction controls, keeping its comments and scroll position intact.
       }else if(['comment_create','comment_update','comment_delete','comment_pin'].includes(value.action)) {
-        const oldCard=state.root.querySelector(`[data-public-feed] [data-post-id="${Number(value.post_id)}"]`);
+        const oldCard=state.root.querySelector(`[data-public-feed] [data-post-id="${Number(value.post_id)}"], [data-pinned-list] [data-post-id="${Number(value.post_id)}"]`);
         const commentsOpen=oldCard?.querySelector('[data-comment-focus]')?.getAttribute('aria-expanded')==='true';
         const fresh=await CiteMediaApi.post(Number(value.post_id));
         const index=state.data.posts.findIndex(post=>post.id===fresh.id);
         if(index>=0)state.data.posts[index]=fresh;
+        const pinnedIndex=state.pinnedPosts.findIndex(post=>post.id===fresh.id);
+        if(pinnedIndex>=0)state.pinnedPosts[pinnedIndex]=fresh;
+        if(state.data.pinned_preview?.[0]?.id===fresh.id)state.data.pinned_preview[0]=fresh;
         if(oldCard){const newCard=makePostCard(fresh);oldCard.replaceWith(newCard);if(commentsOpen)await newCard.openComments();}
       }else await load();
       return true;
@@ -61,14 +64,31 @@
   }
 
   function eventProgramMarkup(events) {
-    return `<section class="hidden rounded-xl border border-[#397565]/15 bg-white p-4 lg:block"><div><p class="text-[9px] font-black uppercase tracking-wider text-[#397565]">What's happening</p><h2 class="mt-1 text-lg font-black">Event activities</h2></div><div class="mt-4">${eventProgramCardsMarkup(events)}</div></section>`;
+    const event=events[0];
+    if(!event)return '';
+    const activities=event.activities||[];
+    const groups=[
+      ['Happening now',activities.filter(activity=>activity.status==='ongoing')],
+      ['Up next',activities.filter(activity=>activity.status==='upcoming')],
+      ['On the program',activities.filter(activity=>!['ongoing','upcoming'].includes(activity.status))],
+    ];
+    const count=Number(event.activity_count||0);
+    return `<section class="cite-program-summary hidden rounded-xl border border-[#397565]/15 bg-white p-4 lg:block"><div><p class="text-[9px] font-black uppercase tracking-wider text-[#397565]">What's happening</p><h2 class="mt-1 text-lg font-black">${esc(event.title)}</h2></div><div class="mt-4">${groups.filter(([,items])=>items.length).map(([label,items])=>`<div class="cite-program-group"><h3>${esc(label)}</h3>${items.map(activity=>`<div class="cite-program-item"><strong>${esc(activity.name)}</strong>${activity.schedule_date?`<span>${esc(activity.schedule_date)}</span>`:''}</div>`).join('')}</div>`).join('')||'<p class="text-xs text-[#121017]/50">Activities will appear here when announced.</p>'}</div><button class="cite-program-all" type="button" data-open-event-activities>View all ${count} ${count===1?'activity':'activities'} <span aria-hidden="true">→</span></button></section>`;
   }
 
-  function eventActivitiesDialogMarkup(events) {
-    const selectedEvent = state.eventId ? events.filter(event => Number(event.id) === Number(state.eventId)) : events;
-    const emptyMessage = state.eventId ? 'No activities listed for this event yet.' : 'No active or upcoming events.';
-    const heading = state.eventId ? (selectedEvent[0]?.title || 'Event activities') : 'Event activities';
-    return `<dialog class="cite-activities-dialog" data-event-activities-dialog aria-labelledby="event-activities-title"><section class="flex max-h-[calc(100dvh-2rem)] flex-col overflow-hidden rounded-2xl bg-[#F7F4ED] text-[#121017] shadow-2xl"><header class="flex shrink-0 items-center justify-between border-b border-[#121017]/10 bg-white px-5 py-4"><div><p class="text-[9px] font-black uppercase tracking-wider text-[#397565]">What's happening</p><h2 class="mt-1 text-lg font-black" id="event-activities-title">${esc(heading)}</h2></div><button class="grid h-10 w-10 shrink-0 place-items-center rounded-full text-xl text-[#121017]/55 hover:bg-[#121017]/5" type="button" data-close-event-activities aria-label="Close activities">×</button></header><div class="min-h-0 overflow-y-auto p-4">${eventProgramCardsMarkup(selectedEvent, emptyMessage)}</div></section></dialog>`;
+  function eventActivitiesDialogMarkup() {
+    return `<dialog class="cite-activities-dialog" data-event-activities-dialog aria-labelledby="event-activities-title"><section class="flex max-h-[calc(100dvh-2rem)] flex-col overflow-hidden rounded-2xl bg-[#F7F4ED] text-[#121017] shadow-2xl"><header class="flex shrink-0 items-center justify-between border-b border-[#121017]/10 bg-white px-5 py-4"><div><p class="text-[9px] font-black uppercase tracking-wider text-[#397565]">What's happening</p><h2 class="mt-1 text-lg font-black" id="event-activities-title">Event activities</h2></div><button class="grid h-10 w-10 shrink-0 place-items-center rounded-full text-xl text-[#121017]/55 hover:bg-[#121017]/5" type="button" data-close-event-activities aria-label="Close activities">×</button></header><div class="min-h-0 overflow-y-auto p-4" data-all-event-activities><p class="py-6 text-center text-xs text-[#121017]/45">Loading activities…</p></div></section></dialog>`;
+  }
+
+  function pinnedMarkup(data) {
+    const count=Number(data.pinned_count||0),post=data.pinned_preview?.[0];
+    if(!count||!post)return '';
+    const summary=post.content?.trim()||((post.images?.length||post.image_path)?'Photo update':post.video_path?'Video update':'Pinned update');
+    return `<section class="cite-pinned-summary" aria-label="Pinned updates"><div class="cite-pinned-summary__top"><span class="cite-pinned-summary__label">📌 Pinned updates</span><span class="cite-pinned-summary__count">${count}</span></div><p class="cite-pinned-summary__text">${esc(summary)}</p><div class="cite-pinned-summary__bottom"><span>${esc(post.author_name)}${post.event_title?` · ${esc(post.event_title)}`:''}</span><button type="button" data-open-pinned>View ${count===1?'post':'all pinned'} <span aria-hidden="true">→</span></button></div></section>`;
+  }
+
+  function pinnedDialogMarkup() {
+    return `<dialog class="cite-pinned-dialog" data-pinned-dialog aria-labelledby="pinned-dialog-title"><div class="cite-pinned-dialog__shell"><header><div><p>Pinned updates</p><h2 id="pinned-dialog-title">Important posts</h2></div><button type="button" data-close-pinned aria-label="Close pinned updates">×</button></header><div class="cite-pinned-dialog__body"><div class="space-y-4" data-pinned-list></div><button class="cite-pinned-dialog__more" type="button" data-more-pinned hidden>Load more pinned posts</button></div></div></dialog>`;
   }
 
   function bindCarousel(root) {
@@ -155,16 +175,71 @@
     return `<details class="rounded-xl border border-[#397565]/15 bg-white p-4"><summary class="cursor-pointer text-sm font-black text-[#397565]">Manage event carousel</summary><form class="mt-4 grid gap-3" data-carousel-form><label class="grid gap-1 text-xs font-bold">Event<select class="h-11 rounded-xl border px-3" name="event_id" required>${data.carousel_events.map(event=>`<option value="${event.id}" data-featured="${event.is_featured?'1':'0'}">${esc(event.title)}</option>`).join('')}</select></label><label class="grid gap-1 text-xs font-bold">Carousel image<input class="rounded-xl border p-2 text-xs" type="file" name="carousel_image" accept="image/jpeg,image/png,image/webp"></label><label class="flex items-center gap-2 text-xs font-bold"><input type="checkbox" name="is_featured" value="1"> Show this active event in the carousel</label><button class="min-h-11 rounded-xl bg-[#397565] px-4 text-xs font-black text-white" type="submit">Save carousel</button>${data.carousel_events.length?'':'<p class="text-xs text-[#121017]/45">No eligible assigned events.</p>'}</form></details>`;
   }
 
+  function renderPinnedPreview() {
+    const host=state.root.querySelector('[data-pinned-host]');
+    if(!host)return;
+    host.innerHTML=pinnedMarkup(state.data);
+    host.querySelector('[data-open-pinned]')?.addEventListener('click',openPinnedDialog);
+  }
+
+  async function loadPinnedPosts(reset=false) {
+    const dialog=state.root.querySelector('[data-pinned-dialog]');
+    if(!dialog?.open)return;
+    if(reset){state.pinnedPosts=[];state.pinCursor=null;dialog.querySelector('[data-pinned-list]').replaceChildren();}
+    const button=dialog.querySelector('[data-more-pinned]');
+    button.disabled=true;
+    button.textContent='Loading pinned posts…';
+    const request=++state.pinRequest;
+    try{
+      const page=await CiteMediaApi.pinnedPosts({eventId:state.eventId,cursor:state.pinCursor});
+      if(request!==state.pinRequest||!dialog.isConnected)return;
+      const list=dialog.querySelector('[data-pinned-list]');
+      const seen=new Set(state.pinnedPosts.map(post=>post.id));
+      page.posts.filter(post=>!seen.has(post.id)).forEach(post=>{state.pinnedPosts.push(post);list.append(makePostCard(post));});
+      state.pinCursor=page.next_cursor;
+      button.hidden=!state.pinCursor;
+      if(!state.pinnedPosts.length)list.innerHTML='<p class="py-8 text-center text-sm text-[#121017]/50">No pinned posts for this feed.</p>';
+    }catch(error){
+      if(request===state.pinRequest)notify('error',error.response?.data?.message||'Pinned posts could not be loaded. Please try again.');
+    }finally{if(request===state.pinRequest&&dialog.isConnected){button.disabled=false;button.textContent=state.pinnedPosts.length?'Load more pinned posts':'Try again';if(!state.pinnedPosts.length)button.hidden=false;}}
+  }
+
+  function openPinnedDialog() {
+    const dialog=state.root.querySelector('[data-pinned-dialog]');
+    dialog.showModal();
+    loadPinnedPosts(true);
+  }
+
+  async function openEventActivitiesDialog(dialog) {
+    dialog.showModal();
+    const host=dialog.querySelector('[data-all-event-activities]');
+    host.innerHTML='<p class="py-6 text-center text-xs text-[#121017]/45">Loading activities…</p>';
+    try{
+      const events=await CiteMediaApi.eventProgram(state.eventId);
+      if(!dialog.isConnected)return;
+      const selected=state.eventId?events.filter(event=>Number(event.id)===Number(state.eventId)):events;
+      host.innerHTML=eventProgramCardsMarkup(selected,state.eventId?'No activities listed for this event yet.':'No active or upcoming events.');
+    }catch(error){
+      if(dialog.isConnected)host.innerHTML=`<p class="py-6 text-center text-xs text-[#c84510]">${esc(error.response?.data?.message||'Activities could not be loaded.')}</p>`;
+    }
+  }
+
   function render() {
     const data=state.data, root=state.root;
-    root.innerHTML=`<div class="cite-media-shell mx-auto w-full space-y-5"><header class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between"><div><p class="text-[10px] font-black uppercase tracking-[.15em] text-[#397565]">CITE community</p><h1 class="mt-1 text-3xl font-black tracking-tight">Media feed</h1><p class="mt-2 text-sm text-[#121017]/50">Stories and updates from active and completed CITE events.</p></div><span class="self-start rounded-full bg-[#C6F24E]/35 px-3 py-1.5 text-[10px] font-black text-[#397565]">Approved posts only</span></header>${moderationMarkup(data)}${featuredMarkup(data.featured_events)}<div class="cite-media-layout grid items-start gap-6"><div class="min-w-0 space-y-5"><div data-shared-post-form-host></div>${data.own_posts.length?`<details class="rounded-xl border border-[#397565]/15 bg-white p-4" data-post-status><summary class="cursor-pointer text-sm font-black text-[#397565]">Pending and rejected posts (${data.own_posts.length})</summary><div class="mt-3 grid gap-2 sm:grid-cols-2" data-own-posts>${ownPostsMarkup(data.own_posts,data.viewer)}</div></details>`:''}<section><div class="mb-4 flex gap-2 overflow-x-auto pb-1" data-event-filters><button class="shrink-0 rounded-xl px-4 py-2 text-xs font-black ${state.eventId?'bg-white text-[#397565]':'bg-[#397565] text-white'}" type="button" data-event-filter="">Mixed feed</button><button class="shrink-0 rounded-xl border border-[#397565]/20 bg-white px-4 py-2 text-xs font-black text-[#397565] lg:hidden" type="button" data-open-event-activities>Activities</button>${data.active_events.map(event=>`<button class="shrink-0 rounded-xl px-4 py-2 text-xs font-black ${Number(state.eventId)===event.id?'bg-[#397565] text-white':'bg-white text-[#397565]'}" type="button" data-event-filter="${event.id}">${esc(event.title)}</button>`).join('')}</div><div class="w-full space-y-5" data-public-feed></div><div class="mt-5 text-center"><button class="hidden min-h-11 rounded-xl border border-[#397565]/25 bg-white px-6 text-sm font-black text-[#397565] shadow-sm hover:bg-[#397565]/5 disabled:opacity-60" type="button" data-more-posts>Load more posts</button></div></section></div><aside class="space-y-5 lg:sticky lg:top-24">${carouselManagerMarkup(data)}${eventProgramMarkup(data.event_program||[])}</aside></div></div>${eventActivitiesDialogMarkup(data.event_program||[])}`;
+    root.innerHTML=`<div class="cite-media-shell mx-auto w-full space-y-5"><header class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between"><div><p class="text-[10px] font-black uppercase tracking-[.15em] text-[#397565]">CITE community</p><h1 class="mt-1 text-3xl font-black tracking-tight">Media feed</h1><p class="mt-2 text-sm text-[#121017]/50">Stories and updates from active and completed CITE events.</p></div><span class="self-start rounded-full bg-[#C6F24E]/35 px-3 py-1.5 text-[10px] font-black text-[#397565]">Approved posts only</span></header>${moderationMarkup(data)}${featuredMarkup(data.featured_events)}<div class="cite-media-layout grid items-start gap-6"><div class="min-w-0 space-y-5"><div data-shared-post-form-host></div><div data-pinned-host>${pinnedMarkup(data)}</div>${data.own_posts.length?`<details class="rounded-xl border border-[#397565]/15 bg-white p-4" data-post-status><summary class="cursor-pointer text-sm font-black text-[#397565]">Pending and rejected posts (${data.own_posts.length})</summary><div class="mt-3 grid gap-2 sm:grid-cols-2" data-own-posts>${ownPostsMarkup(data.own_posts,data.viewer)}</div></details>`:''}<section><div class="mb-4 flex gap-2 overflow-x-auto pb-1" data-event-filters><button class="shrink-0 rounded-xl px-4 py-2 text-xs font-black ${state.eventId?'bg-white text-[#397565]':'bg-[#397565] text-white'}" type="button" data-event-filter="">Mixed feed</button><button class="shrink-0 rounded-xl border border-[#397565]/20 bg-white px-4 py-2 text-xs font-black text-[#397565] lg:hidden" type="button" data-open-event-activities>Activities</button>${data.active_events.map(event=>`<button class="shrink-0 rounded-xl px-4 py-2 text-xs font-black ${Number(state.eventId)===event.id?'bg-[#397565] text-white':'bg-white text-[#397565]'}" type="button" data-event-filter="${event.id}">${esc(event.title)}</button>`).join('')}</div><h2 class="mb-4 text-sm font-black uppercase tracking-[.12em] text-[#397565]">Latest posts</h2><div class="w-full space-y-5" data-public-feed></div><div class="mt-5 text-center"><button class="hidden min-h-11 rounded-xl border border-[#397565]/25 bg-white px-6 text-sm font-black text-[#397565] shadow-sm hover:bg-[#397565]/5 disabled:opacity-60" type="button" data-more-posts>Load more posts</button></div></section></div><aside class="space-y-5 lg:sticky lg:top-24">${carouselManagerMarkup(data)}${eventProgramMarkup(data.event_program||[])}</aside></div></div>${eventActivitiesDialogMarkup()}${pinnedDialogMarkup()}`;
     window.StudentHomeCarousel?.render(data.featured_events);
     bindCarousel(root);
     state.form=CiteMediaPostForm.mount(root.querySelector('[data-shared-post-form-host]'),{events:data.post_events,viewer:data.viewer,onSaved:load,notify});
     const activitiesDialog=root.querySelector('[data-event-activities-dialog]');
-    root.querySelector('[data-open-event-activities]').onclick=()=>activitiesDialog.showModal();
+    root.querySelectorAll('[data-open-event-activities]').forEach(button=>button.onclick=()=>openEventActivitiesDialog(activitiesDialog));
     root.querySelector('[data-close-event-activities]').onclick=()=>activitiesDialog.close();
     activitiesDialog.addEventListener('click',event=>{if(event.target===activitiesDialog)activitiesDialog.close();});
+    const pinnedDialog=root.querySelector('[data-pinned-dialog]');
+    pinnedDialog.querySelector('[data-close-pinned]').onclick=()=>pinnedDialog.close();
+    pinnedDialog.querySelector('[data-more-pinned]').onclick=()=>loadPinnedPosts();
+    pinnedDialog.addEventListener('click',event=>{if(event.target===pinnedDialog)pinnedDialog.close();});
+    pinnedDialog.addEventListener('close',()=>{state.pinRequest++;});
+    renderPinnedPreview();
     renderPublicFeed();
     root.querySelector('[data-more-posts]').onclick=loadMorePosts;
     root.querySelectorAll('[data-event-filter]').forEach(button=>button.onclick=()=>{state.eventId=Number(button.dataset.eventFilter)||null;load();});
@@ -212,6 +287,9 @@
     if(request!==state.feedRequest)return;
     state.data.posts=updated.posts;
     state.data.next_cursor=updated.next_cursor;
+    state.data.pinned_preview=updated.pinned_preview;
+    state.data.pinned_count=updated.pinned_count;
+    renderPinnedPreview();
     renderPublicFeed();
   }
 
