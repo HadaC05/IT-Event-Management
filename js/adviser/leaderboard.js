@@ -8,6 +8,7 @@ window.SharedNavigation.ready.then(() => {
   const competitionStandings = $("[data-competition-standings]");
   const competitionStandingList = $("[data-competition-standing-list]");
   const publicationToggle = $("[data-publication-toggle]");
+  const previewButton = $("[data-reveal-preview]");
   let csrfToken = "";
   const PAGE_SIZE = 10;
   const initial = Object.fromEntries(new URLSearchParams(location.search));
@@ -23,6 +24,7 @@ window.SharedNavigation.ready.then(() => {
     data: null,
     studentVisible: null,
     publicationSaving: false,
+    previewLoading: false,
   };
 
   const escapeHtml = (value) => String(value ?? "").replace(
@@ -48,6 +50,22 @@ window.SharedNavigation.ready.then(() => {
       : "Hidden from students. Adviser and Faculty views remain available.";
     $("[data-publication-track]").style.background = visible ? "#397565" : "rgba(18,16,23,.2)";
     $("[data-publication-knob]").style.transform = visible ? "translateX(20px)" : "translateX(0)";
+    updatePreviewButton();
+  }
+
+  function updatePreviewButton() {
+    previewButton.disabled = state.previewLoading || state.publicationSaving || !state.data?.events?.length;
+    $("[data-reveal-preview-label]").textContent = state.previewLoading
+      ? "Preparing stage…" : state.studentVisible ? "Open reveal stage" : "Preview reveal stage";
+  }
+
+  async function ceremonyData() {
+    const eventId = state.values.event_id || state.data?.events?.[0]?.id;
+    if (!eventId) throw new Error("There is no scored event to present yet.");
+    const response = await axios.get("api/leaderboard.php", { params: { event_id: eventId } });
+    const data = response.data.data;
+    if (!data?.podium?.length) throw new Error("This event has no finalized standings to reveal yet.");
+    return data;
   }
 
   function initializeShell() {
@@ -210,6 +228,8 @@ window.SharedNavigation.ready.then(() => {
       renderCompetitionStandings(data);
     } catch (error) {
       if (requestId !== state.requestId) return;
+      state.data = null;
+      updatePreviewButton();
       const message = error.response?.data?.message || "The leaderboard could not be loaded.";
       $("[data-filter-error]").textContent = message;
       $("[data-filter-error]").classList.remove("hidden");
@@ -227,28 +247,61 @@ window.SharedNavigation.ready.then(() => {
     load();
   });
 
+  previewButton.addEventListener("click", async () => {
+    if (previewButton.disabled) return;
+    state.previewLoading = true;
+    updatePreviewButton();
+    try {
+      const data = await ceremonyData();
+      window.LeaderboardReveal.open(data, { preview: !state.studentVisible });
+    } catch (error) {
+      Notifications.error(error.response?.data?.message || error.message || "The reveal stage could not be loaded.");
+    } finally {
+      state.previewLoading = false;
+      updatePreviewButton();
+    }
+  });
+
   publicationToggle.addEventListener("click", async () => {
     if (publicationToggle.disabled || state.studentVisible === null) return;
     const nextVisible = !state.studentVisible;
-    if (nextVisible) {
-      const accepted = await Notifications.confirm({
-        title: "Reveal leaderboard to students?",
-        message: "Students will immediately see standings and finalized scores on their Leaderboard and Team pages.",
-        action: "Reveal leaderboard",
-      });
-      if (!accepted) return;
-    }
     state.publicationSaving = true;
     publicationToggle.disabled = true;
+    updatePreviewButton();
     try {
+      let stageData = null;
+      if (nextVisible) {
+        stageData = await ceremonyData();
+        const accepted = await Notifications.confirm({
+          title: "Reveal leaderboard to students?",
+          message: "Students will immediately see all finalized standings on their Leaderboard and Team pages. The presentation stage will then open for you.",
+          action: "Reveal leaderboard",
+        });
+        if (!accepted) return;
+      }
       const response = await axios.post("api/leaderboard.php", { student_visible: nextVisible }, { headers: { "X-CSRF-Token": csrfToken } });
-      renderPublication(Boolean(response.data.data.student_visible));
+      const published = Boolean(response.data.data.student_visible);
+      renderPublication(published);
       Notifications.success(response.data.message);
+      if (nextVisible && published && stageData) {
+        let presentationData = stageData;
+        try {
+          presentationData = await ceremonyData();
+        } catch {
+          Notifications.error("Leaderboard is live. The stage is using the standings loaded just before publication.");
+        }
+        try {
+          window.LeaderboardReveal.open(presentationData, { preview: false });
+        } catch {
+          Notifications.error("Leaderboard is live, but the presentation stage could not open. Refresh this page to try again.");
+        }
+      }
     } catch (error) {
-      Notifications.error(error.response?.data?.message || "Leaderboard visibility could not be changed.");
+      Notifications.error(error.response?.data?.message || error.message || "Leaderboard visibility could not be changed.");
     } finally {
       state.publicationSaving = false;
       publicationToggle.disabled = false;
+      updatePreviewButton();
     }
   });
   ["event_id", "activity_id"].forEach((name) => filters[name].addEventListener("change", () => {

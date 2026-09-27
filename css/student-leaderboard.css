@@ -1,0 +1,43 @@
+.student-leaderboard-filter[hidden], .student-leaderboard-podium[hidden] { display: none; }
+.student-leaderboard-filter { display: flex; align-items: center; gap: 16px; }
+.student-leaderboard-filter label { color: #397565; font-size: 11px; font-weight: 900; letter-spacing: .12em; text-transform: uppercase; white-space: nowrap; }
+.student-leaderboard-filter select { min-height: 46px; width: min(100%, 350px); border: 1px solid rgba(18, 16, 23, .12); border-radius: 13px; background: #fff; padding: 0 14px; color: #121017; font: inherit; font-size: 13px; font-weight: 750; }
+.student-leaderboard-filter select:focus-visible { outline: 3px solid rgba(57, 117, 101, .35); outline-offset: 2px; }
+.student-leaderboard-podium { margin-top: 28px; }
+.student-leaderboard-podium__heading p { color: #397565; font-size: 10px; font-weight: 900; letter-spacing: .16em; }
+.student-leaderboard-podium__heading h2 { margin-top: 3px; color: #121017; font-size: 25px; font-weight: 900; letter-spacing: -.04em; }
+.student-leaderboard-podium__cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); align-items: end; gap: 14px; margin-top: 16px; }
+.student-winner { position: relative; display: flex; min-height: 205px; flex-direction: column; align-items: center; justify-content: center; overflow: hidden; border: 1px solid rgba(18, 16, 23, .08); border-radius: 20px; background: #fff; padding: 22px 14px; text-align: center; box-shadow: 0 12px 32px rgba(18, 16, 23, .045); }
+.student-winner::before { position: absolute; inset: 0 0 auto; height: 5px; background: var(--team-color); content: ""; }
+.student-winner--first { min-height: 235px; border-color: rgba(186, 144, 48, .35); background: linear-gradient(155deg, #fff8e9, #fff); box-shadow: 0 16px 38px rgba(143, 104, 38, .1); }
+.student-winner__medal { font-size: 25px; line-height: 1; }
+.student-winner__place { margin-top: 8px; color: #997126; font-size: 9px; font-weight: 900; letter-spacing: .16em; }
+.student-winner__crest { display: grid; width: 45px; height: 45px; place-items: center; margin: 10px 0; border-radius: 14px; background: var(--team-color); color: #fff; font-family: Georgia, serif; font-size: 21px; font-weight: 800; }
+.student-winner h3 { max-width: 100%; color: #121017; font-size: 16px; font-weight: 900; line-height: 1.2; overflow-wrap: anywhere; }
+.student-winner p { margin-top: 4px; color: rgba(18, 16, 23, .45); font-size: 11px; }
+.student-winner > strong { margin-top: 12px; color: #397565; font-size: 25px; line-height: 1; }
+.student-winner > strong small { font-size: 10px; letter-spacing: .06em; }
+.student-ranking-header, .student-ranking-row { display: grid; grid-template-columns: 62px minmax(0, 1fr) 100px; align-items: center; }
+.student-ranking-header { min-height: 39px; border-bottom: 1px solid rgba(18, 16, 23, .08); background: #f7f4ed; padding: 0 18px; color: rgba(18, 16, 23, .47); font-size: 10px; font-weight: 900; letter-spacing: .09em; text-transform: uppercase; }
+.student-ranking-header span:last-child { text-align: right; }
+.student-ranking-row { min-height: 57px; border-bottom: 1px solid rgba(18, 16, 23, .07); padding: 7px 18px; }
+.student-ranking-row:last-child { border-bottom: 0; }
+.student-ranking-row--top { background: linear-gradient(90deg, rgba(227, 210, 152, .12), transparent 55%); }
+.student-ranking-row__rank { font-size: 19px; font-weight: 900; }
+.student-ranking-row__team { display: flex; min-width: 0; align-items: center; gap: 12px; }
+.student-ranking-row__team i { width: 10px; height: 10px; flex: none; border-radius: 50%; }
+.student-ranking-row__team span { min-width: 0; }
+.student-ranking-row__team strong { display: block; overflow: hidden; color: #121017; font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
+.student-ranking-row__team small { display: block; margin-top: 2px; color: rgba(18, 16, 23, .43); font-size: 10px; }
+.student-ranking-row__score { color: #397565; font-size: 17px; text-align: right; white-space: nowrap; }
+.student-ranking-row__score small { color: rgba(18, 16, 23, .43); font-size: 10px; }
+@media (max-width: 650px) {
+  .student-leaderboard-filter { align-items: stretch; flex-direction: column; gap: 7px; }
+  .student-leaderboard-filter select { width: 100%; }
+  .student-leaderboard-podium__cards { grid-template-columns: 1fr; }
+  .student-winner, .student-winner--first { min-height: 150px; }
+  .student-winner--first { order: -1; }
+  .student-ranking-header, .student-ranking-row { grid-template-columns: 44px minmax(0, 1fr) 75px; }
+  .student-ranking-header, .student-ranking-row { padding-left: 12px; padding-right: 12px; }
+  .student-ranking-row__score small { display: none; }
+}

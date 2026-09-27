@@ -22,6 +22,24 @@ if ($userId < 1) throw new RuntimeException('An active student team membership i
 
 $studentPage = (new StudentPortalRepository($db))->teamMembers($userId);
 if (count($studentPage['members']) > 24) throw new RuntimeException('Student directory exceeded one page.');
+$directory = new StudentPortalRepository($db);
+$alphabetical = $directory->teamMembers($userId, ['sort' => 'name']);
+if (array_column($studentPage['members'], 'id') !== array_column($alphabetical['members'], 'id')) {
+    throw new RuntimeException('The default directory order must be name A–Z.');
+}
+if ($studentPage['year_levels']) {
+    $year = $studentPage['year_levels'][0];
+    $filtered = $directory->teamMembers($userId, ['year_level_id' => $year['id']]);
+    foreach ($filtered['members'] as $member) {
+        if ($member['year_level'] !== $year['label']) throw new RuntimeException('Year-level filter returned a teammate from another year.');
+    }
+}
+$directory->teamMembers($userId, ['sort' => 'year']);
+try {
+    $directory->teamMembers($userId, ['sort' => 'unknown']);
+    throw new RuntimeException('Invalid member sort order was accepted.');
+} catch (InvalidArgumentException $expected) {
+}
 
 // FacultyRepository resolves an active team membership; it does not depend on
 // the actor's role. This read-only fixture exercises its DISTINCT event query

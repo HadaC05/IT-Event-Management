@@ -209,22 +209,61 @@ final class StudentPortalRepository
 
     public function teamMembers(int $userId, array $filters = []): array
     {
-        $teamStatement=$this->db->prepare('SELECT t.id,t.name FROM tbl_team_user tu JOIN tbl_teams t ON t.id=tu.team_id WHERE tu.user_id=? AND t.is_active=1 ORDER BY t.school_year_id DESC,tu.id DESC LIMIT 1');
-        $teamStatement->execute([$userId]);$team=$teamStatement->fetch();
-        if(!$team)return ['team'=>null,'members'=>[],'pagination'=>$this->pagination(1,0,self::TEAM_MEMBERS_PER_PAGE)];
-        $search=trim((string)($filters['search']??''));$page=max(1,(int)($filters['page_number']??1));
-        if(mb_strlen($search)>100)throw new InvalidArgumentException('Search may not exceed 100 characters.');
-        $where=["tu.team_id=:team_id","r.name='Student'","u.id<>:current_user"];$params=['team_id'=>(int)$team['id'],'current_user'=>$userId];
-        if($search!==''){$term='%'.addcslashes($search,'%_\\').'%';$where[]="(u.first_name LIKE :q_first ESCAPE '\\\\' OR u.middle_name LIKE :q_middle ESCAPE '\\\\' OR u.last_name LIKE :q_last ESCAPE '\\\\' OR CONCAT_WS(' ',u.first_name,NULLIF(u.middle_name,''),u.last_name) LIKE :q_full ESCAPE '\\\\' OR yl.label LIKE :q_year ESCAPE '\\\\')";foreach(['q_first','q_middle','q_last','q_full','q_year'] as $key)$params[$key]=$term;}
-        $from=' FROM tbl_team_user tu JOIN tbl_users u ON u.id=tu.user_id JOIN tbl_roles r ON r.id=u.role_id LEFT JOIN tbl_year_levels yl ON yl.id=u.year_level WHERE '.implode(' AND ',$where);
-        $count=$this->db->prepare('SELECT COUNT(DISTINCT u.id)'.$from);foreach($params as $key=>$value)$count->bindValue(':'.$key,$value,is_int($value)?PDO::PARAM_INT:PDO::PARAM_STR);$count->execute();$total=(int)$count->fetchColumn();
-        $lastPage=max(1,(int)ceil($total/self::TEAM_MEMBERS_PER_PAGE));$page=min($page,$lastPage);$offset=($page-1)*self::TEAM_MEMBERS_PER_PAGE;
-        // A team/user pair is unique, so DISTINCT is unnecessary. It also makes
-        // MySQL reject the year-level sort unless yl.id is in the SELECT list.
-        $statement=$this->db->prepare("SELECT u.id,u.first_name,u.middle_name,u.last_name,u.profile_photo_path,yl.label year_level{$from} ORDER BY yl.id,u.last_name,u.first_name,u.id LIMIT :limit OFFSET :offset");
-        foreach($params as $key=>$value)$statement->bindValue(':'.$key,$value,is_int($value)?PDO::PARAM_INT:PDO::PARAM_STR);$statement->bindValue(':limit',self::TEAM_MEMBERS_PER_PAGE,PDO::PARAM_INT);$statement->bindValue(':offset',$offset,PDO::PARAM_INT);$statement->execute();$members=$statement->fetchAll();
-        foreach($members as &$member){$member['id']=(int)$member['id'];$member['full_name']=$this->fullName($member);$member['initials']=$this->initials($member);}unset($member);
-        return ['team'=>['id'=>(int)$team['id'],'name'=>$team['name']],'members'=>$members,'pagination'=>$this->pagination($page,$total,self::TEAM_MEMBERS_PER_PAGE)];
+        $teamStatement = $this->db->prepare('SELECT t.id,t.name FROM tbl_team_user tu JOIN tbl_teams t ON t.id=tu.team_id WHERE tu.user_id=? AND t.is_active=1 ORDER BY t.school_year_id DESC,tu.id DESC LIMIT 1');
+        $teamStatement->execute([$userId]);
+        $team = $teamStatement->fetch();
+        if (!$team) return ['team'=>null,'members'=>[],'year_levels'=>[],'pagination'=>$this->pagination(1,0,self::TEAM_MEMBERS_PER_PAGE)];
+
+        $search = trim((string) ($filters['search'] ?? ''));
+        $page = max(1, (int) ($filters['page_number'] ?? 1));
+        $yearLevel = (string) ($filters['year_level_id'] ?? '');
+        $sort = (string) ($filters['sort'] ?? 'name');
+        if (mb_strlen($search) > 100) throw new InvalidArgumentException('Search may not exceed 100 characters.');
+        if ($yearLevel !== '' && (!ctype_digit($yearLevel) || (int) $yearLevel < 1)) throw new InvalidArgumentException('Choose a valid year level.');
+        if (!in_array($sort, ['name', 'year'], true)) throw new InvalidArgumentException('Choose a valid member sort order.');
+
+        $years = $this->db->prepare("SELECT DISTINCT yl.id,yl.label FROM tbl_team_user tu JOIN tbl_users u ON u.id=tu.user_id JOIN tbl_roles r ON r.id=u.role_id AND r.name='Student' JOIN tbl_year_levels yl ON yl.id=u.year_level WHERE tu.team_id=? ORDER BY yl.id");
+        $years->execute([(int) $team['id']]);
+        $yearLevels = $years->fetchAll();
+        foreach ($yearLevels as &$year) $year['id'] = (int) $year['id'];
+        unset($year);
+
+        $where = ["tu.team_id=:team_id", "r.name='Student'", "u.id<>:current_user"];
+        $params = ['team_id'=>(int) $team['id'], 'current_user'=>$userId];
+        if ($yearLevel !== '') {
+            $where[] = 'u.year_level=:year_level_id';
+            $params['year_level_id'] = (int) $yearLevel;
+        }
+        if ($search !== '') {
+            $term = '%'.addcslashes($search, '%_\\').'%';
+            $where[] = "(u.first_name LIKE :q_first ESCAPE '\\\\' OR u.middle_name LIKE :q_middle ESCAPE '\\\\' OR u.last_name LIKE :q_last ESCAPE '\\\\' OR CONCAT_WS(' ',u.first_name,NULLIF(u.middle_name,''),u.last_name) LIKE :q_full ESCAPE '\\\\' OR yl.label LIKE :q_year ESCAPE '\\\\')";
+            foreach (['q_first','q_middle','q_last','q_full','q_year'] as $key) $params[$key] = $term;
+        }
+        $from = ' FROM tbl_team_user tu JOIN tbl_users u ON u.id=tu.user_id JOIN tbl_roles r ON r.id=u.role_id LEFT JOIN tbl_year_levels yl ON yl.id=u.year_level WHERE '.implode(' AND ', $where);
+        $bind = static function (PDOStatement $statement) use ($params): void {
+            foreach ($params as $key => $value) $statement->bindValue(':'.$key, $value, is_int($value) ? PDO::PARAM_INT : PDO::PARAM_STR);
+        };
+        $count = $this->db->prepare('SELECT COUNT(DISTINCT u.id)'.$from);
+        $bind($count);
+        $count->execute();
+        $total = (int) $count->fetchColumn();
+        $lastPage = max(1, (int) ceil($total / self::TEAM_MEMBERS_PER_PAGE));
+        $page = min($page, $lastPage);
+        $offset = ($page - 1) * self::TEAM_MEMBERS_PER_PAGE;
+        $orderBy = $sort === 'year' ? 'yl.id,u.last_name,u.first_name,u.id' : 'u.last_name,u.first_name,u.id';
+        $statement = $this->db->prepare("SELECT u.id,u.first_name,u.middle_name,u.last_name,u.profile_photo_path,yl.label year_level{$from} ORDER BY {$orderBy} LIMIT :limit OFFSET :offset");
+        $bind($statement);
+        $statement->bindValue(':limit', self::TEAM_MEMBERS_PER_PAGE, PDO::PARAM_INT);
+        $statement->bindValue(':offset', $offset, PDO::PARAM_INT);
+        $statement->execute();
+        $members = $statement->fetchAll();
+        foreach ($members as &$member) {
+            $member['id'] = (int) $member['id'];
+            $member['full_name'] = $this->fullName($member);
+            $member['initials'] = $this->initials($member);
+        }
+        unset($member);
+        return ['team'=>['id'=>(int) $team['id'],'name'=>$team['name']],'members'=>$members,'year_levels'=>$yearLevels,'pagination'=>$this->pagination($page,$total,self::TEAM_MEMBERS_PER_PAGE)];
     }
 
     private function pagination(int $page,int $total,int $perPage):array{$offset=($page-1)*$perPage;return['current_page'=>$page,'last_page'=>max(1,(int)ceil($total/$perPage)),'per_page'=>$perPage,'total'=>$total,'from'=>$total?$offset+1:null,'to'=>$total?min($offset+$perPage,$total):null];}

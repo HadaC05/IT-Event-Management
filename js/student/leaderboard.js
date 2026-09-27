@@ -2,97 +2,94 @@
     'use strict';
 
     const {initialize, escapeHtml} = window.StudentPortal;
+    const filter = document.querySelector('[data-category-filter]');
+    const select = document.querySelector('[data-category-select]');
+    const podium = document.querySelector('[data-student-podium]');
+    const standings = document.querySelector('[data-leaderboard]');
+    const subtitle = document.querySelector('[data-leaderboard-subtitle]');
     let data = null;
     let selectedCategory = 'overall';
 
-    const safeColor = value => /^#[0-9a-f]{6}$/i.test(value || '') ? value : '#397565';
-
+    const safeColor = value => /^#[0-9a-f]{6}$/i.test(String(value || '')) ? value : '#397565';
     const scoreFor = team => {
-        if (selectedCategory === 'overall') return team.total_score;
-        return Number(team.category_scores[selectedCategory] || 0);
+        const value = selectedCategory === 'overall' ? team.total_score : team.category_scores?.[selectedCategory];
+        const score = Number(value);
+        return Number.isFinite(score) ? score : 0;
+    };
+    const points = value => Number(value).toFixed(1).replace(/\.0$/, '');
+
+    const rankedTeams = () => {
+        const teams = [...data.teams].sort((left, right) => {
+            const difference = scoreFor(right) - scoreFor(left);
+            return difference || String(left.name || '').localeCompare(String(right.name || ''));
+        });
+        let lastScore = null;
+        let lastRank = null;
+        return teams.map((team, index) => {
+            const score = scoreFor(team);
+            const rank = score <= 0 ? null : (score === lastScore ? lastRank : index + 1);
+            if (rank !== null) { lastScore = score; lastRank = rank; }
+            return {team, score, rank};
+        });
+    };
+
+    const renderPodium = ranked => {
+        const winners = ranked.filter(entry => entry.rank !== null).slice(0, 3);
+        podium.hidden = winners.length === 0;
+        if (!winners.length) { podium.innerHTML = ''; return; }
+        const order = winners.length === 3 ? [winners[1], winners[0], winners[2]] : winners;
+        const medals = {1: '🥇', 2: '🥈', 3: '🥉'};
+        podium.innerHTML = `<div class="student-leaderboard-podium__heading"><p>THE LEADERS</p><h2>Top tribes</h2></div><div class="student-leaderboard-podium__cards">${order.map(({team, score, rank}) => `
+            <article class="student-winner ${rank === 1 ? 'student-winner--first' : ''}" style="--team-color:${safeColor(team.color)}">
+                <span class="student-winner__medal" aria-hidden="true">${medals[rank] || `#${rank}`}</span>
+                <span class="student-winner__place">${rank === 1 ? 'CHAMPION' : `RANK #${rank}`}</span>
+                <span class="student-winner__crest" aria-hidden="true">${escapeHtml(String(team.name || '?').trim().charAt(0).toUpperCase())}</span>
+                <h3>${escapeHtml(team.name || 'Unnamed tribe')}</h3>
+                <p>${Number(team.members_count || 0)} members</p>
+                <strong>${points(score)} <small>PTS</small></strong>
+            </article>`).join('')}</div>`;
     };
 
     const renderRows = () => {
-        const ranked = [...data.teams].sort((left, right) => {
-            const difference = scoreFor(right) - scoreFor(left);
-            return difference || left.name.localeCompare(right.name);
-        });
-        const hasAnyScore = ranked.some(team => scoreFor(team) > 0);
-        let previousScore = null;
-        let previousRank = null;
-
-        const rows = ranked.map((team, index) => {
-            const score = scoreFor(team);
-            const rank = !hasAnyScore || score <= 0
-                ? null
-                : (previousScore === score ? previousRank : index + 1);
-            if (rank !== null) {
-                previousScore = score;
-                previousRank = rank;
-            }
-            return `
-                <div class="grid min-h-16 grid-cols-[55px_minmax(0,1fr)_80px] items-center border-b border-[#121017]/7 px-4 last:border-0 sm:grid-cols-[70px_minmax(0,1fr)_120px]">
-                    <strong class="text-lg">${rank ? `#${rank}` : '—'}</strong>
-                    <div class="flex min-w-0 items-center gap-3">
-                        <i class="h-3 w-3 shrink-0 rounded-full" style="background-color:${safeColor(team.color)}"></i>
-                        <div class="min-w-0">
-                            <strong class="block truncate text-sm">${escapeHtml(team.name)}</strong>
-                            <span class="text-[9px] text-[#121017]/35">${team.members_count} members</span>
-                        </div>
-                    </div>
-                    <strong class="text-right text-sm text-[#397565]">${score.toFixed(1)}</strong>
-                </div>`;
-        }).join('');
-
-        document.querySelector('[data-leaderboard]').innerHTML = `
-            <div class="grid grid-cols-[55px_minmax(0,1fr)_80px] border-b border-[#121017]/7 bg-[#F7F4ED] px-4 py-3 text-[9px] font-black uppercase tracking-wider text-[#121017]/40 sm:grid-cols-[70px_minmax(0,1fr)_120px]">
-                <span>Rank</span>
-                <span>Team</span>
-                <span class="text-right">Total score</span>
-            </div>
-            <div>${rows}</div>`;
+        const ranked = rankedTeams();
+        renderPodium(ranked);
+        const medals = {1: '🥇', 2: '🥈', 3: '🥉'};
+        const rows = ranked.map(({team, score, rank}) => `
+            <li class="student-ranking-row ${rank && rank <= 3 ? 'student-ranking-row--top' : ''}">
+                <span class="student-ranking-row__rank" aria-label="${rank ? `Rank ${rank}` : 'Unranked'}">${rank ? medals[rank] || `#${rank}` : '—'}</span>
+                <span class="student-ranking-row__team"><i style="background:${safeColor(team.color)}" aria-hidden="true"></i><span><strong>${escapeHtml(team.name || 'Unnamed tribe')}</strong><small>${Number(team.members_count || 0)} members</small></span></span>
+                <strong class="student-ranking-row__score">${points(score)}<small> pts</small></strong>
+            </li>`).join('');
+        standings.innerHTML = `<div class="student-ranking-header"><span>Rank</span><span>Tribe</span><span>Points</span></div><ol class="student-ranking-list">${rows}</ol>`;
     };
 
-    const renderTabs = () => {
-        const categories = [{id: 'overall', name: 'Overall ranking'}, ...data.categories];
-        const tabs = document.querySelector('[data-category-tabs]');
-        tabs.innerHTML = categories.map(category => {
-            const id = String(category.id);
-            const active = id === selectedCategory;
-            return `
-                <button
-                    class="min-h-11 shrink-0 rounded-xl px-4 text-xs font-black ${active ? 'bg-[#397565] text-white' : 'bg-white text-[#121017]/55 ring-1 ring-[#121017]/8'}"
-                    type="button"
-                    data-category="${escapeHtml(id)}"
-                    aria-selected="${active}"
-                >${escapeHtml(category.name)}</button>`;
-        }).join('');
+    const renderSelect = () => {
+        const categories = Array.isArray(data.categories) ? data.categories : [];
+        const group = (name, entries) => entries.length ? `<optgroup label="${name}">${entries.map(category => `<option value="${escapeHtml(String(category.id))}">${escapeHtml(category.name)}</option>`).join('')}</optgroup>` : '';
+        select.innerHTML = '<option value="overall">Overall ranking</option>'
+            + group('Score categories', categories.filter(category => String(category.id).startsWith('category-')))
+            + group('Activities', categories.filter(category => String(category.id).startsWith('activity-')));
+        if (![...select.options].some(option => option.value === selectedCategory)) selectedCategory = 'overall';
+        select.value = selectedCategory;
     };
 
     const render = () => {
-        if (!data.visible) {
-            document.querySelector('[data-category-tabs]').classList.add('hidden');
-            document.querySelector('[data-leaderboard-subtitle]').textContent = 'Standings will be revealed by the SBO Adviser.';
-            document.querySelector('[data-leaderboard]').innerHTML = `
-                <div class="px-6 py-16 text-center">
-                    <span class="text-4xl" aria-hidden="true">🏆</span>
-                    <h2 class="mt-4 text-lg font-black">Leaderboard is under wraps</h2>
-                    <p class="mx-auto mt-2 max-w-md text-sm text-[#121017]/50">Check back when the SBO Adviser reveals the results.</p>
-                </div>`;
+        if (!data.visible || !data.event) {
+            filter.hidden = true;
+            podium.hidden = true;
+            podium.innerHTML = '';
+            if (!data.visible) {
+                subtitle.textContent = 'Standings will be revealed by the SBO Adviser.';
+                standings.innerHTML = '<div class="px-6 py-16 text-center"><span class="text-4xl" aria-hidden="true">🏆</span><h2 class="mt-4 text-lg font-black">Leaderboard is under wraps</h2><p class="mx-auto mt-2 max-w-md text-sm text-[#121017]/50">Check back when the SBO Adviser reveals the results.</p></div>';
+            } else {
+                subtitle.textContent = 'Rankings will appear when an event is available.';
+                standings.innerHTML = '<div class="py-16 text-center"><h2 class="font-black">No active leaderboard</h2><p class="mt-2 text-sm text-[#121017]/45">Rankings will appear when a current or upcoming activity is available.</p></div>';
+            }
             return;
         }
-        if (!data.event) {
-            document.querySelector('[data-category-tabs]').classList.add('hidden');
-            document.querySelector('[data-leaderboard]').innerHTML = `
-                <div class="py-16 text-center">
-                    <h2 class="font-black">No active leaderboard</h2>
-                    <p class="mt-2 text-sm text-[#121017]/45">Rankings will appear when a current or upcoming activity is available.</p>
-                </div>`;
-            return;
-        }
-        document.querySelector('[data-leaderboard-subtitle]').textContent = `${data.event.title} · current activity totals`;
-        document.querySelector('[data-category-tabs]').classList.remove('hidden');
-        renderTabs();
+        subtitle.textContent = `${data.event.title} · current activity totals`;
+        filter.hidden = false;
+        renderSelect();
         renderRows();
     };
 
@@ -113,11 +110,8 @@
     const load = async () => {
         await initialize('leaderboard');
         await refresh();
-        document.querySelector('[data-category-tabs]').addEventListener('click', event => {
-            const button = event.target.closest('[data-category]');
-            if (!button) return;
-            selectedCategory = button.dataset.category;
-            renderTabs();
+        select.addEventListener('change', () => {
+            selectedCategory = select.value;
             renderRows();
         });
         document.addEventListener('visibilitychange', () => {
@@ -129,6 +123,6 @@
     };
 
     load().catch(() => {
-        document.querySelector('[data-leaderboard]').innerHTML = '<div class="p-10 text-center font-bold text-[#FF6B2C]">Leaderboard could not be loaded.</div>';
+        standings.innerHTML = '<div class="p-10 text-center font-bold text-[#FF6B2C]">Leaderboard could not be loaded.</div>';
     });
 })();

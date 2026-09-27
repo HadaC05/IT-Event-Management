@@ -8,6 +8,7 @@
     <link rel="icon" type="image/png" href="assets/images/cite_favicon.png" />
     <link rel="stylesheet" href="css/tailwind.css" />
     <link rel="stylesheet" href="css/adviser.css?v=20260917-flat-2" />
+    <link rel="stylesheet" href="css/leaderboard-reveal.css?v=20260927-2" />
     <script src="js/shared/notifications.js?v=20260917-7" defer></script>
     <script src="js/shared/interactions.js?v=20260917-flat-1" defer></script>
   </head>
@@ -41,10 +42,15 @@
             <p class="mt-1 text-xs leading-5 text-[#121017]/55" data-publication-status>Checking whether students can see standings…</p>
             <p class="mt-1 text-xs leading-5 text-[#121017]/45">You can review scores here while the student leaderboard and team standings stay hidden.</p>
           </div>
-          <button class="inline-flex min-h-11 shrink-0 items-center justify-center gap-3 rounded-xl border border-[#397565]/25 bg-white px-4 text-xs font-black text-[#397565] disabled:cursor-wait disabled:opacity-50" type="button" role="switch" aria-checked="false" aria-label="Show leaderboard to students" data-publication-toggle disabled>
-            <span style="position:relative;display:inline-block;width:44px;height:24px;border-radius:999px;background:rgba(18,16,23,.2);transition:background .2s" data-publication-track><span style="position:absolute;left:4px;top:4px;width:16px;height:16px;border-radius:999px;background:#fff;box-shadow:0 1px 4px #0003;transition:transform .2s" data-publication-knob></span></span>
-            <span data-publication-label>Show to students</span>
-          </button>
+          <div class="flex flex-wrap items-center gap-3">
+            <button class="reveal-preview-button" type="button" data-reveal-preview disabled>
+              <span aria-hidden="true">✦</span><span data-reveal-preview-label>Preview reveal stage</span>
+            </button>
+            <button class="inline-flex min-h-11 shrink-0 items-center justify-center gap-3 rounded-xl border border-[#397565]/25 bg-white px-4 text-xs font-black text-[#397565] disabled:cursor-wait disabled:opacity-50" type="button" role="switch" aria-checked="false" aria-label="Show leaderboard to students" data-publication-toggle disabled>
+              <span style="position:relative;display:inline-block;width:44px;height:24px;border-radius:999px;background:rgba(18,16,23,.2);transition:background .2s" data-publication-track><span style="position:absolute;left:4px;top:4px;width:16px;height:16px;border-radius:999px;background:#fff;box-shadow:0 1px 4px #0003;transition:transform .2s" data-publication-knob></span></span>
+              <span data-publication-label>Show to students</span>
+            </button>
+          </div>
         </section>
 
         <section
@@ -146,6 +152,33 @@
         </section>
       </main>
     </div>
+    <section class="reveal-stage" data-reveal-stage role="dialog" aria-modal="true" aria-labelledby="reveal-stage-title" tabindex="-1" hidden>
+      <div class="reveal-stage__glow" aria-hidden="true"></div>
+      <div class="reveal-stage__shell">
+        <header class="reveal-stage__topbar">
+          <div class="reveal-stage__brand"><span class="reveal-stage__brand-mark" aria-hidden="true">✦</span><span>CITE <b>EVENTS</b></span></div>
+          <span class="reveal-stage__mode" data-reveal-mode>PRIVATE PREVIEW</span>
+          <button class="reveal-stage__close" type="button" data-reveal-close aria-label="Close reveal stage">Close <span aria-hidden="true">×</span></button>
+        </header>
+        <div class="reveal-stage__content">
+          <p class="reveal-stage__eyebrow">THE GRAND REVEAL <span aria-hidden="true">/</span> OFFICIAL STANDINGS</p>
+          <p class="reveal-stage__event" data-reveal-event>IT Days</p>
+          <h2 class="reveal-stage__title" id="reveal-stage-title" data-reveal-title>The stage is set.</h2>
+          <p class="reveal-stage__subtitle" data-reveal-subtitle>Bring everyone together, then reveal each place at your own pace.</p>
+          <div class="reveal-stage__rule" aria-hidden="true"><i></i><span>✦</span><i></i></div>
+          <div class="reveal-stage__podium" data-reveal-podium></div>
+          <div class="reveal-stage__lower" data-reveal-lower></div>
+          <div class="reveal-stage__standings" data-reveal-standings hidden></div>
+          <p class="sr-only" data-reveal-announcement aria-live="polite"></p>
+          <div class="reveal-stage__actions">
+            <span class="reveal-stage__progress" data-reveal-progress>Ready when you are</span>
+            <button class="reveal-stage__next" type="button" data-reveal-next>Begin the reveal <span aria-hidden="true">→</span></button>
+            <button class="reveal-stage__replay" type="button" data-reveal-replay hidden>Replay ceremony</button>
+          </div>
+        </div>
+        <footer class="reveal-stage__footer"><span>Prepared for the CITE community</span><span>One event. Every tribe. One moment.</span></footer>
+      </div>
+    </section>
     <div
       class="pointer-events-none fixed right-4 top-4 z-[80] grid w-[min(380px,calc(100%_-_2rem))] gap-2.5"
       data-notification-region
@@ -153,6 +186,7 @@
     <script src="js/vendor/axios.min.js"></script>
     <script src="js/shared/password-gate.js?v=20260917-1"></script>
     <script src="js/shared/navigation.js?v=20260925-adviser-profile-1"></script>
-    <script src="js/adviser/leaderboard.js?v=20260923-student-reveal-1"></script>
+    <script src="js/adviser/leaderboard-reveal.js?v=20260927-1"></script>
+    <script src="js/adviser/leaderboard.js?v=20260926-preview-1"></script>
   </body>
 </html>
